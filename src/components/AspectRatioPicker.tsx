@@ -1,0 +1,43 @@
+type Props = {
+  ratios: string[];
+  value: string;
+  onChange: (r: string) => void;
+};
+
+function parseRatio(r: string): [number, number] {
+  const [a, b] = r.split(":").map(Number);
+  return [a, b];
+}
+
+export function AspectRatioPicker({ ratios, value, onChange }: Props) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {ratios.map((r) => {
+        const [w, h] = parseRatio(r);
+        const maxDim = 18;
+        const scale = maxDim / Math.max(w, h);
+        const boxW = w * scale;
+        const boxH = h * scale;
+        const selected = value === r;
+        return (
+          <button
+            key={r}
+            type="button"
+            onClick={() => onChange(r)}
+            className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+              selected
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-card text-foreground hover:border-foreground/40"
+            }`}
+          >
+            <span
+              className={`block border ${selected ? "border-background" : "border-foreground/60"}`}
+              style={{ width: `${boxW}px`, height: `${boxH}px` }}
+            />
+            {r}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
