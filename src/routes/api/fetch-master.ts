@@ -5,6 +5,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireUser } from "../../lib/auth-server";
+import { safeFetchImage, UnsafeUrlError } from "../../lib/safe-fetch";
+import { rateLimitResponse } from "../../lib/request-guard";
 
 export const Route = createFileRoute("/api/fetch-master")({
   server: {
@@ -12,6 +14,9 @@ export const Route = createFileRoute("/api/fetch-master")({
       POST: async ({ request }: { request: Request }) => {
         const auth = await requireUser(request);
         if (auth instanceof Response) return auth;
+
+        const fmRl = rateLimitResponse("fetch-master", auth.id, 30, 60_000);
+        if (fmRl) return fmRl;
 
         let url: string;
         try {
@@ -26,20 +31,16 @@ export const Route = createFileRoute("/api/fetch-master")({
         }
 
         try {
-          const res = await fetch(url);
-          if (!res.ok) {
-            return Response.json({ error: `Upstream ${res.status}` }, { status: 502 });
-          }
-          const contentType = res.headers.get("content-type") ?? "image/jpeg";
-          const mime = contentType.split(";")[0].trim();
-          const buf = await res.arrayBuffer();
-          const b64 = Buffer.from(buf).toString("base64");
+          const { buffer, mime } = await safeFetchImage(url);
+          const b64 = buffer.toString("base64");
           return Response.json({ dataUrl: `data:${mime};base64,${b64}` });
         } catch (e) {
-          return Response.json(
-            { error: e instanceof Error ? e.message : "fetch failed" },
-            { status: 502 },
-          );
+          if (e instanceof UnsafeUrlError) {
+            return Response.json({ error: "URL not allowed" }, { status: 400 });
+          }
+          // Don't leak the internal exception message to the client.
+          console.warn("fetch-master upstream failed", e);
+          return Response.json({ error: "fetch failed" }, { status: 502 });
         }
       },
     },

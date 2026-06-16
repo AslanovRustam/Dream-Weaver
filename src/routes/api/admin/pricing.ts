@@ -8,7 +8,7 @@
 // (we keep coefficients in the DB so the team can tune them without redeploy).
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authErrorResponse, requireSuperAdmin, requireUser } from "../../../lib/auth-server";
+import { authErrorResponse, requireCapability, requireUser } from "../../../lib/auth-server";
 import { getAdminClient } from "../../../lib/supabase/admin";
 
 type Item = { model?: string; quality?: string; coefficient?: number };
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/admin/pricing")({
 
       PUT: async ({ request }) => {
         try {
-          const caller = await requireSuperAdmin(request);
+          const caller = await requireCapability(request, "pricing.edit");
           let body: { items?: Item[] };
           try {
             body = (await request.json()) as { items?: Item[] };

@@ -14,6 +14,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { authErrorResponse, requireUser } from "../../lib/auth-server";
 import { logSystem, newRequestId } from "../../lib/logger";
+import { assertAllowedImageUrl } from "../../lib/safe-fetch";
+import { rateLimitResponse } from "../../lib/request-guard";
 
 type Body = {
   source_image?: string;
@@ -183,6 +185,9 @@ export const Route = createFileRoute("/api/extract-master")({
           return authErrorResponse(err);
         }
 
+        const emRl = rateLimitResponse("extract-master", user.id, 30, 60_000);
+        if (emRl) return emRl;
+
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
           return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
@@ -210,6 +215,16 @@ export const Route = createFileRoute("/api/extract-master")({
             { error: "source_image must be a dataURL or http(s) URL" },
             { status: 400 },
           );
+        }
+        // SSRF guard: a URL source must point at our own public image host
+        // — otherwise a user could proxy arbitrary URLs through OpenAI's
+        // server-side image fetch (image_url is fetched by OpenAI).
+        if (!src.startsWith("data:")) {
+          try {
+            await assertAllowedImageUrl(src);
+          } catch {
+            return Response.json({ error: "source_image URL not allowed" }, { status: 400 });
+          }
         }
 
         try {

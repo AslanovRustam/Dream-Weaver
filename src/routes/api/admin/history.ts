@@ -9,7 +9,7 @@
 // 'admin.viewed_user_history') so we can answer "who looked at whom".
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authErrorResponse, requireSuperAdmin } from "../../../lib/auth-server";
+import { authErrorResponse, requireCapability } from "../../../lib/auth-server";
 import { getAdminClient } from "../../../lib/supabase/admin";
 import { getHistoryCard, listHistoryCards } from "../../../lib/history/queries";
 
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/admin/history")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const caller = await requireSuperAdmin(request);
+          const caller = await requireCapability(request, "history.view_any");
           const url = new URL(request.url);
           const targetUserId = (url.searchParams.get("user_id") || "").trim();
           if (!targetUserId) {

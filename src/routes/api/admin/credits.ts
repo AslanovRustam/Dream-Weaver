@@ -8,7 +8,7 @@
 // because admin_grant_credits is distinct from the spend path.
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authErrorResponse, getUserClient, requireSuperAdmin } from "../../../lib/auth-server";
+import { authErrorResponse, getUserClient, requireCapability } from "../../../lib/auth-server";
 
 type Body = {
   user_id?: string;
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/admin/credits")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const caller = await requireSuperAdmin(request);
+          const caller = await requireCapability(request, "credits.grant");
           let body: Body;
           try {
             body = (await request.json()) as Body;

@@ -3,7 +3,7 @@
 // against email, first_name, last_name, nickname (case-insensitive).
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authErrorResponse, requireSuperAdmin } from "../../../lib/auth-server";
+import { authErrorResponse, requireCapability } from "../../../lib/auth-server";
 import { getAdminClient } from "../../../lib/supabase/admin";
 
 export const Route = createFileRoute("/api/admin/users")({
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/admin/users")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          await requireSuperAdmin(request);
+          await requireCapability(request, "users.view");
           const url = new URL(request.url);
           const q = (url.searchParams.get("q") || "").trim();
           const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/admin/users")({
           let query = admin
             .from("profiles")
             .select(
-              "id,email,first_name,last_name,nickname,phone,contact,credits_balance,created_at,updated_at",
+              "id,email,first_name,last_name,nickname,phone,contact,credits_balance,role,tier,created_at,updated_at",
               { count: "exact" },
             )
             .order("created_at", { ascending: false })

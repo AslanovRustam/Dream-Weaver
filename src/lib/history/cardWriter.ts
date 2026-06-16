@@ -247,19 +247,52 @@ export async function recordGenerationAndUpload(
     } else {
       const incoming = (body.card_id as string | undefined) || null;
       if (incoming) {
-        cardId = incoming;
-        try {
-          await supa.rpc("touch_card_activity", { p_card_id: incoming });
-        } catch (e) {
+        // SEC-M2: the admin (service-role) client bypasses RLS, so verify the
+        // card belongs to this user BEFORE attaching a generation to it or
+        // bumping its activity. Otherwise a user could inject gens into /
+        // extend retention on someone else's card via a forged card_id.
+        const { data: ownRow, error: ownErr } = await supa
+          .from("generation_cards")
+          .select("id")
+          .eq("id", incoming)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (ownErr) {
+          void logSystem({
+            supa,
+            level: "error",
+            category: "history",
+            message: "resize card ownership check failed",
+            user_id: userId,
+            context: { card_id: incoming },
+            error: ownErr,
+          });
+        } else if (!ownRow) {
+          // Not the caller's card → refuse attachment. The generation is
+          // still recorded (under the caller) but stays unattached + un-uploaded.
           void logSystem({
             supa,
             level: "warn",
             category: "history",
-            message: "touch_card_activity rpc failed",
+            message: "resize card_id not owned by caller — attachment refused",
             user_id: userId,
             context: { card_id: incoming },
-            error: e,
           });
+        } else {
+          cardId = incoming;
+          try {
+            await supa.rpc("touch_card_activity", { p_card_id: incoming });
+          } catch (e) {
+            void logSystem({
+              supa,
+              level: "warn",
+              category: "history",
+              message: "touch_card_activity rpc failed",
+              user_id: userId,
+              context: { card_id: incoming },
+              error: e,
+            });
+          }
         }
       }
     }

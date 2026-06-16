@@ -17,6 +17,7 @@ import JSZip from "jszip";
 
 import { authErrorResponse, getUserClient, requireUser } from "../../../lib/auth-server";
 import { BULK_CARD_LIMIT, getHistoryCard } from "../../../lib/history/queries";
+import { rateLimitResponse } from "../../../lib/request-guard";
 
 type Body = { card_ids?: string[] };
 
@@ -144,6 +145,10 @@ export const Route = createFileRoute("/api/history/bulk-zip")({
       POST: async ({ request }) => {
         try {
           const user = await requireUser(request);
+
+          const bzRl = rateLimitResponse("bulk-zip", user.id, 6, 60_000);
+          if (bzRl) return bzRl;
+
           let body: Body;
           try {
             body = (await request.json()) as Body;
