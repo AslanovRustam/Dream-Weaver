@@ -33,6 +33,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { AppHeader } from "@/components/AppHeader";
+import { ROLES, TIERS } from "@/lib/rbac";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -48,6 +49,8 @@ type UserRow = {
   phone: string;
   contact: string;
   credits_balance: number | string;
+  role: string;
+  tier: string;
   created_at: string;
 };
 
@@ -232,6 +235,7 @@ function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [target, setTarget] = useState<UserRow | null>(null);
+  const [roleTarget, setRoleTarget] = useState<UserRow | null>(null);
 
   // 300ms debounce so each keystroke doesn't smash the API.
   useEffect(() => {
@@ -284,20 +288,21 @@ function UsersTab() {
                 <TableHead>Имя</TableHead>
                 <TableHead>Ник</TableHead>
                 <TableHead>Контакт</TableHead>
+                <TableHead>Роль · Тариф</TableHead>
                 <TableHead className="text-right">Баланс</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-32" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     Загрузка…
                   </TableCell>
                 </TableRow>
               ) : (data?.users ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     Ничего не найдено
                   </TableCell>
                 </TableRow>
@@ -312,13 +317,22 @@ function UsersTab() {
                     <TableCell className="text-xs text-muted-foreground">
                       {u.contact || u.phone || "—"}
                     </TableCell>
+                    <TableCell className="text-xs">
+                      <span className="font-medium">{u.role}</span>
+                      <span className="text-muted-foreground"> · {u.tier}</span>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {Number(u.credits_balance).toFixed(2)}
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => setTarget(u)}>
-                        Кредиты
-                      </Button>
+                      <div className="flex justify-end gap-1.5">
+                        <Button size="sm" variant="outline" onClick={() => setRoleTarget(u)}>
+                          Роль
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setTarget(u)}>
+                          Кредиты
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -332,6 +346,14 @@ function UsersTab() {
         user={target}
         onClose={(refresh) => {
           setTarget(null);
+          if (refresh) load(debounced);
+        }}
+      />
+
+      <RoleDialog
+        user={roleTarget}
+        onClose={(refresh) => {
+          setRoleTarget(null);
           if (refresh) load(debounced);
         }}
       />
@@ -413,6 +435,128 @@ function CreditDialog({
                     user_id: user.id,
                     delta: Number(delta),
                     note,
+                  },
+                });
+                onClose(true);
+              } catch (e) {
+                setErr(e instanceof ApiError ? e.message : "Не удалось применить");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "Применяем…" : "Применить"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Role / tier assignment dialog (super-admin → /api/admin/role)
+// ---------------------------------------------------------------------
+function RoleDialog({
+  user,
+  onClose,
+}: {
+  user: UserRow | null;
+  onClose: (refresh: boolean) => void;
+}) {
+  const [role, setRole] = useState("");
+  const [tier, setTier] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setRole(user.role);
+      setTier(user.tier);
+      setErr("");
+    }
+  }, [user]);
+
+  const open = !!user;
+  const roleChanged = !!user && role !== user.role;
+  const tierChanged = !!user && tier !== user.tier;
+  const dirty = roleChanged || tierChanged;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose(false)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Роль и тариф</DialogTitle>
+          <DialogDescription>{user?.email ?? ""}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="role-sel">Роль (права)</Label>
+            <select
+              id="role-sel"
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tier-sel">Тариф (приоритет генерации)</Label>
+            <select
+              id="tier-sel"
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              value={tier}
+              onChange={(e) => setTier(e.target.value)}
+            >
+              {TIERS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {dirty && user ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+              <p className="mb-1 font-medium">Будет применено:</p>
+              {roleChanged ? (
+                <p>
+                  роль: <span className="font-mono">{user.role}</span> →{" "}
+                  <span className="font-mono">{role}</span>
+                </p>
+              ) : null}
+              {tierChanged ? (
+                <p>
+                  тариф: <span className="font-mono">{user.tier}</span> →{" "}
+                  <span className="font-mono">{tier}</span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {err ? <p className="text-sm text-destructive">{err}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onClose(false)} disabled={busy}>
+            Отмена
+          </Button>
+          <Button
+            disabled={busy || !dirty}
+            onClick={async () => {
+              if (!user) return;
+              setErr("");
+              setBusy(true);
+              try {
+                await apiJson("/api/admin/role", {
+                  method: "POST",
+                  json: {
+                    user_id: user.id,
+                    role: roleChanged ? role : undefined,
+                    tier: tierChanged ? tier : undefined,
                   },
                 });
                 onClose(true);

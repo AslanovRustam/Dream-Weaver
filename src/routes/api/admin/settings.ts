@@ -14,7 +14,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   authErrorResponse,
   getUserClient,
-  requireSuperAdmin,
+  requireCapability,
   requireUser,
 } from "../../../lib/auth-server";
 import { getAdminClient } from "../../../lib/supabase/admin";
@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/admin/settings")({
 
       PUT: async ({ request }) => {
         try {
-          const caller = await requireSuperAdmin(request);
+          const caller = await requireCapability(request, "settings.edit");
           let body: { items?: Item[] };
           try {
             body = (await request.json()) as { items?: Item[] };

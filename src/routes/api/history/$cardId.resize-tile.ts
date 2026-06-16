@@ -27,6 +27,7 @@ import { getAdminClient } from "../../../lib/supabase/admin";
 import { decodeDataUrl, uploadImage } from "../../../lib/ftp/storage";
 import { persistPendingBuffer } from "../../../lib/history/uploadRetryWorker";
 import { logAudit, logSystem } from "../../../lib/logger";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "../../../lib/request-guard";
 
 type Body = {
   image?: string;
@@ -43,6 +44,9 @@ export const Route = createFileRoute("/api/history/$cardId/resize-tile")({
         try {
           const user = await requireUser(request);
           const cardId = String(params.cardId);
+
+          const rtRl = rateLimitResponse("resize-tile", user.id, 120, 60_000);
+          if (rtRl) return rtRl;
 
           let body: Body;
           try {
@@ -69,6 +73,9 @@ export const Route = createFileRoute("/api/history/$cardId/resize-tile")({
           const payload = commaIdx >= 0 ? image.slice(commaIdx + 1) : "";
           if (payload.length < 200) {
             return Response.json({ error: "image payload empty or too small" }, { status: 400 });
+          }
+          if (dataUrlByteLength(image) > MAX_DATAURL_BYTES) {
+            return Response.json({ error: "image too large" }, { status: 413 });
           }
 
           // RLS: the user-scoped client will refuse to read someone

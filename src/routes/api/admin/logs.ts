@@ -19,7 +19,7 @@
 //   ?offset=0&limit=50
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authErrorResponse, requireSuperAdmin } from "../../../lib/auth-server";
+import { authErrorResponse, requireCapability } from "../../../lib/auth-server";
 import { getAdminClient } from "../../../lib/supabase/admin";
 
 const MAX_LIMIT = 200;
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/admin/logs")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          await requireSuperAdmin(request);
+          await requireCapability(request, "logs.view");
           const url = new URL(request.url);
           const kind = url.searchParams.get("kind") || "system";
           if (kind !== "system" && kind !== "audit" && kind !== "tokens") {

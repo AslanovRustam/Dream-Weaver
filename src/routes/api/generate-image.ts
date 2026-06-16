@@ -6,10 +6,19 @@ import { getGroupTemplate } from "../../lib/bannerSizes";
 import { recordGenerationAndUpload } from "../../lib/history/cardWriter";
 import { logSystem, newRequestId } from "../../lib/logger";
 import { openAiSizeString, resolveCanvasSize } from "../../lib/imageSizes";
+import { safeFetchImage } from "../../lib/safe-fetch";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "../../lib/request-guard";
 
 // Fallback coefficient if the pricing table is missing a row for this
 // (model, quality). Kept small so we never accidentally drain a balance.
 const DEFAULT_COEFFICIENT = 0.001;
+
+// SEC-H2: minimum balance required BEFORE we call the (paid) provider.
+// A coarse floor whose job is to stop a near-zero-balance account from
+// burning provider calls. The real protection is the post-spend check
+// further down: if the actual charge can't be covered, we do NOT return
+// the image. A precise per-request hold belongs to the QUEUE-1 billing work.
+const MIN_BALANCE_TO_GENERATE = 1;
 
 // Resolve the pricing-table key from the request model string.
 // Anything that looks like Gemini/Google maps to "gemini-nano"; everything
@@ -697,6 +706,9 @@ export const Route = createFileRoute("/api/generate-image")({
           return authErrorResponse(err);
         }
 
+        const genRl = rateLimitResponse("generate-image", authedUser.id, 30, 60_000);
+        if (genRl) return genRl;
+
         const supa = getAdminClient();
         const { data: profileRow, error: profileErr } = await supa
           .from("profiles")
@@ -708,7 +720,7 @@ export const Route = createFileRoute("/api/generate-image")({
           return Response.json({ error: "Profile not found" }, { status: 404 });
         }
         const balanceBefore = Number(profileRow.credits_balance ?? 0);
-        if (balanceBefore <= 0) {
+        if (balanceBefore < MIN_BALANCE_TO_GENERATE) {
           return Response.json(
             { error: "insufficient_credits", balance: balanceBefore },
             { status: 402 },
@@ -727,6 +739,26 @@ export const Route = createFileRoute("/api/generate-image")({
           return Response.json({ error: "Invalid JSON" }, { status: 400 });
         }
 
+        // OOM guard (SEC-H4): reject oversized inbound image fields before
+        // any base64 decode.
+        for (const f of [
+          "brand_logo",
+          "slot_screenshot",
+          "slot_logo",
+          "side_a_logo",
+          "side_b_logo",
+          "source_image",
+        ] as const) {
+          const v = (body as Record<string, unknown>)[f];
+          if (
+            typeof v === "string" &&
+            v.startsWith("data:") &&
+            dataUrlByteLength(v) > MAX_DATAURL_BYTES
+          ) {
+            return Response.json({ error: `${f} too large` }, { status: 413 });
+          }
+        }
+
         // Resize batches initiated from a history-loaded master pass an
         // FTP URL in `source_image` rather than a base64 dataURL (the
         // master image bytes only ever existed as dataURL in the
@@ -741,26 +773,14 @@ export const Route = createFileRoute("/api/generate-image")({
           (body.source_image.startsWith("http://") || body.source_image.startsWith("https://"))
         ) {
           try {
-            const fetched = await fetch(body.source_image);
-            if (fetched.ok) {
-              const buf = await fetched.arrayBuffer();
-              const mime = fetched.headers.get("content-type") || "image/jpeg";
-              const cleanedMime = mime.split(";")[0].trim();
-              const b64 = Buffer.from(buf).toString("base64");
-              body = {
-                ...body,
-                source_image: `data:${cleanedMime};base64,${b64}`,
-              };
-            } else {
-              console.warn(
-                "source_image URL fetch returned",
-                fetched.status,
-                body.source_image.slice(0, 80),
-              );
-              body = { ...body, source_image: undefined };
-            }
+            const { buffer, mime } = await safeFetchImage(body.source_image);
+            const b64 = buffer.toString("base64");
+            body = { ...body, source_image: `data:${mime};base64,${b64}` };
           } catch (e) {
-            console.warn("source_image URL fetch failed", e);
+            // SSRF-blocked or fetch failure → drop the reference and
+            // continue (the i2i path degrades to t2i rather than fetching
+            // an untrusted URL).
+            console.warn("source_image URL fetch skipped", e);
             body = { ...body, source_image: undefined };
           }
         }
@@ -1872,6 +1892,28 @@ export const Route = createFileRoute("/api/generate-image")({
               billing_error: billingError,
             },
           });
+
+          // SEC-H2: if the charge failed (balance couldn't cover the actual
+          // cost), do NOT hand back the image — that's the "near-zero balance
+          // → free generation" exploit. The provider call is already spent,
+          // but the user gets 402 instead of the unpaid image. The gen row
+          // (with billing_error) stays for the audit trail.
+          if (billingError) {
+            return Response.json(
+              {
+                error: "insufficient_credits",
+                detail: billingError,
+                credits: {
+                  charged: creditsCharged,
+                  coefficient,
+                  total_tokens: totalTokens,
+                  new_balance: newBalance,
+                  error: billingError,
+                },
+              },
+              { status: 402 },
+            );
+          }
 
           return Response.json({
             image,

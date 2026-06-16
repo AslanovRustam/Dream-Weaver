@@ -31,6 +31,7 @@ import { Route as ApiAuthForgotPasswordRouteImport } from './routes/api/auth/for
 import { Route as ApiAuthChangePasswordRouteImport } from './routes/api/auth/change-password'
 import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
 import { Route as ApiAdminSettingsRouteImport } from './routes/api/admin/settings'
+import { Route as ApiAdminRoleRouteImport } from './routes/api/admin/role'
 import { Route as ApiAdminPricingRouteImport } from './routes/api/admin/pricing'
 import { Route as ApiAdminLogsRouteImport } from './routes/api/admin/logs'
 import { Route as ApiAdminHistoryRouteImport } from './routes/api/admin/history'
@@ -147,6 +148,11 @@ const ApiAdminSettingsRoute = ApiAdminSettingsRouteImport.update({
   path: '/api/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminRoleRoute = ApiAdminRoleRouteImport.update({
+  id: '/api/admin/role',
+  path: '/api/admin/role',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminPricingRoute = ApiAdminPricingRouteImport.update({
   id: '/api/admin/pricing',
   path: '/api/admin/pricing',
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/history': typeof ApiAdminHistoryRoute
   '/api/admin/logs': typeof ApiAdminLogsRoute
   '/api/admin/pricing': typeof ApiAdminPricingRoute
+  '/api/admin/role': typeof ApiAdminRoleRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
   '/api/auth/change-password': typeof ApiAuthChangePasswordRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/api/admin/history': typeof ApiAdminHistoryRoute
   '/api/admin/logs': typeof ApiAdminLogsRoute
   '/api/admin/pricing': typeof ApiAdminPricingRoute
+  '/api/admin/role': typeof ApiAdminRoleRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
   '/api/auth/change-password': typeof ApiAuthChangePasswordRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/api/admin/history': typeof ApiAdminHistoryRoute
   '/api/admin/logs': typeof ApiAdminLogsRoute
   '/api/admin/pricing': typeof ApiAdminPricingRoute
+  '/api/admin/role': typeof ApiAdminRoleRoute
   '/api/admin/settings': typeof ApiAdminSettingsRoute
   '/api/admin/users': typeof ApiAdminUsersRoute
   '/api/auth/change-password': typeof ApiAuthChangePasswordRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/api/admin/history'
     | '/api/admin/logs'
     | '/api/admin/pricing'
+    | '/api/admin/role'
     | '/api/admin/settings'
     | '/api/admin/users'
     | '/api/auth/change-password'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/api/admin/history'
     | '/api/admin/logs'
     | '/api/admin/pricing'
+    | '/api/admin/role'
     | '/api/admin/settings'
     | '/api/admin/users'
     | '/api/auth/change-password'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/api/admin/history'
     | '/api/admin/logs'
     | '/api/admin/pricing'
+    | '/api/admin/role'
     | '/api/admin/settings'
     | '/api/admin/users'
     | '/api/auth/change-password'
@@ -368,6 +380,7 @@ export interface RootRouteChildren {
   ApiAdminHistoryRoute: typeof ApiAdminHistoryRoute
   ApiAdminLogsRoute: typeof ApiAdminLogsRoute
   ApiAdminPricingRoute: typeof ApiAdminPricingRoute
+  ApiAdminRoleRoute: typeof ApiAdminRoleRoute
   ApiAdminSettingsRoute: typeof ApiAdminSettingsRoute
   ApiAdminUsersRoute: typeof ApiAdminUsersRoute
   ApiAuthChangePasswordRoute: typeof ApiAuthChangePasswordRoute
@@ -537,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/role': {
+      id: '/api/admin/role'
+      path: '/api/admin/role'
+      fullPath: '/api/admin/role'
+      preLoaderRoute: typeof ApiAdminRoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/pricing': {
       id: '/api/admin/pricing'
       path: '/api/admin/pricing'
@@ -602,6 +622,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminHistoryRoute: ApiAdminHistoryRoute,
   ApiAdminLogsRoute: ApiAdminLogsRoute,
   ApiAdminPricingRoute: ApiAdminPricingRoute,
+  ApiAdminRoleRoute: ApiAdminRoleRoute,
   ApiAdminSettingsRoute: ApiAdminSettingsRoute,
   ApiAdminUsersRoute: ApiAdminUsersRoute,
   ApiAuthChangePasswordRoute: ApiAuthChangePasswordRoute,
