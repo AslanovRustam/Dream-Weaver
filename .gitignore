@@ -24,6 +24,9 @@ dist-ssr
 # Claude Code local settings (may contain tokens/secrets in permission entries)
 .claude/settings.local.json
 
+# Local E2E test artifacts + ad-hoc scripts (not for the repo)
+тест/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

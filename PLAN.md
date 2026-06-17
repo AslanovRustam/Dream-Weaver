@@ -11,35 +11,54 @@
 
 ---
 
-## 0. Хэндофф — конец сессии 2026-06-16 (лимит)
+## 0. Хэндофф — актуальное состояние (2026-06-16)
 
-**Обновление (сессия 2 — миграция применена, доки готовы) — ПЕРЕКРЫВАЕТ пункты ниже:**
-- ✅ Миграция `0005` **ПРИМЕНЕНА** (проверено по REST): role/tier есть; `skobelev@`/`aslanov@` = superadmin.
-- ✅ **DOC-SET создан** — 12 доков в `docs/` (README, ARCHITECTURE, DB_SCHEMA, AUTH_RBAC, GENERATION_FLOW, IMAGE_SIZES, STORAGE_FTP, BILLING, LOGGING, ADMIN, SECURITY, SETUP_DEPLOY).
-- **Новые находки из doc-аудита (в бэклог):**
-  - **RBAC-WIRE** ✅ — все `/api/admin/*` переведены на `requireCapability`; role/tier выведены в список юзеров + диалог назначения `RoleDialog` с confirm-summary. tsc 0, сервер 200. (ADM-CONFIRM-1 — минимальный confirm здесь сделан; полный паттерн ещё впереди.)
-  - **BUG-1** ◐ P2 — расхождение: код шлёт `gpt-image-2` (`generate-image.ts:1467,1495`, как в HANDOVER), а комменты (`:1449`,`:1007`) ещё про `gpt-image-1`. Вероятно **устаревший коммент**. Код НЕ трогаю; финальный прогон 4 пресетов подтвердит → если ок, поправить комменты.
-  - **BILL-1** ☐ P1 — vision-препасс (`extract-master.ts`) НЕ списывает кредиты, только логирует (хотя это платный gpt-4o-mini). Недосбор (связь SEC-M5).
-  - **CRON_SECRET** ☐ P2 — есть в `.env`, в коде 0 использований. Проверить/убрать.
-  - resize-тайлы = чистый stretch (`resizeToExact`); smartcrop/`cropAndResize`/`GROUP_TEMPLATES.boost` — мёртвый задел, раннером не вызывается. Учесть при качестве ресайза.
+**Git / PR:**
+- Ветка `feat/rbac-foundation` (2 коммита: `e36099c` docs, `184d8b4` security) **запушена** → **PR #1 OPEN против `dev`**, ждёт ревью Aslanov. **Самим НЕ мержить.** В `main`/`dev` напрямую не пушим (feature→PR→dev→main).
+- Migration `0005_rbac_foundation.sql` **применена** к текущему Supabase (`aafplhguibgciyjsxtpn`) — проверено живым прогоном. Мусорный `0005_*.zip` удалён.
+- `тест/` (E2E-скрипты + артефакты) — локально untracked, **не коммитить** → добавить `тест/` в `.gitignore` (TODO).
 
-**Сделано:**
-- RBAC-фундамент (ветка `feat/rbac-foundation`, НЕ закоммичено): `src/lib/rbac.ts`, миграция `0005_rbac_foundation.sql`, `/api/admin/role`, `requireCapability`/`getUserRole` в `auth-server.ts`. `tsc` чисто, dev-сервер отвечает 200.
-- Старые `.md` удалены: HANDOVER/BACKEND_SETUP (`git rm`), внешние примеры (локально).
-- **Кросс-стич убран:** в коде чисто (единственный «stitch» — англ. идиома «stitched through» в `src/routes/api/generate-image.ts:687`, НЕ вышивка); упоминания xStitch в `PLAN.md` вычищены. ✅
+**Сделано (в PR #1):** все шаги — `tsc` 0 + dev-сервер 200.
+- **RBAC** (две оси role+tier): `rbac.ts` (матрица capabilities), миграция 0005, `requireCapability`/`getUserRole`, `POST /api/admin/role` (RPC `admin_set_user_role`), все `/api/admin/*` на capability, в админке колонка role/tier + `RoleDialog` (назначение с confirm). `is_super_admin` (SQL/RPC-сторона) учитывает role (мостит SEC-M1) — НО app-layer `is_super_admin` в `/api/me` пока email-only, поэтому `/admin` UI-гейт ещё не role-aware (TODO).
+- **Security-проход:** SEC-C1 SSRF ✅, SEC-H1 rate-limit ✅, SEC-H2 billing ✅, SEC-H4 size ◐ (поля закрыты; bulk-zip-стриминг остался), SEC-M2 IDOR ✅, SEC-M6 redaction ◐ (провайдер-`detail` клиенту остался).
+- **Доки:** 12 в `docs/` (обновляются под актуальный код). Старые HANDOVER/BACKEND_SETUP + xStitch-примеры удалены; кросс-стич вычищен.
 
-**НЕ доделано (следующая сессия):**
-- **DOC-SET** ☐ — новый набор в `ban_gen_web/docs/` НЕ создан (агенты упёрлись в лимит). Повторить: README, ARCHITECTURE, DB_SCHEMA, AUTH_RBAC, GENERATION_FLOW, IMAGE_SIZES, STORAGE_FTP, BILLING, LOGGING, ADMIN, SECURITY, SETUP_DEPLOY. Русский, по коду, **без вышивки**.
-- **MIGRATION 0005 — НЕ подтверждена** ☐. REST-проверку Supabase отбил (secret-key `sb_secret_…` нельзя слать как browser → 401 «delete this secret key»). Проверить через **Dashboard → SQL** (`select role,tier from profiles limit 1`) или по `/api/admin/role`. Текущий проект Supabase: `aafplhguibgciyjsxtpn`.
-- **Мусор** ⚠️ — `supabase/migrations/0005_rbac_foundation.zip` (12891 б) я НЕ создавал; в migrations должны быть только `.sql`. Не удалял сам — **подтверди, можно ли снести** (иначе мешает `supabase db push`).
-- Коммит/PR `feat/rbac-foundation` — по отмашке.
+**E2E-прогон #1 — РЕГРЕССИИ НЕТ ✅** (детали в §E2E ниже): генерация / ресайз (i2i + t2i-fallback) / SSRF-гард / биллинг / FTP — работают вживую, security-правки ничего не сломали.
+
+**Следующее (бэклог по приоритету):**
+- **MOD-1** (P1) — gpt-мастер глохнет на модерации OpenAI, fallback'а у мастера НЕТ. Решение: врезать `content_filter→t2i` fallback мастеру + сохранять `master_details` в t2i (выход fallback проверен — НЕ деградирует, переиспользует ОРИГИНАЛЬНЫЙ промт, не заскрабленный).
+- **PROMPT-1 / VALID-1** — первые asks владельца (защита промтов от инъекций; валидация всех полей). Ещё не сделаны.
+- **SEC-H3** (публичные URL — архитектурное) · SEC-M3/M5/M7/M8 · **SEC-C2/H5** (секреты — репо приватный, ротация ВСЕХ ключей ПЕРЕД деплоем).
+- **TEST-1** (vitest авто-тесты) · **ADM-DASH-1** (дашборд) · **ADM-USER-3** (бан/suspend) · **CAB-\*** (кабинет: MFA/сессии/usage/DSAR) · **ADM-RBAC-2** (матрица прав в БД) · **ADM-CONFIRM-1** (полный confirm-паттерн).
+- Мелочи: **BUG-1** (поправить устаревшие комменты про gpt-image-1) · **BILL-1** (vision не списывает) · **CRON_SECRET** (не используется) · **NANO-RES** (nano залочен 1376×768).
+
+**Рабочие правила:** см. память `ban-gen-web-working-loop` — quality-first без рефактора, делегирую с уверенностью (мастер-оркестратор+исполнитель, отвечаю головой), не трогаю внешний UI, прогоны после полной работы, минимум confirm в терминале, feature→PR→dev→main.
+
+## E2E-прогон #1 — результаты (2026-06-16, реальный путь под капотом)
+**Регрессия: НЕТ ✅** — security-правки не сломали генерацию. Проверено вживую (токен через service-role→magiclink существующего super-admin, реальный `/api/generate-image`):
+- **Ресайз цел:** `nano·Событие` мастер → `extract-master` (5 текстов) → i2i-ресайз 9:16 (768×1376) OK; списание ок; аттач к **своей** карточке прошёл (SEC-M2 не блокирует легитимное).
+- **SSRF-гард (SEC-C1) вживую:** `169.254.169.254` / `localhost:8080` / `127.0.0.1:22` → **400 blocked**; реальный FTP-URL мастера `demo.promo/...` → **200** (allow). FTP-upload: success.
+- **Биллинг (SEC-H2):** charged + new_balance корректны.
+
+**Находки (НЕ код, в бэклог):**
+- **MOD-1 ☐ P1** — gpt-image-2 (OpenAI) модерит этот контент: упали ВСЕ gpt-мастера (азарт+person; даже «чистый» товар на шаблоне wide-angle с «young female model»). **У мастера НЕТ content_filter→t2i fallback** (есть только в ресайзе) → gpt-путь сейчас нерабочий на этих шаблонах. Решение: safer-промпты / fallback на мастере / упор на nano. Продуктовое.
+- **NANO-RES ☐ P2** — nano (gemini) игнорирует target-размер: 1K и 4K = одинаковые **1376×768** (залочен на нативном). «1к/2к/4к» к nano неприменимо. 4K-кламп gpt не измерен (модерация).
+- **BUG-1 ✅ снят** — gpt-image-2 валидна (OpenAI принял+отмодерил, не unknown); комменты про gpt-image-1 (`generate-image.ts:1449,1007`) просто устарели → поправить.
+- Артефакты прогонов в `тест/` (не коммитить; добавить в `.gitignore`).
 
 ## TEST-1 · Селф-чеки + авто-тесты A→Z ☐ P0 (требование владельца)
 Полный набор, гейтит мерж (Definition of Done). Сейчас тестов НЕТ (= QA-1).
 - **unit:** `rbac` (can/матрица), биллинг (spend/коэффициенты), `imageSizes`/`bannerSizes`, валидация полей.
 - **integration:** api-роуты с авторизацией (401/403/422), RLS, RPC.
 - **security:** authz/IDOR, SSRF (fetch-master/generate), обход биллинга, prompt-инъекции (PROMPT-1), rate-limit.
-- **e2e:** логин → пресет → мастер → ресайз-батч (40+ тайлов) → ZIP.
+- **e2e (RUN-спек владельца, прогон «под капотом», НЕ запускать без go):**
+  - 4 пресета: широкий угол · слот · событие · спорт-ставки.
+  - Модели 2+2: 2× **gpt-image-2** («имейдж»), 2× **gemini-nano-banana** («банан»); распределение по пресетам выбирает исполнитель.
+  - Разрешения 1K / 2K на сет; **4K — только 1 gpt + 1 банан** (проверить: проходит или где лок/кламп; gpt-image-2 4K нативно не тянет).
+  - Все поля заполнены, все тоглы ON, quality = high.
+  - Проверка ресайзов: +1 ресайз-батч на gpt-image-2 и на банан (трогали SSRF-фетч + `cardWriter`).
+  - Артефакты + **полные логи → `тест/`** (создать папку). Дальше — остальное по результатам.
+  - **Открытые вопросы:** (1) авторизация прогона — выделенный E2E-superadmin через service-role (роль+кредиты) vs токен владельца; (2) «1к/2к/4к» = выходное разрешение через `target_w/h` — подтвердить.
 - **self-check скрипт:** env/секреты/применённые миграции/health эндпоинтов (расширить `scripts/check-api-calls.ts`).
 - Фреймворк: `vitest` (+ `playwright` для e2e). **Зачем:** без тестов параноидальный уровень недостижим — нечем ловить регрессии authz/billing/SSRF.
 
