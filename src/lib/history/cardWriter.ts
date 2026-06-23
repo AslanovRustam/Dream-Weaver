@@ -15,6 +15,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { runBackground } from "../background";
 import { decodeDataUrl, uploadImage } from "../ftp/storage";
 import { resolveCanvasSize } from "../imageSizes";
 import { logAudit, logSystem } from "../logger";
@@ -220,6 +221,9 @@ export async function recordGenerationAndUpload(
       } else {
         cardId = card?.id ?? null;
         if (cardId) {
+          // Capture the narrowed (non-null) id so the deferred closures below
+          // keep `string` instead of widening back to `string | null`.
+          const newCardId = cardId;
           void logAudit({
             supa,
             user_id: userId,
@@ -234,14 +238,17 @@ export async function recordGenerationAndUpload(
             },
           });
           // Fire-and-forget AI naming polish. User keeps the template name
-          // if the LLM call or billing fails.
-          void polishCardName({
-            supa,
-            userId,
-            cardId,
-            body,
-            templateName: name,
-          });
+          // if the LLM call or billing fails. runBackground keeps it alive
+          // past the response on serverless.
+          runBackground(() =>
+            polishCardName({
+              supa,
+              userId,
+              cardId: newCardId,
+              body,
+              templateName: name,
+            }),
+          );
         }
       }
     } else {
@@ -380,16 +387,21 @@ export async function recordGenerationAndUpload(
       // Fire-and-forget upload only if we have a card to attach to. Legacy
       // rows (no card) skip FTP entirely.
       if (cardId && generationId && gen?.public_id) {
-        void uploadInBackground({
-          supa,
-          generationId,
-          publicId: gen.public_id as string,
-          userId,
-          isMaster,
-          image,
-          width,
-          height,
-        });
+        // Capture narrowed values so the deferred closure keeps `string`.
+        const genId = generationId;
+        const publicId = gen.public_id as string;
+        runBackground(() =>
+          uploadInBackground({
+            supa,
+            generationId: genId,
+            publicId,
+            userId,
+            isMaster,
+            image,
+            width,
+            height,
+          }),
+        );
       }
     }
   } catch (e) {

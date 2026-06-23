@@ -21,6 +21,7 @@
 import { randomUUID } from "node:crypto";
 
 import { authErrorResponse, getUserClient, requireUser } from "@/lib/auth-server";
+import { runBackground } from "@/lib/background";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { decodeDataUrl, uploadImage } from "@/lib/ftp/storage";
 import { persistPendingBuffer } from "@/lib/history/uploadRetryWorker";
@@ -164,15 +165,18 @@ export async function POST(request: Request, ctx: { params: Promise<{ cardId: st
 
     // Detached FTP upload. Mirrors cardWriter.uploadInBackground —
     // on failure we persist the buffer to disk and let the retry
-    // worker take over.
-    void uploadTile({
-      generationId: gen.id,
-      publicId: gen.public_id as string,
-      userId: user.id,
-      image,
-      width,
-      height,
-    });
+    // worker take over. runBackground keeps it alive past the response
+    // on serverless.
+    runBackground(() =>
+      uploadTile({
+        generationId: gen.id,
+        publicId: gen.public_id as string,
+        userId: user.id,
+        image,
+        width,
+        height,
+      }),
+    );
 
     return Response.json({ generation_id: gen.id });
   } catch (err) {

@@ -196,4 +196,14 @@ export function startRetentionWorker(): void {
   console.log(`[retention-worker] started, interval=${TICK_INTERVAL_MS}ms`);
 }
 
+/**
+ * Run exactly one retention pass and return. For serverless hosts that
+ * drive this via an external scheduler (Vercel Cron) instead of the
+ * in-process setInterval loop. Safe to call concurrently with the timer
+ * — every step is idempotent.
+ */
+export async function runRetentionOnce(): Promise<void> {
+  await tick();
+}
+
 export const __testing = { tick };

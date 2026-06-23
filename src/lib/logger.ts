@@ -22,6 +22,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { runBackground } from "./background";
 import { getAdminClient } from "./supabase/admin";
 
 export type LogLevel = "error" | "warn" | "info" | "debug";
@@ -90,7 +91,10 @@ export async function logSystem(args: SystemLogArgs): Promise<void> {
     args.level === "error" ? console.error : args.level === "warn" ? console.warn : console.log;
   consoleFn(`[${args.category}] ${safeMessage}`, safeContext, args.error ?? "");
 
-  try {
+  // The DB insert is scheduled to run past the HTTP response: on serverless
+  // a detached insert would be killed before it completes. runBackground
+  // keeps the invocation alive (via `after`) until the row lands.
+  runBackground(async () => {
     const supa = args.supa ?? getAdminClient();
     const rawStack =
       args.error instanceof Error
@@ -109,9 +113,7 @@ export async function logSystem(args: SystemLogArgs): Promise<void> {
       duration_ms: typeof args.duration_ms === "number" ? Math.round(args.duration_ms) : null,
       error_stack: stack ? stack.slice(0, 8000) : null,
     });
-  } catch {
-    // Never throw from logging. Console output above is the fallback.
-  }
+  });
 }
 
 export interface AuditLogArgs {
@@ -127,7 +129,9 @@ export interface AuditLogArgs {
 }
 
 export async function logAudit(args: AuditLogArgs): Promise<void> {
-  try {
+  // Scheduled past the response so the row survives on serverless (see
+  // runBackground / logSystem above).
+  runBackground(async () => {
     const supa = args.supa ?? getAdminClient();
     await supa.from("audit_logs").insert({
       user_id: args.user_id ?? null,
@@ -139,10 +143,7 @@ export async function logAudit(args: AuditLogArgs): Promise<void> {
       ip_address: args.ip_address ?? null,
       user_agent: args.user_agent ?? null,
     });
-  } catch (err) {
-    // Fall back to console — never throw from audit.
-    console.error("logAudit failed", err, "for action", args.action);
-  }
+  });
 }
 
 /**

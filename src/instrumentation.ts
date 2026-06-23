@@ -21,6 +21,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.WORKERS_IN_PROCESS === "false") return;
+  // On Vercel (serverless) there is no long-lived process for setInterval to
+  // live on — the retention pass is driven by Vercel Cron hitting
+  // /api/cron/retention instead (see vercel.json). Skip the in-process loop.
+  if (process.env.VERCEL) return;
 
   const { startUploadRetryWorker } = await import("@/lib/history/uploadRetryWorker");
   const { startRetentionWorker } = await import("@/lib/history/retentionWorker");
