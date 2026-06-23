@@ -1,6 +1,7 @@
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { refreshMe } from "@/components/AppHeader";
+import { CONTENT_FILTER_PREFIX, describeProviderError } from "@/lib/generation-errors";
 
 export type GeneratePayload = {
   preset_id: string;
@@ -226,7 +227,8 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
       }
       if (res.status === 422) {
         const detail = (data as { detail?: string }).detail || "";
-        throw new Error(`[content_filter] ${detail || "Запрос заблокирован политикой провайдера."}`);
+        // 422 from our server is always a provider content-policy block.
+        throw new Error(CONTENT_FILTER_PREFIX + describeProviderError(detail, 422));
       }
       if (res.status === 400) {
         // OpenAI returns 400 (not 422) for safety_violations=[sexual] on
@@ -237,9 +239,9 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
           detail.includes("safety system") ||
           detail.includes("rejected");
         if (isSafetyBlock) {
-          throw new Error(`[content_filter] ${detail}`);
+          throw new Error(CONTENT_FILTER_PREFIX + describeProviderError(detail, 400));
         }
-        throw new Error(data.error || `HTTP 400`);
+        throw new Error(data.error ? String(data.error) : describeProviderError(detail, 400));
       }
       if (res.status === 502) {
         const errCode = String(data.error || "");
@@ -251,16 +253,12 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
           detail.includes("safety system") ||
           /rejected.*safety|safety.*rejected/i.test(detail)
         ) {
-          throw new Error(`[content_filter] ${detail}`);
+          throw new Error(CONTENT_FILTER_PREFIX + describeProviderError(detail, 502));
         }
-        if (errCode === "No image payload" || /no image payload/i.test(detail)) {
-          throw new Error(
-            "Модель вернула пустой ответ (No image payload). Попробуйте сгенерировать ещё раз через несколько секунд.",
-          );
-        }
-        throw new Error(`Провайдер вернул ошибку: ${detail.slice(0, 300) || "неизвестно"}`);
+        // No-image / generic provider errors get a clean message too.
+        throw new Error(describeProviderError(detail, 502));
       }
-      throw new Error(data.error || `HTTP ${res.status}`);
+      throw new Error(data.error ? String(data.error) : `HTTP ${res.status}`);
     }
     const elapsed = Date.now() - startedAt;
     const usage = data.usage ? { ...data.usage, elapsed_ms: elapsed } : null;

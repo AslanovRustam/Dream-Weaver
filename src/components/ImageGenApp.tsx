@@ -8,6 +8,7 @@ import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
 import { FullscreenImageModal } from "./FullscreenImageModal";
 import { QualityPicker, type Quality } from "./QualityPicker";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
+import { formatGenerationError } from "@/lib/generation-errors";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
 import { ResizeResultsGrid } from "@/components/resize/ResizeResultsGrid";
 import { useGeneration } from "@/lib/generation-context";
@@ -619,7 +620,7 @@ export function ImageGenApp() {
         });
       }
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Unknown error");
+      setErrorMsg(formatGenerationError(e instanceof Error ? e.message : "Unknown error"));
       setStatus("error");
     }
   };

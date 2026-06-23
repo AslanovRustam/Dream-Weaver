@@ -27,6 +27,7 @@ import {
 } from "react";
 
 import { apiFetch, apiJson } from "./api-client";
+import { formatGenerationError } from "./generation-errors";
 import {
   extractMasterDetails,
   generateImage,
@@ -326,7 +327,7 @@ export function GenerationProvider({ children }: ProviderProps) {
       } catch (e) {
         patch({
           status: "error",
-          errorMsg: e instanceof Error ? e.message : "Unknown error",
+          errorMsg: formatGenerationError(e instanceof Error ? e.message : "Unknown error"),
         });
         return null;
       }
