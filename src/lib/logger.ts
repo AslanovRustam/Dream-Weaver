@@ -49,24 +49,61 @@ export interface SystemLogArgs {
   supa?: SupabaseClient;
 }
 
+// --- Secret redaction (SEC-M6) ------------------------------------------
+// Belt-and-suspenders: even though call sites shouldn't put secrets into
+// `context`, the logger scrubs them anyway so a stray apiKey / token /
+// JWT never lands in system_logs (admin-readable) or the console.
+const SECRET_KEY_RE =
+  /(authorization|api[-_]?key|secret|token|password|passwd|bearer|cookie|credential)/i;
+
+/** Scrub secret-shaped tokens out of a freeform string (stack traces,
+ *  messages): provider keys, Supabase secret keys, bearer tokens, JWTs. */
+function scrubSecretText(s: string): string {
+  return s
+    .replace(/sk-or-v1-[A-Za-z0-9_-]{12,}/g, "[REDACTED_KEY]")
+    .replace(/sk-[A-Za-z0-9_-]{12,}/g, "[REDACTED_KEY]")
+    .replace(/sb_secret_[A-Za-z0-9_-]{8,}/g, "[REDACTED_KEY]")
+    .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}/g, "[REDACTED_JWT]")
+    .replace(/(bearer\s+)[A-Za-z0-9._-]{12,}/gi, "$1[REDACTED]");
+}
+
+/** Recursively redact secret-keyed properties (and secret-shaped string
+ *  values) from a log context/details object. */
+function redactSecrets(value: unknown, depth = 0): unknown {
+  if (value == null || depth > 6) return value;
+  if (Array.isArray(value)) return value.map((v) => redactSecrets(v, depth + 1));
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SECRET_KEY_RE.test(k) ? "[REDACTED]" : redactSecrets(v, depth + 1);
+    }
+    return out;
+  }
+  if (typeof value === "string") return scrubSecretText(value);
+  return value;
+}
+
 export async function logSystem(args: SystemLogArgs): Promise<void> {
+  const safeContext = redactSecrets(args.context ?? {}) as Record<string, unknown>;
+  const safeMessage = scrubSecretText(args.message);
   const consoleFn =
     args.level === "error" ? console.error : args.level === "warn" ? console.warn : console.log;
-  consoleFn(`[${args.category}] ${args.message}`, args.context ?? "", args.error ?? "");
+  consoleFn(`[${args.category}] ${safeMessage}`, safeContext, args.error ?? "");
 
   try {
     const supa = args.supa ?? getAdminClient();
-    const stack =
+    const rawStack =
       args.error instanceof Error
         ? (args.error.stack ?? args.error.message)
         : args.error
           ? String(args.error)
           : null;
+    const stack = rawStack ? scrubSecretText(rawStack) : null;
     await supa.from("system_logs").insert({
       level: args.level,
       category: args.category,
-      message: args.message.slice(0, 1000),
-      context: args.context ?? {},
+      message: safeMessage.slice(0, 1000),
+      context: safeContext,
       user_id: args.user_id ?? null,
       request_id: args.request_id ?? null,
       duration_ms: typeof args.duration_ms === "number" ? Math.round(args.duration_ms) : null,
@@ -98,7 +135,7 @@ export async function logAudit(args: AuditLogArgs): Promise<void> {
       action: args.action.slice(0, 120),
       resource_type: args.resource_type ?? null,
       resource_id: args.resource_id ?? null,
-      details: args.details ?? {},
+      details: redactSecrets(args.details ?? {}) as Record<string, unknown>,
       ip_address: args.ip_address ?? null,
       user_agent: args.user_agent ?? null,
     });

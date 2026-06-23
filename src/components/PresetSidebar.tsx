@@ -20,7 +20,7 @@ export const PRESETS: Preset[] = [
     name: "Широкий угол",
     description: "Яркая инфографика для товара с крупными цифрами и характеристиками",
     gradient: "linear-gradient(135deg,#a3e635,#22d3ee,#f0abfc)",
-    preview: presetWideAngle,
+    preview: presetWideAngle.src,
     examples: [
       "linear-gradient(135deg,#a3e635,#22d3ee)",
       "linear-gradient(160deg,#f0abfc,#a3e635)",
@@ -34,7 +34,7 @@ export const PRESETS: Preset[] = [
     name: "Баннер по слоту",
     description: "Премиум gaming-баннер для конкретного слота",
     gradient: "linear-gradient(135deg,#0f172a,#7c3aed,#22d3ee)",
-    preview: presetSlotBanner,
+    preview: presetSlotBanner.src,
     examples: [
       "linear-gradient(135deg,#0f172a,#7c3aed)",
       "linear-gradient(160deg,#1e1b4b,#22d3ee)",
@@ -86,7 +86,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
     name: "Событие",
     description: "Гемблинг/беттинг баннер под событие или повод",
     gradient: "linear-gradient(135deg,#1e1b4b,#dc2626,#f59e0b)",
-    preview: presetEvent,
+    preview: presetEvent.src,
     examples: [
       "linear-gradient(135deg,#1e1b4b,#dc2626)",
       "linear-gradient(160deg,#0f172a,#f59e0b)",
@@ -100,7 +100,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
     name: "Спорт / Ставки",
     description: "Беттинг-баннер под спортивное событие (face-off, fight poster, esports)",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
-    preview: presetSport,
+    preview: presetSport.src,
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
       "linear-gradient(160deg,#0a0a0a,#dc2626)",

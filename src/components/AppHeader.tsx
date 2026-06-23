@@ -1,8 +1,11 @@
+"use client";
+
 // Top bar shown on every protected page. Renders the user's balance,
 // a dropdown menu (account / admin / sign out), and an inline "loading…"
 // placeholder while the profile is being fetched.
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
@@ -59,7 +62,7 @@ export function refreshMe() {
 
 export function AppHeader() {
   const { isAuthenticated, signOut } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [me, setLocalMe] = useState<MeResponse | null>(cachedMe);
   // Failed/pending upload counters drive the warning badge next to the
   // History link. We poll once on mount and then every 60 s — cheap
@@ -119,7 +122,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-12 max-w-[2000px] items-center justify-between px-3 sm:px-4">
-        <Link to="/" className="text-sm font-semibold tracking-tight">
+        <Link href="/" className="text-sm font-semibold tracking-tight">
           Dream Weaver Studio
         </Link>
         <div className="flex items-center gap-2">
@@ -135,7 +138,7 @@ export function AppHeader() {
 
           {uploadStatus && uploadStatus.failed > 0 ? (
             <Link
-              to="/history"
+              href="/history"
               title={`${uploadStatus.failed} ${uploadStatus.failed === 1 ? "файл" : "файлов"} не сохранены в облаке. Откройте историю чтобы посмотреть.`}
               className="hidden items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-400 sm:flex"
             >
@@ -162,20 +165,20 @@ export function AppHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/account">
+                <Link href="/account">
                   <UserIcon className="mr-2 h-4 w-4" />
                   Личный кабинет
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/history">
+                <Link href="/history">
                   <Clock className="mr-2 h-4 w-4" />
                   История
                 </Link>
               </DropdownMenuItem>
               {me?.is_super_admin ? (
                 <DropdownMenuItem asChild>
-                  <Link to="/admin">
+                  <Link href="/admin">
                     <ShieldCheck className="mr-2 h-4 w-4" />
                     Админ-панель
                   </Link>
@@ -185,7 +188,7 @@ export function AppHeader() {
               <DropdownMenuItem
                 onClick={async () => {
                   await signOut();
-                  navigate({ to: "/login" });
+                  router.push("/login");
                 }}
               >
                 <LogOut className="mr-2 h-4 w-4" />
@@ -214,7 +217,7 @@ export function AppHeader() {
  */
 function GenerationIndicator() {
   const gen = useGeneration();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isActive = gen.isBusy;
   // Show whenever there's anything for the user to come back to:
   //   • work in flight (master_running / batch_running)
@@ -253,7 +256,7 @@ function GenerationIndicator() {
     >
       <button
         type="button"
-        onClick={() => navigate({ to: "/" })}
+        onClick={() => router.push("/")}
         className="flex items-center gap-1"
         title="Открыть страницу генерации"
       >

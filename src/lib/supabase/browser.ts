@@ -6,10 +6,10 @@ let cached: SupabaseClient | null = null;
 
 export function getBrowserClient(): SupabaseClient {
   if (cached) return cached;
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
   if (!url || !anonKey) {
-    throw new Error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in .env.local");
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY in .env");
   }
   cached = createClient(url, anonKey, {
     auth: {

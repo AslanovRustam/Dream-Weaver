@@ -7,6 +7,16 @@
 //   the JWT payload blindly.
 import { getAdminClient } from "./supabase/admin";
 import { getUserClient } from "./supabase/user-client";
+import {
+  can,
+  normalizeRole,
+  normalizeTier,
+  DEFAULT_ROLE,
+  DEFAULT_TIER,
+  type Role,
+  type Tier,
+  type Capability,
+} from "./rbac";
 
 // TEMP (12.06.2026): личный gmail добавлен на время переезда на личный
 // Supabase (корпоративный проект на паузе). Убрать при возврате.
@@ -91,6 +101,63 @@ export function authErrorResponse(err: unknown): Response {
     { error: err instanceof Error ? err.message : "Internal error" },
     { status: 500 },
   );
+}
+
+// ---------------------------------------------------------------------
+// RBAC (role + tier) — additive. Existing endpoints keep using
+// requireUser / requireSuperAdmin; new endpoints can use requireCapability.
+// Until migration 0005 is applied, getUserRole falls back to the
+// hardcoded super-admin email bootstrap and the default user/regular tier,
+// so nothing breaks before the columns exist.
+// ---------------------------------------------------------------------
+
+export type AuthedUserWithRole = AuthedUser & { role: Role; tier: Tier };
+
+/**
+ * Resolve a user's staff role + billing tier from their profile.
+ * Defensive: if the role/tier columns don't exist yet (migration 0005
+ * not applied) or the read fails, fall back to the super-admin email
+ * bootstrap and the default user/regular tier.
+ */
+export async function getUserRole(
+  userId: string,
+  email?: string | null,
+): Promise<{ role: Role; tier: Tier }> {
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from("profiles")
+      .select("role, tier")
+      .eq("id", userId)
+      .single();
+    if (!error && data) {
+      const row = data as { role?: unknown; tier?: unknown };
+      return { role: normalizeRole(row.role), tier: normalizeTier(row.tier) };
+    }
+  } catch {
+    // role/tier columns may not exist yet — fall through to bootstrap.
+  }
+  if (isSuperAdminEmail(email ?? null)) {
+    return { role: "superadmin", tier: "corporate" };
+  }
+  return { role: DEFAULT_ROLE, tier: DEFAULT_TIER };
+}
+
+/**
+ * Require the caller to hold a specific capability. Super-admins (by role
+ * or by the email bootstrap) implicitly hold every capability. Throws
+ * AuthError(403) otherwise.
+ */
+export async function requireCapability(
+  request: Request,
+  cap: Capability,
+): Promise<AuthedUserWithRole> {
+  const user = await requireUser(request);
+  const { role, tier } = await getUserRole(user.id, user.email);
+  if (!user.isSuperAdmin && !can(role, cap)) {
+    throw new AuthError("Insufficient permissions", 403);
+  }
+  return { ...user, role, tier };
 }
 
 /** Re-export user-scoped client builder for routes that need RLS. */
