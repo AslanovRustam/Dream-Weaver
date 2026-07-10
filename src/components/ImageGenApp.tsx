@@ -743,7 +743,11 @@ export function ImageGenApp() {
       // string. We use the return value (not gen.imageUrl, which would
       // be stale in this closure) to seed the in-memory thumbnail list.
       const img = await gen.runMaster(payload);
-      setStatus("success");
+      // runMaster never throws: on failure it patches gen.status="error" +
+      // gen.errorMsg and returns null. Don't force "success" in that case —
+      // otherwise the error branch below (driven off gen.status) is masked
+      // and the user sees the idle placeholder instead of the error card.
+      setStatus(img ? "success" : "idle");
       if (img) {
         setHistory((prev) => {
           const list = prev[preset] ? [img, ...prev[preset]] : [img];
@@ -1342,9 +1346,15 @@ export function ImageGenApp() {
             }
 
             // Error — classified message with retry (or top-up) action.
-            if (status === "error") {
+            // gen.runMaster reports failures via gen.status/gen.errorMsg (fresh
+            // at render), so check both the local status and the context status.
+            if (status === "error" || gen.status === "error") {
               return (
-                <GenerationErrorCard message={errorMsg} onRetry={onGenerate} onDismiss={reset} />
+                <GenerationErrorCard
+                  message={errorMsg || gen.errorMsg}
+                  onRetry={onGenerate}
+                  onDismiss={reset}
+                />
               );
             }
 
