@@ -70,6 +70,7 @@
   --card-foreground: oklch(0.97 0.005 260);
   --panel: oklch(0.19 0.006 260);
   --accent-green: oklch(0.78 0.18 150);
+  --accent-hover: oklch(0.72 0.18 150);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
   --primary: oklch(0.208 0.042 265.755);
@@ -143,5 +144,131 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+
+  /* A11y: one consistent, visible keyboard focus ring across the whole
+     product. :where() keeps specificity 0 so components can still override. */
+  :where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+  }
+}
+
+/*
+ * Design-system component layer. Canonical typography, input, and button
+ * classes — single source of truth, prefer these over ad-hoc utilities.
+ * Ported from the TanStack build; token refs adapted to this project
+ * (--accent-green / --accent-hover).
+ */
+@layer components {
+  .ds-h1 {
+    font-size: 1.5rem; /* 24px page title */
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+  .ds-h2 {
+    font-size: 0.875rem; /* 14px section / card title */
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .ds-label {
+    font-size: 0.75rem; /* 12px field label */
+    line-height: 1rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--foreground) 72%, transparent);
+  }
+  .ds-body {
+    font-size: 0.875rem; /* 14px body */
+    line-height: 1.375rem;
+    font-weight: 400;
+    color: var(--foreground);
+  }
+  .ds-caption {
+    font-size: 0.75rem; /* 12px helper / subtitle */
+    line-height: 1.05rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+  .ds-micro {
+    font-size: 0.6875rem; /* 11px — smallest allowed (badges, meta) */
+    line-height: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* Canonical text field. One background (recessed --background), one border,
+     one focus treatment (accent border; the global :focus-visible ring adds
+     keyboard a11y on top). Use on every <input>/<textarea>/select. */
+  .ds-input {
+    width: 100%;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--background);
+    padding: 0.625rem 0.875rem; /* 10px / 14px */
+    font-size: 0.875rem; /* 14px */
+    color: var(--foreground);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .ds-input::placeholder {
+    color: var(--muted-foreground);
+  }
+  .ds-input:focus {
+    outline: none;
+    border-color: var(--accent-green);
+  }
+  .ds-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Button hierarchy. Add padding (px / py) via utilities on top.
+     primary = accent CTA (one per context) · secondary = outline ·
+     ghost = tertiary/icon. (The white button is a deliberate exception.) */
+  .ds-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    border-radius: var(--radius-lg);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      opacity 0.15s ease;
+  }
+  .ds-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .ds-btn-primary {
+    background: var(--accent-green);
+    color: #0a0a0a;
+  }
+  .ds-btn-primary:not(:disabled):hover {
+    background: var(--accent-hover);
+  }
+  .ds-btn-secondary {
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    background: transparent;
+  }
+  .ds-btn-secondary:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .ds-btn-ghost {
+    color: var(--muted-foreground);
+    background: transparent;
+  }
+  .ds-btn-ghost:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--foreground);
   }
 }
