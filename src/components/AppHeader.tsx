@@ -226,7 +226,11 @@ export function AppHeader() {
           <GenerationIndicator />
 
           <CreditsButton label={creditsLabel} max={CREDIT_POOL} />
-          <NotificationsMenu />
+          {/* Bell hidden on mobile — notifications live inside the profile menu
+              there (see the mobile-only block in the avatar dropdown). */}
+          <span className="max-sm:hidden sm:contents">
+            <NotificationsMenu />
+          </span>
           <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
             <HelpMenu />
             <ProjectsMenu />
@@ -290,6 +294,36 @@ export function AppHeader() {
                 >
                   Пополнить
                 </Link>
+              </div>
+
+              {/* Mobile-only: notifications live here since the header bell is
+                  hidden on narrow screens. */}
+              <div className="sm:hidden">
+                <DropdownMenuSeparator className="bg-border" />
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="ds-h2">Уведомления</span>
+                  <span className="ds-caption">{NOTIFICATIONS.length}</span>
+                </div>
+                <div className="max-h-56 space-y-0.5 overflow-y-auto">
+                  {NOTIFICATIONS.map((n) => {
+                    const Icon = n.icon;
+                    return (
+                      <div
+                        key={n.id}
+                        className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
+                      >
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{n.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
+                        </div>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{n.time}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <DropdownMenuSeparator className="bg-border" />

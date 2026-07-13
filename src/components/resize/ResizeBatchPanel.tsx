@@ -133,10 +133,15 @@ export function ResizeBatchPanel({
 
   // The select step is large (fills most of the viewport) so the full format
   // catalogue is visible with minimal scrolling. Generation/result stay compact.
+  // On phones (<sm) every step is a full-screen sheet; from sm up it's the
+  // centred card sized per step.
   const contentSize =
     effectivePhase === "select"
-      ? "h-[88vh] max-h-[90vh] w-[90vw] max-w-6xl"
-      : "max-h-[85vh] w-full max-w-2xl";
+      ? "sm:h-[88vh] sm:max-h-[90vh] sm:w-[90vw] sm:max-w-6xl"
+      : "sm:max-h-[85vh] sm:w-full sm:max-w-2xl";
+  // Full-screen on mobile: overrides Radix's centred/translated positioning.
+  const mobileFullscreen =
+    "max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
 
   const toggleSize = (size: BannerSize) => {
     const k = sizeKey(size);
@@ -337,13 +342,14 @@ export function ResizeBatchPanel({
   const canZip = doneCount >= 1 && !zipping;
 
   return (
-    <div className="mt-3 flex justify-start">
-      {/* Trigger — compact secondary button (primary is the green "Сгенерировать"). */}
+    <div className="mt-3 flex justify-start max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
+      {/* Trigger — compact secondary button (primary is the green "Сгенерировать").
+          On mobile it becomes the full-width sticky CTA for this screen. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:w-full max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
       >
         Выбрать ресайзы
         {selectedCount > 0 ? (
@@ -365,7 +371,10 @@ export function ResizeBatchPanel({
         }}
       >
         <DialogContent
-          hideClose={!closable}
+          // No close "✕" on the result step — its "Назад" is the single exit
+          // (avoids two ways off the "Пакет готов" screen). Generating step
+          // already hides it (not closable).
+          hideClose={!closable || effectivePhase === "result"}
           onEscapeKeyDown={(e) => {
             if (viewTile || confirmDelete || !closable) {
               e.preventDefault();
@@ -375,7 +384,7 @@ export function ResizeBatchPanel({
           onInteractOutside={(e) => {
             if (viewTile || confirmDelete || !closable) e.preventDefault();
           }}
-          className={`flex ${contentSize} flex-col gap-0 rounded-2xl border border-border bg-panel p-0`}
+          className={`flex ${contentSize} ${mobileFullscreen} flex-col gap-0 rounded-2xl border border-border bg-panel p-0`}
         >
           {/* ---------- STEP 1: SELECT ---------- */}
           {effectivePhase === "select" ? (
@@ -464,12 +473,12 @@ export function ResizeBatchPanel({
                 })}
               </div>
 
-              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
                 {selectedCount > 0 ? (
                   <button
                     type="button"
                     onClick={() => setSelected(new Map())}
-                    className="ds-btn ds-btn-secondary px-5 py-2.5"
+                    className="ds-btn ds-btn-secondary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-1"
                     disabled={disabled}
                   >
                     Сбросить
@@ -479,7 +488,7 @@ export function ResizeBatchPanel({
                   type="button"
                   onClick={startBatch}
                   disabled={selectedCount === 0 || disabled}
-                  className="ds-btn ds-btn-primary px-5 py-2.5"
+                  className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                 >
                   Сгенерировать пакет
                 </button>
@@ -519,13 +528,13 @@ export function ResizeBatchPanel({
           {/* ---------- STEP 3: RESULT ---------- */}
           {effectivePhase === "result" ? (
             <>
-              <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+              <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
                 <button
                   type="button"
                   onClick={backToSelect}
-                  className="mb-2 inline-flex w-fit items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+                  className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-5 w-5" />
                   Назад
                 </button>
                 <DialogTitle className="ds-h2 flex items-center gap-2 text-left">
@@ -580,17 +589,21 @@ export function ResizeBatchPanel({
                                 <button
                                   type="button"
                                   onClick={() => setViewTile(t)}
-                                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                                  className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:h-11 max-sm:w-11"
                                   title="Просмотреть"
                                   aria-label={`Просмотреть ${t.size.w}×${t.size.h}`}
                                 >
-                                  <Eye className="h-3.5 w-3.5" />
+                                  <Eye className="h-3.5 w-3.5 max-sm:h-5 max-sm:w-5" />
                                 </button>
+                                {/* Per-tile download — visible on desktop; on
+                                    mobile it moves into the "⋯" menu to save row
+                                    width. */}
                                 <a
                                   href={t.dataUrl}
                                   download={`banner-${t.size.w}x${t.size.h}.jpg`}
-                                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                                  className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:hidden"
                                   title="Скачать"
+                                  aria-label={`Скачать ${t.size.w}×${t.size.h}`}
                                 >
                                   <Download className="h-3.5 w-3.5" />
                                 </a>
@@ -605,7 +618,7 @@ export function ResizeBatchPanel({
                                   type="button"
                                   aria-label={`Ещё — ${t.size.w}×${t.size.h}`}
                                   title="Ещё"
-                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70 max-sm:h-11 max-sm:w-11"
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </button>
@@ -613,23 +626,41 @@ export function ResizeBatchPanel({
                               <DropdownMenuContent
                                 align="end"
                                 sideOffset={8}
-                                className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                                className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground max-sm:w-56"
                               >
+                                {/* Download lives here on mobile only (the row
+                                    button is hidden < sm). Neutral action first. */}
+                                {t.status === "done" && t.dataUrl ? (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      const a = document.createElement("a");
+                                      a.href = t.dataUrl as string;
+                                      a.download = `banner-${t.size.w}x${t.size.h}.jpg`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      a.remove();
+                                    }}
+                                    className="gap-2.5 rounded-lg px-2.5 py-2 text-base focus:bg-white/10 focus:text-foreground sm:hidden max-sm:py-3"
+                                  >
+                                    <Download className="h-5 w-5 text-muted-foreground" />
+                                    Скачать
+                                  </DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuItem
                                   onClick={() => {
                                     void onRegenerateTile?.(t.id);
                                   }}
-                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
                                 >
-                                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                                  <RefreshCw className="h-4 w-4 text-muted-foreground max-sm:h-5 max-sm:w-5" />
                                   Перегенерировать
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-border" />
                                 <DropdownMenuItem
                                   onClick={() => setConfirmDelete(t)}
-                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)]"
+                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)] max-sm:py-3 max-sm:text-base"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
                                   Удалить
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -642,12 +673,12 @@ export function ResizeBatchPanel({
                 </ul>
               </div>
 
-              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:flex-wrap max-sm:justify-stretch">
                 {errorCount > 0 ? (
                   <button
                     type="button"
                     onClick={retryFailed}
-                    className="mr-auto inline-flex items-center gap-1.5 rounded-md border border-[color:var(--status-error)]/40 px-4 py-2.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/10"
+                    className="mr-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[color:var(--status-error)]/40 px-4 py-2.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/10 max-sm:min-h-12 max-sm:w-full"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Повторить упавшие ({errorCount})
@@ -656,7 +687,7 @@ export function ResizeBatchPanel({
                 <button
                   type="button"
                   onClick={regenerate}
-                  className="ds-btn ds-btn-secondary px-5 py-2.5"
+                  className="ds-btn ds-btn-secondary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-1"
                 >
                   Сгенерировать заново
                 </button>
@@ -664,7 +695,7 @@ export function ResizeBatchPanel({
                   type="button"
                   onClick={downloadZip}
                   disabled={!canZip}
-                  className="ds-btn ds-btn-primary px-5 py-2.5"
+                  className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                 >
                   <FileArchive className="h-4 w-4" />
                   {zipping ? "Архивируем…" : "Скачать ZIP"}

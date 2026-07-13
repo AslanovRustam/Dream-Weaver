@@ -145,9 +145,9 @@ export default function BillingPage() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <Link
           href="/account"
-          className="mb-8 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="-mx-2 mb-6 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
           Назад
         </Link>
 
@@ -159,14 +159,15 @@ export default function BillingPage() {
           </p>
         </div>
 
-        {/* Панель управления: слева аудитория, справа период оплаты. */}
-        <div className="mb-10 flex flex-col items-center justify-between gap-4 sm:flex-row">
+        {/* Панель управления. Desktop: аудитория слева, период справа. Mobile:
+            период сверху, табы аудитории под ним (flex-col-reverse). */}
+        <div className="mb-10 flex flex-col-reverse items-center justify-between gap-4 sm:flex-row">
           <Segmented
             value={audience}
             onChange={(v) => setAudience(v as Audience)}
             options={[
-              { value: "individual", label: "Индивидуальные планы" },
-              { value: "business", label: "Бизнес-планы" },
+              { value: "individual", label: "Индивидуальные" },
+              { value: "business", label: "Бизнес" },
             ]}
           />
           <PeriodSwitch annual={annual} onChange={setAnnual} />
@@ -197,7 +198,7 @@ function Segmented({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-card p-1">
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 max-sm:flex max-sm:w-full">
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -206,7 +207,7 @@ function Segmented({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.value)}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-md px-4 py-2 text-sm font-medium transition max-sm:min-h-11 max-sm:flex-1 ${
               active ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -221,12 +222,15 @@ function Segmented({
 function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boolean) => void }) {
   // Все три зоны кликабельны (лейбл «Ежемесячно», сам тумблер, лейбл
   // «Ежегодно»), чтобы переключение срабатывало по любому нажатию.
+  // Mobile: 3-column grid (1fr | toggle | 1fr) keeps the TOGGLE dead-centre on
+  // screen even though the right side carries the extra "−20%" badge. Desktop:
+  // plain inline-flex.
   return (
-    <div className="inline-flex items-center gap-3 text-sm">
+    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm sm:inline-flex sm:w-auto">
       <button
         type="button"
         onClick={() => onChange(false)}
-        className={annual ? "text-muted-foreground transition hover:text-foreground" : "font-medium text-foreground"}
+        className={`justify-self-end whitespace-nowrap ${annual ? "text-muted-foreground transition hover:text-foreground" : "font-medium text-foreground"}`}
       >
         Ежемесячно
       </button>
@@ -246,16 +250,18 @@ function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boo
           }`}
         />
       </button>
-      <button
-        type="button"
-        onClick={() => onChange(true)}
-        className={annual ? "font-medium text-foreground" : "text-muted-foreground transition hover:text-foreground"}
-      >
-        Ежегодно
-      </button>
-      <span className="rounded-full bg-accent-green/15 px-2 py-0.5 text-xs font-semibold text-accent-green">
-        −20%
-      </span>
+      <div className="flex items-center gap-2 justify-self-start whitespace-nowrap">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={annual ? "font-medium text-foreground" : "text-muted-foreground transition hover:text-foreground"}
+        >
+          Ежегодно
+        </button>
+        <span className="rounded-full bg-accent-green/15 px-2 py-0.5 text-xs font-semibold text-accent-green">
+          −20%
+        </span>
+      </div>
     </div>
   );
 }
@@ -327,10 +333,12 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         {/* TODO: подключить оплату. Пока это UI без логики списания/начисления. */}
         <button
           type="button"
-          className={`w-full rounded-lg px-5 py-3 text-sm font-semibold transition ${
+          className={`w-full rounded-lg px-5 py-3 text-sm font-semibold transition max-sm:min-h-12 ${
             popular
               ? "bg-accent-green text-black hover:bg-[var(--accent-hover)]"
-              : "border border-border text-foreground hover:bg-white/5"
+              : // Desktop: outline. Mobile: solid white fill + dark text — the
+                // outline reads poorly on a small dark screen.
+                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-black max-sm:hover:bg-white/90"
           }`}
         >
           {plan.cta ?? "Выбрать план"}
@@ -357,9 +365,11 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
             {f.included ? (
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-foreground" strokeWidth={2.5} />
             ) : (
-              <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" strokeWidth={2.5} />
+              <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.5} />
             )}
-            <span className={f.included ? "text-foreground/90" : "text-muted-foreground/60"}>
+            {/* Not-included features stay dimmer than included ones via the
+                muted colour (not opacity) so the text still passes WCAG AA. */}
+            <span className={f.included ? "text-foreground" : "text-muted-foreground"}>
               {f.text}
             </span>
           </li>
