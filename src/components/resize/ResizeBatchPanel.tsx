@@ -21,14 +21,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   FileArchive,
   Loader2,
+  MoreHorizontal,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import JSZip from "jszip";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ResizeLightbox } from "./ResizeLightbox";
 import type { BatchTile, GenerationStatus } from "@/lib/generation-context";
 
 export type SelectedSize = BannerSize;
@@ -42,6 +53,10 @@ type Props = {
   tiles: BatchTile[];
   /** Live generation status from the context. */
   batchStatus: GenerationStatus;
+  /** Re-run generation for a single tile in place. */
+  onRegenerateTile?: (id: string) => void | Promise<void>;
+  /** Remove a single tile from the batch. */
+  onRemoveTile?: (id: string) => void;
 };
 
 type Phase = "select" | "generating" | "result";
@@ -54,7 +69,15 @@ function ruSeconds(n: number) {
   return "секунд";
 }
 
-export function ResizeBatchPanel({ disabled, masterRatio, onLaunch, tiles, batchStatus }: Props) {
+export function ResizeBatchPanel({
+  disabled,
+  masterRatio,
+  onLaunch,
+  tiles,
+  batchStatus,
+  onRegenerateTile,
+  onRemoveTile,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
   const [selected, setSelected] = useState<Map<string, SelectedSize>>(new Map());
@@ -74,6 +97,11 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch, tiles, batch
   const [zipping, setZipping] = useState(false);
   const [, setTick] = useState(0);
   const startRef = useRef<number | null>(null);
+  // Which finished tile is open in the fullscreen viewer (null = none). Kept
+  // separate from the modal so opening it never resets the batch/scroll.
+  const [viewTile, setViewTile] = useState<BatchTile | null>(null);
+  // Tile pending a delete confirmation (null = no confirm shown).
+  const [confirmDelete, setConfirmDelete] = useState<BatchTile | null>(null);
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
@@ -329,17 +357,23 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch, tiles, batch
       <Dialog
         open={open}
         onOpenChange={(v) => {
-          if (!v && !closable) return; // no closing mid-generation
+          // Never close the batch modal while the fullscreen viewer or a delete
+          // confirmation is open (Escape/click there must only dismiss that
+          // layer), or mid-generation.
+          if (!v && (viewTile || confirmDelete || !closable)) return;
           setOpen(v);
         }}
       >
         <DialogContent
           hideClose={!closable}
           onEscapeKeyDown={(e) => {
-            if (!closable) e.preventDefault();
+            if (viewTile || confirmDelete || !closable) {
+              e.preventDefault();
+              if (confirmDelete) setConfirmDelete(null);
+            }
           }}
           onInteractOutside={(e) => {
-            if (!closable) e.preventDefault();
+            if (viewTile || confirmDelete || !closable) e.preventDefault();
           }}
           className={`flex ${contentSize} flex-col gap-0 rounded-2xl border border-border bg-panel p-0`}
         >
@@ -508,37 +542,103 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch, tiles, batch
                   {errorCount ? ` · ${errorCount} с ошибкой` : ""}
                 </p>
                 <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border">
-                  {tiles.map((t) => (
-                    <li key={t.id} className="flex items-center gap-3 px-3 py-2.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        {t.status === "done" ? (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
-                            <Check className="h-3 w-3" strokeWidth={3} />
+                  {tiles.map((t) => {
+                    const running = t.status === "running";
+                    return (
+                      <li
+                        key={t.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 transition ${
+                          running ? "opacity-70" : ""
+                        }`}
+                      >
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                          {running ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
+                          ) : t.status === "done" ? (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[color:var(--status-error,#ff5c5c)]">✕</span>
+                          )}
+                        </span>
+                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                          <span className="font-mono text-sm tabular-nums">
+                            {t.size.w}×{t.size.h}
                           </span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {t.size.label || (t.size.w / t.size.h >= 1 ? "горизонт." : "вертик.")}
+                          </span>
+                        </div>
+
+                        {running ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">Генерация…</span>
                         ) : (
-                          <span className="text-xs text-[color:var(--status-error,#ff5c5c)]">✕</span>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {t.status === "done" && t.dataUrl ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewTile(t)}
+                                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                                  title="Просмотреть"
+                                  aria-label={`Просмотреть ${t.size.w}×${t.size.h}`}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+                                <a
+                                  href={t.dataUrl}
+                                  download={`banner-${t.size.w}x${t.size.h}.jpg`}
+                                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                                  title="Скачать"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </a>
+                              </>
+                            ) : null}
+
+                            {/* "⋯" menu — round dark translucent, matching the
+                                master-preview overflow button. */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={`Ещё — ${t.size.w}×${t.size.h}`}
+                                  title="Ещё"
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                sideOffset={8}
+                                className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    void onRegenerateTile?.(t.id);
+                                  }}
+                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                                >
+                                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                                  Перегенерировать
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-border" />
+                                <DropdownMenuItem
+                                  onClick={() => setConfirmDelete(t)}
+                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)]"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Удалить
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         )}
-                      </span>
-                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                        <span className="font-mono text-sm tabular-nums">
-                          {t.size.w}×{t.size.h}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {t.size.label || (t.size.w / t.size.h >= 1 ? "горизонт." : "вертик.")}
-                        </span>
-                      </div>
-                      {t.status === "done" && t.dataUrl ? (
-                        <a
-                          href={t.dataUrl}
-                          download={`banner-${t.size.w}x${t.size.h}.jpg`}
-                          className="inline-flex shrink-0 items-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-                          title="Скачать"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
@@ -572,8 +672,52 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch, tiles, batch
               </div>
             </>
           ) : null}
+
+          {/* Delete confirmation — an in-modal overlay so it never tears down
+              the batch modal; only removes the one card on confirm. */}
+          {confirmDelete ? (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setConfirmDelete(null)}
+            >
+              <div
+                className="w-full max-w-xs rounded-2xl border border-border bg-panel p-5 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="ds-h2 mb-1">Удалить этот формат из пакета?</p>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  {confirmDelete.size.w}×{confirmDelete.size.h}
+                  {confirmDelete.size.label ? ` · ${confirmDelete.size.label}` : ""}
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(null)}
+                    className="ds-btn ds-btn-secondary px-4 py-2 text-sm"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRemoveTile?.(confirmDelete.id);
+                      setConfirmDelete(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[color:var(--status-error)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Удалить
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
+
+      {viewTile ? (
+        <ResizeLightbox tile={viewTile} onClose={() => setViewTile(null)} />
+      ) : null}
     </div>
   );
 }

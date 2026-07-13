@@ -1464,6 +1464,8 @@ export function ImageGenApp() {
                       onLaunch={onLaunchBatch}
                       tiles={gen.tiles}
                       batchStatus={gen.status}
+                      onRegenerateTile={gen.regenerateTile}
+                      onRemoveTile={gen.removeTile}
                     />
                   ) : null}
                 </div>
