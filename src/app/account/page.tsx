@@ -1,15 +1,5 @@
 "use client";
 
-// /account — personal cabinet. Requires auth (redirects to /login if not).
-// Redesigned layout (ported from the redesign):
-//   header : avatar + display name (from profile) + "Изменить" → edit modal
-//   row 1  : credits card (+ "Купить кредиты" → /billing) and usage-history card
-//   stack  : subscription card, account-info card (read-only email),
-//            security card (self-service password change)
-//
-// The edit-profile modal writes real profile fields via PATCH /api/me; the
-// password change hits /api/auth/change-password. The avatar upload is
-// UI-only (mirrored to localStorage) until a real endpoint exists.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,10 +46,7 @@ const AVATAR_URL = "https://i.pravatar.cc/128?img=68";
 // Display name derived from the real profile (same convention as AppHeader).
 function displayName(p: Profile): string {
   return (
-    p.nickname ||
-    [p.first_name, p.last_name].filter(Boolean).join(" ") ||
-    p.email ||
-    "Пользователь"
+    p.nickname || [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email || "Пользователь"
   );
 }
 
@@ -169,8 +156,7 @@ export default function AccountPage() {
           href="/"
           className="mb-16 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-accent-green bg-accent-green/10 px-3 text-sm font-medium text-accent-green transition hover:bg-accent-green/15"
         >
-          <ChevronLeft className="h-4 w-4" />
-          К генерации
+          <ChevronLeft className="h-4 w-4" />К генерации
         </Link>
 
         <header className="mb-6 flex items-center justify-between gap-4">
