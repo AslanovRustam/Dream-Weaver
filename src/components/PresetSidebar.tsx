@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
@@ -385,8 +385,11 @@ export function PresetSidebar({ value, onChange }: Props) {
             const showToggle = !searching;
 
             return (
-              <div key={cat.id} className="flex flex-col gap-3">
-                <div className="flex items-center justify-between px-1">
+              <div
+                key={cat.id}
+                className="flex flex-col gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] p-3"
+              >
+                <div className="flex items-center justify-between gap-2 px-1">
                   <h3 className="text-sm font-semibold">{cat.label}</h3>
                   {showToggle && (
                     <button
@@ -394,9 +397,14 @@ export function PresetSidebar({ value, onChange }: Props) {
                       onClick={() =>
                         setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
                       }
-                      className="text-sm font-medium text-accent-green transition hover:opacity-80"
+                      className="inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full bg-[var(--bg-surface-hover)] py-1 pl-3 pr-2 text-sm font-medium text-accent-green transition hover:bg-white/10 active:bg-white/[0.14] max-sm:min-h-11 max-sm:pl-4 max-sm:pr-3"
                     >
                       {isExpanded ? "Свернуть" : "Все"}
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 rotate-180" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
                     </button>
                   )}
                 </div>
