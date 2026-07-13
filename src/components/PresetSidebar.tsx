@@ -160,7 +160,7 @@ function PresetButton({
             : { background: preset.gradient }
         }
       />
-      <p className="min-w-0 flex-1 truncate text-xs font-medium">{preset.name}</p>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{preset.name}</p>
       {selected && (
         <div className="mr-1.5 shrink-0 rounded-full bg-accent-green p-0.5 text-black">
           <Check size={10} />
@@ -259,7 +259,7 @@ export function PresetSidebar({ value, onChange }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск по шаблонам"
-            className="min-w-0 flex-1 bg-transparent text-xs text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
           />
           <button
             type="button"
@@ -387,14 +387,14 @@ export function PresetSidebar({ value, onChange }: Props) {
             return (
               <div key={cat.id} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-semibold">{cat.label}</h3>
+                  <h3 className="text-sm font-semibold">{cat.label}</h3>
                   {showToggle && (
                     <button
                       type="button"
                       onClick={() =>
                         setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
                       }
-                      className="text-xs font-medium text-accent-green transition hover:opacity-80"
+                      className="text-sm font-medium text-accent-green transition hover:opacity-80"
                     >
                       {isExpanded ? "Свернуть" : "Все"}
                     </button>

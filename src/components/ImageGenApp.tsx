@@ -1232,7 +1232,7 @@ export function ImageGenApp() {
                             key={g}
                             type="button"
                             onClick={() => setPersonGender(g)}
-                            className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                               personGender === g
                                 ? "border-accent-green bg-accent-green/10 text-accent-green"
                                 : "border-border text-foreground/70 hover:bg-white/5"
@@ -1312,7 +1312,9 @@ export function ImageGenApp() {
             </button>
           ) : null}
 
-          {/* Flow steps — step 2 lights up once a banner exists */}
+          {/* Flow steps — step 2 lights up once a banner exists. Kept compact
+              (12px) so the two labels stay on one line; it's a progress
+              indicator, not body content. */}
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-2">
               <span

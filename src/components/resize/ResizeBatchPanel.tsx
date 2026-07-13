@@ -371,10 +371,10 @@ export function ResizeBatchPanel({
         }}
       >
         <DialogContent
-          // No close "✕" on the result step — its "Назад" is the single exit
-          // (avoids two ways off the "Пакет готов" screen). Generating step
-          // already hides it (not closable).
-          hideClose={!closable || effectivePhase === "result"}
+          // No close "✕" anywhere in the resize flow — every step exits via its
+          // own "Назад" (select → back to banner, result → back to select).
+          // Generating step already hides it (not closable).
+          hideClose={!closable || effectivePhase === "select" || effectivePhase === "result"}
           onEscapeKeyDown={(e) => {
             if (viewTile || confirmDelete || !closable) {
               e.preventDefault();
@@ -389,7 +389,17 @@ export function ResizeBatchPanel({
           {/* ---------- STEP 1: SELECT ---------- */}
           {effectivePhase === "select" ? (
             <>
-              <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+              <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
+                {/* "Назад" closes the picker back to the banner — same single-exit
+                    pattern as the other screens (the "✕" is hidden). */}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                  Назад
+                </button>
                 <DialogTitle className="ds-h2 text-left">
                   Выбрать ресайз
                   {selectedCount > 0 ? (
@@ -443,7 +453,7 @@ export function ResizeBatchPanel({
                             if (allSelected) clearSizes(g.sizes);
                             else selectAllSizes(g.sizes);
                           }}
-                          className="shrink-0 rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-white/10"
+                          className="shrink-0 rounded px-2 py-0.5 text-sm text-muted-foreground hover:bg-white/10"
                         >
                           {allSelected ? "снять все" : "выбрать все"}
                         </span>
