@@ -9,9 +9,12 @@ import {
   Copy,
   Download,
   Image as ImageIcon,
+  LayoutGrid,
   Loader2,
   MoreHorizontal,
   RefreshCw,
+  SlidersHorizontal,
+  Sparkles,
   Trash2,
   Upload,
   X,
@@ -100,6 +103,13 @@ const LANGUAGES: { value: string; label: string }[] = [
 
 type Status = "idle" | "loading" | "success" | "error";
 
+// Mobile bottom tab bar. Currently HIDDEN by request — navigation is fully
+// covered by the per-screen "Назад" buttons + forward CTAs (wizard flow). The
+// component and its logic stay in place; flip to `true` to bring it back (and
+// change the mobile pane heights from calc(100dvh-4rem) to calc(100dvh-8.25rem)
+// so they leave room for it again).
+const SHOW_MOBILE_TABBAR = false;
+
 // DEV ONLY: показывает экран результата (баннер → одобрить → ресайзы) с
 // картинкой-заглушкой, без реальной генерации (она требует авторизации).
 // Поставь false, когда закончишь дорабатывать этот экран.
@@ -159,6 +169,9 @@ export function ImageGenApp() {
   const [quality, setQuality] = useState<Quality>("low");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // Active pane on mobile (< lg). Desktop shows all three columns at once and
+  // ignores this. "templates" | "settings" | "result".
+  const [mobileTab, setMobileTab] = useState<"templates" | "settings" | "result">("templates");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
@@ -693,6 +706,8 @@ export function ImageGenApp() {
   const onGenerate = async () => {
     setStatus("loading");
     setErrorMsg("");
+    // On mobile, jump to the Результат pane so the user watches it generate.
+    setMobileTab("result");
     // A fresh master generation always starts a new card. The history
     // banner clears so the UI doesn't lie about provenance.
     setLoadedCardId(null);
@@ -780,14 +795,40 @@ export function ImageGenApp() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Settings icon hidden — настройки бренда доступны прямо в форме */}
 
-      <div className="flex flex-col gap-6 p-3 lg:flex-row">
+      <div className="flex flex-col p-0 lg:flex-row lg:gap-6 lg:p-3">
         <h1 className="sr-only">Image Generator</h1>
 
-        {/* COLUMN 1 — sidebar (unchanged) */}
-        <PresetSidebar value={preset} onChange={setPreset} />
+        {/* COLUMN 1 — templates. Own mobile tab; a normal column on desktop.
+            lg:contents makes this wrapper vanish from layout on desktop so the
+            sidebar's own flex-[2] participates directly in the row. */}
+        <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
+          <PresetSidebar
+            value={preset}
+            onChange={(p) => {
+              setPreset(p);
+              // On mobile, picking a template advances to the settings screen.
+              setMobileTab("settings");
+            }}
+          />
+        </div>
 
         {/* COLUMN 2 — settings panel. Every field stacked vertically. */}
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel lg:h-[calc(100vh-2rem)] lg:flex-[4]">
+        <section
+          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-[calc(100vh-2rem)] lg:flex-[4] lg:rounded-2xl lg:border ${
+            mobileTab !== "settings" ? "max-lg:hidden" : ""
+          }`}
+        >
+          {/* Mobile-only screen header: back to templates. */}
+          <div className="px-2 pb-3 pt-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab("templates")}
+              className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+            >
+              <ChevronLeft className="h-5 w-5" />
+              Назад
+            </button>
+          </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               {!isSlotPreset && (
@@ -1216,12 +1257,47 @@ export function ImageGenApp() {
               </div>
             </div>
           </div>
+
+          {/* Mobile-only pinned primary: generate straight from settings. */}
+          <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={
+                status === "loading" ||
+                gen.isBusy ||
+                (!isSlotPreset && prompt.trim().length === 0) ||
+                (isSlotPreset && slotName.trim().length === 0)
+              }
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+            </button>
+          </div>
         </section>
 
         {/* COLUMN 3 — generation area. Button on top, result below. */}
-        <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto lg:h-[calc(100vh-2rem)] lg:flex-[4]">
+        <div
+          className={`flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-[calc(100vh-2rem)] lg:flex-[4] ${
+            mobileTab !== "result" ? "max-lg:hidden" : ""
+          }`}
+        >
+          {/* Mobile-only screen header: back to settings. Hidden while the
+              master is actively generating (can't leave the loader). */}
+          {status !== "loading" && gen.status !== "master_running" ? (
+            <button
+              type="button"
+              onClick={() => setMobileTab("settings")}
+              className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
+            >
+              <ChevronLeft className="h-5 w-5" />
+              Назад
+            </button>
+          ) : null}
+
           {/* Back to the settings/regeneration screen — visible after a banner
-              is generated (or while generating/errored). */}
+              is generated (or while generating/errored). Desktop only; mobile
+              uses the screen-header back above. */}
           {hasBanner ||
           status !== "idle" ||
           gen.status === "master_running" ||
@@ -1229,7 +1305,7 @@ export function ImageGenApp() {
             <button
               type="button"
               onClick={backToStart}
-              className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+              className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground max-lg:hidden"
             >
               <ChevronLeft className="h-4 w-4" />
               Назад
@@ -1265,6 +1341,9 @@ export function ImageGenApp() {
             </div>
           </div>
 
+          {/* Master-generate button. On mobile it lives only on the settings
+              screen (single sticky CTA); here it's desktop-only to avoid a
+              duplicate. */}
           <button
             type="button"
             onClick={onGenerate}
@@ -1274,7 +1353,7 @@ export function ImageGenApp() {
               (!isSlotPreset && prompt.trim().length === 0) ||
               (isSlotPreset && slotName.trim().length === 0)
             }
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
             {status === "loading" ? "Генерация…" : "Сгенерировать"}
           </button>
@@ -1282,7 +1361,7 @@ export function ImageGenApp() {
             (isSlotPreset && slotName.trim().length === 0)) &&
           status !== "loading" &&
           !gen.isBusy ? (
-            <p className="-mt-1 text-center text-xs text-muted-foreground">
+            <p className="-mt-1 text-center text-xs text-muted-foreground max-lg:hidden">
               Заполните «
               {isSlotPreset
                 ? "Название слота"
@@ -1484,7 +1563,7 @@ export function ImageGenApp() {
                   <div className="space-y-1">
                     <h2 className="ds-h2">Здесь появится ваш баннер</h2>
                     <p className="text-sm text-muted-foreground">
-                      Заполните настройки слева и нажмите «Сгенерировать».
+                      Заполните настройки, чтобы сгенерировать баннер.
                     </p>
                   </div>
                 </div>
@@ -1497,6 +1576,47 @@ export function ImageGenApp() {
       {zoomOpen && zoomSrc && (
         <FullscreenImageModal src={zoomSrc} onClose={() => setZoomOpen(false)} />
       )}
+
+      {/* Mobile bottom navigation — turns the three desktop columns into
+          switchable panes. Hidden on lg where all three show side by side.
+          Currently gated off via SHOW_MOBILE_TABBAR (kept for quick re-enable). */}
+      {SHOW_MOBILE_TABBAR ? (
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[4.25rem] items-stretch border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        {(
+          [
+            { id: "templates", label: "Шаблоны", Icon: LayoutGrid },
+            { id: "settings", label: "Настройки", Icon: SlidersHorizontal },
+            { id: "result", label: "Результат", Icon: Sparkles },
+          ] as const
+        ).map(({ id, label, Icon }) => {
+          const active = mobileTab === id;
+          const busyDot = id === "result" && (gen.isBusy || hasBanner);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMobileTab(id)}
+              aria-current={active ? "page" : undefined}
+              className={`relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
+                active ? "text-accent-green" : "text-muted-foreground"
+              }`}
+            >
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {busyDot ? (
+                  <span
+                    className={`absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent-green ${
+                      gen.isBusy ? "animate-pulse" : ""
+                    }`}
+                  />
+                ) : null}
+              </span>
+              {label}
+            </button>
+          );
+        })}
+      </nav>
+      ) : null}
     </div>
   );
 }

@@ -80,7 +80,7 @@
 
   --text-primary: #ffffff; /* заголовки, основной текст */
   --text-secondary: #a0a0a0; /* описания, второстепенный текст */
-  --text-muted: #6e6e6e; /* мелкие подписи, метаданные */
+  --text-muted: #909090; /* мелкие подписи, метаданные — поднят с #6e6e6e для WCAG AA (5.16:1+ на всех фонах) */
 
   --badge-promo: #ff2d78; /* бейдж скидки/промо */
   --badge-trial: #3b82f6; /* бейдж FREE TRIAL */
@@ -414,5 +414,21 @@ select {
   .dw-glow,
   .dw-confetti-piece {
     animation: none;
+  }
+}
+
+/* Mobile input ergonomics. Below the lg breakpoint every text control gets a
+   >=16px font (prevents iOS Safari's focus auto-zoom) and a >=44px tap target.
+   Applies to the design-system class and to raw controls the same way. */
+@media (max-width: 1023px) {
+  .ds-input,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  textarea {
+    min-height: 88px;
   }
 }
