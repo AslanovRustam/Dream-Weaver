@@ -33,7 +33,7 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
   // ----------------------------------------------------------------
   {
     id: "social-posts",
-    title: "Посты для соцсетей",
+    title: "Соцсети — посты",
     subtitle: "Instagram, Facebook, квадратные / портретные",
     sizes: [
       { w: 1080, h: 1080, ratio: "1:1", label: "Instagram post" },
@@ -50,7 +50,7 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
   // ----------------------------------------------------------------
   {
     id: "stories",
-    title: "Сторис и короткие видео",
+    title: "Stories / Reels / TikTok",
     subtitle: "Вертикальные, для мобильных лент",
     sizes: [
       { w: 1080, h: 1920, ratio: "9:16", label: "Stories / Reels / TikTok / Shorts" },
@@ -65,8 +65,8 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
   // ----------------------------------------------------------------
   {
     id: "youtube",
-    title: "YouTube и презентации",
-    subtitle: "Горизонтальные обложки 16:9",
+    title: "YouTube / Презентации",
+    subtitle: "Широкоформатные 16:9",
     sizes: [
       { w: 1920, h: 1080, ratio: "16:9", label: "Full HD" },
       { w: 1280, h: 720, ratio: "16:9", label: "HD" },
@@ -131,7 +131,7 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
   // ----------------------------------------------------------------
   {
     id: "tiny",
-    title: "Мини-форматы",
+    title: "Маленькие плашки",
     subtitle: "Превью, кнопки, иконки",
     sizes: [
       { w: 300, h: 300, ratio: "1:1", label: "Medium square" },

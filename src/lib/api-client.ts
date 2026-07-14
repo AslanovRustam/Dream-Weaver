@@ -59,13 +59,6 @@ export async function apiJson<T = unknown>(path: string, init: ApiInit = {}): Pr
     }
   }
   if (!res.ok) {
-    // A 401 means the session is gone/expired. The raw server text is English
-    // and database-ish ("Invalid or expired token") — surface a clear, human
-    // message instead so every protected screen can say "sign in again" rather
-    // than showing what looks like a bug.
-    if (res.status === 401) {
-      throw new ApiError(401, "Сессия истекла. Войдите снова, чтобы продолжить.", parsed);
-    }
     const message =
       (parsed && typeof parsed === "object" && "error" in (parsed as Record<string, unknown>)
         ? String((parsed as { error: unknown }).error)
