@@ -271,7 +271,9 @@ export function GenerationProvider({ children }: ProviderProps) {
       ...prev,
       status: prev.status === "batch_running" ? "done" : prev.status,
       tiles: prev.tiles.map((t) =>
-        t.status === "queued" ? { ...t, status: "error", error: "Отменено" } : t,
+        t.status === "queued" || t.status === "running"
+          ? { ...t, status: "error", error: "Отменено" }
+          : t,
       ),
     }));
   }, []);
@@ -535,13 +537,15 @@ export function GenerationProvider({ children }: ProviderProps) {
             void persistResizeTile(basePayload.card_id, t.size, exact);
           }
         } catch (e) {
-          // Both i2i and t2i failed — stretch scale from master as last resort.
-          console.error("[runBatch] bucket fully failed, stretch scale fallback", { ratio, error: e });
+          // Both i2i and t2i failed — surface a real error on every tile in
+          // this bucket. Previously we stretch-scaled the master and marked the
+          // tiles "done", which passed off a wrong-aspect image as a genuine
+          // result and polluted the counter, the result list and the ZIP, while
+          // leaving errorCount at 0 so "Повторить упавшие" never appeared.
+          console.error("[runBatch] bucket fully failed", { ratio, error: e });
+          const message = formatGenerationError(e instanceof Error ? e.message : "Ошибка");
           for (const t of bucketTiles) {
-            if (cancelRef.current) break;
-            const exact = await scaleWithRetry(masterDataUrl, t.size.w, t.size.h, masterDataUrl);
-            updateTile(t.id, { status: "done", dataUrl: exact });
-            void persistResizeTile(basePayload.card_id, t.size, exact);
+            updateTile(t.id, { status: "error", error: message });
           }
         }
       }

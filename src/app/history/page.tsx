@@ -361,7 +361,7 @@ function FilterBar({
         />
       </div>
       <select
-        className="h-9 rounded-md border bg-background px-3 text-sm"
+        className="h-11 rounded-lg border border-border bg-background px-3.5 text-sm text-foreground outline-none focus:border-accent-green"
         value={presetId}
         onChange={(e) => onPreset(e.target.value)}
       >

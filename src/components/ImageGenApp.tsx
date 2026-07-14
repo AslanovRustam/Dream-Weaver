@@ -26,6 +26,7 @@ import { type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
 import { FullscreenImageModal } from "./FullscreenImageModal";
 import { type Quality } from "./QualityPicker";
+import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -781,14 +782,34 @@ export function ImageGenApp() {
     gen.clear();
   };
 
-  // "Назад на главную" — clears the generated result and returns the editor
+  // "Начать заново" — clears the generated result and returns the editor
   // to its empty starting state (form inputs are kept so the user can tweak
   // and regenerate). Does not touch generation logic beyond clearing.
+  // Because this discards a fresh, not-yet-saved master, confirm first so a
+  // stray click can't silently destroy the user's banner.
   const backToStart = () => {
+    if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
+      const ok = window.confirm("Вы начнёте заново — текущий баннер будет удалён. Продолжить?");
+      if (!ok) return;
+    }
     reset();
     setLoadedCardId(null);
     setLoadedCardName(null);
     setLoadedFromPreset(null);
+  };
+
+  // Picking a different template invalidates a freshly-generated master —
+  // the [preset] effect above calls gen.clear() on the change. If such a
+  // result exists and isn't already safely saved in history, confirm before
+  // discarding it; otherwise the switch is free and silent.
+  const changePreset = (p: string) => {
+    if (p !== preset && imageUrl !== null && !loadedCardId && !gen.isBusy) {
+      const ok = window.confirm("Смена шаблона удалит текущий баннер. Продолжить?");
+      if (!ok) return;
+    }
+    setPreset(p);
+    // On mobile, picking a template advances to the settings screen.
+    setMobileTab("settings");
   };
 
   return (
@@ -802,14 +823,7 @@ export function ImageGenApp() {
             lg:contents makes this wrapper vanish from layout on desktop so the
             sidebar's own flex-[2] participates directly in the row. */}
         <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
-          <PresetSidebar
-            value={preset}
-            onChange={(p) => {
-              setPreset(p);
-              // On mobile, picking a template advances to the settings screen.
-              setMobileTab("settings");
-            }}
-          />
+          <PresetSidebar value={preset} onChange={changePreset} />
         </div>
 
         {/* COLUMN 2 — settings panel. Every field stacked vertically. */}
@@ -1054,7 +1068,7 @@ export function ImageGenApp() {
                     placeholder="+200% на первую ставку, Odds Boost 5.0…"
                   />
 
-                  <div className="rounded-xl border border-border bg-background/40 p-4">
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="ds-h2">Игроки на баннере</p>
@@ -1251,7 +1265,7 @@ export function ImageGenApp() {
                   качество остаётся на своём значении по умолчанию ("low"). */}
               <div className="mt-2 flex flex-col gap-4">
                 <div className="min-w-0">
-                  <p className="mb-3 ds-h2">Соотношение сторон</p>
+                  <p className="mb-2 ds-h2">Соотношение сторон</p>
                   <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
                 </div>
               </div>
@@ -1295,9 +1309,10 @@ export function ImageGenApp() {
             </button>
           ) : null}
 
-          {/* Back to the settings/regeneration screen — visible after a banner
-              is generated (or while generating/errored). Desktop only; mobile
-              uses the screen-header back above. */}
+          {/* "Начать заново" — discards the current result and returns the
+              editor to its empty starting state. Desktop only (both columns are
+              visible side by side here, so this is a reset, not navigation);
+              mobile uses the screen-header back above, which only switches tab. */}
           {hasBanner ||
           status !== "idle" ||
           gen.status === "master_running" ||
@@ -1307,8 +1322,8 @@ export function ImageGenApp() {
               onClick={backToStart}
               className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground max-lg:hidden"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Назад
+              <RefreshCw className="h-4 w-4" />
+              Начать заново
             </button>
           ) : null}
 
@@ -1466,7 +1481,10 @@ export function ImageGenApp() {
                     <div className="absolute right-2 top-2 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`)}
+                        onClick={() => {
+                          downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
+                          toast.success("Баннер скачан");
+                        }}
                         aria-label="Скачать"
                         title="Скачать"
                         className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
@@ -1514,7 +1532,10 @@ export function ImageGenApp() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
-                            onClick={() => downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`)}
+                            onClick={() => {
+                          downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
+                          toast.success("Баннер скачан");
+                        }}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                           >
                             <Download className="h-4 w-4 text-muted-foreground" />
@@ -1547,6 +1568,7 @@ export function ImageGenApp() {
                       batchStatus={gen.status}
                       onRegenerateTile={gen.regenerateTile}
                       onRemoveTile={gen.removeTile}
+                      onCancel={gen.cancel}
                     />
                   ) : null}
                 </div>

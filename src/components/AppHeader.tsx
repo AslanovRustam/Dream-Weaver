@@ -319,7 +319,7 @@ export function AppHeader() {
                           <p className="truncate text-sm font-medium">{n.title}</p>
                           <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
                         </div>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{n.time}</span>
+                        <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
                       </div>
                     );
                   })}
@@ -586,7 +586,7 @@ function NotificationsMenu() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
-            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 text-[10px] font-bold text-black">
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-black">
               {unread}
             </span>
           ) : null}
@@ -613,7 +613,7 @@ function NotificationsMenu() {
                   <p className="truncate text-sm font-medium">{n.title}</p>
                   <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
                 </div>
-                <span className="shrink-0 text-[10px] text-muted-foreground">{n.time}</span>
+                <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
               </div>
             );
           })}
