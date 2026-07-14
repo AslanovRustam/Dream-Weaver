@@ -55,11 +55,6 @@ const RATIOS_NANO = [
   "9:21",
 ];
 
-/**
- * Reduce a width × height pair to one of our canonical aspect labels.
- * Uses the smallest absolute-difference match — good enough since the
- * master is always one of OpenAI's three native canvas sizes.
- */
 function aspectFromDims(w: number, h: number): string {
   const r = w / h;
   const candidates: Array<[string, number]> = [
@@ -103,11 +98,6 @@ const LANGUAGES: { value: string; label: string }[] = [
 
 type Status = "idle" | "loading" | "success" | "error";
 
-// Mobile bottom tab bar. Currently HIDDEN by request — navigation is fully
-// covered by the per-screen "Назад" buttons + forward CTAs (wizard flow). The
-// component and its logic stay in place; flip to `true` to bring it back (and
-// change the mobile pane heights from calc(100dvh-4rem) to calc(100dvh-8.25rem)
-// so they leave room for it again).
 const SHOW_MOBILE_TABBAR = false;
 
 // DEV ONLY: показывает экран результата (баннер → одобрить → ресайзы) с
@@ -343,10 +333,7 @@ export function ImageGenApp() {
     if (new URLSearchParams(window.location.search).get("card")) return;
     const p = gen.lastPayload;
     if (!p) return;
-    const fillStr = (
-      setter: (v: string | ((cur: string) => string)) => void,
-      val: unknown,
-    ) => {
+    const fillStr = (setter: (v: string | ((cur: string) => string)) => void, val: unknown) => {
       if (typeof val === "string" && val) setter((cur) => (cur.trim() === "" ? val : cur));
     };
     fillStr(setPrompt, p.prompt);
@@ -1024,9 +1011,7 @@ export function ImageGenApp() {
                   <p className="ds-h2">Параметры матча</p>
                   <div className="flex flex-col gap-4">
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Тип спорта
-                      </label>
+                      <label className="mb-2 block ds-label">Тип спорта</label>
                       <select
                         value={sportType}
                         onChange={(e) => setSportType(e.target.value)}
@@ -1051,9 +1036,7 @@ export function ImageGenApp() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Тип матча
-                      </label>
+                      <label className="mb-2 block ds-label">Тип матча</label>
                       <select
                         value={matchType}
                         onChange={(e) => setMatchType(e.target.value)}
@@ -1069,9 +1052,7 @@ export function ImageGenApp() {
 
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Сторона A
-                      </label>
+                      <label className="mb-2 block ds-label">Сторона A</label>
                       <input
                         type="text"
                         value={sideAName}
@@ -1093,9 +1074,7 @@ export function ImageGenApp() {
                     </div>
                     <span className="text-base font-bold text-muted-foreground">VS</span>
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Сторона B
-                      </label>
+                      <label className="mb-2 block ds-label">Сторона B</label>
                       <input
                         type="text"
                         value={sideBName}
@@ -1119,9 +1098,7 @@ export function ImageGenApp() {
 
                   <div className="flex flex-col gap-4">
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Название события
-                      </label>
+                      <label className="mb-2 block ds-label">Название события</label>
                       <input
                         type="text"
                         value={eventName}
@@ -1131,9 +1108,7 @@ export function ImageGenApp() {
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Дата и время
-                      </label>
+                      <label className="mb-2 block ds-label">Дата и время</label>
                       <input
                         type="text"
                         value={matchDatetime}
@@ -1143,9 +1118,7 @@ export function ImageGenApp() {
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block ds-label">
-                        Локация / стадион
-                      </label>
+                      <label className="mb-2 block ds-label">Локация / стадион</label>
                       <input
                         type="text"
                         value={location}
@@ -1179,9 +1152,7 @@ export function ImageGenApp() {
                       <div className="mt-5 space-y-5">
                         <div className="flex flex-col gap-5">
                           <div>
-                            <label className="mb-2 block ds-label">
-                              Сторона A — игроки
-                            </label>
+                            <label className="mb-2 block ds-label">Сторона A — игроки</label>
                             <input
                               type="text"
                               value={sideAPlayers}
@@ -1191,9 +1162,7 @@ export function ImageGenApp() {
                             />
                           </div>
                           <div>
-                            <label className="mb-2 block ds-label">
-                              Сторона B — игроки
-                            </label>
+                            <label className="mb-2 block ds-label">Сторона B — игроки</label>
                             <input
                               type="text"
                               value={sideBPlayers}
@@ -1315,12 +1284,8 @@ export function ImageGenApp() {
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="ds-h2">
-                          Рекламные тексты в промпте
-                        </p>
-                        <p className="mt-0.5 ds-caption">
-                          Заголовок, фичи, цифры из шаблона
-                        </p>
+                        <p className="ds-h2">Рекламные тексты в промпте</p>
+                        <p className="mt-0.5 ds-caption">Заголовок, фичи, цифры из шаблона</p>
                       </div>
                       <ToggleSwitch enabled={adTextsEnabled} onToggle={setAdTextsEnabled} />
                     </div>
@@ -1330,9 +1295,7 @@ export function ImageGenApp() {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="ds-h2">Человек в кадре</p>
-                        <p className="mt-0.5 ds-caption">
-                          Модель как центральный субъект
-                        </p>
+                        <p className="mt-0.5 ds-caption">Модель как центральный субъект</p>
                       </div>
                       <ToggleSwitch enabled={personEnabled} onToggle={setPersonEnabled} />
                     </div>
@@ -1462,7 +1425,9 @@ export function ImageGenApp() {
             <div className="flex items-center gap-2">
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                  hasBanner ? "bg-accent-green text-black" : "border border-border text-muted-foreground"
+                  hasBanner
+                    ? "bg-accent-green text-black"
+                    : "border border-border text-muted-foreground"
                 }`}
               >
                 2
@@ -1656,9 +1621,9 @@ export function ImageGenApp() {
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
                             onClick={() => {
-                          downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
-                          toast.success("Баннер скачан");
-                        }}
+                              downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
+                              toast.success("Баннер скачан");
+                            }}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                           >
                             <Download className="h-4 w-4 text-muted-foreground" />
@@ -1737,41 +1702,41 @@ export function ImageGenApp() {
           switchable panes. Hidden on lg where all three show side by side.
           Currently gated off via SHOW_MOBILE_TABBAR (kept for quick re-enable). */}
       {SHOW_MOBILE_TABBAR ? (
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[4.25rem] items-stretch border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        {(
-          [
-            { id: "templates", label: "Шаблоны", Icon: LayoutGrid },
-            { id: "settings", label: "Настройки", Icon: SlidersHorizontal },
-            { id: "result", label: "Результат", Icon: Sparkles },
-          ] as const
-        ).map(({ id, label, Icon }) => {
-          const active = mobileTab === id;
-          const busyDot = id === "result" && (gen.isBusy || hasBanner);
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setMobileTab(id)}
-              aria-current={active ? "page" : undefined}
-              className={`relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
-                active ? "text-accent-green" : "text-muted-foreground"
-              }`}
-            >
-              <span className="relative">
-                <Icon className="h-5 w-5" />
-                {busyDot ? (
-                  <span
-                    className={`absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent-green ${
-                      gen.isBusy ? "animate-pulse" : ""
-                    }`}
-                  />
-                ) : null}
-              </span>
-              {label}
-            </button>
-          );
-        })}
-      </nav>
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[4.25rem] items-stretch border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+          {(
+            [
+              { id: "templates", label: "Шаблоны", Icon: LayoutGrid },
+              { id: "settings", label: "Настройки", Icon: SlidersHorizontal },
+              { id: "result", label: "Результат", Icon: Sparkles },
+            ] as const
+          ).map(({ id, label, Icon }) => {
+            const active = mobileTab === id;
+            const busyDot = id === "result" && (gen.isBusy || hasBanner);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMobileTab(id)}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
+                  active ? "text-accent-green" : "text-muted-foreground"
+                }`}
+              >
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {busyDot ? (
+                    <span
+                      className={`absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent-green ${
+                        gen.isBusy ? "animate-pulse" : ""
+                      }`}
+                    />
+                  ) : null}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </nav>
       ) : null}
     </div>
   );
