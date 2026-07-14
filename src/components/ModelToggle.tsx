@@ -11,7 +11,7 @@ export function ModelToggle({ value, onChange }: Props) {
     { key: "nano", label: "Реализм" },
   ];
   return (
-    <div className="flex w-full rounded-lg border border-border bg-card p-1">
+    <div className="inline-flex rounded-full border border-border bg-card p-1">
       {options.map((o) => {
         const selected = value === o.key;
         return (
@@ -19,7 +19,7 @@ export function ModelToggle({ value, onChange }: Props) {
             key={o.key}
             type="button"
             onClick={() => onChange(o.key)}
-            className={`flex-1 rounded-md px-4 py-1.5 text-center text-sm font-medium transition-all ${
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
               selected
                 ? "bg-foreground text-background"
                 : "text-foreground/70 hover:text-foreground"

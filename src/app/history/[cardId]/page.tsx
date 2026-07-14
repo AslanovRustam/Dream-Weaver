@@ -179,14 +179,6 @@ function CardBody() {
           <ArrowLeft className="h-4 w-4" /> К истории
         </Link>
         <p className="mt-6 text-sm text-destructive">{err}</p>
-        {/сесси|войдите/i.test(err) ? (
-          <Link
-            href="/login"
-            className="mt-3 inline-flex items-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
-          >
-            Войти снова
-          </Link>
-        ) : null}
       </div>
     );
   }
@@ -269,7 +261,7 @@ function CardBody() {
                 router.push(`/?card=${cardId}`);
               }}
             >
-              <Wand2 className="mr-1 h-4 w-4" /> Использовать как основу
+              <Wand2 className="mr-1 h-4 w-4" /> Использовать как мастер
             </Button>
             <Button size="sm" variant="destructive" disabled={busy} onClick={remove}>
               <Trash2 className="h-4 w-4" />
@@ -281,7 +273,7 @@ function CardBody() {
       {/* Hero — master image at native aspect, capped at 70vh */}
       <section className="mb-6">
         <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
-          Исходное изображение
+          Мастер
           {detail.master?.width && detail.master?.height
             ? ` · ${detail.master.width}×${detail.master.height}`
             : ""}

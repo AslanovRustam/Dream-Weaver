@@ -5,9 +5,6 @@ import { useState } from "react";
 
 import { AuthProvider } from "@/lib/auth-context";
 import { GenerationProvider } from "@/lib/generation-context";
-import { EditorHistoryProvider } from "@/lib/editor-history";
-import { Toaster } from "@/components/ui/sonner";
-import { OfflineBanner } from "@/components/OfflineBanner";
 
 // Replaces TanStack's src/router.tsx (QueryClient creation) + the provider
 // wrapping that lived in __root.tsx's RootComponent. A single stable
@@ -18,12 +15,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <GenerationProvider>
-          <EditorHistoryProvider>{children}</EditorHistoryProvider>
-        </GenerationProvider>
+        <GenerationProvider>{children}</GenerationProvider>
       </AuthProvider>
-      <OfflineBanner />
-      <Toaster position="top-center" />
     </QueryClientProvider>
   );
 }
