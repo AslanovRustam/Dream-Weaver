@@ -92,7 +92,7 @@ const MODEL_IDS: Record<ModelKey, string> = {
 };
 
 const LANGUAGES: { value: string; label: string }[] = [
-  { value: "auto", label: "Язык" },
+  { value: "auto", label: "Авто (по бренду)" },
   { value: "ru", label: "Русский" },
   { value: "uk", label: "Українська" },
   { value: "en", label: "English" },
@@ -170,9 +170,19 @@ export function ImageGenApp() {
   const [quality, setQuality] = useState<Quality>("low");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // Live elapsed-seconds counter for the master loader. The static "10–30 сек"
+  // copy alone reads as frozen on longer runs; a ticking counter proves the
+  // process is still alive.
+  const [genSeconds, setGenSeconds] = useState(0);
   // Active pane on mobile (< lg). Desktop shows all three columns at once and
   // ignores this. "templates" | "settings" | "result".
-  const [mobileTab, setMobileTab] = useState<"templates" | "settings" | "result">("templates");
+  // If a finished banner survived from a previous visit (its image is in the
+  // shared context), land on the result pane so the user actually sees it —
+  // otherwise the editor always reopened on "templates" and the banner looked
+  // lost, reachable only by starting a new generation.
+  const [mobileTab, setMobileTab] = useState<"templates" | "settings" | "result">(
+    imageUrl ? "result" : "templates",
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
@@ -310,6 +320,54 @@ export function ImageGenApp() {
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editSerialized]);
+
+  // Tick the elapsed-seconds counter while the master is generating.
+  const masterLoading = status === "loading" || gen.status === "master_running";
+  useEffect(() => {
+    if (!masterLoading) {
+      setGenSeconds(0);
+      return;
+    }
+    setGenSeconds(0);
+    const id = window.setInterval(() => setGenSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [masterLoading]);
+
+  // Restore the form from the banner that survived a previous visit. The image
+  // and the values that produced it live in the shared context, but the editor
+  // fields are local and would otherwise come back blank after visiting another
+  // screen — making the on-screen banner and the form disagree, and letting a
+  // regenerate run with emptied fields. Runs once on mount; only fills fields
+  // the user hasn't already typed into. The ?card flow has its own restore.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("card")) return;
+    const p = gen.lastPayload;
+    if (!p) return;
+    const fillStr = (setter: (v: string) => void, val: unknown) => {
+      if (typeof val === "string" && val) setter((cur) => (cur.trim() === "" ? val : cur));
+    };
+    fillStr(setPrompt, p.prompt);
+    fillStr(setSlotName, p.slot_name);
+    fillStr(setBannerText, p.banner_text);
+    fillStr(setButtonText, p.button_text);
+    fillStr(setEventText, p.event_text);
+    fillStr(setSubheadline, p.subheadline_text);
+    fillStr(setSportType, p.sport_type);
+    fillStr(setSideAName, p.side_a_name);
+    fillStr(setSideBName, p.side_b_name);
+    fillStr(setEventName, p.event_name);
+    fillStr(setMatchDatetime, p.match_datetime);
+    fillStr(setLocation, p.location);
+    fillStr(setBonusText, p.bonus_text);
+    if (typeof p.match_type === "string" && p.match_type) setMatchType(p.match_type);
+    if (typeof p.banner_text_enabled === "boolean") setBannerTextEnabled(p.banner_text_enabled);
+    if (typeof p.button_text_enabled === "boolean") setButtonTextEnabled(p.button_text_enabled);
+    if (typeof p.subheadline_enabled === "boolean") setSubheadlineEnabled(p.subheadline_enabled);
+    if (typeof p.bonus_enabled === "boolean") setBonusEnabled(p.bonus_enabled);
+    if (typeof p.aspect_ratio === "string" && p.aspect_ratio) setRatio(p.aspect_ratio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // load persisted brand settings
   useEffect(() => {
@@ -503,6 +561,10 @@ export function ImageGenApp() {
           ratio: derivedRatio,
           cardId: card.id,
         });
+        // On mobile the loaded master lives on the "result" pane; jump there so
+        // the user actually sees the banner they picked (desktop shows all
+        // columns at once, so this is a no-op there).
+        setMobileTab("result");
 
         // Clean the URL so reload doesn't re-trigger.
         url.searchParams.delete("card");
@@ -556,12 +618,16 @@ export function ImageGenApp() {
         setLastPayload((prev) => (prev ? { ...prev, card_id: r.card_id } : prev));
       })
       .catch((e) => {
-        // Non-fatal: tiles just won't persist this round. Surface via
-        // the existing error message slot so the user knows.
-        setErrorMsg(
+        // Non-fatal: the master banner is still valid — only re-attaching this
+        // round's resizes to a new card under the new preset failed. Surface it
+        // as a toast (visible, non-blocking) instead of the full error card,
+        // which would blank the still-usable result. Previously this wrote to
+        // errorMsg, which is only rendered when status==="error" — so the user
+        // never actually saw it.
+        toast.error(
           e instanceof ApiError
-            ? `Не удалось создать новую карточку под пресет: ${e.message}`
-            : "Не удалось создать новую карточку под этот пресет",
+            ? `Не удалось привязать ресайзы к новому шаблону: ${e.message}`
+            : "Не удалось привязать ресайзы к новому шаблону. Попробуйте сменить шаблон ещё раз.",
         );
       });
   }, [preset, loadedCardId, loadedFromPreset]);
@@ -705,6 +771,25 @@ export function ImageGenApp() {
   };
 
   const onGenerate = async () => {
+    // Guard EVERY generation path against an empty required field. The two
+    // "Сгенерировать" buttons gate via `disabled`, but the "Перегенерировать"
+    // menu item calls this directly — without this check it would wipe a
+    // finished banner and start a new one from almost nothing.
+    const requiredEmpty =
+      (!isSlotPreset && prompt.trim().length === 0) ||
+      (isSlotPreset && slotName.trim().length === 0);
+    if (requiredEmpty) {
+      toast.error(
+        `Заполните «${
+          isSlotPreset
+            ? "Название слота"
+            : isSportPreset
+              ? "Опишите матч / событие"
+              : "Тематика баннера"
+        }», чтобы сгенерировать`,
+      );
+      return;
+    }
     setStatus("loading");
     setErrorMsg("");
     // On mobile, jump to the Результат pane so the user watches it generate.
@@ -782,6 +867,16 @@ export function ImageGenApp() {
     gen.clear();
   };
 
+  // Abort a running master generation and return to the settings screen so the
+  // user can tweak and retry. gen.cancel() flips master_running → idle; the
+  // orphaned request (if it later resolves) is ignored via cancelRef, so it
+  // can't resurrect a result. Gives mobile a real exit from the loader.
+  const cancelMaster = () => {
+    gen.cancel();
+    setStatus("idle");
+    setMobileTab("settings");
+  };
+
   // "Начать заново" — clears the generated result and returns the editor
   // to its empty starting state (form inputs are kept so the user can tweak
   // and regenerate). Does not touch generation logic beyond clearing.
@@ -849,7 +944,7 @@ export function ImageGenApp() {
                 <div>
                   <label className="mb-2 block ds-h2">
                     {isSportPreset ? "Опишите матч / событие" : "Тематика баннера"}{" "}
-                    <span className="text-accent-green">*</span>
+                    <span className="text-[color:var(--status-error)]">*</span>
                   </label>
                   <textarea
                     value={prompt}
@@ -861,7 +956,7 @@ export function ImageGenApp() {
                         ? "Например: финал Лиги Чемпионов между PSG и Liverpool…"
                         : isEventPreset
                           ? "Например: турнир по покеру на новогодние праздники, призовой фонд $100k…"
-                          : "Покерный турнир, акция, фри спины, кэшбэк, новый слот…"
+                          : "Новинка, акция, скидка, ключевые преимущества, спецпредложение…"
                     }
                   />
                 </div>
@@ -870,7 +965,7 @@ export function ImageGenApp() {
               {isEventPreset && (
                 <div>
                   <label className="mb-2 block ds-h2">
-                    Событие / повод <span className="text-foreground/40">(опционально)</span>
+                    Событие / повод <span className="text-muted-foreground">(опционально)</span>
                   </label>
                   <input
                     type="text"
@@ -1135,9 +1230,9 @@ export function ImageGenApp() {
                           type="button"
                           onClick={() => setBrandLogo("")}
                           aria-label="Удалить логотип"
-                          className="absolute -right-2 -top-2 rounded-full bg-foreground p-0.5 text-background hover:opacity-80"
+                          className="absolute -right-2 -top-2 rounded-full bg-foreground p-1 text-background hover:opacity-80 after:absolute after:-inset-2.5 after:content-['']"
                         >
-                          <X size={10} />
+                          <X size={12} />
                         </button>
                       </div>
                     ) : (
@@ -1287,6 +1382,20 @@ export function ImageGenApp() {
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
+            {((!isSlotPreset && prompt.trim().length === 0) ||
+              (isSlotPreset && slotName.trim().length === 0)) &&
+            status !== "loading" &&
+            !gen.isBusy ? (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Заполните «
+                {isSlotPreset
+                  ? "Название слота"
+                  : isSportPreset
+                    ? "Опишите матч / событие"
+                    : "Тематика баннера"}
+                », чтобы сгенерировать
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -1312,11 +1421,15 @@ export function ImageGenApp() {
           {/* "Начать заново" — discards the current result and returns the
               editor to its empty starting state. Desktop only (both columns are
               visible side by side here, so this is a reset, not navigation);
-              mobile uses the screen-header back above, which only switches tab. */}
-          {hasBanner ||
-          status !== "idle" ||
-          gen.status === "master_running" ||
-          gen.status === "batch_running" ? (
+              mobile uses the screen-header back above, which only switches tab.
+              Hidden while the master is actively generating: the loader's own
+              "Отменить" is the correct action then (mirrors the mobile back,
+              which is also hidden during generation). */}
+          {(hasBanner ||
+            status !== "idle" ||
+            gen.status === "master_running" ||
+            gen.status === "batch_running") &&
+          !(status === "loading" || gen.status === "master_running") ? (
             <button
               type="button"
               onClick={backToStart}
@@ -1435,7 +1548,19 @@ export function ImageGenApp() {
                   <div className="relative flex flex-col items-center gap-3 px-6 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-accent-green" />
                     <p className="text-sm font-medium text-foreground">Генерируем баннер…</p>
-                    <p className="text-xs text-muted-foreground">Обычно занимает 10–30 секунд</p>
+                    <p className="text-xs text-muted-foreground">
+                      {genSeconds >= 40
+                        ? `Занимает дольше обычного… ${genSeconds} с`
+                        : `Обычно занимает 10–30 секунд · ${genSeconds} с`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={cancelMaster}
+                      className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                      Отменить
+                    </button>
                   </div>
                 </div>
               );
@@ -1487,7 +1612,7 @@ export function ImageGenApp() {
                         }}
                         aria-label="Скачать"
                         title="Скачать"
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70 max-sm:h-11 max-sm:w-11"
                       >
                         <Download className="h-4 w-4" />
                       </button>
@@ -1497,7 +1622,7 @@ export function ImageGenApp() {
                             type="button"
                             aria-label="Ещё"
                             title="Ещё"
-                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70 max-sm:h-11 max-sm:w-11"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -1669,7 +1794,7 @@ function OptionalField({
           role="switch"
           aria-checked={enabled}
           onClick={() => onToggle(!enabled)}
-          className={`relative h-5 w-9 rounded-full transition-colors ${
+          className={`relative h-5 w-9 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
             enabled ? "bg-accent-green" : "bg-white/15"
           }`}
         >
@@ -1698,7 +1823,7 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: (v: b
       role="switch"
       aria-checked={enabled}
       onClick={() => onToggle(!enabled)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
         enabled ? "bg-accent-green" : "bg-white/15"
       }`}
     >
@@ -1744,9 +1869,9 @@ function SlotUpload({
             type="button"
             onClick={onClear}
             aria-label="Удалить"
-            className="absolute -right-2 -top-2 rounded-full bg-foreground p-0.5 text-background hover:opacity-80"
+            className="absolute -right-2 -top-2 rounded-full bg-foreground p-1 text-background hover:opacity-80 after:absolute after:-inset-2.5 after:content-['']"
           >
-            <X size={10} />
+            <X size={12} />
           </button>
         </div>
       ) : (
@@ -1869,7 +1994,7 @@ function GenerationErrorCard({
           <p className="text-sm font-semibold text-foreground">{copy.title}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">{copy.hint}</p>
           {message ? (
-            <p className="mt-2 truncate text-xs text-muted-foreground/60" title={message}>
+            <p className="mt-2 truncate text-xs text-muted-foreground" title={message}>
               {message}
             </p>
           ) : null}

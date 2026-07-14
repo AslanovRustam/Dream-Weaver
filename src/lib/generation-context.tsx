@@ -190,7 +190,16 @@ function loadFromStorage(): GenerationStateSnapshot | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<GenerationStateSnapshot> | null;
     if (!parsed || typeof parsed !== "object") return null;
-    return { ...INITIAL, ...parsed };
+    const merged = { ...INITIAL, ...parsed };
+    // A persisted in-flight status can't have a live request behind it after a
+    // reload (the fetch died with the old page). Coerce it to a terminal state
+    // so the app never rehydrates into a stuck loader with no way out — this is
+    // especially bad on mobile, where cancel/back are hidden during generation.
+    if (merged.status === "master_running" || merged.status === "batch_running") {
+      merged.status = "idle";
+      merged.tiles = [];
+    }
+    return merged;
   } catch {
     return null;
   }
@@ -269,7 +278,12 @@ export function GenerationProvider({ children }: ProviderProps) {
     cancelRef.current = true;
     setState((prev) => ({
       ...prev,
-      status: prev.status === "batch_running" ? "done" : prev.status,
+      status:
+        prev.status === "batch_running"
+          ? "done"
+          : prev.status === "master_running"
+            ? "idle"
+            : prev.status,
       tiles: prev.tiles.map((t) =>
         t.status === "queued" || t.status === "running"
           ? { ...t, status: "error", error: "Отменено" }

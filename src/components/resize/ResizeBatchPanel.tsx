@@ -16,6 +16,7 @@
 // real generation because it only measures observed completion times.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -233,7 +234,7 @@ export function ResizeBatchPanel({
     return (
       <li key={k}>
         <label
-          className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-0.5 transition hover:bg-white/5 ${
+          className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-0.5 transition hover:bg-white/5 max-sm:min-h-11 ${
             isOn ? "bg-accent-green/10" : ""
           }`}
         >
@@ -241,7 +242,7 @@ export function ResizeBatchPanel({
             type="checkbox"
             checked={isOn}
             onChange={() => toggleSize(s)}
-            className="h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent-green,#9bff58)]"
+            className="h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent-green,#9bff58)] max-sm:h-5 max-sm:w-5"
           />
           {/* Named sizes: purpose = primary (foreground, lighter weight), pixels
               = secondary (muted, right). Unnamed sizes: the pixels ARE the id. */}
@@ -348,12 +349,15 @@ export function ResizeBatchPanel({
     }
   };
 
-  // Live progress + ETA (see file header for the formula).
-  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-  const remaining = total - doneCount;
+  // Live progress + ETA. Count terminal tiles (done + error), not just done —
+  // otherwise an errored bucket never advances the bar, so it stalls (e.g. at
+  // 70%) and then the modal jumps straight to the result once everything is
+  // terminal, never visually reaching 100%.
+  const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  const remaining = total - processed;
   const etaSecRounded =
-    doneCount > 0 && remaining > 0 && startRef.current
-      ? Math.max(1, Math.round((Date.now() - startRef.current) / doneCount / 1000 * remaining))
+    processed > 0 && remaining > 0 && startRef.current
+      ? Math.max(1, Math.round((Date.now() - startRef.current) / processed / 1000 * remaining))
       : null;
   const canZip = doneCount >= 1 && !zipping;
 
@@ -499,6 +503,11 @@ export function ResizeBatchPanel({
                 })}
               </div>
 
+              {selectedCount === 0 ? (
+                <p className="shrink-0 px-4 pt-2 text-center text-xs text-muted-foreground">
+                  Выберите хотя бы один формат, чтобы продолжить
+                </p>
+              ) : null}
               <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
                 {selectedCount > 0 ? (
                   <button
@@ -539,7 +548,8 @@ export function ResizeBatchPanel({
                     />
                   </div>
                   <p className="mt-4 text-sm font-medium">
-                    Сгенерировано {doneCount} из {total} баннеров
+                    Сгенерировано {doneCount} из {total} форматов
+                    {errorCount ? ` · ${errorCount} с ошибкой` : ""}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {etaSecRounded == null
@@ -564,19 +574,49 @@ export function ResizeBatchPanel({
           {effectivePhase === "result" ? (
             <>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
-                <button
-                  type="button"
-                  onClick={backToSelect}
-                  className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                  Назад
-                </button>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={backToSelect}
+                    className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                    Назад
+                  </button>
+                  {/* Direct exit from the result — the natural end of the flow.
+                      "Назад" only steps back to the format picker; without this
+                      the user had to go back then close to leave. */}
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="-mr-2 inline-flex min-h-11 w-fit items-center rounded-lg px-3 text-sm font-medium text-foreground transition hover:bg-white/5"
+                  >
+                    Готово
+                  </button>
+                </div>
                 <DialogTitle className="ds-h2 flex items-center gap-2 text-left">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </span>
-                  Пакет готов
+                  {doneCount === 0 ? (
+                    <>
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--status-error)] text-white">
+                        <AlertTriangle className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                      Не удалось создать пакет
+                    </>
+                  ) : errorCount > 0 ? (
+                    <>
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--status-premium)] text-black">
+                        <AlertTriangle className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                      Пакет готов частично
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                      Пакет готов
+                    </>
+                  )}
                 </DialogTitle>
               </DialogHeader>
 
@@ -603,16 +643,30 @@ export function ResizeBatchPanel({
                               <Check className="h-3 w-3" strokeWidth={3} />
                             </span>
                           ) : (
-                            <span className="text-xs text-[color:var(--status-error,#ff5c5c)]">✕</span>
+                            <span
+                              className="text-xs text-[color:var(--status-error,#ff5c5c)]"
+                              title={t.error || "Ошибка генерации"}
+                            >
+                              ✕
+                            </span>
                           )}
                         </span>
                         <div className="flex min-w-0 flex-1 items-baseline gap-2">
                           <span className="font-mono text-sm tabular-nums">
                             {t.size.w}×{t.size.h}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {t.size.label || (t.size.w / t.size.h >= 1 ? "горизонт." : "вертик.")}
-                          </span>
+                          {t.status === "error" ? (
+                            <span
+                              className="truncate text-xs text-[color:var(--status-error)]"
+                              title={t.error || "Ошибка генерации"}
+                            >
+                              {t.error || "Ошибка генерации"}
+                            </span>
+                          ) : (
+                            <span className="truncate text-xs text-muted-foreground">
+                              {t.size.label || (t.size.w / t.size.h >= 1 ? "горизонт." : "вертик.")}
+                            </span>
+                          )}
                         </div>
 
                         {running ? (
