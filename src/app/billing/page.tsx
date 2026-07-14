@@ -113,7 +113,7 @@ const BUSINESS_PLANS: Plan[] = [
     tagline: "Индивидуальные условия под задачи",
     monthly: null,
     credits: "Кредиты по договору",
-    creditNotes: ["Объём под ваш поток", "Неограниченно пользователей"],
+    creditNotes: ["Объём под ваш поток", "Без лимита пользователей"],
     features: [
       { text: "Кастомный объём кредитов", included: true },
       { text: "SSO и контроль доступа", included: true },
@@ -240,7 +240,7 @@ function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boo
         aria-checked={annual}
         aria-label="Переключить период оплаты"
         onClick={() => onChange(!annual)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
           annual ? "bg-white/30" : "bg-white/15"
         }`}
       >

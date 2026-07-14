@@ -7,6 +7,7 @@
 // Right : generation progress → credits → notifications → help → my
 //         projects → profile avatar.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -14,6 +15,7 @@ import {
   Bell,
   BookOpen,
   Check,
+  ChevronDown,
   Clock,
   Coins,
   Crown,
@@ -106,7 +108,7 @@ const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] =
   { id: "p1", name: "Новогодний экспресс", thumb: "https://picsum.photos/seed/dwp1/112/80", updated: "9 июл" },
   { id: "p2", name: "Слот «Book of Sun»", thumb: "https://picsum.photos/seed/dwp2/112/80", updated: "8 июл" },
   { id: "p3", name: "Матч ЦСКА — Спартак", thumb: "https://picsum.photos/seed/dwp3/112/80", updated: "5 июл" },
-  { id: "p4", name: "Untitled project", thumb: "https://picsum.photos/seed/dwp4/112/80", updated: "3 июл" },
+  { id: "p4", name: "Проект без названия", thumb: "https://picsum.photos/seed/dwp4/112/80", updated: "3 июл" },
 ];
 
 export function AppHeader() {
@@ -124,6 +126,11 @@ export function AppHeader() {
   // localStorage so it survives the per-page remount of this header.
   const [projectName, setProjectName] = useState("");
   const [saving, setSaving] = useState(false);
+  // Mobile profile menu: controlled so a scrim overlay can sync with its open
+  // state; `notifOpen` drives the inline notifications accordion inside it.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const saveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -168,6 +175,8 @@ export function AppHeader() {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => setMounted(true), []);
+
   if (!isAuthenticated) return null;
 
   const balance = me ? Number(me.profile.credits_balance) || 0 : null;
@@ -192,6 +201,22 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
+      {/* Scrim behind the mobile profile menu. Portaled to <body> so the
+          header's backdrop-blur doesn't trap the fixed positioning; z-40 sits
+          under the menu content (z-50) and over the page. Tap to close; fades
+          in/out with the menu. Mobile-only — desktop keeps the plain dropdown. */}
+      {mounted
+        ? createPortal(
+            <div
+              aria-hidden
+              onClick={() => setMenuOpen(false)}
+              className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 sm:hidden ${
+                menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            />,
+            document.body,
+          )
+        : null}
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
         {/* LEFT: logo + breadcrumb + save + undo/redo */}
         <div className="flex min-w-0 items-center gap-2">
@@ -236,12 +261,18 @@ export function AppHeader() {
             <ProjectsMenu />
           </div>
 
-          <DropdownMenu>
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(o) => {
+              setMenuOpen(o);
+              if (!o) setNotifOpen(false);
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label="Профиль"
-                className="ml-0.5 h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-background transition hover:brightness-110 focus:outline-none focus-visible:ring-accent-green"
+                className="ml-0.5 h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-background transition hover:brightness-110 focus:outline-none focus-visible:ring-accent-green max-sm:h-11 max-sm:w-11"
               >
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
               </button>
@@ -297,33 +328,62 @@ export function AppHeader() {
               </div>
 
               {/* Mobile-only: notifications live here since the header bell is
-                  hidden on narrow screens. */}
+                  hidden on narrow screens. Collapsible accordion — tapping the
+                  row expands the list inline, without leaving the menu. */}
               <div className="sm:hidden">
                 <DropdownMenuSeparator className="bg-border" />
-                <div className="flex items-center justify-between px-2 py-1.5">
-                  <span className="ds-h2">Уведомления</span>
-                  <span className="ds-caption">{NOTIFICATIONS.length}</span>
-                </div>
-                <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                  {NOTIFICATIONS.map((n) => {
-                    const Icon = n.icon;
-                    return (
-                      <div
-                        key={n.id}
-                        className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
-                      >
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
-                          <Icon className="h-3.5 w-3.5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{n.title}</p>
-                          <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
-                        </div>
-                        <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    // Keep the menu open; just toggle the inline section.
+                    e.preventDefault();
+                    setNotifOpen((o) => !o);
+                  }}
+                  aria-expanded={notifOpen}
+                  className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Уведомления
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {NOTIFICATIONS.length > 0 ? (
+                      <span className="ds-caption tabular-nums">{NOTIFICATIONS.length}</span>
+                    ) : null}
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${
+                        notifOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </span>
+                </DropdownMenuItem>
+                {notifOpen ? (
+                  <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
+                    {NOTIFICATIONS.length === 0 ? (
+                      <p className="px-2 py-3 text-sm text-muted-foreground">
+                        Новых уведомлений нет
+                      </p>
+                    ) : (
+                      NOTIFICATIONS.map((n) => {
+                        const Icon = n.icon;
+                        return (
+                          <div
+                            key={n.id}
+                            className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
+                          >
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{n.title}</p>
+                              <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
+                            </div>
+                            <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               <DropdownMenuSeparator className="bg-border" />
@@ -391,7 +451,7 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
-  const display = value.trim() || "Untitled project";
+  const display = value.trim() || "Проект без названия";
 
   useEffect(() => {
     if (editing) {
@@ -417,7 +477,7 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
           }
           if (e.key === "Escape") setEditing(false);
         }}
-        placeholder="Untitled project"
+        placeholder="Проект без названия"
         className="min-w-0 max-w-[220px] rounded-md border border-accent-green/60 bg-transparent px-1.5 py-0.5 text-sm font-medium text-foreground outline-none"
       />
     );
@@ -521,7 +581,7 @@ function GenerationIndicator() {
 
   return (
     <div
-      className={"hidden items-center gap-1 rounded-md border px-2 py-1 text-xs sm:flex " + tone}
+      className={"flex items-center gap-1 rounded-md border px-2 py-1 text-xs " + tone}
     >
       <button
         type="button"
@@ -582,7 +642,7 @@ function NotificationsMenu() {
         <button
           type="button"
           aria-label="Уведомления"
-          className="relative rounded-md p-2 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+          className="relative rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
@@ -630,7 +690,7 @@ function HelpMenu() {
         <button
           type="button"
           aria-label="Помощь"
-          className="rounded-md p-2 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+          className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <HelpCircle className="h-4 w-4" />
         </button>
@@ -669,7 +729,7 @@ function ProjectsMenu() {
         <button
           type="button"
           aria-label="Мои проекты"
-          className="rounded-md p-2 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+          className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <LayoutGrid className="h-4 w-4" />
         </button>

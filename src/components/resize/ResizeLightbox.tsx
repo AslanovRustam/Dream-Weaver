@@ -83,7 +83,7 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
           type="button"
           aria-label="Закрыть просмотр"
           onClick={onClose}
-          className="shrink-0 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+          className="shrink-0 rounded-full bg-white/10 p-3 text-white transition hover:bg-white/20"
         >
           <X className="h-5 w-5" />
         </button>
