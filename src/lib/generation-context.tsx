@@ -579,6 +579,10 @@ export function GenerationProvider({ children }: ProviderProps) {
       const tile = snap.tiles.find((t) => t.id === id);
       const master = snap.imageUrl;
       if (!tile || !master) return;
+      // Already regenerating this tile (e.g. a fast double-tap, or a tap while a
+      // full-batch run is in flight) — ignore the second request so two calls
+      // can't race and overwrite each other's result out of order.
+      if (tile.status === "running" || snap.status === "batch_running") return;
       const basePayload = snap.lastPayload ?? ({} as GeneratePayload);
       const masterRatio = snap.lastMasterRatio;
 
