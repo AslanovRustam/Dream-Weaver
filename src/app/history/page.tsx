@@ -238,6 +238,14 @@ function HistoryBody() {
           >
             <RefreshCw className="h-3.5 w-3.5" /> Повторить
           </button>
+          {/сесси|войдите/i.test(err) ? (
+            <Link
+              href="/login"
+              className="inline-flex shrink-0 items-center rounded-lg bg-accent-green px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            >
+              Войти
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

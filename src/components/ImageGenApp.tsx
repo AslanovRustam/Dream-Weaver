@@ -968,7 +968,9 @@ export function ImageGenApp() {
 
               {isSlotPreset && (
                 <div className="rounded-xl border border-border bg-background/40 p-3">
-                  <p className="mb-2 ds-h2">Слот</p>
+                  <p className="mb-2 ds-h2">
+                    Слот <span className="text-[color:var(--status-error)]">*</span>
+                  </p>
                   <input
                     type="text"
                     value={slotName}
@@ -1136,6 +1138,7 @@ export function ImageGenApp() {
                     value={bonusText}
                     onChange={setBonusText}
                     placeholder="+200% на первую ставку, Odds Boost 5.0…"
+                  maxLength={60}
                   />
 
                   <div className="rounded-xl border border-border bg-background/40 p-3">
@@ -1257,6 +1260,7 @@ export function ImageGenApp() {
                   value={bannerText}
                   onChange={setBannerText}
                   placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Летняя акция"}
+                  maxLength={50}
                 />
                 <OptionalField
                   label="Текст на кнопке"
@@ -1265,6 +1269,7 @@ export function ImageGenApp() {
                   value={buttonText}
                   onChange={setButtonText}
                   placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Купить"}
+                  maxLength={24}
                 />
               </div>
 
@@ -1276,6 +1281,7 @@ export function ImageGenApp() {
                   value={subheadline}
                   onChange={setSubheadline}
                   placeholder="Пусто = ИИ сгенерирует 2–3 преимущества"
+                  maxLength={120}
                 />
               )}
 
@@ -1749,6 +1755,7 @@ function OptionalField({
   value,
   onChange,
   placeholder,
+  maxLength,
 }: {
   label: string;
   enabled: boolean;
@@ -1756,6 +1763,7 @@ function OptionalField({
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <div className="rounded-xl border border-border bg-background/40 p-3">
@@ -1781,9 +1789,19 @@ function OptionalField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={!enabled}
+        maxLength={maxLength}
         className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green disabled:opacity-40"
         placeholder={placeholder}
       />
+      {maxLength && enabled ? (
+        <p
+          className={`mt-1 text-right ds-micro ${
+            value.length >= maxLength ? "text-[color:var(--status-error)]" : "text-muted-foreground"
+          }`}
+        >
+          {value.length}/{maxLength}
+        </p>
+      ) : null}
     </div>
   );
 }

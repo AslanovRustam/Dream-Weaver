@@ -139,6 +139,15 @@ export default function AccountPage() {
               <RefreshCw className="h-4 w-4" />
               Обновить
             </button>
+            {/сесси|войдите/i.test(error) ? (
+              <button
+                type="button"
+                onClick={() => router.push("/login")}
+                className="mt-2 block w-full text-sm text-muted-foreground underline transition hover:text-foreground"
+              >
+                Войти снова
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -500,9 +509,15 @@ function PasswordCard() {
               setPw("");
               setPw2("");
             } catch (e) {
+              // Server/Supabase messages here are raw English — only pass a
+              // message through if it's already Russian (e.g. the session-
+              // expired text), otherwise show a clear generic fallback.
+              const raw = e instanceof ApiError ? e.message : "";
               setMsg({
                 kind: "err",
-                text: e instanceof ApiError ? e.message : "Не удалось сменить",
+                text: /[а-яА-Я]/.test(raw)
+                  ? raw
+                  : "Не удалось сменить пароль. Попробуйте ещё раз или обратитесь в поддержку.",
               });
             } finally {
               setBusy(false);
