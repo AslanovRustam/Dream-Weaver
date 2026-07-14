@@ -29,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import JSZip from "jszip";
+import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,6 +45,15 @@ import type { BatchTile, GenerationStatus } from "@/lib/generation-context";
 
 export type SelectedSize = BannerSize;
 
+/** Russian plural: plural(1,"формат","формата","форматов") → "формат". */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
 type Props = {
   disabled?: boolean;
   masterRatio?: string;
@@ -57,6 +67,8 @@ type Props = {
   onRegenerateTile?: (id: string) => void | Promise<void>;
   /** Remove a single tile from the batch. */
   onRemoveTile?: (id: string) => void;
+  /** Abort the running batch (stops queued/in-flight tiles). */
+  onCancel?: () => void;
 };
 
 type Phase = "select" | "generating" | "result";
@@ -77,6 +89,7 @@ export function ResizeBatchPanel({
   batchStatus,
   onRegenerateTile,
   onRemoveTile,
+  onCancel,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
@@ -327,6 +340,9 @@ export function ResizeBatchPanel({
         URL.revokeObjectURL(url);
         a.remove();
       }, 5000);
+      toast.success(`Скачали ZIP · ${ready.length} ${plural(ready.length, "формат", "формата", "форматов")}`);
+    } catch {
+      toast.error("Не удалось собрать ZIP. Попробуйте ещё раз.");
     } finally {
       setZipping(false);
     }
@@ -433,7 +449,7 @@ export function ResizeBatchPanel({
                             {g.subtitle ? <span className="ds-caption truncate">{g.subtitle}</span> : null}
                           </span>
                           {selectedInGroup > 0 ? (
-                            <span className="shrink-0 rounded-full bg-accent-green/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-green">
+                            <span className="shrink-0 rounded-full bg-accent-green/20 px-1.5 py-0.5 ds-micro font-semibold text-accent-green">
                               {selectedInGroup}/{g.sizes.length}
                             </span>
                           ) : null}
@@ -530,6 +546,15 @@ export function ResizeBatchPanel({
                       ? "Оцениваем оставшееся время…"
                       : `Осталось ~${etaSecRounded} ${ruSeconds(etaSecRounded)}`}
                   </p>
+                  {onCancel ? (
+                    <button
+                      type="button"
+                      onClick={() => onCancel()}
+                      className="ds-btn ds-btn-secondary mt-6 px-5 py-2.5 max-sm:min-h-12 max-sm:w-full"
+                    >
+                      Отменить
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </>
@@ -611,6 +636,7 @@ export function ResizeBatchPanel({
                                 <a
                                   href={t.dataUrl}
                                   download={`banner-${t.size.w}x${t.size.h}.jpg`}
+                                  onClick={() => toast.success(`Скачали формат ${t.size.w}×${t.size.h}`)}
                                   className="inline-flex items-center justify-center rounded-md border border-border px-2 py-1 text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:hidden"
                                   title="Скачать"
                                   aria-label={`Скачать ${t.size.w}×${t.size.h}`}
@@ -649,6 +675,7 @@ export function ResizeBatchPanel({
                                       document.body.appendChild(a);
                                       a.click();
                                       a.remove();
+                                      toast.success(`Скачали формат ${t.size.w}×${t.size.h}`);
                                     }}
                                     className="gap-2.5 rounded-lg px-2.5 py-2 text-base focus:bg-white/10 focus:text-foreground sm:hidden max-sm:py-3"
                                   >
@@ -658,6 +685,7 @@ export function ResizeBatchPanel({
                                 ) : null}
                                 <DropdownMenuItem
                                   onClick={() => {
+                                    toast(`Перегенерируем формат ${t.size.w}×${t.size.h}…`);
                                     void onRegenerateTile?.(t.id);
                                   }}
                                   className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
@@ -741,8 +769,10 @@ export function ResizeBatchPanel({
                   <button
                     type="button"
                     onClick={() => {
+                      const { w, h } = confirmDelete.size;
                       onRemoveTile?.(confirmDelete.id);
                       setConfirmDelete(null);
+                      toast.success(`Формат ${w}×${h} удалён из пакета`);
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[color:var(--status-error)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                   >

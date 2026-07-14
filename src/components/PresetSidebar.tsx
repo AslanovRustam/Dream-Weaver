@@ -208,10 +208,6 @@ export function PresetSidebar({ value, onChange }: Props) {
     setFilterOpen(false);
     setCatMenuOpen(false);
   };
-  const applyFilters = () => {
-    setCategoryFilter(draftCategory);
-    closeFilter();
-  };
 
   // Close the filter dropdown when clicking anywhere outside it.
   const filterRef = useRef<HTMLDivElement>(null);
@@ -323,8 +319,11 @@ export function PresetSidebar({ value, onChange }: Props) {
                           key={opt.id}
                           type="button"
                           onClick={() => {
+                            // Apply immediately on click (no separate "Применить"
+                            // step) — matches Canva/Abyssale-style instant filters.
                             setDraftCategory(opt.id);
-                            setCatMenuOpen(false);
+                            setCategoryFilter(opt.id);
+                            closeFilter();
                           }}
                           className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
                             active
@@ -340,13 +339,6 @@ export function PresetSidebar({ value, onChange }: Props) {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="mt-3 w-full rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
-              >
-                Применить фильтры
-              </button>
           </div>
         )}
       </div>
