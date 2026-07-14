@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ChevronLeft,
-  Copy,
   Download,
   Image as ImageIcon,
   LayoutGrid,
@@ -1651,10 +1650,6 @@ export function ImageGenApp() {
                             <RefreshCw className="h-4 w-4 text-muted-foreground" />
                             Перегенерировать
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground">
-                            <Copy className="h-4 w-4 text-muted-foreground" />
-                            Использовать повторно
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
                             onClick={() => {
@@ -1671,6 +1666,12 @@ export function ImageGenApp() {
                             onClick={() => {
                               gen.clear();
                               setStatus("idle");
+                              // Also drop the history link so the "Загружено из
+                              // истории" banner doesn't linger over an empty
+                              // editor, pointing at a banner that's gone.
+                              setLoadedCardId(null);
+                              setLoadedCardName(null);
+                              setLoadedFromPreset(null);
                             }}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)]"
                           >
@@ -1683,8 +1684,11 @@ export function ImageGenApp() {
                   </div>
 
                   {/* Direct step: the resize picker's own secondary button
-                      opens the modal in one click — no intermediate screen. */}
-                  {lastPayload ? (
+                      opens the modal in one click — no intermediate screen.
+                      Keep it mounted across a master regeneration (when
+                      lastPayload/imageUrl briefly go null but gen.isBusy is
+                      true) so the user's format selection isn't discarded. */}
+                  {lastPayload || hasBanner || gen.isBusy ? (
                     <ResizeBatchPanel
                       disabled={gen.isBusy}
                       masterRatio={lastMasterRatio}

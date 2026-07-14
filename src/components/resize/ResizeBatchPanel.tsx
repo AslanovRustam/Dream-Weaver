@@ -140,9 +140,12 @@ export function ResizeBatchPanel({
     return () => clearInterval(id);
   }, [phase]);
 
-  // If the batch state was wiped elsewhere (e.g. a new master), never get
-  // stuck on a stale generating/result screen.
-  const effectivePhase: Phase = phase !== "select" && total === 0 && !isRunning ? "select" : phase;
+  // If the batch was wiped mid-run (e.g. a new master), don't get stuck on a
+  // stale "generating" screen. On the RESULT screen we deliberately stay put
+  // even at zero tiles (the user deleted the last format) and show an explicit
+  // empty state instead of silently snapping back to the format picker.
+  const effectivePhase: Phase =
+    phase === "generating" && total === 0 && !isRunning ? "select" : phase;
   const closable = effectivePhase !== "generating";
 
   // The select step is large (fills most of the viewport) so the full format
@@ -595,7 +598,14 @@ export function ResizeBatchPanel({
                   </button>
                 </div>
                 <DialogTitle className="ds-h2 flex items-center gap-2 text-left">
-                  {doneCount === 0 ? (
+                  {total === 0 ? (
+                    <>
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                        <Trash2 className="h-3 w-3" strokeWidth={2.5} />
+                      </span>
+                      Все форматы удалены
+                    </>
+                  ) : doneCount === 0 ? (
                     <>
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--status-error)] text-white">
                         <AlertTriangle className="h-3 w-3" strokeWidth={3} />
@@ -621,6 +631,15 @@ export function ResizeBatchPanel({
               </DialogHeader>
 
               <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {total === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                    <p className="text-sm font-medium text-foreground">Вы удалили все форматы</p>
+                    <p className="text-xs text-muted-foreground">
+                      Нажмите «Назад», чтобы выбрать форматы и создать пакет заново.
+                    </p>
+                  </div>
+                ) : (
+                  <>
                 <p className="mb-3 px-1 text-xs text-muted-foreground">
                   Готово {doneCount} из {total} форматов
                   {errorCount ? ` · ${errorCount} с ошибкой` : ""}
@@ -763,8 +782,11 @@ export function ResizeBatchPanel({
                     );
                   })}
                 </ul>
+                  </>
+                )}
               </div>
 
+              {total === 0 ? null : (
               <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:flex-wrap max-sm:justify-stretch">
                 {errorCount > 0 ? (
                   <button
@@ -793,6 +815,7 @@ export function ResizeBatchPanel({
                   {zipping ? "Архивируем…" : "Скачать ZIP"}
                 </button>
               </div>
+              )}
             </>
           ) : null}
 
