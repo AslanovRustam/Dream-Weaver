@@ -74,7 +74,9 @@ export default function ResetPasswordPage() {
               const { error } = await getBrowserClient().auth.updateUser({ password: pw });
               setBusy(false);
               if (error) {
-                setErr(error.message);
+                setErr(
+                  "Не удалось обновить пароль. Возможно, ссылка устарела — запросите новую на странице входа («Забыли пароль?»).",
+                );
                 return;
               }
               setOk(true);

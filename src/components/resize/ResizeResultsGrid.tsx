@@ -166,7 +166,7 @@ function ResultTile({ tile }: { tile: BatchTile }) {
     <li className="overflow-hidden rounded-md border border-border bg-background">
       <div className="relative w-full bg-black" style={boxStyle}>
         {status === "queued" ? (
-          <div className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="absolute inset-0 flex items-center justify-center ds-micro uppercase tracking-wide text-muted-foreground">
             В очереди
           </div>
         ) : null}
@@ -185,7 +185,7 @@ function ResultTile({ tile }: { tile: BatchTile }) {
           />
         ) : null}
         {status === "error" ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center text-[10px] text-destructive">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center ds-micro text-destructive">
             <X className="h-4 w-4" />
             <span>{error || "Ошибка"}</span>
           </div>

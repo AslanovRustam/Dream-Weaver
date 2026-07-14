@@ -14,7 +14,17 @@
 //     checkbox and (when applicable) a "Не в облаке" warning chip.
 //     Heart toggle is in the caption row, not floating on the image.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Heart, Loader2, Search, Star, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  Heart,
+  Image as ImageIcon,
+  Loader2,
+  RefreshCw,
+  Search,
+  Star,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -74,8 +84,9 @@ export default function HistoryPage() {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Загрузка…
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-accent-green" />
+        <p className="text-sm">Загрузка…</p>
       </div>
     );
   }
@@ -189,7 +200,7 @@ function HistoryBody() {
     <div className="mx-auto max-w-[1800px] px-4 py-6 pb-32">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">История</h1>
+          <h1 className="ds-h1">История</h1>
           <p className="text-sm text-muted-foreground">
             {total} {pluralRu(total, "карточка", "карточки", "карточек")}
             {bucket === "trash" ? " (в корзине)" : ""}
@@ -213,7 +224,30 @@ function HistoryBody() {
         onBucket={setBucket}
       />
 
-      {err ? <p className="mt-3 text-sm text-destructive">{err}</p> : null}
+      {err ? (
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[color:var(--status-error)]/40 bg-[color:var(--status-error)]/5 p-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-[color:var(--status-error)]" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">Не удалось загрузить историю</p>
+            <p className="truncate text-xs text-muted-foreground">{err}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load("reset")}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-white/5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Повторить
+          </button>
+          {/сесси|войдите/i.test(err) ? (
+            <Link
+              href="/login"
+              className="inline-flex shrink-0 items-center rounded-lg bg-accent-green px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            >
+              Войти
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Date-grouped masonry. We split the (already-sorted-by-
           last_activity_at) list into buckets of "Сегодня", "Вчера", and
@@ -239,11 +273,33 @@ function HistoryBody() {
         ))}
       </div>
 
-      {items.length === 0 && !loading && (
-        <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
-          {bucket === "trash"
-            ? "Корзина пуста."
-            : "Пока ничего нет. Создайте первую генерацию на главной."}
+      {items.length === 0 && !loading && !err && (
+        <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center">
+          {bucket === "trash" ? (
+            <>
+              <Trash2 className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
+              <p className="text-sm text-muted-foreground">Корзина пуста</p>
+            </>
+          ) : debouncedQ || presetId || favoritesOnly ? (
+            <>
+              <Search className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+                <p className="text-sm text-muted-foreground">Измените поиск или фильтры.</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Пока ничего нет</p>
+                <p className="text-sm text-muted-foreground">Создайте первый баннер на главной.</p>
+              </div>
+              <Button asChild size="sm">
+                <Link href="/">Создать баннер</Link>
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -313,7 +369,7 @@ function FilterBar({
         />
       </div>
       <select
-        className="h-9 rounded-md border bg-background px-3 text-sm"
+        className="h-11 rounded-lg border border-border bg-background px-3.5 text-sm text-foreground outline-none focus:border-accent-green"
         value={presetId}
         onChange={(e) => onPreset(e.target.value)}
       >
