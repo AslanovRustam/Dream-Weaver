@@ -343,7 +343,10 @@ export function ImageGenApp() {
     if (new URLSearchParams(window.location.search).get("card")) return;
     const p = gen.lastPayload;
     if (!p) return;
-    const fillStr = (setter: (v: string) => void, val: unknown) => {
+    const fillStr = (
+      setter: (v: string | ((cur: string) => string)) => void,
+      val: unknown,
+    ) => {
       if (typeof val === "string" && val) setter((cur) => (cur.trim() === "" ? val : cur));
     };
     fillStr(setPrompt, p.prompt);
