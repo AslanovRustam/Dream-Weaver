@@ -28,6 +28,7 @@ import {
   MoreHorizontal,
   RefreshCw,
   Trash2,
+  X,
 } from "lucide-react";
 import JSZip from "jszip";
 import { toast } from "sonner";
@@ -412,13 +413,23 @@ export function ResizeBatchPanel({
           {/* ---------- STEP 1: SELECT ---------- */}
           {effectivePhase === "select" ? (
             <>
+              {/* Desktop closes the picker with a top-right "✕"; mobile (full-
+                  screen sheet, no comfortable backdrop) keeps the "Назад" row. */}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Закрыть"
+                className="absolute right-4 top-4 z-10 hidden rounded-lg p-1.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground sm:inline-flex"
+              >
+                <X className="h-5 w-5" />
+              </button>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
-                {/* "Назад" closes the picker back to the banner — same single-exit
-                    pattern as the other screens (the "✕" is hidden). */}
+                {/* "Назад" closes the picker back to the banner. Mobile only —
+                    on desktop the "✕" above is the exit. */}
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                  className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground sm:hidden"
                 >
                   <ChevronLeft className="h-5 w-5" />
                   Назад
