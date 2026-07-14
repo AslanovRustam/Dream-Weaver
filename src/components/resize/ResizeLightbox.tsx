@@ -67,7 +67,11 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/85 backdrop-blur-sm"
+      // pointer-events-auto: the parent resize dialog is a Radix modal, which
+      // sets `pointer-events: none` on <body>. This lightbox portals to <body>
+      // as a sibling of the dialog content, so without re-enabling pointer
+      // events here the ✕ and backdrop clicks are dead (only Escape worked).
+      className="pointer-events-auto fixed inset-0 z-[80] flex flex-col bg-black/85 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
