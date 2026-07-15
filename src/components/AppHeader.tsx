@@ -7,7 +7,6 @@
 // Right : generation progress → credits → notifications → help → my
 //         projects → profile avatar.
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -27,10 +26,8 @@ import {
   LogOut,
   Mail,
   Pencil,
-  Redo2,
   ShieldCheck,
   Sparkles,
-  Undo2,
   User as UserIcon,
   X,
 } from "lucide-react";
@@ -43,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
-import { useEditorHistory } from "@/lib/editor-history";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
@@ -137,13 +133,10 @@ export function AppHeader() {
   // Project name (breadcrumb) + simulated autosave status. Persisted to
   // localStorage so it survives the per-page remount of this header.
   const [projectName, setProjectName] = useState("");
-  const [saving, setSaving] = useState(false);
   // Mobile profile menu: controlled so a scrim overlay can sync with its open
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const saveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -187,8 +180,6 @@ export function AppHeader() {
     };
   }, [isAuthenticated]);
 
-  useEffect(() => setMounted(true), []);
-
   if (!isAuthenticated) return null;
 
   const balance = me ? Number(me.profile.credits_balance) || 0 : null;
@@ -203,32 +194,16 @@ export function AppHeader() {
   // (the /api/me call is unauthenticated in the dev-bypass build).
   const creditsLabel = balance === null ? "8" : balance.toFixed(2).replace(/\.00$/, "");
 
+  // Autosave: persist the name on edit. No visible "saving" chrome anymore.
   const commitName = (v: string) => {
     setProjectName(v);
     if (typeof window !== "undefined") window.localStorage.setItem("dw:projectName", v);
-    setSaving(true);
-    window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => setSaving(false), 900);
   };
 
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
-      {/* Scrim behind the mobile profile menu. Portaled to <body> so the
-          header's backdrop-blur doesn't trap the fixed positioning; z-40 sits
-          under the menu content (z-50) and over the page. Tap to close; fades
-          in/out with the menu. Mobile-only — desktop keeps the plain dropdown. */}
-      {mounted
-        ? createPortal(
-            <div
-              aria-hidden
-              onClick={() => setMenuOpen(false)}
-              className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 sm:hidden ${
-                menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
-              }`}
-            />,
-            document.body,
-          )
-        : null}
+      {/* The mobile scrim behind the profile menu (and every other dropdown) is
+          now provided by the shared <DropdownMenu> wrapper — see MobileScrim. */}
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
         {/* LEFT: logo + breadcrumb + save + undo/redo */}
         <div className="flex min-w-0 items-center gap-2">
@@ -244,9 +219,6 @@ export function AppHeader() {
             <div className="hidden min-w-0 items-center gap-2 sm:flex">
               <span className="shrink-0 text-muted-foreground">/</span>
               <ProjectNameEditor value={projectName} onCommit={commitName} />
-              <SaveStatus saving={saving} />
-              <span className="mx-1 hidden h-5 w-px bg-border lg:block" />
-              <UndoRedo />
             </div>
           ) : null}
         </div>
@@ -295,9 +267,14 @@ export function AppHeader() {
               <button
                 type="button"
                 aria-label="Профиль"
-                className="ml-0.5 h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-background transition hover:brightness-110 focus:outline-none focus-visible:ring-accent-green max-sm:h-11 max-sm:w-11"
+                className="ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
               >
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                {/* Visual avatar is smaller than the 44px tap target on mobile. */}
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover max-sm:h-8 max-sm:w-8"
+                />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -521,37 +498,6 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
   );
 }
 
-function SaveStatus({ saving }: { saving: boolean }) {
-  return (
-    <span className="hidden items-center gap-1 whitespace-nowrap text-xs text-muted-foreground lg:flex">
-      {saving ? (
-        <>
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Сохранение…
-        </>
-      ) : (
-        "Сохранено"
-      )}
-    </span>
-  );
-}
-
-function UndoRedo() {
-  const { canUndo, canRedo, undo, redo } = useEditorHistory();
-  const cls =
-    "rounded-md p-1.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
-  return (
-    <div className="hidden items-center gap-0.5 lg:flex">
-      <button type="button" onClick={undo} disabled={!canUndo} title="Отменить" className={cls}>
-        <Undo2 className="h-4 w-4" />
-      </button>
-      <button type="button" onClick={redo} disabled={!canRedo} title="Повторить" className={cls}>
-        <Redo2 className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
 // ---- Right cluster ----------------------------------------------------------
 
 /**
@@ -660,6 +606,24 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   const gen = useGeneration();
   const current = sectionFromPath(pathname);
 
+  // One-time coachmark pointing out that this element switches sections.
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    try {
+      if (current && !window.localStorage.getItem("dw:sectionHintSeen")) setShowHint(true);
+    } catch {
+      /* ignore */
+    }
+  }, [current]);
+  const dismissHint = () => {
+    setShowHint(false);
+    try {
+      window.localStorage.setItem("dw:sectionHintSeen", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   const go = (route: string) => {
     if (current && route === current.route) return;
     // Only the banner editor holds unsaved in-memory work today.
@@ -670,18 +634,37 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Разделы"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-base font-semibold tracking-tight transition hover:bg-white/5"
-        >
-          <span className="hidden sm:inline">Dream Weaver Studio</span>
-          <span className="sm:hidden">DW</span>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
+    <div className="relative">
+      <DropdownMenu
+        onOpenChange={(o) => {
+          if (o) dismissHint();
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Переключить раздел"
+            title="Переключить раздел"
+            className="group inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-base font-semibold tracking-tight transition hover:border-white/25 hover:bg-white/10 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:min-h-11 max-sm:px-3"
+          >
+            {/* Desktop: full brand + current section. Mobile: compact "ДВ" only —
+                the current section's full name lives inside the dropdown. */}
+            <span className="hidden items-center gap-1.5 sm:inline-flex">
+              <span className="text-foreground/70">Dream Weaver Studio</span>
+              {current ? (
+                <>
+                  <span className="text-muted-foreground">/</span>
+                  <span className="text-foreground">{current.title}</span>
+                </>
+              ) : null}
+            </span>
+            <span className="text-foreground sm:hidden">DW</span>
+            <ChevronDown
+              className="h-4 w-4 shrink-0 text-foreground/70 transition group-hover:text-foreground max-sm:h-5 max-sm:w-5"
+              strokeWidth={2.5}
+            />
+          </button>
+        </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         sideOffset={8}
@@ -715,7 +698,27 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
           На главную
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+      {showHint ? (
+        <div
+          role="dialog"
+          className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-accent-green/40 bg-popover p-3 text-foreground shadow-xl max-sm:w-[calc(100vw-2rem)]"
+        >
+          <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-accent-green/40 bg-popover" />
+          <p className="text-xs leading-relaxed text-foreground">
+            Здесь можно переключаться между Баннер-генератором, Лендинг-генератором и другими
+            инструментами.
+          </p>
+          <button
+            type="button"
+            onClick={dismissHint}
+            className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+          >
+            Понятно
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -724,7 +727,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
 function LanguageSelector() {
   const lang = useCreativeLanguage();
   return (
-    <DropdownMenu>
+    <DropdownMenu scrimIntensity="light">
       <DropdownMenuTrigger asChild>
         <button
           type="button"

@@ -35,10 +35,11 @@ export default function HubPage() {
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{ cards?: unknown[] }>("/api/history?bucket=active")
+    apiJson<{ items?: unknown[] }>("/api/history?bucket=active")
       .then((r) => {
         if (cancelled) return;
-        const cards = Array.isArray(r?.cards) ? r.cards : [];
+        // GET /api/history returns { items, total, offset, limit }.
+        const cards = Array.isArray(r?.items) ? r.items : [];
         const mapped: RecentCard[] = cards.slice(0, 5).map((raw) => {
           const c = raw as Record<string, unknown>;
           const master = c.master as Record<string, unknown> | null | undefined;
@@ -89,7 +90,12 @@ export default function HubPage() {
             return (
               <div
                 key={s.id}
-                className="flex flex-col rounded-2xl border border-border bg-[var(--bg-surface)] p-5 transition hover:border-white/25 hover:bg-[var(--bg-surface-hover)] sm:p-6"
+                className="flex flex-col rounded-2xl border border-accent-green p-5 shadow-[0_0_50px_rgba(212,255,61,0.10)] transition hover:shadow-[0_0_60px_rgba(212,255,61,0.16)] sm:p-6"
+                style={{
+                  // Same gradient as the "popular" package on the pricing page.
+                  background:
+                    "linear-gradient(180deg, rgba(212,255,61,0.14) 0%, rgba(212,255,61,0.05) 20%, rgba(22,22,22,0.92) 52%, var(--bg-surface) 100%)",
+                }}
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-background text-accent-green">
                   <Icon className="h-6 w-6" />
@@ -99,7 +105,7 @@ export default function HubPage() {
                 <button
                   type="button"
                   onClick={() => router.push(s.route)}
-                  className="mt-4 w-full rounded-lg bg-accent-green px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="mt-4 w-full rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
                 >
                   {s.cta}
                 </button>
