@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { getCreativeLanguage } from "@/lib/creative-language";
+import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
 import {
   DropdownMenu,
@@ -1644,6 +1645,12 @@ export function ImageGenApp() {
                                     subject: isSlotPreset ? slotName : prompt,
                                     language,
                                     banner_text: bannerTextEnabled ? bannerText : "",
+                                    // From-banner flow: inherit the vertical and flag the
+                                    // handoff. The banner image itself is read live from the
+                                    // generation context on the landing side (avoids the
+                                    // localStorage quota risk of storing a full image here).
+                                    vertical: bannerPresetToVertical(preset),
+                                    from_banner: true,
                                   }),
                                 );
                               } catch {

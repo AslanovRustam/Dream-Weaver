@@ -5,8 +5,45 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { MobileScrim, type ScrimIntensity } from "@/components/MobileScrim";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+// Root wrapper: adds the shared mobile overlay (scrim) behind the menu, synced
+// to its open state. Works for both controlled (`open` passed) and uncontrolled
+// menus. Pass `scrim={false}` to opt out, or `scrimIntensity="light"` for compact
+// menus. Desktop is unaffected (the scrim is mobile-only).
+function DropdownMenu({
+  open,
+  onOpenChange,
+  scrim = true,
+  scrimIntensity,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root> & {
+  scrim?: boolean;
+  scrimIntensity?: ScrimIntensity;
+}) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = open !== undefined;
+  const actualOpen = isControlled ? open : internalOpen;
+  const handleOpenChange = (o: boolean) => {
+    if (!isControlled) setInternalOpen(o);
+    onOpenChange?.(o);
+  };
+  return (
+    <>
+      <DropdownMenuPrimitive.Root open={actualOpen} onOpenChange={handleOpenChange} {...props}>
+        {children}
+      </DropdownMenuPrimitive.Root>
+      {scrim ? (
+        <MobileScrim
+          open={actualOpen}
+          onClose={() => handleOpenChange(false)}
+          intensity={scrimIntensity}
+        />
+      ) : null}
+    </>
+  );
+}
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
