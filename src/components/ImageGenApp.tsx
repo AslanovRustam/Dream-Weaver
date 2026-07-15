@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -9,6 +10,7 @@ import {
   Download,
   Image as ImageIcon,
   LayoutGrid,
+  LayoutTemplate,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -28,6 +30,7 @@ import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
 import { formatGenerationError } from "@/lib/generation-errors";
+import { getCreativeLanguage } from "@/lib/creative-language";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
 import {
   DropdownMenu,
@@ -112,6 +115,7 @@ export function ImageGenApp() {
   // proxy through it here instead of holding local state for these
   // fields.
   const gen = useGeneration();
+  const router = useRouter();
   const imageUrl = gen.imageUrl;
   // A banner exists → we're on step 2 (choose resizes). Drives the step
   // indicator and the "Назад" button. Accounts for the dev preview flag.
@@ -363,7 +367,10 @@ export function ImageGenApp() {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
-    setLanguage(b.language);
+    // Default the field from the global creative language unless the brand has
+    // an explicit (non-auto) language saved — a local override stays a local
+    // override and isn't clobbered by the global.
+    setLanguage(b.language && b.language !== "auto" ? b.language : getCreativeLanguage());
     if (typeof window !== "undefined") {
       try {
         // History of generations is intentionally NOT persisted — proper
@@ -1623,6 +1630,31 @@ export function ImageGenApp() {
                           >
                             <RefreshCw className="h-4 w-4 text-muted-foreground" />
                             Перегенерировать
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              // Hand off the shared brand data to the landing
+                              // generator so the user doesn't re-enter it.
+                              try {
+                                window.localStorage.setItem(
+                                  "dw:landingSeed",
+                                  JSON.stringify({
+                                    brand_name: brandName,
+                                    brand_logo: brandLogo,
+                                    subject: isSlotPreset ? slotName : prompt,
+                                    language,
+                                    banner_text: bannerTextEnabled ? bannerText : "",
+                                  }),
+                                );
+                              } catch {
+                                /* quota — landing just opens empty */
+                              }
+                              router.push("/landing");
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                            Создать лендинг на основе этого
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
