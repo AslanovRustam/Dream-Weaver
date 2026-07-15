@@ -179,7 +179,7 @@ export default function AdminPage() {
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/">К генерации</Link>
+              <Link href="/banner">К генерации</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/account">Кабинет</Link>
