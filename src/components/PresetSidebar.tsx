@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
+import { MobileScrim } from "@/components/MobileScrim";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
@@ -295,8 +296,11 @@ export function PresetSidebar({ value, onChange }: Props) {
           </div>
         )}
 
+        {/* Mobile overlay behind the category dropdown (same shared pattern as
+            the header menus). Desktop keeps the plain popover. */}
+        <MobileScrim open={filterOpen} onClose={closeFilter} />
         {filterOpen && (
-          <div className="absolute left-4 right-4 top-full z-30 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
+          <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
               <p className="mb-2 ds-h2">Категория</p>
               <div className="relative">
                 <button

@@ -208,7 +208,7 @@ function HistoryBody() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href="/">К генерации</Link>
+            <Link href="/banner">К генерации</Link>
           </Button>
         </div>
       </header>
@@ -296,7 +296,7 @@ function HistoryBody() {
                 <p className="text-sm text-muted-foreground">Создайте первый баннер на главной.</p>
               </div>
               <Button asChild size="sm">
-                <Link href="/">Создать баннер</Link>
+                <Link href="/banner">Создать баннер</Link>
               </Button>
             </>
           )}
