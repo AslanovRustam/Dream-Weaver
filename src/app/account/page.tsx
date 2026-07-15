@@ -162,7 +162,7 @@ export default function AccountPage() {
             в стиле таба «Мужчина/Женщина»: салатовая обводка + прозрачная
             салатовая заливка. */}
         <Link
-          href="/"
+          href="/banner"
           className="mb-16 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-accent-green bg-accent-green/10 px-3 text-sm font-medium text-accent-green transition hover:bg-accent-green/15"
         >
           <ChevronLeft className="h-4 w-4" />К генерации

@@ -19,6 +19,7 @@ import {
   Clock,
   Coins,
   Crown,
+  Globe,
   HelpCircle,
   LayoutGrid,
   LayoutTemplate,
@@ -45,6 +46,13 @@ import { useAuth } from "@/lib/auth-context";
 import { useEditorHistory } from "@/lib/editor-history";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
+import { SECTIONS, sectionFromPath } from "@/lib/sections";
+import {
+  useCreativeLanguage,
+  setCreativeLanguage,
+  CREATIVE_LANGUAGES,
+  creativeLangShort,
+} from "@/lib/creative-language";
 
 type MeResponse = {
   profile: {
@@ -115,7 +123,11 @@ export function AppHeader() {
   const { isAuthenticated, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isEditor = pathname === "/";
+  // Hub (start screen) shows a simplified header (no section switcher / editor
+  // chrome). Tool routes show the section switcher; the banner editor also gets
+  // the project-name breadcrumb + undo/redo.
+  const isHub = pathname === "/";
+  const isBannerEditor = pathname === "/banner";
 
   const [me, setLocalMe] = useState<MeResponse | null>(cachedMe);
   const [uploadStatus, setUploadStatus] = useState<{ failed: number; pending: number } | null>(
@@ -220,11 +232,15 @@ export function AppHeader() {
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
         {/* LEFT: logo + breadcrumb + save + undo/redo */}
         <div className="flex min-w-0 items-center gap-2">
-          <Link href="/" className="shrink-0 text-base font-semibold tracking-tight">
-            <span className="hidden sm:inline">Dream Weaver Studio</span>
-            <span className="sm:hidden">DW</span>
-          </Link>
-          {isEditor ? (
+          {isHub ? (
+            <Link href="/" className="shrink-0 text-base font-semibold tracking-tight">
+              <span className="hidden sm:inline">Dream Weaver Studio</span>
+              <span className="sm:hidden">DW</span>
+            </Link>
+          ) : (
+            <SectionSwitcher pathname={pathname} />
+          )}
+          {isBannerEditor ? (
             <div className="hidden min-w-0 items-center gap-2 sm:flex">
               <span className="shrink-0 text-muted-foreground">/</span>
               <ProjectNameEditor value={projectName} onCommit={commitName} />
@@ -237,7 +253,7 @@ export function AppHeader() {
 
         {/* RIGHT: generation → credits → notifications → help → projects → avatar */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-          {uploadStatus && uploadStatus.failed > 0 ? (
+          {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
             <Link
               href="/history"
               title={`${uploadStatus.failed} файлов не сохранены в облаке. Откройте историю.`}
@@ -248,18 +264,25 @@ export function AppHeader() {
             </Link>
           ) : null}
 
-          <GenerationIndicator />
+          {!isHub ? <GenerationIndicator /> : null}
 
           <CreditsButton label={creditsLabel} max={CREDIT_POOL} />
-          {/* Bell hidden on mobile — notifications live inside the profile menu
-              there (see the mobile-only block in the avatar dropdown). */}
-          <span className="max-sm:hidden sm:contents">
-            <NotificationsMenu />
-          </span>
-          <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
-            <HelpMenu />
-            <ProjectsMenu />
-          </div>
+          {/* Global creative-language default — visible on every screen. */}
+          <LanguageSelector />
+          {/* The rest of the toolbar is editor chrome — hidden on the Hub. */}
+          {!isHub ? (
+            <>
+              {/* Bell hidden on mobile — notifications live inside the profile
+                  menu there (see the mobile-only block in the avatar dropdown). */}
+              <span className="max-sm:hidden sm:contents">
+                <NotificationsMenu />
+              </span>
+              <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
+                <HelpMenu />
+                <ProjectsMenu />
+              </div>
+            </>
+          ) : null}
 
           <DropdownMenu
             open={menuOpen}
@@ -585,7 +608,7 @@ function GenerationIndicator() {
     >
       <button
         type="button"
-        onClick={() => router.push("/")}
+        onClick={() => router.push("/banner")}
         className="flex items-center gap-1"
         title="Открыть страницу генерации"
       >
@@ -626,6 +649,111 @@ function CreditsButton({ label, max }: { label: string; max: number }) {
       </span>
       <span className="font-semibold tabular-nums text-accent-green sm:hidden">{label}</span>
     </Link>
+  );
+}
+
+// Product name as a section switcher: "Dream Weaver Studio ▾" opening a menu of
+// all four sections (current one checked) + "На главную" (the Hub). Switching
+// away from the banner editor with unsaved work asks for confirmation.
+function SectionSwitcher({ pathname }: { pathname: string | null }) {
+  const router = useRouter();
+  const gen = useGeneration();
+  const current = sectionFromPath(pathname);
+
+  const go = (route: string) => {
+    if (current && route === current.route) return;
+    // Only the banner editor holds unsaved in-memory work today.
+    if (current?.id === "banner" && (gen.imageUrl !== null || gen.isBusy)) {
+      if (!window.confirm("Есть несохранённые изменения. Продолжить?")) return;
+    }
+    router.push(route);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Разделы"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-base font-semibold tracking-tight transition hover:bg-white/5"
+        >
+          <span className="hidden sm:inline">Dream Weaver Studio</span>
+          <span className="sm:hidden">DW</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-64 rounded-2xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
+      >
+        {SECTIONS.map((s) => {
+          const Icon = s.icon;
+          const active = s.id === current?.id;
+          return (
+            <DropdownMenuItem
+              key={s.id}
+              onClick={() => go(s.route)}
+              className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
+                active ? "bg-white/5" : ""
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Icon className="h-4 w-4 text-accent-green max-sm:h-5 max-sm:w-5" />
+                {s.title}
+              </span>
+              {active ? <Check className="h-4 w-4 text-accent-green" /> : null}
+            </DropdownMenuItem>
+          );
+        })}
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuItem
+          onClick={() => router.push("/")}
+          className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+        >
+          <LayoutGrid className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
+          На главную
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// Global creative-language default (the account-level "Язык" the sections
+// inherit). Compact code chip ("RU"/"EN"/…) opening the full list.
+function LanguageSelector() {
+  const lang = useCreativeLanguage();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Язык креатива по умолчанию"
+          title="Язык креатива по умолчанию"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10"
+        >
+          <Globe className="h-4 w-4 shrink-0 text-accent-green" />
+          <span className="font-semibold">{creativeLangShort(lang)}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+      >
+        {CREATIVE_LANGUAGES.map((l) => (
+          <DropdownMenuItem
+            key={l.value}
+            onClick={() => setCreativeLanguage(l.value)}
+            className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+          >
+            {l.label}
+            {l.value === lang ? <Check className="h-4 w-4 text-accent-green" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -750,7 +878,7 @@ function ProjectsMenu() {
             <button
               key={p.id}
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/banner")}
               className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5"
             >
               <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md bg-white/5">

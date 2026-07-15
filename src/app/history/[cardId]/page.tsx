@@ -266,7 +266,7 @@ function CardBody() {
             <Button
               size="sm"
               onClick={() => {
-                router.push(`/?card=${cardId}`);
+                router.push(`/banner?card=${cardId}`);
               }}
             >
               <Wand2 className="mr-1 h-4 w-4" /> Использовать как основу
