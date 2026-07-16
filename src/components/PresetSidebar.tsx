@@ -244,7 +244,7 @@ export function PresetSidebar({ value, onChange }: Props) {
   }, [q, categoryFilter]);
 
   return (
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
+    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h2">Шаблоны</h2>
       </div>
