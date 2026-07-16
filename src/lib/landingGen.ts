@@ -170,6 +170,106 @@ export type LandingResult = {
   generatedSections: LandingSectionId[];
 };
 
+// ---- editor: language versions + editable text fields ----------------------
+
+/** Languages the landing copy is actually translated into (drive the editor's
+ *  language switcher / "add language"). Other creative languages fall back. */
+export const LANDING_LANGS: { code: string; short: string; label: string }[] = [
+  { code: "ru", short: "RU", label: "Русский" },
+  { code: "uk", short: "UA", label: "Українська" },
+  { code: "en", short: "EN", label: "English" },
+];
+
+export function normalizeLandingLang(lang: string): string {
+  return lang === "en" ? "en" : lang === "uk" ? "uk" : "ru";
+}
+
+/** Text slots the editor exposes for inline (side-panel) editing. */
+export type LandingTextField =
+  | "heroHeadline"
+  | "lead"
+  | "cta"
+  | "offer"
+  | "benefitsTitle"
+  | "howtoTitle"
+  | "trustTitle"
+  | "ctaTitle";
+
+export const LANDING_TEXT_FIELDS: {
+  key: LandingTextField;
+  label: string;
+  multiline?: boolean;
+}[] = [
+  { key: "heroHeadline", label: "Заголовок Hero" },
+  { key: "lead", label: "Подзаголовок Hero", multiline: true },
+  { key: "cta", label: "Текст CTA-кнопки" },
+  { key: "offer", label: "Детали оффера", multiline: true },
+  { key: "benefitsTitle", label: "Заголовок «Преимущества»" },
+  { key: "howtoTitle", label: "Заголовок «Как начать»" },
+  { key: "trustTitle", label: "Заголовок «Доверие»" },
+  { key: "ctaTitle", label: "Заголовок CTA-блока" },
+];
+
+export type LandingTextOverrides = Partial<Record<LandingTextField, string>>;
+
+/** Default (unedited) value of an editable field for a given input/language. */
+export function defaultTextFor(input: LandingInput, field: LandingTextField): string {
+  const c = copyFor(input.vertical, input.language);
+  switch (field) {
+    case "heroHeadline":
+      return c.heroHeadline;
+    case "lead":
+      return input.subject.trim();
+    case "cta":
+      return input.ctaText.trim() || c.bonusLabel;
+    case "offer":
+      return input.offerDetails.trim();
+    case "benefitsTitle":
+      return c.benefitsTitle;
+    case "howtoTitle":
+      return c.howtoTitle;
+    case "trustTitle":
+      return c.trustTitle;
+    case "ctaTitle":
+      return c.ctaTitle;
+  }
+}
+
+// Per-field typography. Shared, reusable across every text block.
+export type TextStyle = { fontFamily?: string; fontSize?: number; fontWeight?: number };
+export type LandingTextStyles = Partial<Record<LandingTextField, TextStyle>>;
+
+/** Web-safe font stacks (self-contained HTML — no external font loading). */
+export const LANDING_FONTS: { label: string; value: string }[] = [
+  { label: "По умолчанию", value: "" },
+  { label: "Sans (Arial)", value: "Arial, Helvetica, sans-serif" },
+  { label: "Grotesk (Verdana)", value: "Verdana, Geneva, sans-serif" },
+  { label: "Serif (Georgia)", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Slab (Rockwell)", value: "Rockwell, Georgia, serif" },
+  { label: "Mono", value: "'Courier New', ui-monospace, monospace" },
+];
+
+export const LANDING_WEIGHTS: { label: string; value: number }[] = [
+  { label: "Regular", value: 400 },
+  { label: "Semi Bold", value: 600 },
+  { label: "Bold", value: 700 },
+];
+
+export const LANDING_FONT_SIZE = { min: 12, max: 72, step: 1 };
+
+/** CSS rules that apply per-field typography to the `data-f`-tagged elements. */
+export function landingStylesCss(styles: LandingTextStyles): string {
+  return LANDING_TEXT_FIELDS.map((f) => {
+    const s = styles[f.key];
+    if (!s) return "";
+    const decl: string[] = [];
+    if (s.fontFamily) decl.push(`font-family:${s.fontFamily}`);
+    if (s.fontSize) decl.push(`font-size:${s.fontSize}px`);
+    if (s.fontWeight) decl.push(`font-weight:${s.fontWeight}`);
+    return decl.length ? `[data-f="${f.key}"]{${decl.join(";")} !important}` : "";
+  }).join("");
+}
+
 // ---- copy dictionaries ------------------------------------------------------
 
 type Copy = {
@@ -457,27 +557,42 @@ function esc(s: string): string {
 }
 
 /** Assemble the full self-contained landing HTML from the input. */
-export function buildLandingHtml(input: LandingInput): string {
+export function buildLandingHtml(
+  input: LandingInput,
+  overrides: LandingTextOverrides = {},
+  styles: LandingTextStyles = {},
+): string {
   const c = copyFor(input.vertical, input.language);
   const on = input.sections;
   const accent = /^#[0-9a-fA-F]{3,8}$/.test(input.accent) ? input.accent : "#38bdf8";
-  const cta = input.ctaText.trim() || c.bonusLabel;
+  // Resolve editable text slots: an override (incl. empty string) wins over the
+  // generated/default value.
+  const ov = (field: LandingTextField, fallback: string) =>
+    overrides[field] !== undefined ? (overrides[field] as string) : fallback;
+  const heroHeadline = ov("heroHeadline", c.heroHeadline);
+  const lead = ov("lead", input.subject.trim());
+  const offer = ov("offer", input.offerDetails.trim());
+  const benefitsTitle = ov("benefitsTitle", c.benefitsTitle);
+  const howtoTitle = ov("howtoTitle", c.howtoTitle);
+  const trustTitle = ov("trustTitle", c.trustTitle);
+  const ctaTitle = ov("ctaTitle", c.ctaTitle);
+  const cta = ov("cta", input.ctaText.trim() || c.bonusLabel);
   const brand = input.brandName.trim() || "Your Brand";
-  const eyebrow = input.occasion.trim() || (input.brandName.trim() ? "" : c.benefitsTitle);
+  const eyebrow = input.occasion.trim() || (input.brandName.trim() ? "" : benefitsTitle);
   const year = new Date().getFullYear();
 
   const logo = input.brandLogo
     ? `<img src="${input.brandLogo}" alt="${esc(brand)}" class="logo-img" />`
     : `<span class="logo-text">${esc(brand)}</span>`;
 
-  const heroBtn = `<a href="#cta" class="btn">${esc(cta)}</a>`;
+  const heroBtn = `<a href="#cta" class="btn" data-f="cta">${esc(cta)}</a>`;
   const heroImg = input.heroImage && input.heroImage.trim() ? input.heroImage.trim() : "";
   const heroText = `
         ${eyebrow ? `<div class="eyebrow">${esc(eyebrow)}</div>` : ""}
-        <h1>${esc(c.heroHeadline)}</h1>
-        ${input.subject.trim() ? `<p class="lead">${esc(input.subject.trim())}</p>` : ""}
+        <h1 data-f="heroHeadline">${esc(heroHeadline)}</h1>
+        ${lead ? `<p class="lead" data-f="lead">${esc(lead)}</p>` : ""}
         ${heroBtn}
-        ${input.offerDetails.trim() ? `<p class="fine">${esc(input.offerDetails.trim())}</p>` : ""}`;
+        ${offer ? `<p class="fine" data-f="offer">${esc(offer)}</p>` : ""}`;
 
   const hero = on.hero
     ? `
@@ -493,7 +608,7 @@ export function buildLandingHtml(input: LandingInput): string {
   const benefits = on.benefits
     ? `
     <section class="section">
-      <h2>${esc(c.benefitsTitle)}</h2>
+      <h2 data-f="benefitsTitle">${esc(benefitsTitle)}</h2>
       <div class="grid grid-3">
         ${c.benefits
           .map(
@@ -507,7 +622,7 @@ export function buildLandingHtml(input: LandingInput): string {
   const howto = on.howto
     ? `
     <section class="section">
-      <h2>${esc(c.howtoTitle)}</h2>
+      <h2 data-f="howtoTitle">${esc(howtoTitle)}</h2>
       <div class="grid grid-3 steps">
         ${c.steps
           .map(
@@ -522,7 +637,7 @@ export function buildLandingHtml(input: LandingInput): string {
   const trust = on.trust
     ? `
     <section class="section trust">
-      <h2>${esc(c.trustTitle)}</h2>
+      <h2 data-f="trustTitle">${esc(trustTitle)}</h2>
       <div class="badges">
         ${c.badges.map((b) => `<span class="badge">${esc(b)}</span>`).join("")}
       </div>
@@ -540,9 +655,9 @@ export function buildLandingHtml(input: LandingInput): string {
   const ctaBlock = on.cta
     ? `
     <section class="section cta-block" id="cta">
-      <h2>${esc(c.ctaTitle)}</h2>
+      <h2 data-f="ctaTitle">${esc(ctaTitle)}</h2>
       <p class="lead">${esc(c.ctaSub)}</p>
-      <a href="#" class="btn btn-lg">${esc(cta)}</a>
+      <a href="#" class="btn btn-lg" data-f="cta">${esc(cta)}</a>
     </section>`
     : "";
 
@@ -575,6 +690,15 @@ export function buildLandingHtml(input: LandingInput): string {
   :root { --accent: ${accent}; --ink: #0b1017; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0b1017; color: #eef2f8; line-height: 1.5; }
+  /* Custom scrollbar — same thin pill shape as the app, but tinted to this
+     preview's own (blue) palette so it stays coherent with the mockup. */
+  @supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.28) transparent; } }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.28); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  ::-webkit-scrollbar-corner { background: transparent; }
   a { text-decoration: none; }
   h1 { font-size: clamp(30px, 6vw, 60px); line-height: 1.05; letter-spacing: -0.02em; font-weight: 800; max-width: 14ch; }
   h2 { font-size: clamp(22px, 3.6vw, 34px); letter-spacing: -0.01em; margin-bottom: 24px; font-weight: 700; }
@@ -621,6 +745,7 @@ export function buildLandingHtml(input: LandingInput): string {
     .section { padding: 44px 20px; }
   }
 </style>
+<style>${landingStylesCss(styles)}</style>
 </head>
 <body>
 ${hero}
@@ -640,9 +765,12 @@ ${footer}
  * POST /api/landing later without changing the caller. The short delay keeps
  * the loading→result transition realistic.
  */
-export function generateLanding(input: LandingInput): Promise<LandingResult> {
+export function generateLanding(
+  input: LandingInput,
+  overrides: LandingTextOverrides = {},
+): Promise<LandingResult> {
   return new Promise((resolve) => {
-    const html = buildLandingHtml(input);
+    const html = buildLandingHtml(input, overrides);
     const generatedSections = (Object.keys(input.sections) as LandingSectionId[]).filter(
       (k) => input.sections[k],
     );

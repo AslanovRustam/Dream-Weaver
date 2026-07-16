@@ -6,35 +6,21 @@
 // client-side today (see src/lib/landingGen.ts) but the shape matches the
 // banner so a real API can be slotted in later.
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
   Image as ImageIcon,
-  Link2,
-  Loader2,
-  LayoutTemplate,
-  Monitor,
-  MoreHorizontal,
-  RefreshCw,
-  Smartphone,
-  Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { getBrandSettings } from "@/components/SettingsDrawer";
+import { ToolCoachmark } from "@/components/ToolCoachmark";
+import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import {
   getCreativeLanguage,
   CREATIVE_LANGUAGES,
@@ -46,8 +32,8 @@ import {
   LANDING_TEMPLATE_CATEGORIES,
   LANDING_TEMPLATE_BY_ID,
   accentForVertical,
-  generateLanding,
-  type LandingResult,
+  normalizeLandingLang,
+  type LandingInput,
   type LandingSectionId,
   type LandingTemplate,
   type LandingVertical,
@@ -151,14 +137,12 @@ export function LandingGenApp() {
   const [offerDetails, setOfferDetails] = useState("");
 
   const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<LandingResult | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
 
   // From-banner flow: vertical inherited from the banner (no template picker),
   // the banner image reused as the Hero visual, brand block collapsed by default.
   const gen = useGeneration();
+  const router = useRouter();
   const [fromBanner, setFromBanner] = useState(false);
   const [bannerVertical, setBannerVertical] = useState<LandingVertical>("gambling");
   const [useBannerHero, setUseBannerHero] = useState(true);
@@ -218,6 +202,28 @@ export function LandingGenApp() {
 
   const sectionsOn = Object.values(sections).some(Boolean);
   const canGenerate = subject.trim().length > 0 && sectionsOn && status !== "loading";
+
+  // Collapsible settings sections (accordion), shared pattern across generators.
+  const [openSec, setOpenSec] = useState({
+    subject: true,
+    occasion: false,
+    brand: false,
+    structure: true,
+    cta: false,
+  });
+  const toggleSec = (id: keyof typeof openSec) => setOpenSec((p) => ({ ...p, [id]: !p[id] }));
+  const landSections = fromBanner
+    ? [
+        { id: "structure", title: "Структура", done: sectionsOn },
+        { id: "cta", title: "CTA и детали", done: true },
+      ]
+    : [
+        { id: "subject", title: "Тематика", done: subject.trim().length > 0 },
+        { id: "occasion", title: "Событие", done: true },
+        { id: "brand", title: "Бренд", done: true },
+        { id: "structure", title: "Структура", done: sectionsOn },
+        { id: "cta", title: "CTA и детали", done: true },
+      ];
   // In from-banner mode the vertical/accent come from the banner, not a template.
   const vertical = fromBanner ? bannerVertical : template.vertical;
   const accent = fromBanner ? accentForVertical(bannerVertical) : template.accent;
@@ -235,7 +241,9 @@ export function LandingGenApp() {
     }
   };
 
-  const onGenerate = async () => {
+  // Generation moved to a dedicated editor page: stash the input and route to
+  // /landing/editor/<id>. Generation logic itself is unchanged.
+  const onGenerate = () => {
     if (subject.trim().length === 0) {
       toast.error("Заполните тематику лендинга");
       return;
@@ -246,9 +254,8 @@ export function LandingGenApp() {
     }
     persistBrand();
     setStatus("loading");
-    setErrorMsg("");
     try {
-      const res = await generateLanding({
+      const inputObj: LandingInput = {
         vertical,
         accent,
         brandName,
@@ -260,53 +267,30 @@ export function LandingGenApp() {
         ctaText,
         offerDetails,
         heroImage: heroFromBanner ? bannerImage : "",
-      });
-      setResult(res);
-      setStatus("done");
-      setPreviewMode("desktop");
-      setMobileTab("result");
+      };
+      const projectId = Date.now().toString(36);
+      window.localStorage.setItem(
+        `dw:landingProject:${projectId}`,
+        JSON.stringify({
+          input: inputObj,
+          languages: [normalizeLandingLang(language)],
+          overridesByLang: {},
+        }),
+      );
+      router.push(`/landing/editor/${projectId}`);
     } catch {
-      setStatus("error");
-      setErrorMsg("Не удалось собрать лендинг. Попробуйте ещё раз.");
+      setStatus("idle");
+      toast.error("Не удалось открыть редактор. Попробуйте ещё раз.");
     }
   };
 
-  const downloadHtml = () => {
-    if (!result) return;
-    const blob = new Blob([result.html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `landing-${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast.success("Лендинг скачан (HTML)");
-  };
-
-  const openInNewTab = () => {
-    if (!result) return;
-    const blob = new Blob([result.html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  };
-
-  const getLink = () =>
-    toast("Публикация по ссылке скоро", {
-      description: "Опубликуем лендинг по URL в одном из ближайших обновлений.",
-    });
-
-  const removeResult = () => {
-    setResult(null);
-    setStatus("idle");
-    setMobileTab("settings");
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex flex-col p-0 lg:flex-row lg:gap-6 lg:p-3">
+    <div className="bg-background text-foreground">
+      <ToolCoachmark section="landing" />
+      {/* Fill exactly the viewport below the sticky 4rem header so the columns
+          never push the page into a scroll — only the middle column scrolls
+          internally, the templates column and the pinned CTA stay fixed. */}
+      <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Лендинг-генератор</h1>
 
         {/* COLUMN 1 — templates / verticals. Hidden in from-banner mode: the
@@ -320,12 +304,12 @@ export function LandingGenApp() {
 
         {/* COLUMN 2 — settings */}
         <section
-          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-[calc(100vh-2rem)] lg:flex-[4] lg:rounded-2xl lg:border ${
+          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
           }`}
         >
           {!fromBanner ? (
-            <div className="px-2 pb-3 pt-3 lg:hidden">
+            <div className="flex items-center gap-3 px-2 pb-2 pt-3 lg:hidden">
               <button
                 type="button"
                 onClick={() => setMobileTab("templates")}
@@ -334,11 +318,12 @@ export function LandingGenApp() {
                 <ChevronLeft className="h-5 w-5" />
                 Назад
               </button>
+              <SectionDots sections={landSections} />
             </div>
           ) : null}
 
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-3">
               {fromBanner ? (
                 <>
                   {/* Collapsed "brought from banner" summary — expand to edit. */}
@@ -498,11 +483,13 @@ export function LandingGenApp() {
                 </>
               ) : (
                 <>
-                  {/* Тематика — required */}
-                  <div>
-                    <label className="mb-2 block ds-h2">
-                      Тематика лендинга <span className="text-[color:var(--status-error)]">*</span>
-                    </label>
+                  <SettingsSection
+                    title="Тематика лендинга"
+                    required
+                    done={subject.trim().length > 0}
+                    open={openSec.subject}
+                    onToggle={() => toggleSec("subject")}
+                  >
                     <textarea
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
@@ -510,13 +497,14 @@ export function LandingGenApp() {
                       className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                       placeholder="Например: лендинг для приветственного бонуса казино — 100% на депозит + 200 фриспинов…"
                     />
-                  </div>
+                  </SettingsSection>
 
-                  {/* Событие / повод — optional */}
-                  <div>
-                    <label className="mb-2 block ds-h2">
-                      Событие / повод <span className="text-muted-foreground">(опционально)</span>
-                    </label>
+                  <SettingsSection
+                    title="Событие / повод"
+                    done
+                    open={openSec.occasion}
+                    onToggle={() => toggleSec("occasion")}
+                  >
                     <input
                       type="text"
                       value={occasion}
@@ -524,11 +512,14 @@ export function LandingGenApp() {
                       className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
                       placeholder="Новый год, чемпионат, Black Friday…"
                     />
-                  </div>
+                  </SettingsSection>
 
-                  {/* Бренд */}
-                  <div className="rounded-xl border border-border bg-background/40 p-3">
-                    <p className="mb-2 ds-h2">Бренд</p>
+                  <SettingsSection
+                    title="Бренд"
+                    done
+                    open={openSec.brand}
+                    onToggle={() => toggleSec("brand")}
+                  >
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-2">
                         {brandLogo ? (
@@ -590,14 +581,17 @@ export function LandingGenApp() {
                     <p className="mt-2 ds-caption">
                       По умолчанию язык берётся из шапки. Логотип и название попадут на лендинг.
                     </p>
-                  </div>
+                  </SettingsSection>
                 </>
               )}
 
-              {/* Структура лендинга — section checkboxes */}
-              <div className="rounded-xl border border-border bg-background/40 p-3">
-                <p className="ds-h2">Структура лендинга</p>
-                <p className="mb-3 mt-0.5 ds-caption">
+              <SettingsSection
+                title="Структура лендинга"
+                done={sectionsOn}
+                open={openSec.structure}
+                onToggle={() => toggleSec("structure")}
+              >
+                <p className="mb-3 ds-caption">
                   Какие блоки включить в генерацию. По умолчанию включены все.
                 </p>
                 <div className="flex flex-col gap-1">
@@ -641,48 +635,55 @@ export function LandingGenApp() {
                     Выберите хотя бы один блок для генерации.
                   </p>
                 ) : null}
-              </div>
+              </SettingsSection>
 
-              {/* Текст CTA-кнопки */}
-              <div>
-                <label className="mb-2 block ds-h2">
-                  Текст CTA-кнопки <span className="text-muted-foreground">(опционально)</span>
-                </label>
-                <input
-                  type="text"
-                  value={ctaText}
-                  onChange={(e) => setCtaText(e.target.value)}
-                  maxLength={32}
-                  className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
-                  placeholder="Играть сейчас · Забрать бонус · Сделать ставку"
-                />
-              </div>
-
-              {/* Доп. детали оффера */}
-              <div>
-                <label className="mb-2 block ds-h2">
-                  Детали оффера <span className="text-muted-foreground">(опционально)</span>
-                </label>
-                <textarea
-                  value={offerDetails}
-                  onChange={(e) => setOfferDetails(e.target.value)}
-                  rows={2}
-                  className="min-h-[72px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
-                  placeholder="Условия акции, вейджер, срок действия, мин. депозит…"
-                />
-              </div>
+              <SettingsSection
+                title="CTA и детали"
+                done
+                open={openSec.cta}
+                onToggle={() => toggleSec("cta")}
+              >
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="mb-1.5 block ds-label">
+                      Текст CTA-кнопки <span className="text-muted-foreground">(опционально)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={ctaText}
+                      onChange={(e) => setCtaText(e.target.value)}
+                      maxLength={32}
+                      className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      placeholder="Играть сейчас · Забрать бонус · Сделать ставку"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block ds-label">
+                      Детали оффера <span className="text-muted-foreground">(опционально)</span>
+                    </label>
+                    <textarea
+                      value={offerDetails}
+                      onChange={(e) => setOfferDetails(e.target.value)}
+                      rows={2}
+                      className="min-h-[72px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                      placeholder="Условия акции, вейджер, срок действия, мин. депозит…"
+                    />
+                  </div>
+                </div>
+              </SettingsSection>
             </div>
           </div>
 
-          {/* Mobile sticky primary */}
-          <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
+          {/* Primary action — pinned to the bottom of the settings panel (result
+              now opens on a dedicated editor page, so this is the only CTA). */}
+          <div className="shrink-0 border-t border-border bg-panel p-3">
             <button
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Открываем редактор…" : "Сгенерировать"}
             </button>
             {subject.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">
@@ -691,199 +692,6 @@ export function LandingGenApp() {
             ) : null}
           </div>
         </section>
-
-        {/* COLUMN 3 — result */}
-        <div
-          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-[calc(100vh-2rem)] lg:flex-[4] ${
-            mobileTab !== "result" ? "max-lg:hidden" : ""
-          }`}
-        >
-          {status !== "loading" ? (
-            <button
-              type="button"
-              onClick={() => setMobileTab("settings")}
-              className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
-            >
-              <ChevronLeft className="h-5 w-5" />
-              Назад
-            </button>
-          ) : null}
-
-          {/* Desktop generate button on top (mobile uses the sticky CTA). */}
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={!canGenerate}
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
-          >
-            {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
-          </button>
-          {subject.trim().length === 0 && status !== "loading" ? (
-            <p className="-mt-1 text-center text-xs text-muted-foreground max-lg:hidden">
-              Заполните «Тематика лендинга», чтобы сгенерировать
-            </p>
-          ) : null}
-
-          {status === "loading" ? (
-            <div className="flex min-h-[420px] w-full flex-1 items-center justify-center rounded-2xl border border-border bg-muted">
-              <div className="flex flex-col items-center gap-3 px-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-accent-green" />
-                <p className="text-sm font-medium text-foreground">Генерируем лендинг…</p>
-                <p className="text-xs text-muted-foreground">Собираем выбранные блоки</p>
-              </div>
-            </div>
-          ) : status === "error" ? (
-            <div className="rounded-2xl border border-[color:var(--status-error)]/40 bg-[color:var(--status-error)]/5 p-6 text-center">
-              <p className="text-sm font-medium text-foreground">{errorMsg}</p>
-              <button
-                type="button"
-                onClick={onGenerate}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm transition hover:bg-white/5"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Попробовать снова
-              </button>
-            </div>
-          ) : result ? (
-            <div className="flex flex-col gap-3">
-              {/* Device toggle + actions */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode("desktop")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${
-                      previewMode === "desktop"
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Monitor className="h-4 w-4" />
-                    Десктоп
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode("mobile")}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${
-                      previewMode === "mobile"
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    Мобайл
-                  </button>
-                </div>
-              </div>
-
-              {/* Preview iframe — same HTML, viewport switches with the toggle.
-                  The ⋯ menu overlays the preview's top-right corner (banner-style:
-                  round, dark translucent, bordered — stays visible over content). */}
-              <div className="flex justify-center rounded-2xl border border-border bg-card p-3">
-                <div
-                  className="relative mx-auto w-full overflow-hidden rounded-lg border border-border bg-white transition-all"
-                  style={{ maxWidth: previewMode === "mobile" ? 390 : "100%" }}
-                >
-                  <iframe
-                    key={previewMode}
-                    srcDoc={result.html}
-                    title="Превью лендинга"
-                    sandbox="allow-same-origin allow-popups"
-                    className="block w-full"
-                    style={{ height: previewMode === "mobile" ? 620 : 600, border: 0 }}
-                  />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Ещё"
-                        title="Ещё"
-                        className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white backdrop-blur transition hover:bg-black/75 max-sm:h-11 max-sm:w-11"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      sideOffset={8}
-                      className="w-56 rounded-2xl border-border bg-popover p-1.5 text-foreground"
-                    >
-                      <DropdownMenuItem
-                        onClick={openInNewTab}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                      >
-                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                        Открыть
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={onGenerate}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                      >
-                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                        Перегенерировать
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={downloadHtml}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                      >
-                        <Download className="h-4 w-4 text-muted-foreground" />
-                        Скачать HTML
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuItem
-                        onClick={removeResult}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)]"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Удалить
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-              {/* Primary actions — under the preview (per spec). */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={downloadHtml}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
-                >
-                  <Download className="h-4 w-4" />
-                  Скачать
-                </button>
-                <button
-                  type="button"
-                  onClick={getLink}
-                  title="Публикация по ссылке скоро"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2.5 text-sm transition hover:bg-white/5"
-                >
-                  <Link2 className="h-4 w-4" />
-                  Получить ссылку
-                  <span className="rounded-full bg-white/10 px-1.5 py-0.5 ds-micro text-muted-foreground">
-                    Скоро
-                  </span>
-                </button>
-              </div>
-              <p className="text-center ds-caption">
-                Превью прокручивается. «Скачать» отдаёт готовый HTML-файл, «Получить ссылку» — скоро.
-              </p>
-            </div>
-          ) : (
-            /* idle empty state */
-            <div className="flex w-full flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 max-lg:min-h-[360px]">
-              <div className="max-w-xs text-center">
-                <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface)] text-accent-green">
-                  <LayoutTemplate className="h-6 w-6" />
-                </span>
-                <h2 className="ds-h2">Здесь появится ваш лендинг</h2>
-                <p className="mt-1 ds-caption">
-                  Заполните тематику, выберите блоки и нажмите «Сгенерировать». Готовый лендинг
-                  можно посмотреть в виде десктоп/мобайл и скачать.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -936,11 +744,15 @@ function LandingTemplateSidebar({
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   return (
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
+    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h2">Шаблоны</h2>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-2">
+      {/* Desktop: templates column stays fixed — no internal scroll (the
+          compact list fits), only the middle settings column scrolls. Mobile:
+          templates are a full-screen tab, so keep it scrollable to never clip
+          an expanded category. */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 lg:overflow-hidden">
         <div className="flex flex-col gap-4">
           {LANDING_TEMPLATE_CATEGORIES.map((cat) => {
             const isExpanded = expanded[cat.id];
