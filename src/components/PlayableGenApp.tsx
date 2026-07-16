@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   Code2,
   Download,
-  Loader2,
+  Gamepad2,
   Monitor,
   MoreHorizontal,
   Plus,
@@ -34,6 +34,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getBrandSettings } from "@/components/SettingsDrawer";
+import { GenerationErrorCard } from "@/components/GenerationErrorCard";
+import { GenerationProgress } from "@/components/GenerationProgress";
+import { EmptyResult } from "@/components/EmptyResult";
+import { SettingsSection, SectionDots } from "@/components/SettingsSection";
+import { setUnsavedWork } from "@/lib/unsaved-work";
+import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { getCreativeLanguage, CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import {
   PLAYABLE_MECHANICS,
@@ -133,10 +139,15 @@ export function PlayableGenApp() {
   const [match3Moves, setMatch3Moves] = useState(8);
 
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
   const [result, setResult] = useState<PlayableResult | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("mobile");
   const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
   const [genId, setGenId] = useState(0);
+
+  // Collapsible settings sections (accordion), shared pattern across generators.
+  const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false });
+  const toggleSec = (id: keyof typeof openSec) => setOpenSec((p) => ({ ...p, [id]: !p[id] }));
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const initedRef = useRef(false);
@@ -151,6 +162,12 @@ export function PlayableGenApp() {
     setLanguage(b.language && b.language !== "auto" ? b.language : getCreativeLanguage());
   }, []);
 
+  // Signal an unsaved result so the header / beforeunload can warn on leave.
+  useEffect(() => {
+    setUnsavedWork(result ? "playable" : null);
+    return () => setUnsavedWork(null);
+  }, [result]);
+
   const selectMechanic = (id: PlayableMechanic) => {
     setMechanic(id);
     setMobileTab("settings");
@@ -160,6 +177,13 @@ export function PlayableGenApp() {
   const quizCount = quizAnswers.map((a) => a.trim()).filter(Boolean).length;
   const mechanicValid = mechanic === "wheel" ? wheelCount >= 2 : mechanic === "quiz" ? quizCount >= 2 : true;
   const canGenerate = offer.trim().length > 0 && mechanicValid && status !== "loading";
+
+  const sectionList = [
+    { id: "offer", title: "Оффер", done: offer.trim().length > 0 },
+    { id: "brand", title: "Бренд", done: true },
+    { id: "mechanic", title: "Механика", done: mechanicValid },
+    { id: "format", title: "Формат и результат", done: true },
+  ];
 
   const persistBrand = () => {
     if (typeof window === "undefined") return;
@@ -184,6 +208,7 @@ export function PlayableGenApp() {
     }
     persistBrand();
     setStatus("loading");
+    setErrorMsg("");
     try {
       const res = await generatePlayable({
         mechanic,
@@ -209,7 +234,8 @@ export function PlayableGenApp() {
       setGenId((n) => n + 1);
       setStatus("done");
       setMobileTab("result");
-    } catch {
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "");
       setStatus("error");
     }
   };
@@ -251,6 +277,7 @@ export function PlayableGenApp() {
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");
+    toast("Плейбл удалён");
   };
 
   // Preview frame size from the chosen ratio + device toggle.
@@ -270,8 +297,12 @@ export function PlayableGenApp() {
   const f = frame();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex flex-col p-0 lg:flex-row lg:gap-6 lg:p-3">
+    <div className="bg-background text-foreground">
+      <ToolCoachmark section="playable" />
+      {/* Fill exactly the viewport below the sticky 4rem header so the columns
+          never push the page into a scroll — the left mechanics column stays
+          fixed; only the middle settings + result columns scroll internally. */}
+      <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Плейбл-реклама</h1>
 
         {/* COLUMN 1 — mechanic picker */}
@@ -281,11 +312,11 @@ export function PlayableGenApp() {
 
         {/* COLUMN 2 — settings */}
         <section
-          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-[calc(100vh-2rem)] lg:flex-[4] lg:rounded-2xl lg:border ${
+          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
           }`}
         >
-          <div className="px-2 pb-3 pt-3 lg:hidden">
+          <div className="flex items-center gap-3 px-2 pb-2 pt-3 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileTab("templates")}
@@ -294,15 +325,18 @@ export function PlayableGenApp() {
               <ChevronLeft className="h-5 w-5" />
               Назад
             </button>
+            <SectionDots sections={sectionList} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex flex-col gap-6">
-              {/* Тематика / оффер — required */}
-              <div>
-                <label className="mb-2 block ds-h2">
-                  Тематика / оффер <span className="text-[color:var(--status-error)]">*</span>
-                </label>
+            <div className="flex flex-col gap-3">
+              <SettingsSection
+                title="Оффер / тематика"
+                required
+                done={offer.trim().length > 0}
+                open={openSec.offer}
+                onToggle={() => toggleSec("offer")}
+              >
                 <textarea
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
@@ -310,11 +344,14 @@ export function PlayableGenApp() {
                   className="min-h-[80px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                   placeholder="Например: приветственный бонус 100% + 200 фриспинов"
                 />
-              </div>
+              </SettingsSection>
 
-              {/* Бренд */}
-              <div className="rounded-xl border border-border bg-background/40 p-3">
-                <p className="mb-2 ds-h2">Бренд</p>
+              <SettingsSection
+                title="Бренд"
+                done
+                open={openSec.brand}
+                onToggle={() => toggleSec("brand")}
+              >
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     {brandLogo ? (
@@ -371,16 +408,14 @@ export function PlayableGenApp() {
                     ))}
                   </select>
                 </div>
-              </div>
+              </SettingsSection>
 
-              {/* Mechanic-specific settings */}
-              <div className="rounded-xl border border-border bg-background/40 p-3">
-                <p className="mb-3 ds-h2">
-                  Настройки механики ·{" "}
-                  <span className="text-accent-green">
-                    {PLAYABLE_MECHANICS.find((m) => m.id === mechanic)?.label}
-                  </span>
-                </p>
+              <SettingsSection
+                title={`Механика · ${PLAYABLE_MECHANICS.find((m) => m.id === mechanic)?.label ?? ""}`}
+                done={mechanicValid}
+                open={openSec.mechanic}
+                onToggle={() => toggleSec("mechanic")}
+              >
 
                 {mechanic === "slot" ? (
                   <div className="flex flex-col gap-3">
@@ -570,8 +605,14 @@ export function PlayableGenApp() {
                     </div>
                   </div>
                 ) : null}
-              </div>
+              </SettingsSection>
 
+              <SettingsSection
+                title="Формат и результат"
+                done
+                open={openSec.format}
+                onToggle={() => toggleSec("format")}
+              >
               {/* Always-win toggle */}
               <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3">
                 <div className="min-w-0">
@@ -638,6 +679,7 @@ export function PlayableGenApp() {
                   ))}
                 </div>
               </div>
+              </SettingsSection>
             </div>
           </div>
 
@@ -661,7 +703,7 @@ export function PlayableGenApp() {
 
         {/* COLUMN 3 — result */}
         <div
-          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-[calc(100vh-2rem)] lg:flex-[4] ${
+          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""
           }`}
         >
@@ -691,13 +733,19 @@ export function PlayableGenApp() {
           ) : null}
 
           {status === "loading" ? (
-            <div className="flex min-h-[420px] w-full flex-1 items-center justify-center rounded-2xl border border-border bg-muted">
-              <div className="flex flex-col items-center gap-3 px-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-accent-green" />
-                <p className="text-sm font-medium text-foreground">Собираем плейбл…</p>
-                <p className="text-xs text-muted-foreground">Настраиваем механику и анимацию</p>
-              </div>
-            </div>
+            <GenerationProgress
+              title="Собираем плейбл…"
+              subtitle="Настраиваем механику и анимацию"
+            />
+          ) : status === "error" ? (
+            <GenerationErrorCard
+              message={errorMsg}
+              onRetry={onGenerate}
+              onDismiss={() => {
+                setStatus("idle");
+                setErrorMsg("");
+              }}
+            />
           ) : result ? (
             <div className="flex flex-col gap-3">
               {/* Device toggle + ⋯ */}
@@ -812,18 +860,11 @@ export function PlayableGenApp() {
               </p>
             </div>
           ) : (
-            <div className="flex w-full flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 max-lg:min-h-[360px]">
-              <div className="max-w-xs text-center">
-                <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface)] text-accent-green">
-                  <MechanicGlyph mechanic={mechanic} />
-                </span>
-                <h2 className="ds-h2">Здесь появится ваш плейбл</h2>
-                <p className="mt-1 ds-caption">
-                  Выберите механику, заполните оффер и нажмите «Сгенерировать». Превью будет
-                  интерактивным — прямо в нём можно поиграть.
-                </p>
-              </div>
-            </div>
+            <EmptyResult
+              icon={<Gamepad2 className="h-6 w-6" />}
+              title="Здесь появится ваш плейбл"
+              hint="Выберите механику, заполните оффер и нажмите «Сгенерировать». Превью будет интерактивным — прямо в нём можно поиграть."
+            />
           )}
         </div>
       </div>
@@ -902,17 +943,6 @@ function IconUpload({
       />
     </div>
   );
-}
-
-function MechanicGlyph({ mechanic }: { mechanic: PlayableMechanic }) {
-  const map: Record<PlayableMechanic, string> = {
-    slot: "🎰",
-    wheel: "🎡",
-    scratch: "🎫",
-    quiz: "❓",
-    match3: "🧩",
-  };
-  return <span className="text-2xl leading-none">{map[mechanic]}</span>;
 }
 
 // ---- left column: mechanic picker with looped animated previews -------------
@@ -1005,13 +1035,18 @@ function MechanicSidebar({
   value: PlayableMechanic;
   onSelect: (id: PlayableMechanic) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? PLAYABLE_MECHANICS : PLAYABLE_MECHANICS.slice(0, 3);
+  // Single category for now → show every mechanic at once. The "Все" collapse
+  // (below) is kept but disabled; restore it once mechanics are grouped into
+  // multiple categories worth collapsing.
+  // const [expanded, setExpanded] = useState(false);
+  // const shown = expanded ? PLAYABLE_MECHANICS : PLAYABLE_MECHANICS.slice(0, 3);
+  const shown = PLAYABLE_MECHANICS;
   return (
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
+    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <style>{ANIM_CSS}</style>
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <h2 className="ds-h2">Игровые механики</h2>
+        {/* "Все" hidden until there are multiple mechanic categories to group:
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -1019,10 +1054,15 @@ function MechanicSidebar({
         >
           {expanded ? "Свернуть" : "Все"}
         </button>
+        */}
       </div>
-      <div className="flex-1 overflow-y-auto p-3">
-        {/* Horizontal carousel on mobile, vertical list on desktop. */}
-        <div className="flex gap-3 overflow-x-auto pb-1 max-lg:snap-x lg:flex-col lg:overflow-visible">
+      {/* Desktop: mechanics column stays fixed — no internal scroll (the list
+          fits), only the middle settings column scrolls. Mobile: full-screen
+          tab, keep scrollable. */}
+      <div className="flex-1 overflow-y-auto p-3 lg:overflow-hidden">
+        {/* Full-width vertical list on every breakpoint (consistent with the
+            other sections' template pickers — no horizontal carousel). */}
+        <div className="flex flex-col gap-3">
           {shown.map((m) => {
             const active = value === m.id;
             return (
@@ -1030,7 +1070,7 @@ function MechanicSidebar({
                 key={m.id}
                 type="button"
                 onClick={() => onSelect(m.id)}
-                className={`flex w-52 shrink-0 items-center gap-3 rounded-2xl border p-2.5 text-left transition max-lg:snap-start lg:w-auto ${
+                className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                   active
                     ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(234,255,160,0.14)]"
                     : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"

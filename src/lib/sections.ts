@@ -1,6 +1,7 @@
 // The four product sections of the platform. Single source of truth used by
 // the Hub start screen, the header section-switcher, and each section's route.
-// Only "banner" is fully implemented; the rest are scaffolds for now.
+// All four have working UI now (banner / landing / playable / video); the AI
+// backends behind them are still mocked to varying degrees.
 import { Image, LayoutTemplate, Gamepad2, Film, type LucideIcon } from "lucide-react";
 
 export type SectionId = "banner" | "landing" | "playable" | "video";
@@ -40,7 +41,7 @@ export const SECTIONS: Section[] = [
     icon: LayoutTemplate,
     scaffoldHint:
       "Здесь появятся настройки для генерации лендинга: структура блоков, тексты, изображения",
-    ready: false,
+    ready: true,
   },
   {
     id: "playable",
@@ -50,7 +51,7 @@ export const SECTIONS: Section[] = [
     cta: "Создать плейбл",
     icon: Gamepad2,
     scaffoldHint: "Здесь появятся настройки интерактивной механики и сценария",
-    ready: false,
+    ready: true,
   },
   {
     id: "video",
@@ -61,7 +62,7 @@ export const SECTIONS: Section[] = [
     icon: Film,
     scaffoldHint:
       "Здесь появятся настройки скринкаста, персонажа, липсинка, музыки и доп. элементов",
-    ready: false,
+    ready: true,
   },
 ];
 

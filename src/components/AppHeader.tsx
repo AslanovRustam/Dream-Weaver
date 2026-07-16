@@ -43,6 +43,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
+import { getUnsavedWork } from "@/lib/unsaved-work";
 import {
   useCreativeLanguage,
   setCreativeLanguage,
@@ -179,6 +180,19 @@ export function AppHeader() {
       clearInterval(t);
     };
   }, [isAuthenticated]);
+
+  // Warn before a hard navigation (refresh / tab close) while a section holds a
+  // freshly generated, not-yet-persisted result (playable / video).
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (getUnsavedWork() !== null) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   if (!isAuthenticated) return null;
 
@@ -626,9 +640,15 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
 
   const go = (route: string) => {
     if (current && route === current.route) return;
-    // Only the banner editor holds unsaved in-memory work today.
-    if (current?.id === "banner" && (gen.imageUrl !== null || gen.isBusy)) {
-      if (!window.confirm("Есть несохранённые изменения. Продолжить?")) return;
+    // Banner holds unsaved in-memory work in the generation context; playable /
+    // video report it via the shared unsaved-work signal.
+    const bannerDirty = current?.id === "banner" && (gen.imageUrl !== null || gen.isBusy);
+    const sectionDirty = getUnsavedWork() !== null && getUnsavedWork() === current?.id;
+    if (
+      (bannerDirty || sectionDirty) &&
+      !window.confirm("Есть несохранённые изменения. Продолжить?")
+    ) {
+      return;
     }
     router.push(route);
   };
@@ -691,7 +711,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
         })}
         <DropdownMenuSeparator className="bg-border" />
         <DropdownMenuItem
-          onClick={() => router.push("/")}
+          onClick={() => go("/")}
           className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
         >
           <LayoutGrid className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
