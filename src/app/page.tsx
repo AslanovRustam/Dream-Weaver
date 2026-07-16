@@ -83,6 +83,9 @@ export default function HubPage() {
         <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">
           Что будем создавать?
         </h1>
+        <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">
+          Выберите инструмент — каждый проведёт вас по шагам до готового результата.
+        </p>
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:mt-10 sm:grid-cols-2">
           {SECTIONS.map((s) => {
@@ -97,9 +100,16 @@ export default function HubPage() {
                     "linear-gradient(180deg, rgba(212,255,61,0.14) 0%, rgba(212,255,61,0.05) 20%, rgba(22,22,22,0.92) 52%, var(--bg-surface) 100%)",
                 }}
               >
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-background text-accent-green">
-                  <Icon className="h-6 w-6" />
-                </span>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-background text-accent-green">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  {s.id === "banner" ? (
+                    <span className="rounded-full border border-accent-green/50 bg-accent-green/10 px-2.5 py-1 text-xs font-semibold text-accent-green">
+                      Рекомендуем начать
+                    </span>
+                  ) : null}
+                </div>
                 <h2 className="mt-4 text-lg font-semibold">{s.title}</h2>
                 <p className="mt-1 flex-1 text-sm text-muted-foreground">{s.description}</p>
                 <button
