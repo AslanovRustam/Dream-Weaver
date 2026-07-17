@@ -1521,13 +1521,21 @@ export function ImageGenApp() {
               !DEV_PREVIEW_RESULT && (status === "loading" || gen.status === "master_running");
             const [rw, rh] = ratio.split(":").map(Number);
             const frameAspect = rw && rh ? `${rw} / ${rh}` : "1 / 1";
+            // Placeholders (empty / loading) must fit the column so they never
+            // trigger a scrollbar. Wrap them in a flex-1 box and drive the
+            // aspect card by its limiting dimension (height for portrait, width
+            // otherwise) so it scales down to "contain". The real result below
+            // is left free to overflow → scroll when it's genuinely tall.
+            const portrait = rh > rw;
+            const fitStyle = { aspectRatio: frameAspect, ...(portrait ? { height: "100%" } : { width: "100%" }) };
 
             // 2. Loading — skeleton in the chosen aspect ratio
             if (isLoading) {
               return (
+                <div className="flex min-h-0 w-full flex-1 items-center justify-center">
                 <div
-                  className="relative flex w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted"
-                  style={{ aspectRatio: frameAspect }}
+                  className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted"
+                  style={fitStyle}
                 >
                   <div className="absolute inset-0 animate-pulse bg-muted" />
                   <div className="relative flex flex-col items-center gap-3 px-6 text-center">
@@ -1547,6 +1555,7 @@ export function ImageGenApp() {
                       Отменить
                     </button>
                   </div>
+                </div>
                 </div>
               );
             }
@@ -1725,10 +1734,11 @@ export function ImageGenApp() {
             // 1. Empty state (idle) — a banner-shaped skeleton (in the chosen
             // aspect ratio) so the user sees where the result will appear.
             return (
-              <div
-                className="flex w-full items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6"
-                style={{ aspectRatio: frameAspect }}
-              >
+              <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+                <div
+                  className="flex max-h-full max-w-full items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6"
+                  style={fitStyle}
+                >
                 <div className="flex max-w-xs flex-col items-center gap-6 text-center">
                   <ImageIcon className="h-20 w-20 text-muted-foreground/40" strokeWidth={1.5} />
                   <div className="space-y-1">
@@ -1737,6 +1747,7 @@ export function ImageGenApp() {
                       Заполните настройки, чтобы сгенерировать баннер.
                     </p>
                   </div>
+                </div>
                 </div>
               </div>
             );
