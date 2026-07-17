@@ -15,6 +15,8 @@ import {
   Code2,
   Download,
   Gamepad2,
+  Maximize2,
+  Minimize2,
   Monitor,
   MoreHorizontal,
   Plus,
@@ -144,6 +146,12 @@ export function PlayableGenApp() {
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("mobile");
   const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
   const [genId, setGenId] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [vp, setVp] = useState(() =>
+    typeof window !== "undefined"
+      ? { w: window.innerWidth, h: window.innerHeight }
+      : { w: 1280, h: 800 },
+  );
 
   // Collapsible settings sections (accordion), shared pattern across generators.
   const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false });
@@ -167,6 +175,36 @@ export function PlayableGenApp() {
     setUnsavedWork(result ? "playable" : null);
     return () => setUnsavedWork(null);
   }, [result]);
+
+  // Track the viewport so the fullscreen playable can be scaled to fit it.
+  useEffect(() => {
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Fullscreen overlay: best-effort real browser fullscreen (gracefully falls
+  // back to the viewport-filling in-app overlay when the Fullscreen API is
+  // blocked, e.g. inside a sandboxed preview), plus Esc-to-exit and syncing
+  // back when the user leaves native fullscreen from the browser chrome.
+  const fsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!fullscreen) return;
+    fsRef.current?.requestFullscreen?.().catch(() => {});
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("keydown", onKey);
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    };
+  }, [fullscreen]);
 
   const selectMechanic = (id: PlayableMechanic) => {
     setMechanic(id);
@@ -295,6 +333,32 @@ export function PlayableGenApp() {
     return { w, h: Math.round((w * rh) / rw) };
   }
   const f = frame();
+
+  // Fullscreen sizing: the generated game uses fixed-px elements, so simply
+  // enlarging the iframe would leave a tiny game in a big void. Instead we
+  // render it at its natural phone-ish design size and CSS-scale it up to fill
+  // the screen while preserving the chosen aspect ratio.
+  function fsFrame() {
+    const [rw, rh] = ratio.split(":").map(Number);
+    const base = 360;
+    let baseW: number;
+    let baseH: number;
+    if (rw === rh) {
+      baseW = base;
+      baseH = base;
+    } else if (rh > rw) {
+      baseW = base;
+      baseH = Math.round((base * rh) / rw);
+    } else {
+      baseH = base;
+      baseW = Math.round((base * rw) / rh);
+    }
+    const availW = Math.max(1, vp.w - 32);
+    const availH = Math.max(1, vp.h - 88); // top bar + vertical padding
+    const scale = Math.min(availW / baseW, availH / baseH);
+    return { baseW, baseH, scale };
+  }
+  const fs = fullscreen ? fsFrame() : null;
 
   return (
     <div className="bg-background text-foreground">
@@ -776,7 +840,18 @@ export function PlayableGenApp() {
                     Мобайл
                   </button>
                 </div>
-                <DropdownMenu>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFullscreen(true)}
+                    aria-label="На весь экран"
+                    title="Открыть плейбл на весь экран"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                    <span className="max-sm:hidden">На весь экран</span>
+                  </button>
+                  <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
@@ -815,7 +890,8 @@ export function PlayableGenApp() {
                       Удалить
                     </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                  </DropdownMenu>
+                </div>
               </div>
 
               {/* Interactive preview */}
@@ -868,6 +944,60 @@ export function PlayableGenApp() {
           )}
         </div>
       </div>
+
+      {/* Fullscreen playable overlay — opens the interactive slot / wheel / etc.
+          at full size. Best-effort native browser fullscreen; always at least a
+          viewport-filling in-app overlay. The game is rendered at its design
+          size and CSS-scaled up to fit (fixed-px game elements otherwise stay
+          tiny). Esc or «Свернуть» exits. */}
+      {fullscreen && result && fs ? (
+        <div
+          ref={fsRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Плейбл на весь экран"
+          className="fixed inset-0 z-[90] flex flex-col bg-black"
+        >
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="truncate text-sm font-medium text-white/80">
+              Плейбл · {PLAYABLE_MECHANICS.find((m) => m.id === mechanic)?.label ?? ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            >
+              <Minimize2 className="h-4 w-4" />
+              Свернуть
+              <span className="ml-1 hidden text-xs text-white/40 sm:inline">Esc</span>
+            </button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4">
+            <div
+              className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10"
+              style={{
+                width: Math.round(fs.baseW * fs.scale),
+                height: Math.round(fs.baseH * fs.scale),
+              }}
+            >
+              <iframe
+                key={`fs-${genId}`}
+                srcDoc={result.html}
+                title="Плейбл на весь экран"
+                sandbox="allow-scripts allow-same-origin"
+                className="block bg-black"
+                style={{
+                  width: fs.baseW,
+                  height: fs.baseH,
+                  transform: `scale(${fs.scale})`,
+                  transformOrigin: "top left",
+                  border: 0,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
