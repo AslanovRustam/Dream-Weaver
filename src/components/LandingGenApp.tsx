@@ -5,20 +5,22 @@
 // a step wizard on mobile (Назад + sticky "Сгенерировать"). Generation is
 // client-side today (see src/lib/landingGen.ts) but the shape matches the
 // banner so a real API can be slotted in later.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
+  Filter,
   Image as ImageIcon,
+  Search,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getBrandSettings } from "@/components/SettingsDrawer";
+import { MobileScrim } from "@/components/MobileScrim";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import {
@@ -699,7 +701,10 @@ export function LandingGenApp() {
 
 // ---- Left column ------------------------------------------------------------
 
-function TemplateCard({
+// Grid tile: gradient thumbnail on top, name below — reads clearly as one of
+// several options in the expanded category grid (mirrors the banner sidebar's
+// PresetTile). No single full-width "default" card.
+function TemplateTile({
   template,
   selected,
   onSelect,
@@ -712,29 +717,36 @@ function TemplateCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex items-center gap-2.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+      className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
         selected
-          ? "border-accent-green shadow-[0_0_40px_rgba(234,255,160,0.16)]"
+          ? "border-accent-green shadow-[0_0_30px_rgba(234,255,160,0.16)]"
           : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
       <div
-        className="h-12 w-12 shrink-0 rounded-md bg-cover bg-center"
+        className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
         style={{ background: template.gradient }}
       />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{template.name}</span>
-        <span className="block truncate ds-caption">{template.description}</span>
-      </span>
-      {selected ? (
-        <span className="mr-1.5 shrink-0 rounded-full bg-accent-green p-0.5 text-black">
+      <p className="truncate text-xs font-medium">{template.name}</p>
+      {selected && (
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-black">
           <Check size={10} />
         </span>
-      ) : null}
+      )}
     </button>
   );
 }
 
+const LANDING_CATEGORY_OPTIONS = [
+  { id: "all", label: "Все категории" },
+  ...LANDING_TEMPLATE_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+];
+
+// Same pattern as the banner-generator's PresetSidebar: a search box + funnel
+// category filter above accordion categories. Each category HEADER is the
+// toggle — collapsed shows only "Label (N)" + chevron (no preview, nothing
+// reads as a pre-selected default); expanding reveals a grid of every template
+// in it so the user consciously picks one. Search force-opens matching groups.
 function LandingTemplateSidebar({
   value,
   onSelect,
@@ -742,48 +754,232 @@ function LandingTemplateSidebar({
   value: string;
   onSelect: (t: LandingTemplate) => void;
 }) {
+  const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [draftCategory, setDraftCategory] = useState("all");
+
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const filterActive = categoryFilter !== "all";
+  const draftLabel =
+    LANDING_CATEGORY_OPTIONS.find((o) => o.id === draftCategory)?.label ?? "Все категории";
+  const appliedLabel = LANDING_CATEGORY_OPTIONS.find((o) => o.id === categoryFilter)?.label ?? "";
+
+  const clearFilter = () => {
+    setCategoryFilter("all");
+    setDraftCategory("all");
+    closeFilter();
+  };
+  const openFilter = () => {
+    setDraftCategory(categoryFilter);
+    setFilterOpen((o) => !o);
+    setCatMenuOpen(false);
+  };
+  const closeFilter = () => {
+    setFilterOpen(false);
+    setCatMenuOpen(false);
+  };
+
+  const filterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        closeFilter();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [filterOpen]);
+
+  // For each category resolve its templates filtered by search + applied
+  // category filter; hide categories with no matches.
+  const groups = useMemo(() => {
+    return LANDING_TEMPLATE_CATEGORIES.filter(
+      (cat) => categoryFilter === "all" || cat.id === categoryFilter,
+    )
+      .map((cat) => {
+        const templates = cat.templates.filter(
+          (t) =>
+            !q ||
+            t.name.toLowerCase().includes(q) ||
+            t.description.toLowerCase().includes(q),
+        );
+        return { ...cat, templates };
+      })
+      .filter((cat) => cat.templates.length > 0);
+  }, [q, categoryFilter]);
+
   return (
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h2">Шаблоны</h2>
       </div>
-      {/* Desktop: templates column stays fixed — no internal scroll (the
-          compact list fits), only the middle settings column scrolls. Mobile:
-          templates are a full-screen tab, so keep it scrollable to never clip
-          an expanded category. */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 lg:overflow-hidden">
-        <div className="flex flex-col gap-4">
-          {LANDING_TEMPLATE_CATEGORIES.map((cat) => {
-            const isExpanded = expanded[cat.id];
-            const shown = isExpanded ? cat.templates : cat.templates.slice(0, 1);
-            const hasMore = cat.templates.length > 1;
+      <div ref={filterRef} className="relative px-4 pb-2 pt-2">
+        <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
+          <Search size={16} className="shrink-0 text-foreground/70" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по шаблонам"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={openFilter}
+            aria-label="Фильтр"
+            aria-expanded={filterOpen}
+            className={`relative -mr-1 shrink-0 rounded-md p-1 transition ${
+              filterActive || filterOpen
+                ? "text-accent-green"
+                : "text-foreground/70 hover:text-foreground"
+            }`}
+          >
+            <Filter size={16} />
+            {filterActive && (
+              <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent-green" />
+            )}
+          </button>
+        </div>
+
+        {filterActive && (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={clearFilter}
+              className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-xs text-foreground transition hover:bg-white/10"
+            >
+              {appliedLabel}
+              <X size={12} className="text-muted-foreground" />
+            </button>
+            <button
+              type="button"
+              onClick={clearFilter}
+              className="text-xs text-muted-foreground transition hover:text-foreground"
+            >
+              Очистить
+            </button>
+          </div>
+        )}
+
+        {/* Mobile overlay behind the category dropdown (shared header pattern);
+            desktop keeps the plain popover. */}
+        <MobileScrim open={filterOpen} onClose={closeFilter} />
+        {filterOpen && (
+          <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
+            <p className="mb-2 ds-h2">Категория</p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCatMenuOpen((o) => !o)}
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-white/5 px-3 py-2 text-sm transition hover:bg-white/10"
+              >
+                <span>{draftLabel}</span>
+                <ChevronDown
+                  size={16}
+                  className={`text-muted-foreground transition ${catMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {catMenuOpen && (
+                <div className="mt-1 overflow-hidden rounded-lg border border-border bg-card">
+                  {LANDING_CATEGORY_OPTIONS.map((opt) => {
+                    const active = draftCategory === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setDraftCategory(opt.id);
+                          setCategoryFilter(opt.id);
+                          closeFilter();
+                        }}
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
+                          active
+                            ? "bg-accent-green/15 text-accent-green"
+                            : "text-foreground hover:bg-white/10"
+                        }`}
+                      >
+                        {opt.label}
+                        {active && <Check size={14} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {groups.length === 0 && (
+          <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
+            <Search className="h-7 w-7 text-muted-foreground/40" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+              <p className="ds-caption">
+                {q
+                  ? `По запросу «${query.trim()}» шаблонов нет`
+                  : "В этой категории пока нет шаблонов"}
+              </p>
+            </div>
+            {(searching || filterActive) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  clearFilter();
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-white/5"
+              >
+                Сбросить
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex flex-col gap-3">
+          {groups.map((cat) => {
+            const isExpanded = searching || expanded[cat.id];
             return (
               <div
                 key={cat.id}
-                className="flex flex-col gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] p-3"
+                className="overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)]"
               >
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <h3 className="text-sm font-semibold">{cat.label}</h3>
-                  {hasMore ? (
-                    <button
-                      type="button"
-                      onClick={() => setExpanded((p) => ({ ...p, [cat.id]: !p[cat.id] }))}
-                      className="inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full bg-[var(--bg-surface-hover)] py-1 pl-3 pr-2 text-sm font-medium text-accent-green transition hover:bg-white/10 active:bg-white/[0.14] max-sm:min-h-11 max-sm:pl-4 max-sm:pr-3"
-                    >
-                      {isExpanded ? "Свернуть" : "Все"}
-                      <ChevronRight className={`h-4 w-4 transition ${isExpanded ? "rotate-90" : ""}`} />
-                    </button>
-                  ) : null}
-                </div>
-                {shown.map((t) => (
-                  <TemplateCard
-                    key={t.id}
-                    template={t}
-                    selected={value === t.id}
-                    onSelect={() => onSelect(t)}
+                <button
+                  type="button"
+                  onClick={() => setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                  aria-expanded={Boolean(isExpanded)}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/5"
+                >
+                  <span className="flex-1 truncate text-sm font-semibold">
+                    {cat.label}
+                    <span className="ml-1.5 font-normal text-muted-foreground">
+                      ({cat.templates.length})
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
                   />
-                ))}
+                </button>
+                {isExpanded ? (
+                  <div className="border-t border-border p-2.5">
+                    <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto">
+                      {cat.templates.map((t) => (
+                        <TemplateTile
+                          key={t.id}
+                          template={t}
+                          selected={value === t.id}
+                          onSelect={() => onSelect(t)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}

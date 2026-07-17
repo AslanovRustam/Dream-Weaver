@@ -222,12 +222,29 @@ export function AppHeader() {
         {/* LEFT: logo + breadcrumb + save + undo/redo */}
         <div className="flex min-w-0 items-center gap-2">
           {isHub ? (
-            <Link href="/" className="shrink-0 text-base font-semibold tracking-tight">
+            <Link
+              href="/"
+              className="shrink-0 rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+            >
               <span className="hidden sm:inline">Dream Weaver Studio</span>
               <span className="sm:hidden">DW</span>
             </Link>
           ) : (
-            <SectionSwitcher pathname={pathname} />
+            <>
+              {/* Standalone text wordmark → Hub. White brand, no button chrome;
+                  the lime accent lives on the section switcher beside it, so the
+                  two can't be confused. Shortened to "DW" on mobile. */}
+              <Link
+                href="/"
+                aria-label="На главную — Dream Weaver Studio"
+                title="На главную"
+                className="relative shrink-0 rounded text-base font-bold tracking-tight text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:text-sm"
+              >
+                <span className="hidden sm:inline">Dream Weaver Studio</span>
+                <span className="sm:hidden">DW</span>
+              </Link>
+              <SectionSwitcher pathname={pathname} />
+            </>
           )}
           {isBannerEditor ? (
             <div className="hidden min-w-0 items-center gap-2 sm:flex">
@@ -612,13 +629,15 @@ function CreditsButton({ label, max }: { label: string; max: number }) {
   );
 }
 
-// Product name as a section switcher: "Dream Weaver Studio ▾" opening a menu of
-// all four sections (current one checked) + "На главную" (the Hub). Switching
-// away from the banner editor with unsaved work asks for confirmation.
+// Section switcher: a bordered chip showing the current section's white icon +
+// name + ▾, opening a menu of all four sections (current one checked) + "На
+// главную" (the Hub). The brand wordmark lives in a separate logo to the left.
+// Switching away from the banner editor with unsaved work asks for confirmation.
 function SectionSwitcher({ pathname }: { pathname: string | null }) {
   const router = useRouter();
   const gen = useGeneration();
   const current = sectionFromPath(pathname);
+  const CurrentIcon = current?.icon;
 
   // One-time coachmark pointing out that this element switches sections.
   const [showHint, setShowHint] = useState(false);
@@ -665,22 +684,30 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
             type="button"
             aria-label="Переключить раздел"
             title="Переключить раздел"
-            className="group inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-base font-semibold tracking-tight transition hover:border-white/25 hover:bg-white/10 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:min-h-11 max-sm:px-3"
+            className="group inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-base font-semibold tracking-tight transition hover:border-white/25 hover:bg-white/10 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:min-h-11 max-sm:px-3"
           >
-            {/* Desktop: full brand + current section. Mobile: compact "ДВ" only —
-                the current section's full name lives inside the dropdown. */}
-            <span className="hidden items-center gap-1.5 sm:inline-flex">
-              <span className="text-foreground/70">Dream Weaver Studio</span>
-              {current ? (
-                <>
-                  <span className="text-muted-foreground">/</span>
-                  <span className="text-foreground">{current.title}</span>
-                </>
-              ) : null}
+            {/* Section chip: lime current-section icon + white name + lime
+                chevron. The brand wordmark (now white) lives in the standalone
+                logo to the left; the switcher carries the lime accent to read as
+                the primary control. Desktop shows the name; mobile shows the icon
+                only to save width. */}
+            <span className="hidden items-center gap-2 sm:inline-flex">
+              {CurrentIcon ? (
+                <CurrentIcon className="h-4 w-4 shrink-0 text-accent-green" />
+              ) : (
+                <LayoutGrid className="h-4 w-4 shrink-0 text-accent-green" />
+              )}
+              <span className="text-foreground">{current ? current.title : "Разделы"}</span>
             </span>
-            <span className="text-foreground sm:hidden">DW</span>
+            <span className="flex items-center sm:hidden">
+              {CurrentIcon ? (
+                <CurrentIcon className="h-5 w-5 text-accent-green" />
+              ) : (
+                <LayoutGrid className="h-5 w-5 text-accent-green" />
+              )}
+            </span>
             <ChevronDown
-              className="h-4 w-4 shrink-0 text-foreground/70 transition group-hover:text-foreground max-sm:h-5 max-sm:w-5"
+              className="h-4 w-4 shrink-0 text-accent-green transition group-hover:text-[var(--accent-hover)] max-sm:h-5 max-sm:w-5"
               strokeWidth={2.5}
             />
           </button>
@@ -709,14 +736,6 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
             </DropdownMenuItem>
           );
         })}
-        <DropdownMenuSeparator className="bg-border" />
-        <DropdownMenuItem
-          onClick={() => go("/")}
-          className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
-        >
-          <LayoutGrid className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
-          На главную
-        </DropdownMenuItem>
       </DropdownMenuContent>
       </DropdownMenu>
       {showHint ? (
