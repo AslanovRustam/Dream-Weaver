@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
 import { MobileScrim } from "@/components/MobileScrim";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
@@ -113,8 +113,9 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
 ];
 
-// Templates grouped into categories. Each category shows its first preset as a
-// collapsed preview; the "Все" button expands the full list inline.
+// Templates grouped into categories. Each category is an accordion: collapsed
+// shows just "Label (N)" + chevron; expanding reveals a grid of all its
+// templates so the user consciously picks one (no implicit default preview).
 type Category = {
   id: string;
   label: string;
@@ -134,7 +135,9 @@ type Props = {
   onChange: (id: string) => void;
 };
 
-function PresetButton({
+// Grid tile: thumbnail on top, name below — reads clearly as one of several
+// options in the expanded category grid (vs a single full-width "default").
+function PresetTile({
   preset,
   selected,
   onSelect,
@@ -147,25 +150,25 @@ function PresetButton({
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex items-center gap-2.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+      className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
         selected
-          ? "border-accent-green shadow-[0_0_40px_rgba(234,255,160,0.16)]"
+          ? "border-accent-green shadow-[0_0_30px_rgba(234,255,160,0.16)]"
           : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
       <div
-        className="h-12 w-12 shrink-0 rounded-md bg-cover bg-center"
+        className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
         style={
           preset.preview
             ? { backgroundImage: `url(${preset.preview})` }
             : { background: preset.gradient }
         }
       />
-      <p className="min-w-0 flex-1 truncate text-sm font-medium">{preset.name}</p>
+      <p className="truncate text-xs font-medium">{preset.name}</p>
       {selected && (
-        <div className="mr-1.5 shrink-0 rounded-full bg-accent-green p-0.5 text-black">
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-black">
           <Check size={10} />
-        </div>
+        </span>
       )}
     </button>
   );
@@ -372,46 +375,53 @@ export function PresetSidebar({ value, onChange }: Props) {
             )}
           </div>
         )}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {groups.map((cat) => {
-            // While searching we always show every match; otherwise collapse to
-            // the first preset until the user expands the category.
+            // The category HEADER is the accordion toggle: collapsed shows only
+            // "Label (N)" + chevron — no preview card, so nothing reads as a
+            // pre-selected default. Expanded reveals the full grid of templates,
+            // so the user consciously sees there are several options and picks
+            // one. Search force-opens matching categories.
             const isExpanded = searching || expanded[cat.id];
-            const shown = isExpanded ? cat.presets : cat.presets.slice(0, 1);
-            const showToggle = !searching;
-
             return (
               <div
                 key={cat.id}
-                className="flex flex-col gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] p-3"
+                className="overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)]"
               >
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <h3 className="text-sm font-semibold">{cat.label}</h3>
-                  {showToggle && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
-                      }
-                      className="inline-flex min-h-8 shrink-0 items-center gap-0.5 rounded-full bg-[var(--bg-surface-hover)] py-1 pl-3 pr-2 text-sm font-medium text-accent-green transition hover:bg-white/10 active:bg-white/[0.14] max-sm:min-h-11 max-sm:pl-4 max-sm:pr-3"
-                    >
-                      {isExpanded ? "Свернуть" : "Все"}
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 rotate-180" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                  )}
-                </div>
-                {shown.map((p) => (
-                  <PresetButton
-                    key={p.id}
-                    preset={p}
-                    selected={value === p.id}
-                    onSelect={() => onChange(p.id)}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
+                  }
+                  aria-expanded={Boolean(isExpanded)}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/5"
+                >
+                  <span className="flex-1 truncate text-sm font-semibold">
+                    {cat.label}
+                    <span className="ml-1.5 font-normal text-muted-foreground">
+                      ({cat.presets.length})
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
                   />
-                ))}
+                </button>
+                {isExpanded ? (
+                  <div className="border-t border-border p-2.5">
+                    <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto">
+                      {cat.presets.map((p) => (
+                        <PresetTile
+                          key={p.id}
+                          preset={p}
+                          selected={value === p.id}
+                          onSelect={() => onChange(p.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
