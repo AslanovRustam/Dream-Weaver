@@ -846,7 +846,7 @@ export function PlayableGenApp() {
                     onClick={() => setFullscreen(true)}
                     aria-label="На весь экран"
                     title="Открыть плейбл на весь экран"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:h-11 max-sm:w-11 max-sm:px-0"
                   >
                     <Maximize2 className="h-4 w-4" />
                     <span className="max-sm:hidden">На весь экран</span>
@@ -857,7 +857,7 @@ export function PlayableGenApp() {
                       type="button"
                       aria-label="Ещё"
                       title="Ещё"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:h-11 max-sm:w-11"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
@@ -897,7 +897,7 @@ export function PlayableGenApp() {
               {/* Interactive preview */}
               <div className="flex justify-center rounded-2xl border border-border bg-card p-3">
                 <div
-                  className="overflow-hidden rounded-[20px] border-[6px] border-[#1c2417] bg-black shadow-xl transition-all"
+                  className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl transition-all"
                   style={{ width: f.w, maxWidth: "100%" }}
                 >
                   <iframe
@@ -969,7 +969,7 @@ export function PlayableGenApp() {
             >
               <Minimize2 className="h-4 w-4" />
               Свернуть
-              <span className="ml-1 hidden text-xs text-white/40 sm:inline">Esc</span>
+              <span className="ml-1 hidden text-xs text-white/60 sm:inline">Esc</span>
             </button>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4">

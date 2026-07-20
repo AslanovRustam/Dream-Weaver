@@ -43,6 +43,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
+import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
 import {
   useCreativeLanguage,
@@ -572,12 +573,14 @@ function GenerationIndicator() {
             ? "Готово"
             : "";
 
+  // Tokens only — the error/success roles use the same --status-* variables as
+  // GenerationErrorCard / SettingsSection rather than raw Tailwind palettes.
   const tone =
     gen.status === "error"
-      ? "border-red-500/40 bg-red-500/10 text-red-400"
+      ? "border-[color:var(--status-error)]/40 bg-[color:var(--status-error)]/10 text-[color:var(--status-error)]"
       : isActive
-        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-        : "border-emerald-500/30 bg-emerald-500/5 text-emerald-300";
+        ? "border-accent-green/40 bg-accent-green/10 text-accent-green"
+        : "border-accent-green/30 bg-accent-green/5 text-accent-green/80";
 
   return (
     <div
@@ -601,7 +604,7 @@ function GenerationIndicator() {
       <button
         type="button"
         onClick={() => (isActive ? gen.cancel() : gen.clear())}
-        className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+        className="relative flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
         aria-label={isActive ? "Прервать" : "Скрыть"}
         title={isActive ? "Прервать оставшиеся задачи" : "Скрыть индикатор"}
       >
@@ -639,22 +642,16 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   const current = sectionFromPath(pathname);
   const CurrentIcon = current?.icon;
 
-  // One-time coachmark pointing out that this element switches sections.
+  // One-time coachmark pointing out that this element switches sections. It goes
+  // FIRST: a tool's own coachmark waits for this to be dismissed (lib/onboarding),
+  // so the two never cover the UI at the same time.
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
-    try {
-      if (current && !window.localStorage.getItem("dw:sectionHintSeen")) setShowHint(true);
-    } catch {
-      /* ignore */
-    }
+    if (current && !isSectionHintSeen()) setShowHint(true);
   }, [current]);
   const dismissHint = () => {
     setShowHint(false);
-    try {
-      window.localStorage.setItem("dw:sectionHintSeen", "1");
-    } catch {
-      /* ignore */
-    }
+    markSectionHintSeen();
   };
 
   const go = (route: string) => {

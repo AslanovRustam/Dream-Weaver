@@ -7,6 +7,8 @@
 import { useEffect, useState } from "react";
 import { Lightbulb, X } from "lucide-react";
 
+import { isSectionHintSeen, onSectionHintSeen } from "@/lib/onboarding";
+
 const TIPS: Record<string, { title: string; body: string }> = {
   banner: {
     title: "Баннер-генератор",
@@ -32,11 +34,19 @@ export function ToolCoachmark({ section }: { section: string }) {
 
   useEffect(() => {
     if (!tip) return;
-    try {
-      if (!window.localStorage.getItem(`dw:toolHint:${section}`)) setShow(true);
-    } catch {
-      /* ignore */
-    }
+    // Queue behind the header's section-switcher hint (lib/onboarding): firing
+    // both at once covered the form and offered two rival "Понятно" buttons.
+    // Re-check on dismissal so this appears the moment the first one is gone.
+    const evaluate = () => {
+      if (!isSectionHintSeen()) return;
+      try {
+        if (!window.localStorage.getItem(`dw:toolHint:${section}`)) setShow(true);
+      } catch {
+        /* ignore */
+      }
+    };
+    evaluate();
+    return onSectionHintSeen(evaluate);
   }, [section, tip]);
 
   if (!show || !tip) return null;
@@ -54,14 +64,14 @@ export function ToolCoachmark({ section }: { section: string }) {
     <div
       role="dialog"
       aria-label={`Подсказка: ${tip.title}`}
-      className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-sm rounded-xl border border-accent-green/40 bg-popover p-3 shadow-xl sm:left-4 sm:right-auto sm:mx-0"
+      className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm rounded-xl border border-accent-green/40 bg-popover p-3 shadow-xl sm:left-4 sm:right-auto sm:mx-0"
     >
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
           <Lightbulb className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{tip.title}</p>
+          <p className="ds-h2">{tip.title}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{tip.body}</p>
           <button
             type="button"
@@ -75,7 +85,7 @@ export function ToolCoachmark({ section }: { section: string }) {
           type="button"
           onClick={dismiss}
           aria-label="Закрыть подсказку"
-          className="text-muted-foreground transition hover:text-foreground"
+          className="relative shrink-0 text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
