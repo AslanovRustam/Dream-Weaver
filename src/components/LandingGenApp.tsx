@@ -126,7 +126,19 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 }
 
 export function LandingGenApp() {
-  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE);
+  const [templateId, setTemplateId] = useState(() => {
+    // Deep-link from the Hub ("popular templates"): /landing?template=<id>
+    // opens with that template selected, skipping the category step.
+    if (typeof window !== "undefined") {
+      try {
+        const fromUrl = new URLSearchParams(window.location.search).get("template");
+        if (fromUrl && LANDING_TEMPLATE_BY_ID.has(fromUrl)) return fromUrl;
+      } catch {
+        /* ignore */
+      }
+    }
+    return DEFAULT_TEMPLATE;
+  });
   const template = LANDING_TEMPLATE_BY_ID.get(templateId) ?? LANDING_TEMPLATE_BY_ID.get(DEFAULT_TEMPLATE)!;
 
   const [subject, setSubject] = useState("");
@@ -189,6 +201,14 @@ export function LandingGenApp() {
       } catch {
         /* ignore malformed seed */
       }
+    }
+    // Deep-linked with a template → jump straight to settings on mobile.
+    try {
+      if (new URLSearchParams(window.location.search).get("template")) {
+        setMobileTab("settings");
+      }
+    } catch {
+      /* ignore */
     }
     setLanguage(lang);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -833,7 +853,7 @@ function LandingTemplateSidebar({
             onClick={openFilter}
             aria-label="Фильтр"
             aria-expanded={filterOpen}
-            className={`relative -mr-1 shrink-0 rounded-md p-1 transition ${
+            className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${
               filterActive || filterOpen
                 ? "text-accent-green"
                 : "text-foreground/70 hover:text-foreground"
