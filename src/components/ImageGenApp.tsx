@@ -135,6 +135,10 @@ export function ImageGenApp() {
   const [preset, setPreset] = useState<string>(() => {
     if (typeof window === "undefined") return "preset1";
     try {
+      // Deep-link from the Hub ("popular templates"): /banner?preset=preset2
+      // wins over the persisted choice so a clicked template opens selected.
+      const fromUrl = new URLSearchParams(window.location.search).get("preset");
+      if (fromUrl && /^preset[1-4]$/.test(fromUrl)) return fromUrl;
       const stored = window.localStorage.getItem("dw_preset");
       if (stored && /^preset[1-4]$/.test(stored)) return stored;
     } catch {
@@ -1501,7 +1505,7 @@ export function ImageGenApp() {
                   setLoadedFromPreset(null);
                   setLastPayload((prev) => (prev ? { ...prev, card_id: undefined } : prev));
                 }}
-                className="ml-2 text-muted-foreground hover:text-foreground"
+                className="relative ml-2 text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
                 aria-label="Отвязать"
                 title="Создать новую карточку при следующем ресайзе"
               >
@@ -1743,7 +1747,7 @@ export function ImageGenApp() {
                   <ImageIcon className="h-20 w-20 text-muted-foreground/40" strokeWidth={1.5} />
                   <div className="space-y-1">
                     <h2 className="ds-h2">Здесь появится ваш баннер</h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="ds-caption">
                       Заполните настройки, чтобы сгенерировать баннер.
                     </p>
                   </div>
@@ -1829,7 +1833,7 @@ function OptionalField({
           role="switch"
           aria-checked={enabled}
           onClick={() => onToggle(!enabled)}
-          className={`relative h-5 w-9 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
+          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
             enabled ? "bg-accent-green" : "bg-white/15"
           }`}
         >
