@@ -266,7 +266,7 @@ export function PresetSidebar({ value, onChange }: Props) {
             onClick={openFilter}
             aria-label="Фильтр"
             aria-expanded={filterOpen}
-            className={`relative -mr-1 shrink-0 rounded-md p-1 transition ${
+            className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${
               filterActive || filterOpen
                 ? "text-accent-green"
                 : "text-foreground/70 hover:text-foreground"

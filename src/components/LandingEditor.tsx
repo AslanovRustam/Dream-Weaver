@@ -868,13 +868,28 @@ function DesktopZoomViewer({ html, onClose }: { html: string; onClose: () => voi
       <div className="flex h-12 shrink-0 items-center justify-between px-3 text-white">
         <span className="text-sm font-medium">Десктоп-версия · {Math.round(t.s * 100)}%</span>
         <div className="flex items-center gap-1">
-          <button onClick={() => btnZoom(1 / 1.3)} aria-label="Уменьшить" className="rounded-md p-2 hover:bg-white/10">
+          <button
+            type="button"
+            onClick={() => btnZoom(1 / 1.3)}
+            aria-label="Уменьшить"
+            className="flex items-center justify-center rounded-md p-2 transition hover:bg-white/10 max-sm:h-11 max-sm:w-11"
+          >
             <Minus className="h-4 w-4" />
           </button>
-          <button onClick={() => btnZoom(1.3)} aria-label="Увеличить" className="rounded-md p-2 hover:bg-white/10">
+          <button
+            type="button"
+            onClick={() => btnZoom(1.3)}
+            aria-label="Увеличить"
+            className="flex items-center justify-center rounded-md p-2 transition hover:bg-white/10 max-sm:h-11 max-sm:w-11"
+          >
             <Plus className="h-4 w-4" />
           </button>
-          <button onClick={onClose} aria-label="Закрыть" className="ml-1 rounded-md p-2 hover:bg-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="ml-1 flex items-center justify-center rounded-md p-2 transition hover:bg-white/10 max-sm:h-11 max-sm:w-11"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>

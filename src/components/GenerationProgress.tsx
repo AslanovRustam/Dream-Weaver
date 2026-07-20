@@ -36,7 +36,7 @@ export function GenerationProgress({
       <div className="w-full max-w-sm">
         <div className="mb-4 flex items-center justify-center gap-2 text-accent-green">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm font-semibold text-foreground">{title}</span>
+          <span className="ds-h2">{title}</span>
         </div>
 
         {hasBar ? (
@@ -55,7 +55,7 @@ export function GenerationProgress({
             </div>
           </>
         ) : subtitle ? (
-          <p className="text-center text-xs text-muted-foreground">{subtitle}</p>
+          <p className="text-center ds-caption">{subtitle}</p>
         ) : null}
 
         {stages && stages.length ? (

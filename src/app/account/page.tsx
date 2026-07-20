@@ -264,7 +264,9 @@ function EditProfileModal({
     }
   }, [open, profile, avatarUrl]);
 
-  const labelCls = "mb-2 block text-sm font-semibold text-foreground";
+  // Field labels follow the app-wide ds-label convention (12px/500), same as
+  // every generator's settings fields and this page's own read-only Email row.
+  const labelCls = "mb-2 block ds-label";
 
   const submit = async () => {
     setMsg(null);
@@ -377,7 +379,7 @@ function EditProfileModal({
           {msg ? (
             <p
               className={
-                msg.kind === "ok" ? "text-xs text-emerald-500" : "text-xs text-destructive"
+                msg.kind === "ok" ? "text-xs text-accent-green" : "text-xs text-destructive"
               }
             >
               {msg.text}
@@ -551,7 +553,7 @@ function PasswordCard() {
           {msg ? (
             <p
               className={
-                msg.kind === "ok" ? "text-xs text-emerald-500" : "text-xs text-destructive"
+                msg.kind === "ok" ? "text-xs text-accent-green" : "text-xs text-destructive"
               }
             >
               {msg.text}

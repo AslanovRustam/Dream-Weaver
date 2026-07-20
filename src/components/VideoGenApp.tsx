@@ -1078,7 +1078,7 @@ export function VideoGenApp() {
                       type="button"
                       aria-label="Ещё"
                       title="Ещё"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:h-11 max-sm:w-11"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
