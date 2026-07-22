@@ -291,14 +291,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* A11y: one consistent keyboard focus ring — the system's two-tone
-     ring (dark offset + lime). :where() keeps specificity 0 so components
-     can still override it. */
+  /* A11y: one consistent keyboard focus ring — the system's two-tone look
+     (a dark gap, then lime). Deliberately an outline rather than the token's
+     stacked box-shadow: controls that render their own focus treatment turn
+     the shared ring off with `outline-none`, which cannot suppress a
+     box-shadow. Using box-shadow here drew a second ring inside wrappers
+     that already highlight themselves (e.g. the Hub search field).
+     :where() keeps specificity 0 so components can still override. */
   :where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 2px var(--bg-base),
-      0 0 0 4px var(--brand-lime);
+    outline: 2px solid var(--brand-lime);
+    outline-offset: 2px;
     border-radius: var(--radius-lg);
   }
 
