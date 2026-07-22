@@ -4,33 +4,45 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
+ * ADSPIRE DESIGN SYSTEM — product theme.
  *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
+ * Dark is the only theme; there is no light mode. Every value below comes
+ * from the Adspire token set (tokens.css / DESIGN-SYSTEM.md): blue-tinted
+ * near-blacks, lime as accent #1, violet #2, cyan #3.
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
+ * Layering:
+ *   :root            — the raw Adspire palette (named tokens).
+ *   :root (semantic) — product tokens mapped onto the palette. Reskinning
+ *                      means editing the palette, never the components.
+ *   @theme inline    — exposes tokens as Tailwind utilities (bg-card,
+ *                      text-hint, shadow-glow-lime, rounded-2xl, ...).
  *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Rule from the system: never hard-code a hex in a component.
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Radius ladder — Adspire levels (chips 6 / buttons+inputs 8 /
+     thumbnails+menus 12 / cards+panels 16 / hero 24). The product's existing
+     class ladder already lines up with it, so changing these values re-rounds
+     every surface at once without touching a single component. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+
+  /* Surfaces + text */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-panel: var(--panel);
-  --color-accent-green: var(--accent-green);
+  --color-elevated: var(--bg-elevated);
+  --color-elevated-2: var(--bg-elevated-2);
+  --color-void: var(--bg-void);
+  --color-hint: var(--text-tertiary);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -44,9 +56,35 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+
+  /* Brand accents */
+  --color-accent-green: var(--accent-primary); /* legacy name, now lime */
+  --color-brand-lime: var(--brand-lime);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-cyan: var(--brand-cyan);
+
+  /* Semantic status */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  /* Typography */
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+
+  /* Elevation + brand glow */
+  --shadow-card: var(--shadow-card-val);
+  --shadow-pop: var(--shadow-pop-val);
+  --shadow-glow-lime: var(--glow-lime);
+  --shadow-glow-lime-lg: var(--glow-lime-lg);
+  --shadow-glow-violet: var(--glow-violet);
+  --shadow-glow-cyan: var(--glow-cyan);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -63,111 +101,179 @@
 }
 
 :root {
-  /* Corner radius taken from the reference "Templates" panel (~12px on the
-     search + cards). The whole rounded-* scale derives from this token, so
-     this one change re-rounds every surface in the app consistently. */
-  --radius: 0.75rem;
-  /* === Dark UI with lime accent (per reference) ===
-     One place to reskin: named palette vars + semantic tokens mapped onto them. */
-  --bg-base: #0a0a0a; /* основной фон приложения */
-  --bg-surface: #161616; /* карточки, панели, модалки */
-  --bg-surface-hover: #1f1f1f; /* hover-состояния карточек */
-  --border-subtle: #2a2a2a; /* границы карточек, разделители */
+  /* ===================================================================
+     1. BRAND ACCENTS — lime primary, violet secondary, cyan tertiary
+     =================================================================== */
+  --brand-lime: #c6ff3d;
+  --brand-violet: #7b5cff;
+  --brand-cyan: #00e0ff;
 
-  --accent-primary: #d4ff3d; /* основной акцент, CTA, активные элементы */
-  --accent-hover: #c4ef2d; /* hover для акцентных кнопок */
-  --accent-glow: #eaffa0; /* свечение вокруг активных/premium-блоков */
+  --lime-300: #daff7c; /* hover / highlight — BRIGHTER than base */
+  --lime-400: #c6ff3d; /* base */
+  --lime-500: #abe62b; /* pressed */
+  --lime-tint: rgba(198, 255, 61, 0.12); /* active nav, chips, "Active" pill */
+  --lime-tint-strong: rgba(198, 255, 61, 0.2);
 
-  --text-primary: #ffffff; /* заголовки, основной текст */
-  --text-secondary: #a0a0a0; /* описания, второстепенный текст */
-  --text-muted: #909090; /* мелкие подписи, метаданные — поднят с #6e6e6e для WCAG AA (5.16:1+ на всех фонах) */
+  --violet-400: #9b85ff; /* hover */
+  --violet-500: #7b5cff;
+  --violet-600: #5e3ef0; /* pressed / gradient end */
+  --violet-tint: rgba(123, 92, 255, 0.14);
 
-  --badge-promo: #ff2d78; /* бейдж скидки/промо */
-  --badge-trial: #3b82f6; /* бейдж FREE TRIAL */
-  --badge-new: #d4ff3d; /* бейдж NEW (тёмный текст на акценте) */
+  --cyan-500: #00e0ff;
+  --cyan-tint: rgba(0, 224, 255, 0.12);
 
-  /* status colours kept so existing indicators (generation/upload) still work */
-  --status-success: #d4ff3d;
-  --status-error: #ff5c5c;
-  --status-premium: #f5b22e;
+  /* ===================================================================
+     2. NEUTRALS — blue-tinted near-blacks. Never pure #000.
+     =================================================================== */
+  --bg-void: #06070b; /* behind hero, page voids */
+  --bg-base: #0b0d12; /* app canvas / body */
+  --bg-surface: #12141a; /* cards, panels */
+  --bg-elevated: #1e2128; /* inputs, popovers, hover rows */
+  --bg-elevated-2: #262a33; /* raised chips */
+  /* legacy alias — hover surfaces resolve to the elevated step */
+  --bg-surface-hover: var(--bg-elevated);
 
-  /* Custom scrollbar (consumed by the @media (pointer: fine) block below).
-     Muted-grey pill thumb → soft lime on hover, full accent on drag;
-     track stays transparent so it reads "in tone" with any surface. */
-  --sb-thumb: color-mix(in srgb, var(--text-muted) 60%, transparent);
-  --sb-thumb-hover: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+  --border-subtle: rgba(255, 255, 255, 0.06); /* card outlines */
+  --border-default: rgba(255, 255, 255, 0.1); /* inputs, dividers */
+  --border-strong: rgba(255, 255, 255, 0.16); /* hover, focus rest */
+  --overlay-hover: rgba(255, 255, 255, 0.04);
+  --overlay-press: rgba(255, 255, 255, 0.08);
 
-  /* Semantic tokens (consumed by Tailwind utilities) mapped onto the palette */
+  /* ===================================================================
+     3. TEXT
+     --text-tertiary is deliberately NOT wired to the product's helper
+     text: at 3.4:1 on a card it fails WCAG AA for body copy. The system
+     scopes it to hints, disabled state and 11px table headers, which is
+     exactly where it is used here. Helper text keeps --text-secondary
+     (7.4:1), preserving the contrast fix made earlier in this project.
+     =================================================================== */
+  --text-primary: #f4f6f8;
+  --text-secondary: #9aa3b2;
+  --text-tertiary: #626a78;
+  --text-on-accent: #0b0d12; /* dark text on lime / cyan fills */
+  /* legacy alias kept so existing utilities keep resolving */
+  --text-muted: var(--text-secondary);
+
+  /* ===================================================================
+     4. SEMANTIC / STATUS — colour is never the only signal; pair with a
+        dot indicator and a text label (system rule).
+     =================================================================== */
+  --success: #c6ff3d;
+  --success-tint: var(--lime-tint);
+  --warning: #ffb020;
+  --warning-tint: rgba(255, 176, 32, 0.14);
+  --danger: #ff5c5c;
+  --danger-tint: rgba(255, 92, 92, 0.14);
+  --info: #00e0ff;
+  --info-tint: var(--cyan-tint);
+
+  /* legacy status aliases (used across generators / upload indicators) */
+  --status-success: var(--success);
+  --status-error: var(--danger);
+  --status-premium: var(--warning);
+
+  /* ===================================================================
+     5. ACCENT — semantic accent slots.
+        Note the inverted hover: the system brightens on hover and adds a
+        glow, where the old theme darkened. Both live here so every
+        `var(--accent-hover)` call site flips at once.
+     =================================================================== */
+  --accent-primary: var(--brand-lime);
+  --accent-hover: var(--lime-300);
+  --accent-press: var(--lime-500);
+  --accent-glow: var(--lime-300);
+
+  /* ===================================================================
+     6. GRADIENTS
+     =================================================================== */
+  --grad-brand: linear-gradient(118deg, #c6ff3d 0%, #7b5cff 100%);
+  --grad-lime: linear-gradient(150deg, #daff7c 0%, #c6ff3d 55%, #abe62b 100%);
+  --grad-violet: linear-gradient(160deg, #9b85ff 0%, #5e3ef0 100%);
+  --grad-cyan-violet: linear-gradient(130deg, #00e0ff 0%, #7b5cff 100%);
+  --grad-surface: linear-gradient(180deg, #16181f 0%, #101218 100%);
+  --grad-hero:
+    radial-gradient(120% 90% at 78% 18%, rgba(123, 92, 255, 0.28) 0%, rgba(11, 13, 18, 0) 55%),
+    radial-gradient(90% 70% at 62% 30%, rgba(198, 255, 61, 0.16) 0%, rgba(11, 13, 18, 0) 50%),
+    #0b0d12;
+
+  /* ===================================================================
+     7. GLOW + ELEVATION
+     =================================================================== */
+  --glow-lime: 0 0 24px rgba(198, 255, 61, 0.45);
+  --glow-lime-lg: 0 0 40px rgba(198, 255, 61, 0.55);
+  --glow-violet: 0 0 32px rgba(123, 92, 255, 0.5);
+  --glow-cyan: 0 0 28px rgba(0, 224, 255, 0.45);
+  --shadow-sm-val: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-card-val: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-pop-val: 0 16px 40px rgba(0, 0, 0, 0.55); /* dropdowns, modals */
+
+  /* ===================================================================
+     8. TYPOGRAPHY
+        Aeonik is licensed and ships with no font files, so the system's
+        own sanctioned substitute is used and Aeonik stays first in the
+        stack — drop the licensed files in and it takes over by itself.
+     =================================================================== */
+  --font-sans-stack:
+    "Aeonik", var(--font-inter), "General Sans", "Inter", system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono-stack:
+    "JetBrains Mono", var(--font-jetbrains-mono), "SFMono-Regular", ui-monospace, Menlo, Consolas,
+    monospace;
+
+  /* ===================================================================
+     9. MOTION
+     =================================================================== */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasis: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --brand-slant: -20deg; /* signature parallelogram angle */
+
+  /* ===================================================================
+     10. SEMANTIC TOKENS consumed by Tailwind utilities
+     =================================================================== */
+  --radius: 8px; /* button / input level — the system's default radius */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
   --card-foreground: var(--text-primary);
   --panel: var(--bg-surface);
-  /* legacy name kept so existing `accent-green` utilities reskin to lime */
-  --accent-green: var(--accent-primary);
-  --popover: var(--bg-surface);
+  --popover: var(--bg-elevated);
   --popover-foreground: var(--text-primary);
   --primary: var(--accent-primary);
-  --primary-foreground: #0a0a0a;
-  --secondary: var(--bg-surface-hover);
+  --primary-foreground: var(--text-on-accent);
+  --secondary: var(--bg-elevated);
   --secondary-foreground: var(--text-primary);
-  --muted: var(--bg-surface-hover);
+  --muted: var(--bg-elevated);
   --muted-foreground: var(--text-secondary);
-  --accent: var(--bg-surface-hover);
+  --accent: var(--bg-elevated);
   --accent-foreground: var(--text-primary);
-  --destructive: var(--status-error);
+  --destructive: var(--danger);
   --destructive-foreground: var(--text-primary);
-  --border: var(--border-subtle);
-  --input: var(--border-subtle);
-  --ring: var(--accent-primary);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--brand-lime);
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Chart series follow the brand order: lime, violet, cyan. */
+  --chart-1: var(--brand-lime);
+  --chart-2: var(--brand-violet);
+  --chart-3: var(--brand-cyan);
+  --chart-4: var(--warning);
+  --chart-5: var(--danger);
+
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--brand-lime);
+  --sidebar-primary-foreground: var(--text-on-accent);
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--brand-lime);
+
+  /* Custom scrollbar — muted pill, soft lime on hover, full lime on drag. */
+  --sb-thumb: color-mix(in srgb, var(--text-tertiary) 85%, transparent);
+  --sb-thumb-hover: color-mix(in srgb, var(--brand-lime) 60%, transparent);
 }
 
 @layer base {
@@ -178,29 +284,39 @@
   body {
     background-color: var(--bg-base);
     color: var(--color-foreground);
+    font-family: var(--font-sans-stack);
+    font-size: 0.875rem; /* 14px — the system's default body size */
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* A11y: one consistent, visible keyboard focus ring across the whole
-     product. :where() keeps specificity 0 so components can still override. */
+  /* A11y: one consistent keyboard focus ring — the system's two-tone
+     ring (dark offset + lime). :where() keeps specificity 0 so components
+     can still override it. */
   :where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: var(--radius-md);
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg-base),
+      0 0 0 4px var(--brand-lime);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Metrics, tables and counters line up column-wise. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 /* =========================================================================
-   Custom scrollbars — design-system styled, desktop (fine-pointer) only.
-   A thin pill thumb (muted grey → soft lime on hover, full accent on drag)
-   over a transparent track, with the classic stepper arrows removed. Kept
-   unlayered + global so it applies to every scroll container at once: side
-   panels, long settings forms, modals, and portaled dropdown menus. Touch
-   devices keep their native overlay scrollbars.
+   Custom scrollbars — desktop (fine-pointer) only. A thin pill thumb over a
+   transparent track, stepper arrows removed. Kept unlayered + global so it
+   covers every scroll container: panels, forms, modals, portaled menus.
    ========================================================================= */
 @media (pointer: fine) {
-  /* Firefox only — thumb + track (no hover state available). Scoped away from
-     WebKit/Blink, because setting the standard scrollbar-width there makes them
-     ignore the ::-webkit-scrollbar styling below. */
+  /* Firefox only — scoped away from WebKit/Blink, where setting the standard
+     scrollbar-width makes them ignore the ::-webkit-scrollbar rules below. */
   @supports not selector(::-webkit-scrollbar) {
     * {
       scrollbar-width: thin;
@@ -208,7 +324,6 @@
     }
   }
 
-  /* WebKit / Blink — Chrome, Safari, Edge. */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -224,9 +339,8 @@
     background: var(--sb-thumb-hover);
   }
   ::-webkit-scrollbar-thumb:active {
-    background: var(--accent-primary);
+    background: var(--brand-lime);
   }
-  /* Strip the up/down (and left/right) stepper buttons. */
   ::-webkit-scrollbar-button {
     display: none;
     width: 0;
@@ -238,132 +352,256 @@
 }
 
 /* =========================================================================
-   DESIGN SYSTEM — single source of truth for the product UI.
+   COMPONENT LAYER — the system's specs as classes.
 
-   Spacing scale (4px grid): 4 8 12 16 24 32 → Tailwind gap/p/m 1 2 3 4 6 8.
+   Spacing (4px grid): 4 8 12 16 20 24 32 40 48 64 80.
      • label → field:      8px  (mb-2)
      • field → helper:     6px  (mt-1.5)
      • between sections:  16px  (gap-4)
-     • card / panel pad:  16px  (p-4)  · compact sub-panels 12px (p-3)
+     • card / panel pad:  20px  (p-5)  · compact sub-panels 12px (p-3)
 
-   Radius levels (derive from --radius = 12px):
-     • sm  rounded-md  (10px) — chips / segmented-control cells / badges
-     • md  rounded-lg  (12px) — inputs, cards, buttons, dropdowns
-     • lg  rounded-2xl (20px) — main column panels / modals
-     • pill rounded-full       — avatars, toggles, count badges (circular only)
+   Radius (see the ladder in @theme inline):
+     • rounded-md  (6px)  — chips, tags, badges
+     • rounded-lg  (8px)  — buttons, inputs, menu rows
+     • rounded-xl  (12px) — thumbnails, dropdown popovers
+     • rounded-2xl (16px) — cards, panels, modals
+     • rounded-3xl (24px) — hero / large surfaces
+     • rounded-full       — pills, avatars, toggles
 
-   Typography scale — apply .ds-* classes instead of ad-hoc text-* utilities.
+   Typography — apply .ds-* instead of ad-hoc text-* utilities.
    ========================================================================= */
 @layer components {
+  .ds-display {
+    font-size: 3.25rem; /* 52px hero */
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+  }
   .ds-h1 {
-    font-size: 1.5rem; /* 24px page title */
-    line-height: 2rem;
+    font-size: 2rem; /* 32px page title */
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--foreground);
+  }
+  .ds-h2 {
+    font-size: 1.5rem; /* 24px section title */
+    line-height: 1.2;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--foreground);
   }
-  .ds-h2 {
-    font-size: 0.875rem; /* 14px section / card title */
-    line-height: 1.25rem;
+  .ds-h3 {
+    font-size: 1.25rem; /* 20px */
+    line-height: 1.25;
     font-weight: 600;
     color: var(--foreground);
   }
-  .ds-label {
-    font-size: 0.75rem; /* 12px field label */
-    line-height: 1rem;
-    font-weight: 500;
-    color: color-mix(in srgb, var(--foreground) 72%, transparent);
+  .ds-h4 {
+    font-size: 1rem; /* 16px card heading */
+    line-height: 1.35;
+    font-weight: 600;
+    color: var(--foreground);
   }
-  .ds-body {
-    font-size: 0.875rem; /* 14px body */
-    line-height: 1.375rem;
+  .ds-stat {
+    font-size: 2.25rem; /* 36px KPI number */
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .ds-body-lg {
+    font-size: 1rem; /* 16px */
+    line-height: 1.55;
     font-weight: 400;
     color: var(--foreground);
   }
+  .ds-body {
+    font-size: 0.875rem; /* 14px body — the default */
+    line-height: 1.55;
+    font-weight: 400;
+    color: var(--foreground);
+  }
+  .ds-label {
+    font-size: 0.8125rem; /* 13px field label */
+    line-height: 1.45;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
   .ds-caption {
     font-size: 0.75rem; /* 12px helper / subtitle */
-    line-height: 1.05rem;
+    line-height: 1.4;
     font-weight: 400;
     color: var(--muted-foreground);
   }
   .ds-micro {
     font-size: 0.6875rem; /* 11px — smallest allowed (badges, meta) */
-    line-height: 0.875rem;
+    line-height: 1.3;
     font-weight: 500;
   }
+  /* Signature section label: 11px, uppercase, wide tracking. */
+  .ds-overline {
+    font-size: 0.6875rem;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .ds-overline-accent {
+    color: var(--brand-lime);
+  }
 
-  /* Canonical text field. One background (recessed --background), one border,
-     one focus treatment (accent border; the global :focus-visible ring adds
-     keyboard a11y on top). Use on every <input>/<textarea>/select. */
+  /* Canonical text field: elevated fill, 8px radius, lime focus border with
+     a soft lime ring. Use on every input / textarea / select. */
   .ds-input {
     width: 100%;
-    border-radius: var(--radius-lg); /* 12px */
-    border: 1px solid var(--border);
-    background: var(--background);
-    padding: 0.625rem 0.875rem; /* 10px / 14px */
+    border-radius: var(--radius-lg); /* 8px */
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    padding: 0.625rem 0.8125rem; /* 10px / 13px */
     font-size: 0.875rem; /* 14px */
     color: var(--foreground);
     transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
+      border-color var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-fast) var(--ease-standard);
   }
   .ds-input::placeholder {
-    color: var(--muted-foreground);
+    color: var(--text-tertiary);
   }
   .ds-input:focus {
     outline: none;
-    border-color: var(--accent-primary);
+    border-color: var(--brand-lime);
+    box-shadow: 0 0 0 3px rgba(198, 255, 61, 0.14);
   }
   .ds-input:disabled {
-    opacity: 0.6;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
-  /* Button hierarchy. Add padding (px / py) via utilities on top.
-     primary = lime CTA (one per context) · secondary = outline ·
-     ghost = tertiary/icon. (The white button is a deliberate exception.) */
+  /* Button hierarchy. Padding (px / py) comes from utilities on top.
+     primary = lime CTA, one per screen · secondary = outline · ghost =
+     tertiary. Primary brightens AND glows on hover (system spec). */
   .ds-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     white-space: nowrap;
-    border-radius: var(--radius-lg); /* 12px */
+    border-radius: var(--radius-lg); /* 8px */
     font-size: 0.875rem;
     font-weight: 600;
+    border: 1px solid transparent;
     transition:
-      background-color 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease,
-      opacity 0.15s ease;
+      background-color var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard),
+      opacity var(--dur-base) var(--ease-standard);
+  }
+  .ds-btn:not(:disabled):active {
+    transform: translateY(1px);
   }
   .ds-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
+    box-shadow: none;
   }
   .ds-btn-primary {
-    background: var(--accent-primary);
-    color: #0a0a0a;
+    background: var(--brand-lime);
+    color: var(--text-on-accent);
   }
   .ds-btn-primary:not(:disabled):hover {
-    background: var(--accent-hover);
+    background: var(--lime-300);
+    box-shadow: var(--glow-lime);
   }
   .ds-btn-secondary {
-    border: 1px solid var(--border);
+    border-color: var(--border-strong);
     color: var(--foreground);
     background: transparent;
   }
   .ds-btn-secondary:not(:disabled):hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--overlay-hover);
+    border-color: rgba(255, 255, 255, 0.28);
   }
   .ds-btn-ghost {
-    color: var(--muted-foreground);
+    color: var(--text-secondary);
     background: transparent;
   }
   .ds-btn-ghost:not(:disabled):hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--overlay-hover);
     color: var(--foreground);
   }
+
+  /* Status pill: tint fill + leading dot + label — colour alone never
+     carries the meaning. Compose with .ds-dot on a leading span. */
+  .ds-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    border-radius: 999px;
+    padding: 0.3125rem 0.6875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .ds-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .ds-pill-success {
+    color: var(--success);
+    background: var(--success-tint);
+  }
+  .ds-pill-warning {
+    color: var(--warning);
+    background: var(--warning-tint);
+  }
+  .ds-pill-danger {
+    color: var(--danger);
+    background: var(--danger-tint);
+  }
+  .ds-pill-info {
+    color: var(--info);
+    background: var(--info-tint);
+  }
+  .ds-pill-neutral {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Feature icon tile: lime line icon in a tinted rounded square. */
+  .ds-feature-icon {
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-xl); /* 12px */
+    background: var(--lime-tint);
+    border: 1px solid rgba(198, 255, 61, 0.22);
+    color: var(--brand-lime);
+  }
+}
+
+/* Brand surfaces, available as plain utilities. */
+.ds-grad-brand {
+  background-image: var(--grad-brand);
+}
+.ds-grad-violet {
+  background-image: var(--grad-violet);
+}
+.ds-grad-cyan-violet {
+  background-image: var(--grad-cyan-violet);
+}
+.ds-hero-aurora {
+  background-image: var(--grad-hero);
+}
+/* Dot-grid brand motif — a low-contrast backdrop, never foreground noise. */
+.ds-dotgrid {
+  background-image: radial-gradient(rgba(198, 255, 61, 0.5) 1.2px, transparent 1.5px);
+  background-size: 16px 16px;
 }
 
 /* Consistent dropdown chevron on every native <select>: the arrow sits the
@@ -372,7 +610,7 @@
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a0a0a0'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%239AA3B2'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 16px 16px;
@@ -414,10 +652,10 @@ select {
 @keyframes dw-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(212, 255, 61, 0);
+    box-shadow: 0 0 0 0 rgba(198, 255, 61, 0);
   }
   50% {
-    box-shadow: 0 0 26px 2px rgba(212, 255, 61, 0.55);
+    box-shadow: 0 0 26px 2px rgba(198, 255, 61, 0.55);
   }
 }
 @keyframes dw-confetti {
