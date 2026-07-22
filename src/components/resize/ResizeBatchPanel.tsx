@@ -372,15 +372,15 @@ export function ResizeBatchPanel({
         type="button"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:w-full max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
+        className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:w-full max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
       >
         Выбрать ресайзы
         {selectedCount > 0 ? (
-          <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-black">
+          <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-on-accent">
             {selectedCount}
           </span>
         ) : null}
-        <ChevronRight className="h-4 w-4 text-black/50" />
+        <ChevronRight className="h-4 w-4 text-on-accent/50" />
       </button>
 
       <Dialog
@@ -614,14 +614,14 @@ export function ResizeBatchPanel({
                     </>
                   ) : errorCount > 0 ? (
                     <>
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--status-premium)] text-black">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--status-premium)] text-on-accent">
                         <AlertTriangle className="h-3 w-3" strokeWidth={3} />
                       </span>
                       Пакет готов частично
                     </>
                   ) : (
                     <>
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-on-accent">
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </span>
                       Пакет готов
@@ -658,7 +658,7 @@ export function ResizeBatchPanel({
                           {running ? (
                             <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
                           ) : t.status === "done" ? (
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-black">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-on-accent">
                               <Check className="h-3 w-3" strokeWidth={3} />
                             </span>
                           ) : (
@@ -735,7 +735,7 @@ export function ResizeBatchPanel({
                               <DropdownMenuContent
                                 align="end"
                                 sideOffset={8}
-                                className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground max-sm:w-56"
+                                className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-56"
                               >
                                 {/* Download lives here on mobile only (the row
                                     button is hidden < sm). Neutral action first. */}

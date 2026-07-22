@@ -914,7 +914,7 @@ function RoleDialog({
           </div>
 
           {dirty && user ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+            <div className="rounded-md border border-[color:var(--warning)]/30 bg-[color:var(--warning-tint)] p-2 text-xs">
               <p className="mb-1 font-medium">Будет применено:</p>
               {roleChanged ? (
                 <p>
@@ -1050,7 +1050,7 @@ function PricingTab() {
                 </div>
               </div>
             ))}
-            {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+            {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
             <div>
               <Button
                 disabled={saving}
@@ -1166,7 +1166,7 @@ function SettingsTab() {
       </CardHeader>
       <CardContent className="space-y-6">
         {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+        {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
         {loading || !rows ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
@@ -1773,9 +1773,9 @@ function TokensLogsView() {
               const charge = c.charge != null ? Number(c.charge) : null;
               const typeColors: Record<string, string> = {
                 Мастер: "bg-accent-green/20 text-accent-green",
-                Ресайз: "bg-sky-500/20 text-sky-400",
-                Vision: "bg-amber-500/20 text-amber-400",
-                "AI-нейминг": "bg-purple-500/20 text-purple-400",
+                Ресайз: "bg-[color:var(--info-tint)] text-[color:var(--info)]",
+                Vision: "bg-[color:var(--warning-tint)] text-[color:var(--warning)]",
+                "AI-нейминг": "bg-[color:var(--violet-tint)] text-brand-violet",
               };
               return (
                 <tr key={row.id} className="border-b border-border/50 hover:bg-white/3">
@@ -1857,11 +1857,11 @@ function formatTs(iso: string): string {
 function levelClass(level: string): string {
   switch (level) {
     case "error":
-      return "bg-red-500/20 text-red-400";
+      return "bg-[color:var(--danger-tint)] text-[color:var(--danger)]";
     case "warn":
-      return "bg-amber-500/20 text-amber-400";
+      return "bg-[color:var(--warning-tint)] text-[color:var(--warning)]";
     case "info":
-      return "bg-sky-500/20 text-sky-400";
+      return "bg-[color:var(--info-tint)] text-[color:var(--info)]";
     case "debug":
       return "bg-muted text-muted-foreground";
     default:

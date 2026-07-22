@@ -115,7 +115,7 @@ function TilePreview({ sectionId }: { sectionId: string }) {
         </div>
         <span className="relative z-10 mb-5 flex items-center justify-center">
           <span className="hub-pulse" style={{ inset: "-11px" }} aria-hidden />
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-green text-black shadow-glow-lime">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-green text-on-accent shadow-glow-lime">
             <Play className="ml-0.5 h-6 w-6 fill-current" />
           </span>
         </span>
@@ -220,7 +220,7 @@ function SectionTile({
         {/* Clearly-active primary button on every tile (uniform style, smaller
             footprint on the non-featured ones). */}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-black shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-on-accent shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
             featured ? "px-5 py-2.5" : "px-3.5 py-2"
           }`}
         >
@@ -464,7 +464,7 @@ export default function HubPage() {
             </div>
 
             {searchOpen ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-border bg-popover p-2 text-foreground shadow-xl">
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 text-foreground shadow-xl">
                 {!hasResults ? (
                   <div className="px-3 py-6 text-center">
                     <p className="text-sm font-medium">Ничего не найдено</p>

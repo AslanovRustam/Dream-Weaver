@@ -366,7 +366,7 @@ export function LandingGenApp() {
                       aria-expanded={brandExpanded}
                       className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-accent-green/10"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-green text-black">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-green text-on-accent">
                         <Check className="h-4 w-4" />
                       </span>
                       {brandLogo ? (
@@ -493,8 +493,8 @@ export function LandingGenApp() {
                         }`}
                       >
                         <span
-                          className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-                            heroFromBanner ? "translate-x-4" : "translate-x-0"
+                          className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+                            heroFromBanner ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
                           }`}
                         />
                       </button>
@@ -639,10 +639,10 @@ export function LandingGenApp() {
                         className="flex items-start gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5"
                       >
                         <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border transition ${
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                             checked
-                              ? "border-accent-green bg-accent-green text-black"
-                              : "border-border bg-background"
+                              ? "border-accent-green bg-accent-green text-on-accent"
+                              : "border-border bg-elevated"
                           }`}
                         >
                           {checked ? <Check className="h-3.5 w-3.5" /> : null}
@@ -713,7 +713,7 @@ export function LandingGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Открываем редактор…" : "Сгенерировать"}
             </button>
@@ -759,7 +759,7 @@ function TemplateTile({
       />
       <p className="truncate text-xs font-medium">{template.name}</p>
       {selected && (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-black">
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
           <Check size={10} />
         </span>
       )}

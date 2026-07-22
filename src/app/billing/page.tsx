@@ -241,12 +241,12 @@ function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boo
         aria-label="Переключить период оплаты"
         onClick={() => onChange(!annual)}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
-          annual ? "bg-white/30" : "bg-white/15"
+          annual ? "bg-accent-green" : "bg-white/15"
         }`}
       >
         <span
-          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-            annual ? "translate-x-5" : "translate-x-0"
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-sm transition-transform ${
+            annual ? "translate-x-5 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
           }`}
         />
       </button>
@@ -290,7 +290,7 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
       }
     >
       {popular ? (
-        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-accent-green px-3 py-1 text-xs font-semibold text-black">
+        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent">
           <Sparkles className="h-3.5 w-3.5" />
           Популярный выбор
         </span>
@@ -335,10 +335,10 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
           type="button"
           className={`w-full rounded-lg px-5 py-3 text-sm font-semibold transition max-sm:min-h-12 ${
             popular
-              ? "bg-accent-green text-black hover:bg-[var(--accent-hover)]"
+              ? "bg-accent-green text-on-accent hover:bg-[var(--accent-hover)]"
               : // Desktop: outline. Mobile: solid white fill + dark text — the
                 // outline reads poorly on a small dark screen.
-                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-black max-sm:hover:bg-white/90"
+                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-on-accent max-sm:hover:bg-white/90"
           }`}
         >
           {plan.cta ?? "Выбрать план"}

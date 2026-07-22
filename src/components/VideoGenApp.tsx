@@ -540,7 +540,7 @@ export function VideoGenApp() {
                           >
                             <img src={a.img} alt={a.name} className="h-full w-full object-cover" />
                             {active ? (
-                              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-black">
+                              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-on-accent">
                                 <Check className="h-2.5 w-2.5" />
                               </span>
                             ) : null}
@@ -698,7 +698,7 @@ export function VideoGenApp() {
                               {b.label}
                             </span>
                             {active ? (
-                              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-black">
+                              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-on-accent">
                                 <Check className="h-2.5 w-2.5" />
                               </span>
                             ) : null}
@@ -988,7 +988,7 @@ export function VideoGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
@@ -1021,7 +1021,7 @@ export function VideoGenApp() {
             type="button"
             onClick={onGenerate}
             disabled={!canGenerate}
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
           >
             {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
           </button>
@@ -1094,7 +1094,7 @@ export function VideoGenApp() {
                   <DropdownMenuContent
                     align="end"
                     sideOffset={8}
-                    className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                    className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
                     <DropdownMenuItem
                       onClick={onGenerate}
@@ -1170,7 +1170,7 @@ export function VideoGenApp() {
                 <button
                   type="button"
                   onClick={download}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   <Download className="h-4 w-4" />
                   Скачать
@@ -1223,8 +1223,8 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          checked ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          checked ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>
@@ -1266,7 +1266,7 @@ function AddLangMenu({ current, onAdd }: { current: string[]; onAdd: (v: string)
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        className="max-h-64 w-52 overflow-y-auto rounded-2xl border-border bg-popover p-1.5 text-foreground"
+        className="max-h-64 w-52 overflow-y-auto rounded-xl border-border bg-popover p-1.5 text-foreground"
       >
         {available.map((l) => (
           <DropdownMenuItem
@@ -1455,7 +1455,7 @@ function MockVideoPlayer({
         {/* Text overlay hook */}
         {textOverlay.trim() ? (
           <div className="absolute inset-x-0 top-8 flex justify-center px-3">
-            <span className="rounded-lg bg-accent-green px-2.5 py-1 text-center text-sm font-extrabold uppercase text-black shadow-lg">
+            <span className="rounded-lg bg-accent-green px-2.5 py-1 text-center text-sm font-extrabold uppercase text-on-accent shadow-lg">
               {textOverlay}
             </span>
           </div>
@@ -1478,7 +1478,7 @@ function MockVideoPlayer({
             aria-label="Воспроизвести"
             className="absolute inset-0 flex items-center justify-center bg-black/10 transition hover:bg-black/20"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-black shadow-xl">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-on-accent shadow-xl">
               <Play className="ml-0.5 h-6 w-6 fill-current" />
             </span>
           </button>

@@ -189,7 +189,7 @@ export function SectionScaffold({ section }: { section: Section }) {
               type="button"
               onClick={() => setMobileTab("result")}
               disabled
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent opacity-50"
             >
               {section.cta}
             </button>
@@ -221,7 +221,7 @@ export function SectionScaffold({ section }: { section: Section }) {
               <button
                 type="button"
                 disabled
-                className="mt-4 w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black opacity-50 max-lg:hidden"
+                className="mt-4 w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent opacity-50 max-lg:hidden"
               >
                 {section.cta}
               </button>

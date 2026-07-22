@@ -76,7 +76,7 @@ export function ToolCoachmark({ section }: { section: string }) {
           <button
             type="button"
             onClick={dismiss}
-            className="mt-2 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="mt-2 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Понятно
           </button>

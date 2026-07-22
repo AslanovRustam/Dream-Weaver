@@ -67,7 +67,7 @@ export function GenerationProgress({
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                       state === "done"
-                        ? "border-accent-green bg-accent-green text-black"
+                        ? "border-accent-green bg-accent-green text-on-accent"
                         : state === "active"
                           ? "border-accent-green text-accent-green"
                           : "border-border text-muted-foreground"

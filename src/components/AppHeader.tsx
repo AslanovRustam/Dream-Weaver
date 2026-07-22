@@ -319,7 +319,7 @@ export function AppHeader() {
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="w-72 rounded-2xl border-border bg-popover p-2 text-foreground"
+              className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
             >
               <div className="flex items-center gap-3 px-2 py-2">
                 <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
@@ -360,7 +360,7 @@ export function AppHeader() {
                 </span>
                 <Link
                   href="/billing"
-                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   Пополнить
                 </Link>
@@ -497,7 +497,7 @@ function GuestAuthButtons() {
       </Link>
       <Link
         href="/login?mode=signup"
-        className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
+        className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
       >
         Регистрация
       </Link>
@@ -740,7 +740,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        className="w-64 rounded-2xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
+        className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
       >
         {SECTIONS.map((s) => {
           const Icon = s.icon;
@@ -776,7 +776,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
           <button
             type="button"
             onClick={dismissHint}
-            className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Понятно
           </button>
@@ -807,7 +807,7 @@ function LanguageSelector() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+        className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
       >
         {CREATIVE_LANGUAGES.map((l) => (
           <DropdownMenuItem
@@ -841,7 +841,7 @@ function NotificationsMenu() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
-            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-black">
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
               {unread}
             </span>
           ) : null}
@@ -850,7 +850,7 @@ function NotificationsMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="ds-h4">Уведомления</span>
@@ -893,7 +893,7 @@ function HelpMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-64 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-64 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="px-2 py-1.5">
           <span className="ds-h4">Помощь</span>
@@ -932,7 +932,7 @@ function ProjectsMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="ds-h4">Мои проекты</span>
