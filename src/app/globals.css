@@ -195,6 +195,11 @@
     radial-gradient(120% 90% at 78% 18%, rgba(123, 92, 255, 0.28) 0%, rgba(11, 13, 18, 0) 55%),
     radial-gradient(90% 70% at 62% 30%, rgba(198, 255, 61, 0.16) 0%, rgba(11, 13, 18, 0) 50%),
     #0b0d12;
+  /* Same aurora without the solid base, so it can be layered over a surface
+     that already has a background (page hero backdrops). */
+  --grad-hero-glow:
+    radial-gradient(120% 90% at 78% 18%, rgba(123, 92, 255, 0.28) 0%, rgba(11, 13, 18, 0) 55%),
+    radial-gradient(90% 70% at 62% 30%, rgba(198, 255, 61, 0.16) 0%, rgba(11, 13, 18, 0) 50%);
 
   /* ===================================================================
      7. GLOW + ELEVATION
@@ -600,10 +605,20 @@
 .ds-hero-aurora {
   background-image: var(--grad-hero);
 }
+/* Layerable version — aurora only, no base fill. */
+.ds-hero-glow {
+  background-image: var(--grad-hero-glow);
+}
 /* Dot-grid brand motif — a low-contrast backdrop, never foreground noise. */
 .ds-dotgrid {
   background-image: radial-gradient(rgba(198, 255, 61, 0.5) 1.2px, transparent 1.5px);
   background-size: 16px 16px;
+}
+/* Dot-grid that fades out towards the edges, per the system's "matrix of dots
+   decaying at the edge". Keeps the motif from ending on a hard line. */
+.ds-dotgrid-fade {
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
 }
 
 /* Consistent dropdown chevron on every native <select>: the arrow sits the
