@@ -166,7 +166,7 @@ function PresetTile({
       />
       <p className="truncate text-xs font-medium">{preset.name}</p>
       {selected && (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-black">
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
           <Check size={10} />
         </span>
       )}

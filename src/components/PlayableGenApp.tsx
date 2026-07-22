@@ -614,7 +614,7 @@ export function PlayableGenApp() {
                             title="Отметить правильным"
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
                               quizCorrect === i
-                                ? "border-accent-green bg-accent-green text-black"
+                                ? "border-accent-green bg-accent-green text-on-accent"
                                 : "border-border text-transparent hover:border-foreground/40"
                             }`}
                           >
@@ -762,7 +762,7 @@ export function PlayableGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
@@ -795,7 +795,7 @@ export function PlayableGenApp() {
             type="button"
             onClick={onGenerate}
             disabled={!canGenerate}
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
           >
             {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
           </button>
@@ -874,7 +874,7 @@ export function PlayableGenApp() {
                   <DropdownMenuContent
                     align="end"
                     sideOffset={8}
-                    className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                    className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
                     <DropdownMenuItem
                       onClick={onGenerate}
@@ -925,7 +925,7 @@ export function PlayableGenApp() {
                 <button
                   type="button"
                   onClick={download}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   <Download className="h-4 w-4" />
                   Скачать
@@ -965,7 +965,7 @@ export function PlayableGenApp() {
           role="dialog"
           aria-modal="true"
           aria-label="Плейбл на весь экран"
-          className="fixed inset-0 z-[90] flex flex-col bg-black"
+          className="fixed inset-0 z-[90] flex flex-col bg-[var(--bg-void)]"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <span className="truncate text-sm font-medium text-white/80">
@@ -1025,8 +1025,8 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          checked ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          checked ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>

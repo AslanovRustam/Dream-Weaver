@@ -1374,7 +1374,7 @@ export function ImageGenApp() {
                   (!isSlotPreset && prompt.trim().length === 0) ||
                   (isSlotPreset && slotName.trim().length === 0))
               }
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
@@ -1443,7 +1443,7 @@ export function ImageGenApp() {
             <div className="flex items-center gap-2">
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                  hasBanner ? "bg-muted text-muted-foreground" : "bg-accent-green text-black"
+                  hasBanner ? "bg-muted text-muted-foreground" : "bg-accent-green text-on-accent"
                 }`}
               >
                 1
@@ -1457,7 +1457,7 @@ export function ImageGenApp() {
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
                   hasBanner
-                    ? "bg-accent-green text-black"
+                    ? "bg-accent-green text-on-accent"
                     : "border border-border text-muted-foreground"
                 }`}
               >
@@ -1482,7 +1482,7 @@ export function ImageGenApp() {
                 (!isSlotPreset && prompt.trim().length === 0) ||
                 (isSlotPreset && slotName.trim().length === 0))
             }
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
             {status === "loading" ? "Генерация…" : "Сгенерировать"}
           </button>
@@ -1638,7 +1638,7 @@ export function ImageGenApp() {
                         <DropdownMenuContent
                           align="end"
                           sideOffset={8}
-                          className="w-56 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
                         >
                           <DropdownMenuItem
                             onClick={() => {
@@ -1848,8 +1848,8 @@ function OptionalField({
           }`}
         >
           <span
-            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
+            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+              enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
             }`}
           />
         </button>
@@ -1887,8 +1887,8 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: (v: b
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>

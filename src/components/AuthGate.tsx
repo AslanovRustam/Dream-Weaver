@@ -68,7 +68,7 @@ function GateModal({ reason, onClose }: { reason: string; onClose: () => void })
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
@@ -99,7 +99,7 @@ function GateModal({ reason, onClose }: { reason: string; onClose: () => void })
           <button
             type="button"
             onClick={() => go("/login?mode=signup")}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             <UserPlus className="h-4 w-4" />
             Зарегистрироваться
@@ -138,7 +138,7 @@ export function GuestWall({
         <button
           type="button"
           onClick={() => router.push("/login?mode=signup")}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
         >
           <UserPlus className="h-4 w-4" />
           Зарегистрироваться

@@ -119,7 +119,7 @@ export function SettingsDrawer({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/30" onClick={() => onOpenChange(false)} />
+        <div className="fixed inset-0 z-40 bg-black/60" onClick={() => onOpenChange(false)} />
       )}
       <aside
         className={`fixed left-0 top-0 z-50 h-full w-80 max-w-[90vw] transform border-r border-border bg-card shadow-xl transition-transform duration-300 ${

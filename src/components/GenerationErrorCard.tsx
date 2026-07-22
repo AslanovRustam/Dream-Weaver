@@ -63,7 +63,7 @@ export function GenerationErrorCard({
             {kind === "credits" ? (
               <Link
                 href="/billing"
-                className="inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
               >
                 Пополнить кредиты
               </Link>
@@ -71,7 +71,7 @@ export function GenerationErrorCard({
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
               >
                 <RefreshCw className="h-4 w-4" />
                 Попробовать снова
