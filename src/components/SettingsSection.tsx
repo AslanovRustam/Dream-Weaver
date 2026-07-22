@@ -33,7 +33,7 @@ export function SettingsSection({
         className="flex w-full items-center gap-2.5 p-3 text-left transition hover:bg-white/5"
       >
         {icon ? <span className="shrink-0">{icon}</span> : null}
-        <span className="flex-1 ds-h2">
+        <span className="flex-1 ds-h4">
           {title}
           {required ? <span className="text-[color:var(--status-error)]"> *</span> : null}
         </span>

@@ -423,7 +423,7 @@ export function ResizeBatchPanel({
                   <ChevronLeft className="h-5 w-5" />
                   Назад
                 </button>
-                <DialogTitle className="ds-h2 text-left">
+                <DialogTitle className="ds-h4 text-left">
                   Выбрать ресайз
                   {selectedCount > 0 ? (
                     <span className="ml-2 rounded-full bg-accent-green/20 px-2 py-0.5 text-xs font-semibold text-accent-green">
@@ -538,7 +538,7 @@ export function ResizeBatchPanel({
           {effectivePhase === "generating" ? (
             <>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
-                <DialogTitle className="ds-h2 text-left">Генерация пакета</DialogTitle>
+                <DialogTitle className="ds-h4 text-left">Генерация пакета</DialogTitle>
               </DialogHeader>
 
               <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center">
@@ -597,7 +597,7 @@ export function ResizeBatchPanel({
                     Готово
                   </button>
                 </div>
-                <DialogTitle className="ds-h2 flex items-center gap-2 text-left">
+                <DialogTitle className="ds-h4 flex items-center gap-2 text-left">
                   {total === 0 ? (
                     <>
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -830,7 +830,7 @@ export function ResizeBatchPanel({
                 className="w-full max-w-xs rounded-2xl border border-border bg-panel p-5 shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
-                <p className="ds-h2 mb-1">Удалить этот формат из пакета?</p>
+                <p className="ds-h4 mb-1">Удалить этот формат из пакета?</p>
                 <p className="mb-4 text-xs text-muted-foreground">
                   {confirmDelete.size.w}×{confirmDelete.size.h}
                   {confirmDelete.size.label ? ` · ${confirmDelete.size.label}` : ""}

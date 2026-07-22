@@ -21,7 +21,7 @@ export function EmptyResult({
         <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface)] text-accent-green">
           {icon}
         </span>
-        <h2 className="ds-h2">{title}</h2>
+        <h2 className="ds-h4">{title}</h2>
         <p className="mt-1 ds-caption">{hint}</p>
       </div>
     </div>

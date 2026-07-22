@@ -415,7 +415,7 @@ export function VideoGenApp() {
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
                         placeholder="О чём видео? Напр.: бонус казино 100%"
-                        className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <button
                         type="button"
@@ -442,7 +442,7 @@ export function VideoGenApp() {
                       value={script}
                       onChange={(e) => setScript(e.target.value)}
                       rows={5}
-                      className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                      className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                       placeholder="Текст, который персонаж/голос произнесёт и залипсинчит. Напр.: «Устали от обычных бонусов? Знакомьтесь…»"
                     />
                     <p className="mt-1 flex items-center justify-between ds-caption">
@@ -533,7 +533,7 @@ export function VideoGenApp() {
                             }}
                             className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition ${
                               active
-                                ? "border-accent-green shadow-[0_0_30px_rgba(212,255,61,0.16)]"
+                                ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
                                 : "border-border hover:border-foreground/40"
                             }`}
                             title={a.name}
@@ -688,7 +688,7 @@ export function VideoGenApp() {
                             }}
                             className={`relative h-16 overflow-hidden rounded-lg border transition ${
                               active
-                                ? "border-accent-green shadow-[0_0_24px_rgba(212,255,61,0.14)]"
+                                ? "border-accent-green shadow-[0_0_24px_rgba(198,255,61,0.14)]"
                                 : "border-border hover:border-foreground/40"
                             }`}
                             style={{ background: b.css }}
@@ -846,7 +846,7 @@ export function VideoGenApp() {
                       onChange={(e) => setTextOverlay(e.target.value)}
                       maxLength={48}
                       placeholder="Хук в начале ролика — напр.: «Только сегодня»"
-                      className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     />
                   </div>
                 </div>
@@ -867,7 +867,7 @@ export function VideoGenApp() {
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
                       aria-label="Основной язык видео"
-                      className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     >
                       {CREATIVE_LANGUAGES.map((l) => (
                         <option key={l.value} value={l.value}>
@@ -955,7 +955,7 @@ export function VideoGenApp() {
                       value={brandName}
                       onChange={(e) => setBrandName(e.target.value)}
                       placeholder="Название бренда / проекта"
-                      className="h-12 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-12 min-w-0 flex-1 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     />
                   </div>
                   <div>
@@ -1514,7 +1514,7 @@ const VG_ANIM_CSS = `
 @keyframes vg-scan{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
 .vg-anim{width:56px;height:56px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#0f140e;display:flex;align-items:center;justify-content:center;position:relative}
 .vg-screen{width:44px;height:32px;border-radius:5px;background:#141b12;border:2px solid #2c3424;position:relative;overflow:hidden}
-.vg-screen:after{content:'';position:absolute;top:0;left:0;width:30%;height:100%;background:linear-gradient(90deg,transparent,rgba(212,255,61,.25),transparent);animation:vg-scan 1.8s linear infinite}
+.vg-screen:after{content:'';position:absolute;top:0;left:0;width:30%;height:100%;background:linear-gradient(90deg,transparent,rgba(198,255,61,.25),transparent);animation:vg-scan 1.8s linear infinite}
 .vg-cur{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent-green);animation:vg-cursor 2.2s ease-in-out infinite}
 .vg-head{width:22px;height:22px;border-radius:50%;background:#2f3a20;position:relative}
 .vg-mouth{position:absolute;left:50%;bottom:5px;width:8px;height:4px;border-radius:2px;background:var(--accent-green);transform:translateX(-50%);transform-origin:center;animation:vg-talk .5s ease-in-out infinite}
@@ -1579,7 +1579,7 @@ function SceneTypeSidebar({
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <style>{VG_ANIM_CSS}</style>
       <div className="border-b border-border px-4 py-2.5">
-        <h2 className="ds-h2">Тип сцены</h2>
+        <h2 className="ds-h4">Тип сцены</h2>
       </div>
       {/* Desktop: fixed (4 types fit, no internal scroll); mobile: full-width
           vertical list that fills the step screen (clearer than a carousel). */}
@@ -1594,7 +1594,7 @@ function SceneTypeSidebar({
                 onClick={() => onSelect(s.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                   active
-                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(212,255,61,0.14)]"
+                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
                     : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
                 }`}
               >

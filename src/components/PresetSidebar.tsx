@@ -249,7 +249,7 @@ export function PresetSidebar({ value, onChange }: Props) {
   return (
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
-        <h2 className="ds-h2">Шаблоны</h2>
+        <h2 className="ds-h4">Шаблоны</h2>
       </div>
       <div ref={filterRef} className="relative px-4 pb-2 pt-2">
         <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
@@ -304,7 +304,7 @@ export function PresetSidebar({ value, onChange }: Props) {
         <MobileScrim open={filterOpen} onClose={closeFilter} />
         {filterOpen && (
           <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
-              <p className="mb-2 ds-h2">Категория</p>
+              <p className="mb-2 ds-h4">Категория</p>
               <div className="relative">
                 <button
                   type="button"

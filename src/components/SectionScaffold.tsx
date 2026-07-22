@@ -80,7 +80,7 @@ export function SectionScaffold({ section }: { section: Section }) {
           }`}
         >
           <div className="border-b border-border px-4 py-2.5">
-            <h2 className="ds-h2">Шаблоны</h2>
+            <h2 className="ds-h4">Шаблоны</h2>
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
             <p className="ds-caption">Шаблоны появятся здесь</p>
@@ -124,7 +124,7 @@ export function SectionScaffold({ section }: { section: Section }) {
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
-                  <p className="ds-h2">{section.title}</p>
+                  <p className="ds-h4">{section.title}</p>
                   <p className="ds-caption">{section.description}</p>
                 </div>
               </div>
@@ -132,7 +132,7 @@ export function SectionScaffold({ section }: { section: Section }) {
               {/* "Created from banner" prefilled brand block (landing only). */}
               {seed ? (
                 <div className="rounded-xl border border-accent-green/40 bg-accent-green/5 p-3">
-                  <p className="mb-2 ds-h2">Данные бренда (из баннера)</p>
+                  <p className="mb-2 ds-h4">Данные бренда (из баннера)</p>
                   <div className="flex items-center gap-3">
                     {seed.brand_logo ? (
                       <img
@@ -160,11 +160,11 @@ export function SectionScaffold({ section }: { section: Section }) {
               ) : null}
 
               <div className="rounded-xl border border-border bg-background/40 p-3">
-                <p className="mb-2 ds-h2">Язык креатива</p>
+                <p className="mb-2 ds-h4">Язык креатива</p>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                 >
                   {CREATIVE_LANGUAGES.map((l) => (
                     <option key={l.value} value={l.value}>
@@ -216,7 +216,7 @@ export function SectionScaffold({ section }: { section: Section }) {
               <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface)] text-accent-green">
                 <Icon className="h-6 w-6" />
               </span>
-              <h2 className="ds-h2">Здесь появится результат</h2>
+              <h2 className="ds-h4">Здесь появится результат</h2>
               <p className="mt-1 ds-caption">{section.description}</p>
               <button
                 type="button"

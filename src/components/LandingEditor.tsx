@@ -235,7 +235,7 @@ export function LandingEditor({ id }: { id: string }) {
   if (missing) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center text-foreground">
-        <p className="ds-h2">Проект не найден</p>
+        <p className="ds-h4">Проект не найден</p>
         <p className="max-w-sm ds-caption">
           Данные лендинга не найдены (возможно, ссылка устарела). Вернитесь и сгенерируйте заново.
         </p>
@@ -577,7 +577,7 @@ function TextPanelHeader({ lang, onClose }: { lang: string; onClose: () => void 
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
       <div>
-        <p className="ds-h2">Тексты лендинга</p>
+        <p className="ds-h4">Тексты лендинга</p>
         <p className="ds-caption">Версия · {langLabel(lang)}</p>
       </div>
       <button
@@ -643,14 +643,14 @@ function TextFields({
                 value={value}
                 onChange={(e) => onChange(f.key, e.target.value)}
                 rows={2}
-                className="min-h-[64px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                className="min-h-[64px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
               />
             ) : (
               <input
                 type="text"
                 value={value}
                 onChange={(e) => onChange(f.key, e.target.value)}
-                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                className="h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
               />
             )}
           </div>
@@ -699,7 +699,7 @@ function TextStylePanel({
         <select
           value={style.fontFamily ?? ""}
           onChange={(e) => onChange({ fontFamily: e.target.value })}
-          className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-accent-green"
+          className="h-9 rounded-lg border border-border bg-elevated px-2 text-sm outline-none focus:border-accent-green"
         >
           {LANDING_FONTS.map((f) => (
             <option key={f.label} value={f.value}>
@@ -726,7 +726,7 @@ function TextStylePanel({
           max={LANDING_FONT_SIZE.max}
           value={size}
           onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-          className="h-9 w-14 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-accent-green"
+          className="h-9 w-14 rounded-lg border border-border bg-elevated px-2 text-sm outline-none focus:border-accent-green"
         />
         <span className="ds-micro text-muted-foreground">px</span>
       </label>

@@ -277,14 +277,14 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
     <div
       className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 transition sm:p-7 ${
         popular
-          ? "border-accent-green shadow-[0_0_50px_rgba(212,255,61,0.10)] md:scale-[1.04]"
+          ? "border-accent-green shadow-[0_0_50px_rgba(198,255,61,0.10)] md:scale-[1.04]"
           : "border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
       }`}
       style={
         popular
           ? {
               background:
-                "linear-gradient(180deg, rgba(212,255,61,0.14) 0%, rgba(212,255,61,0.05) 20%, rgba(22,22,22,0.92) 52%, var(--bg-surface) 100%)",
+                "linear-gradient(180deg, rgba(198,255,61,0.14) 0%, rgba(198,255,61,0.05) 20%, rgba(18,20,26,0.92) 52%, var(--bg-surface) 100%)",
             }
           : undefined
       }

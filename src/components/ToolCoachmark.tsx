@@ -71,7 +71,7 @@ export function ToolCoachmark({ section }: { section: string }) {
           <Lightbulb className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="ds-h2">{tip.title}</p>
+          <p className="ds-h4">{tip.title}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{tip.body}</p>
           <button
             type="button"

@@ -468,7 +468,7 @@ function TemplatesTab() {
                 <select
                   value={draft.section}
                   onChange={(e) => setDraft({ ...draft, section: e.target.value })}
-                  className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm"
+                  className="mt-1 h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm"
                 >
                   {SECTION_ORDER.map((s) => (
                     <option key={s} value={s}>
@@ -602,11 +602,13 @@ function OverviewTab() {
   );
 }
 
+// KPI tile, per the design system: overline label on top, then the big
+// tabular figure beneath it.
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <p className="text-2xl font-semibold tabular-nums text-accent-green">{value}</p>
-      <p className="mt-1 ds-caption">{label}</p>
+    <div className="rounded-2xl border border-[color:var(--border-subtle)] bg-card p-5">
+      <p className="ds-overline">{label}</p>
+      <p className="ds-stat mt-2 text-accent-green">{value}</p>
     </div>
   );
 }
@@ -884,7 +886,7 @@ function RoleDialog({
             <Label htmlFor="role-sel">Роль (права)</Label>
             <select
               id="role-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
@@ -899,7 +901,7 @@ function RoleDialog({
             <Label htmlFor="tier-sel">Тариф (приоритет генерации)</Label>
             <select
               id="tier-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={tier}
               onChange={(e) => setTier(e.target.value)}
             >
@@ -1245,7 +1247,7 @@ function SettingField({
   } else if (spec.kind === "enum") {
     input = (
       <select
-        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -1422,7 +1424,7 @@ function SystemLogsView() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={level}
           onChange={(e) => setLevel(e.target.value)}
         >
@@ -1433,7 +1435,7 @@ function SystemLogsView() {
           ))}
         </select>
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
@@ -1699,7 +1701,7 @@ function TokensLogsView() {
         <select
           value={msgFilter}
           onChange={(e) => setMsgFilter(e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+          className="rounded-md border border-border bg-elevated px-2 py-1 text-sm"
         >
           <option value="">Все типы</option>
           {Object.entries(TOKEN_MSG_LABELS).map(([v, l]) => (
