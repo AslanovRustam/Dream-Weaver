@@ -26,6 +26,8 @@ import { useAuth } from "@/lib/auth-context";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { AppHeader } from "@/components/AppHeader";
+import { GuestWall } from "@/components/AuthGate";
+import { useAppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
@@ -56,6 +58,7 @@ export default function AccountPage() {
     document.title = "Личный кабинет — Dream Weaver Studio";
   }, []);
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isGuest } = useAppRole();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -84,10 +87,8 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) {
-      router.push("/login");
-      return;
-    }
+    // Guests are shown the register wall below — no silent bounce to /login.
+    if (!isAuthenticated) return;
     let cancelled = false;
     (async () => {
       try {
@@ -105,6 +106,17 @@ export default function AccountPage() {
     };
   }, [authLoading, isAuthenticated, router]);
 
+  if (isGuest) {
+    return (
+      <div className="min-h-screen">
+        <AppHeader />
+        <GuestWall
+          title="Личный кабинет доступен после регистрации"
+          description="Профиль, кредиты и история появятся здесь после создания аккаунта."
+        />
+      </div>
+    );
+  }
   if (authLoading || loading) {
     return (
       <div className="min-h-screen">
