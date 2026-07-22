@@ -9,7 +9,9 @@ const Switch = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SwitchPrimitives.Root
     className={cn(
-      "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
+      // Off = raised neutral track, on = lime with a soft glow, matching the
+      // system's "active surfaces glow" cue.
+      "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-40 data-[state=checked]:bg-primary data-[state=checked]:shadow-glow-lime data-[state=unchecked]:bg-elevated-2",
       className,
     )}
     {...props}
@@ -17,7 +19,9 @@ const Switch = React.forwardRef<
   >
     <SwitchPrimitives.Thumb
       className={cn(
-        "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0",
+        // Light thumb on the neutral track, dark thumb on the lime one — each
+        // stays legible against its own background.
+        "pointer-events-none block h-4 w-4 rounded-full bg-foreground shadow-sm ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=checked]:bg-[color:var(--text-on-accent)] data-[state=unchecked]:translate-x-0",
       )}
     />
   </SwitchPrimitives.Root>
