@@ -344,12 +344,15 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
           {plan.cta ?? "Выбрать план"}
         </button>
         {!custom ? (
-          // Слот экономии всегда занимает место (в помесячном режиме он
-          // невидим), чтобы карточки не прыгали по высоте при переключении.
+          // Слот экономии держит место, чтобы карточки не прыгали по высоте при
+          // переключении периода — но только на десктопе, где они стоят в ряд и
+          // выравниваются друг по другу. На мобильном карточки идут одна под
+          // другой, выравнивать нечего, и пустой слот читался бы дырой между
+          // кнопкой и списком, поэтому там он схлопывается.
           <div
             aria-hidden={!annual}
             className={`rounded-lg bg-white/[0.03] px-3 py-2 text-center text-xs ${
-              annual ? "" : "invisible"
+              annual ? "" : "invisible max-sm:hidden"
             }`}
           >
             <span className="font-semibold text-foreground">Экономия ${savings}</span>
