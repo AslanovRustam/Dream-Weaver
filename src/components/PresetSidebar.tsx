@@ -152,7 +152,7 @@ function PresetTile({
       onClick={onSelect}
       className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
         selected
-          ? "border-accent-green shadow-[0_0_30px_rgba(234,255,160,0.16)]"
+          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
           : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
