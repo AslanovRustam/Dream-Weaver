@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
+import { useAppRole } from "@/lib/roles";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES, TIERS } from "@/lib/rbac";
@@ -136,30 +137,20 @@ const GROUP_TITLES: Record<SettingFieldSpec["group"], string> = {
 export default function AdminPage() {
   const router = useRouter();
   useEffect(() => { document.title = "Админ — Dream Weaver Studio"; }, []);
-  const { isAuthenticated, loading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { loading } = useAuth();
+  // Any staff role (support/moderator/admin/superadmin) opens the panel. This
+  // is only a client-side pre-check so non-admins don't see a broken page —
+  // the real wall is per-capability on the server (lib/rbac + auth-server).
+  const { isAdmin, loading: roleLoading } = useAppRole();
 
-  // Cheap pre-check: ask /api/me, look at is_super_admin. The real wall is
-  // server-side, this only avoids showing a broken page to non-admins.
-  useEffect(() => {
-    if (loading) return;
-    if (!isAuthenticated) {
-      router.push("/login");
-      return;
-    }
-    apiJson<{ is_super_admin: boolean }>("/api/me")
-      .then((r) => setIsAdmin(!!r.is_super_admin))
-      .catch(() => setIsAdmin(false));
-  }, [loading, isAuthenticated, router]);
-
-  if (loading || isAdmin === null) {
+  if (loading || roleLoading) {
     return <CenterMessage>Загрузка…</CenterMessage>;
   }
   if (!isAdmin) {
     return (
       <CenterMessage>
         <div className="space-y-3 text-center">
-          <p>Эта страница доступна только супер-админам.</p>
+          <p>Раздел доступен только сотрудникам.</p>
           <Button asChild variant="outline" size="sm">
             <Link href="/">На главную</Link>
           </Button>
@@ -187,16 +178,24 @@ export default function AdminPage() {
           </div>
         </header>
 
-        <Tabs defaultValue="users">
+        <Tabs defaultValue="overview">
           <TabsList>
+            <TabsTrigger value="overview">Обзор</TabsTrigger>
             <TabsTrigger value="users">Пользователи</TabsTrigger>
+            <TabsTrigger value="templates">Шаблоны</TabsTrigger>
             <TabsTrigger value="histories">Истории</TabsTrigger>
             <TabsTrigger value="pricing">Тарифы</TabsTrigger>
             <TabsTrigger value="settings">Настройки</TabsTrigger>
             <TabsTrigger value="logs">Логи</TabsTrigger>
           </TabsList>
+          <TabsContent value="overview" className="mt-4">
+            <OverviewTab />
+          </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UsersTab />
+          </TabsContent>
+          <TabsContent value="templates" className="mt-4">
+            <TemplatesTab />
           </TabsContent>
           <TabsContent value="histories" className="mt-4">
             <UserHistoriesTab />
@@ -227,6 +226,363 @@ function CenterMessage({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------
 // Users tab
 // ---------------------------------------------------------------------
+type TemplateRow = {
+  id: string;
+  section: string;
+  category: string;
+  name: string;
+  description: string;
+  preview_url: string | null;
+  meta: Record<string, unknown>;
+  visible: boolean;
+  sort_order: number;
+};
+
+const SECTION_LABEL: Record<string, string> = {
+  banner: "Баннер",
+  landing: "Лендинг",
+  playable: "Плейбл",
+  video: "Видео",
+};
+const SECTION_ORDER = ["banner", "landing", "playable", "video"];
+
+const EMPTY_TEMPLATE: TemplateRow = {
+  id: "",
+  section: "banner",
+  category: "",
+  name: "",
+  description: "",
+  preview_url: null,
+  meta: {},
+  visible: false,
+  sort_order: 0,
+};
+
+// Шаблоны — the editable catalogue (migration 0005 + /api/admin/templates).
+// Adding a template used to require a developer; this tab is the whole point of
+// moving them out of frontend constants.
+function TemplatesTab() {
+  const [rows, setRows] = useState<TemplateRow[] | null>(null);
+  const [err, setErr] = useState("");
+  const [draft, setDraft] = useState<TemplateRow | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    setErr("");
+    apiJson<{ templates: TemplateRow[] }>("/api/admin/templates")
+      .then((r) => setRows(Array.isArray(r.templates) ? r.templates : []))
+      .catch((e) => {
+        setRows([]);
+        setErr(e instanceof ApiError ? e.message : "Не удалось загрузить шаблоны");
+      });
+  }, []);
+  useEffect(() => load(), [load]);
+
+  const grouped = useMemo(() => {
+    const by = new Map<string, TemplateRow[]>();
+    (rows ?? []).forEach((t) => {
+      const list = by.get(t.section) ?? [];
+      list.push(t);
+      by.set(t.section, list);
+    });
+    return SECTION_ORDER.filter((s) => by.has(s)).map((s) => [s, by.get(s)!] as const);
+  }, [rows]);
+
+  const mutate = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setErr("");
+    try {
+      await fn();
+      load();
+      setDraft(null);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Операция не удалась");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () => {
+    if (!draft) return;
+    const payload = {
+      section: draft.section,
+      category: draft.category,
+      name: draft.name,
+      description: draft.description,
+      preview_url: draft.preview_url,
+      meta: draft.meta,
+      visible: draft.visible,
+      sort_order: draft.sort_order,
+    };
+    return mutate(() =>
+      draft.id
+        ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
+        : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Шаблоны, доступные пользователям. Черновики (скрытые) видны только сотрудникам.
+        </p>
+        <Button size="sm" onClick={() => setDraft({ ...EMPTY_TEMPLATE })} className="max-lg:hidden">
+          Добавить шаблон
+        </Button>
+      </div>
+      {/* Editing is a desktop task (spec) — mobile is read-only. */}
+      <p className="text-sm text-muted-foreground lg:hidden">
+        Добавление и редактирование шаблонов доступно в десктопной версии.
+      </p>
+
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+
+      {rows === null ? (
+        <p className="text-sm text-muted-foreground">Загрузка…</p>
+      ) : rows.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Пока нет шаблонов</CardTitle>
+            <CardDescription>
+              Встроенный каталог продукта продолжает работать; здесь появятся шаблоны, добавленные
+              через админку.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        grouped.map(([section, list]) => (
+          <Card key={section}>
+            <CardHeader>
+              <CardTitle>{SECTION_LABEL[section] ?? section}</CardTitle>
+              <CardDescription>{list.length} шт.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {list.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {t.name}
+                      {t.category ? (
+                        <span className="ml-2 text-muted-foreground">· {t.category}</span>
+                      ) : null}
+                    </p>
+                    {t.description ? (
+                      <p className="truncate ds-caption">{t.description}</p>
+                    ) : null}
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 ds-micro ${
+                      t.visible
+                        ? "bg-accent-green/15 text-accent-green"
+                        : "bg-white/5 text-muted-foreground"
+                    }`}
+                  >
+                    {t.visible ? "На проде" : "Черновик"}
+                  </span>
+                  <div className="flex shrink-0 gap-2 max-lg:hidden">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        mutate(() =>
+                          apiJson("/api/admin/templates", {
+                            method: "PATCH",
+                            json: { id: t.id, visible: !t.visible },
+                          }),
+                        )
+                      }
+                    >
+                      {t.visible ? "Скрыть" : "Опубликовать"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setDraft({ ...t })}>
+                      Изменить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        if (!confirm(`Удалить шаблон «${t.name}»?`)) return;
+                        mutate(() =>
+                          apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
+                            method: "DELETE",
+                          }),
+                        );
+                      }}
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ))
+      )}
+
+      <Dialog open={draft !== null} onOpenChange={(o) => (o ? null : setDraft(null))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{draft?.id ? "Изменить шаблон" : "Добавить шаблон"}</DialogTitle>
+            <DialogDescription>
+              Новый шаблон создаётся черновиком — опубликуйте его, когда будет готов.
+            </DialogDescription>
+          </DialogHeader>
+          {draft ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Раздел</Label>
+                <select
+                  value={draft.section}
+                  onChange={(e) => setDraft({ ...draft, section: e.target.value })}
+                  className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm"
+                >
+                  {SECTION_ORDER.map((s) => (
+                    <option key={s} value={s}>
+                      {SECTION_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Название</Label>
+                <Input
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Категория</Label>
+                <Input
+                  value={draft.category}
+                  placeholder="Betting / Gambling / Sport…"
+                  onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Описание</Label>
+                <Input
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Ссылка на превью</Label>
+                <Input
+                  value={draft.preview_url ?? ""}
+                  placeholder="https://…"
+                  onChange={(e) => setDraft({ ...draft, preview_url: e.target.value || null })}
+                />
+              </div>
+              {draft.section === "playable" || draft.section === "video" ? (
+                <div>
+                  <Label>
+                    {draft.section === "playable" ? "Механика" : "Тип сцены"}
+                  </Label>
+                  <Input
+                    value={String(draft.meta?.kind ?? "")}
+                    placeholder={draft.section === "playable" ? "slot / wheel / quiz…" : "talkinghead / screencast…"}
+                    onChange={(e) => setDraft({ ...draft, meta: { ...draft.meta, kind: e.target.value } })}
+                  />
+                </div>
+              ) : null}
+              <div>
+                <Label>Порядок</Label>
+                <Input
+                  type="number"
+                  value={String(draft.sort_order)}
+                  onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDraft(null)}>
+              Отмена
+            </Button>
+            <Button onClick={save} disabled={busy || !draft?.name.trim()}>
+              {busy ? "Сохраняем…" : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Обзор — operational summary. Every number here is DERIVED FROM REAL DATA
+// (/api/admin/users); metrics that would need endpoints we don't have yet
+// (activity windows, per-section project counts) are shown as "—" with a note
+// rather than invented, so the panel never lies to whoever is on shift.
+function OverviewTab() {
+  const [rows, setRows] = useState<UserRow[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiJson<UsersResponse>("/api/admin/users?limit=500")
+      .then((r) => {
+        if (cancelled) return;
+        setRows(Array.isArray(r.users) ? r.users : []);
+        setTotal(typeof r.total === "number" ? r.total : null);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(e instanceof ApiError ? e.message : "Не удалось загрузить сводку");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    if (!rows) return null;
+    const credits = rows.reduce((s, u) => s + (Number(u.credits_balance) || 0), 0);
+    const staff = rows.filter((u) => u.role && u.role !== "user").length;
+    return {
+      users: total ?? rows.length,
+      staff,
+      credits,
+      avg: rows.length ? Math.round((credits / rows.length) * 10) / 10 : 0,
+    };
+  }, [rows, total]);
+
+  return (
+    <div className="space-y-4">
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Всего пользователей" value={stats ? String(stats.users) : "—"} />
+        <StatTile label="Из них сотрудников" value={stats ? String(stats.staff) : "—"} />
+        <StatTile label="Кредитов на балансах" value={stats ? String(stats.credits) : "—"} />
+        <StatTile label="Средний баланс" value={stats ? String(stats.avg) : "—"} />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Активность и проекты</CardTitle>
+          <CardDescription>
+            Активные за 7/30 дней и число проектов по разделам появятся здесь, когда добавим
+            соответствующие эндпоинты — сейчас этих данных в API нет, и придумывать их мы не будем.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <p className="text-2xl font-semibold tabular-nums text-accent-green">{value}</p>
+      <p className="mt-1 ds-caption">{label}</p>
+    </div>
+  );
+}
+
 function UsersTab() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
