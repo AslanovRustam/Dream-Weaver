@@ -299,7 +299,12 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
       {/* Название + подзаголовок */}
       <div>
         <h2 className="text-xl font-semibold">{plan.name}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+        {/* Taglines run one or two lines depending on the plan, which knocked
+            everything below them out of alignment. Two lines are reserved from
+            md up — the breakpoint where the cards actually sit side by side.
+            Below it they stack, every tagline fits on one line, and reserving
+            would only add an empty row to each card. 2.5rem == 2 x 20px line. */}
+        <p className="mt-1 text-sm text-muted-foreground md:min-h-10">{plan.tagline}</p>
       </div>
 
       {/* Блок кредитов */}
