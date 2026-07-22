@@ -43,6 +43,7 @@ import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { getCreativeLanguage, CREATIVE_LANGUAGES } from "@/lib/creative-language";
+import { useAuthGate } from "@/components/AuthGate";
 import {
   PLAYABLE_MECHANICS,
   PLAYABLE_RATIOS,
@@ -112,6 +113,7 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 }
 
 export function PlayableGenApp() {
+  const { isGuest, openGate } = useAuthGate();
   const [mechanic, setMechanic] = useState<PlayableMechanic>("slot");
   const [offer, setOffer] = useState("");
   const [brandName, setBrandName] = useState("");
@@ -214,7 +216,9 @@ export function PlayableGenApp() {
   const wheelCount = wheelPrizes.map((p) => p.trim()).filter(Boolean).length;
   const quizCount = quizAnswers.map((a) => a.trim()).filter(Boolean).length;
   const mechanicValid = mechanic === "wheel" ? wheelCount >= 2 : mechanic === "quiz" ? quizCount >= 2 : true;
-  const canGenerate = offer.trim().length > 0 && mechanicValid && status !== "loading";
+  // Guests keep the button enabled so pressing it opens the register modal.
+  const canGenerate =
+    isGuest || (offer.trim().length > 0 && mechanicValid && status !== "loading");
 
   const sectionList = [
     { id: "offer", title: "Оффер", done: offer.trim().length > 0 },
@@ -236,6 +240,11 @@ export function PlayableGenApp() {
   };
 
   const onGenerate = async () => {
+    // Guests may configure freely; generating needs an account.
+    if (isGuest) {
+      openGate();
+      return;
+    }
     if (offer.trim().length === 0) {
       toast.error("Заполните тематику / оффер");
       return;

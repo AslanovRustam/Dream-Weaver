@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 import { ImageGenApp } from "@/components/ImageGenApp";
 import { AppHeader } from "@/components/AppHeader";
@@ -12,16 +11,11 @@ export default function BannerPage() {
     document.title = "Баннер-генератор — Dream Weaver Studio";
   }, []);
 
-  const { isAuthenticated, loading } = useAuth();
-  const router = useRouter();
+  // Public for guests — the whole configuration UI is browsable without an
+  // account; the gate fires only on "Сгенерировать" (see components/AuthGate).
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [loading, isAuthenticated, router]);
-
-  if (loading || !isAuthenticated) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Загрузка…

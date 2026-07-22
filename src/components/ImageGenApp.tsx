@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useGeneration } from "@/lib/generation-context";
+import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
 
 // gpt-image-2 поддерживает расширенный набор соотношений
@@ -116,6 +117,7 @@ export function ImageGenApp() {
   // proxy through it here instead of holding local state for these
   // fields.
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
   const router = useRouter();
   const imageUrl = gen.imageUrl;
   // A banner exists → we're on step 2 (choose resizes). Drives the step
@@ -772,6 +774,12 @@ export function ImageGenApp() {
   };
 
   const onGenerate = async () => {
+    // Guests may browse and configure freely, but generating needs an account.
+    // Gated here (not on the buttons) so "Перегенерировать" is covered too.
+    if (isGuest) {
+      openGate();
+      return;
+    }
     // Guard EVERY generation path against an empty required field. The two
     // "Сгенерировать" buttons gate via `disabled`, but the "Перегенерировать"
     // menu item calls this directly — without this check it would wipe a
@@ -1360,10 +1368,11 @@ export function ImageGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={
-                status === "loading" ||
-                gen.isBusy ||
-                (!isSlotPreset && prompt.trim().length === 0) ||
-                (isSlotPreset && slotName.trim().length === 0)
+                !isGuest &&
+                (status === "loading" ||
+                  gen.isBusy ||
+                  (!isSlotPreset && prompt.trim().length === 0) ||
+                  (isSlotPreset && slotName.trim().length === 0))
               }
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1467,10 +1476,11 @@ export function ImageGenApp() {
             type="button"
             onClick={onGenerate}
             disabled={
-              status === "loading" ||
-              gen.isBusy ||
-              (!isSlotPreset && prompt.trim().length === 0) ||
-              (isSlotPreset && slotName.trim().length === 0)
+              !isGuest &&
+              (status === "loading" ||
+                gen.isBusy ||
+                (!isSlotPreset && prompt.trim().length === 0) ||
+                (isSlotPreset && slotName.trim().length === 0))
             }
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >

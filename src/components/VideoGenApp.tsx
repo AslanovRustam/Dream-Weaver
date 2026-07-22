@@ -48,6 +48,7 @@ import { GenerationProgress } from "@/components/GenerationProgress";
 import { EmptyResult } from "@/components/EmptyResult";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useAuthGate } from "@/components/AuthGate";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import {
   getCreativeLanguage,
@@ -118,6 +119,7 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 }
 
 export function VideoGenApp() {
+  const { isGuest, openGate } = useAuthGate();
   const [sceneType, setSceneType] = useState<VideoSceneType>("talkinghead");
   const scene = VIDEO_SCENE_BY_ID.get(sceneType)!;
 
@@ -214,7 +216,8 @@ export function VideoGenApp() {
     setOpen((p) => ({ ...p, script: true }));
   };
 
-  const canGenerate = script.trim().length > 0 && status !== "loading";
+  // Guests keep the button enabled so pressing it opens the register modal.
+  const canGenerate = isGuest || (script.trim().length > 0 && status !== "loading");
   const durationSec = estimateDurationSec(script || " ");
 
   const persistBrand = () => {
@@ -247,6 +250,11 @@ export function VideoGenApp() {
   };
 
   const onGenerate = () => {
+    // Guests may configure freely; generating needs an account.
+    if (isGuest) {
+      openGate();
+      return;
+    }
     if (script.trim().length === 0) {
       toast.error("Заполните скрипт для озвучки");
       setOpen((p) => ({ ...p, script: true }));

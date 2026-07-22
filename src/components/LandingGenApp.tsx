@@ -29,6 +29,7 @@ import {
   creativeLangShort,
 } from "@/lib/creative-language";
 import { useGeneration } from "@/lib/generation-context";
+import { useAuthGate } from "@/components/AuthGate";
 import {
   LANDING_SECTIONS,
   LANDING_TEMPLATE_CATEGORIES,
@@ -126,6 +127,7 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 }
 
 export function LandingGenApp() {
+  const { isGuest, openGate } = useAuthGate();
   const [templateId, setTemplateId] = useState(() => {
     // Deep-link from the Hub ("popular templates"): /landing?template=<id>
     // opens with that template selected, skipping the category step.
@@ -223,7 +225,10 @@ export function LandingGenApp() {
     setSections((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const sectionsOn = Object.values(sections).some(Boolean);
-  const canGenerate = subject.trim().length > 0 && sectionsOn && status !== "loading";
+  // Guests keep the button enabled so pressing it opens the register modal
+  // instead of looking broken (the handler gates on isGuest).
+  const canGenerate =
+    isGuest || (subject.trim().length > 0 && sectionsOn && status !== "loading");
 
   // Collapsible settings sections (accordion), shared pattern across generators.
   const [openSec, setOpenSec] = useState({
@@ -266,6 +271,11 @@ export function LandingGenApp() {
   // Generation moved to a dedicated editor page: stash the input and route to
   // /landing/editor/<id>. Generation logic itself is unchanged.
   const onGenerate = () => {
+    // Guests may configure freely; generating needs an account.
+    if (isGuest) {
+      openGate();
+      return;
+    }
     if (subject.trim().length === 0) {
       toast.error("Заполните тематику лендинга");
       return;

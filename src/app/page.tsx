@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Clock, Play, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Clock, Coins, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
@@ -48,6 +48,12 @@ const HUB_ANIM = `
 .hub-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,.14) 50%, transparent 58%); transform: translateX(-100%); transition: transform .7s ease; }
 .hub-tile:hover .hub-shine,
 .hub-tile:focus-visible .hub-shine { transform: translateX(100%); }
+/* First-paint entrance: blocks rise in softly, staggered via --d, so the Hub
+   assembles itself instead of snapping in as one slab. Decorative only —
+   switched off under prefers-reduced-motion. */
+@keyframes hubRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.hub-in { animation: hubRise .55s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); }
+@media (prefers-reduced-motion: reduce) { .hub-in { animation: none; } }
 `;
 
 // Shared dark base for the three illustrated mocks so they read as one family
@@ -119,7 +125,7 @@ function TilePreview({ sectionId }: { sectionId: string }) {
   return (
     <div className={`flex h-full w-full flex-col ${PREVIEW_BASE}`}>
       <div className="flex items-center justify-between px-4 pt-4">
-        <div className="h-2 w-9 rounded-full bg-accent-green" />
+        <div className="h-2 w-9 rounded-full bg-sky-400" />
         <div className="flex gap-1.5">
           <div className="h-1.5 w-5 rounded-full bg-white/35" />
           <div className="h-1.5 w-5 rounded-full bg-white/35" />
@@ -130,13 +136,13 @@ function TilePreview({ sectionId }: { sectionId: string }) {
         <div className="flex flex-1 flex-col gap-2">
           <div className="h-3 w-11/12 rounded bg-white/90" />
           <div className="h-2 w-3/5 rounded bg-white/45" />
-          <div className="mt-1 h-5 w-24 rounded-md bg-accent-green" />
+          <div className="mt-1 h-5 w-24 rounded-md bg-sky-400" />
         </div>
         <div className="h-16 w-1/3 shrink-0 rounded-lg bg-gradient-to-br from-sky-400 to-indigo-600" />
       </div>
       <div className="grid grid-cols-3 gap-2 px-4 pb-4">
         <div className="h-9 rounded-lg bg-gradient-to-br from-white/20 to-white/5" />
-        <div className="h-9 rounded-lg bg-gradient-to-br from-accent-green/30 to-white/5" />
+        <div className="h-9 rounded-lg bg-gradient-to-br from-violet-500/30 to-white/5" />
         <div className="h-9 rounded-lg bg-gradient-to-br from-sky-400/40 to-white/5" />
       </div>
     </div>
@@ -159,7 +165,7 @@ function SectionTile({
       type="button"
       onClick={onOpen}
       className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] text-left transition duration-200 hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(212,255,61,0.16)] focus:outline-none focus-visible:border-accent-green/60 focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
-        featured ? "min-h-[248px] lg:min-h-0" : "min-h-[188px] lg:min-h-0"
+        featured ? "min-h-[280px] lg:min-h-0" : "min-h-[168px] lg:min-h-0"
       }`}
     >
       {/* Preview fills the tile; scale on hover (ken-burns) + gloss sweep + the
@@ -176,32 +182,42 @@ function SectionTile({
       {/* Darkening overlay: transparent at the top (preview stays visible), dark
           at the bottom where the label + button sit — so text is legible over
           ANY preview, no matter how bright. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
 
       {section.id === "banner" ? (
-        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/50 bg-black/60 px-2.5 py-1 text-xs font-semibold text-accent-green backdrop-blur">
+        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[#0a0a0a] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
           Рекомендуем начать
         </span>
       ) : null}
 
-      <div className="relative mt-auto flex flex-col items-start gap-3 p-4">
+      {/* Hierarchy: the featured (banner) tile gets a bigger title, icon, CTA and
+          padding; the other three stay compact. Styling/overlay is identical —
+          only relative size and weight differ. */}
+      <div
+        className={`relative mt-auto flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2.5 p-4"}`}
+      >
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4 shrink-0 text-accent-green" />
+            <Icon className={`shrink-0 text-accent-green ${featured ? "h-5 w-5" : "h-4 w-4"}`} />
             <h3
-              className={`truncate font-semibold text-white ${featured ? "text-xl" : "text-base"}`}
+              className={`truncate font-semibold text-white ${featured ? "text-xl lg:text-2xl" : "text-base"}`}
             >
               {section.title}
             </h3>
           </div>
-          <p className={`mt-1 text-sm text-white/80 ${featured ? "" : "truncate"}`}>
+          <p className={`mt-1 text-white/80 ${featured ? "text-sm" : "truncate text-xs"}`}>
             {section.description}
           </p>
         </div>
-        {/* Clearly-active primary button on every tile (uniform). */}
-        <span className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black shadow-sm transition group-hover:bg-[var(--accent-hover)]">
+        {/* Clearly-active primary button on every tile (uniform style, smaller
+            footprint on the non-featured ones). */}
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-black shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
+            featured ? "px-5 py-2.5" : "px-3.5 py-2"
+          }`}
+        >
           {section.cta}
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className={featured ? "h-4 w-4" : "h-3.5 w-3.5"} />
         </span>
       </div>
     </button>
@@ -231,11 +247,41 @@ function Thumb({
   );
 }
 
+// Russian plural for counts: 1 проект / 2 проекта / 5 проектов.
+function plural(n: number, one: string, few: string, many: string) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+// Compact metric chip — big accent number over a quiet label, so the Hub reads
+// as a workspace with progress rather than a catalogue of buttons.
+function StatCard({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-[var(--bg-surface)] px-3 py-3 sm:gap-3 sm:px-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
+        {icon}
+      </span>
+      <span className="min-w-0 text-left">
+        <span className="block text-2xl font-semibold leading-none tabular-nums text-accent-green">
+          {value}
+        </span>
+        <span className="mt-1 block ds-caption">{label}</span>
+      </span>
+    </div>
+  );
+}
+
 export default function HubPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
+  const [credits, setCredits] = useState<number | null>(null);
+  const [projectCount, setProjectCount] = useState(0);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -244,19 +290,22 @@ export default function HubPage() {
     document.title = "Dream Weaver Studio";
   }, []);
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) router.push("/login");
-  }, [loading, isAuthenticated, router]);
+  // Public for guests: the Hub is the shop window. Data-loading effects below
+  // stay gated on isAuthenticated, so a guest simply sees no personal blocks.
 
   // Best-effort name for the greeting. Fails silently (e.g. the dev-bypass build
   // where /api/me is unauthenticated) → generic greeting.
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{ profile?: { first_name?: string; nickname?: string } }>("/api/me")
+    apiJson<{
+      profile?: { first_name?: string; nickname?: string; credits_balance?: number | string };
+    }>("/api/me")
       .then((r) => {
         if (cancelled) return;
         setFirstName(r?.profile?.first_name?.trim() || r?.profile?.nickname?.trim() || "");
+        const b = Number(r?.profile?.credits_balance);
+        if (!Number.isNaN(b)) setCredits(b);
       })
       .catch(() => {});
     return () => {
@@ -292,8 +341,12 @@ export default function HubPage() {
           };
         });
         setRecent(mapped.filter((m) => m.id));
+        setProjectCount(cards.length);
+        setHistoryLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setHistoryLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -329,7 +382,7 @@ export default function HubPage() {
     router.push(`/banner?card=${id}`);
   };
 
-  if (loading || !isAuthenticated) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Загрузка…
@@ -340,6 +393,10 @@ export default function HubPage() {
   const bannerSection = SECTION_BY_ID.get("banner")!;
   const otherSections = SECTIONS.filter((s) => s.id !== "banner");
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
+  // "0 проектов" would read as a scolding, so the projects metric only appears
+  // once there is something to count; credits show whenever we know them.
+  const showStats = projectCount > 0 || credits !== null;
+  const showOnboarding = historyLoaded && recent.length === 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -348,7 +405,7 @@ export default function HubPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
         {/* ── Greeting + search ─────────────────────────────────────────── */}
-        <div className="mx-auto max-w-3xl text-center">
+        <div className="hub-in mx-auto max-w-3xl text-center">
           <h1 className="ds-h1 sm:text-3xl">{greeting}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Выберите инструмент или найдите готовый шаблон — каждый проведёт вас по шагам до
@@ -465,12 +522,59 @@ export default function HubPage() {
               </div>
             ) : null}
           </div>
+
+          {/* ── Quick stats: a little sense of progress above the tools ──── */}
+          {showStats ? (
+            <div
+              className="hub-in mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center"
+              style={{ "--d": "60ms" } as React.CSSProperties}
+            >
+              {projectCount > 0 ? (
+                <StatCard
+                  icon={<LayoutGrid className="h-4 w-4" />}
+                  value={projectCount}
+                  label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
+                />
+              ) : null}
+              {credits !== null ? (
+                <StatCard
+                  icon={<Coins className="h-4 w-4" />}
+                  value={credits}
+                  label={`${plural(credits, "кредит", "кредита", "кредитов")} осталось`}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* First-visit nudge — fills the space that "Недавние проекты" takes
+              for returning users, and points at the tools right below it. */}
+          {showOnboarding ? (
+            <div
+              className="hub-in mt-6 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
+              style={{ "--d": "90ms" } as React.CSSProperties}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  Начните с любого инструмента ниже
+                </span>{" "}
+                — мы поможем создать первый креатив за пару минут.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* ── Quick start (asymmetric: banner featured) ─────────────────── */}
         <div className="mt-10">
-          <div className="grid grid-cols-1 gap-4 lg:h-[460px] lg:grid-cols-3 lg:grid-rows-2">
-            <div className="lg:col-start-1 lg:row-span-2">
+          {/* The banner column is deliberately wider (1.35fr) — it is the primary
+              tool; the other three share the remaining space as secondary. */}
+          <div className="grid grid-cols-1 gap-4 lg:h-[480px] lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2">
+            <div
+              className="hub-in lg:col-start-1 lg:row-span-2"
+              style={{ "--d": "120ms" } as React.CSSProperties}
+            >
               <SectionTile
                 section={bannerSection}
                 featured
@@ -480,14 +584,15 @@ export default function HubPage() {
             {otherSections.map((s, i) => (
               <div
                 key={s.id}
-                className={
+                style={{ "--d": `${170 + i * 55}ms` } as React.CSSProperties}
+                className={`hub-in ${
                   // landing → col2/row1, playable → col3/row1, video → wide col2-3/row2
                   i === 0
                     ? "lg:col-start-2 lg:row-start-1"
                     : i === 1
                       ? "lg:col-start-3 lg:row-start-1"
                       : "lg:col-start-2 lg:col-span-2 lg:row-start-2"
-                }
+                }`}
               >
                 <SectionTile section={s} onOpen={() => router.push(s.route)} />
               </div>
@@ -497,7 +602,7 @@ export default function HubPage() {
 
         {/* ── Recent projects (only when the user has some) ─────────────── */}
         {recent.length > 0 ? (
-          <section className="mt-12">
+          <section className="hub-in mt-12" style={{ "--d": "300ms" } as React.CSSProperties}>
             <div className="mb-4 flex items-center gap-2">
               <Clock className="h-4 w-4 text-accent-green" />
               <h2 className="text-lg font-semibold">Недавние проекты</h2>
@@ -538,7 +643,7 @@ export default function HubPage() {
         ) : null}
 
         {/* ── Popular templates (MOCK — see lib/hubTemplates) ───────────── */}
-        <section className="mt-12">
+        <section className="hub-in mt-12" style={{ "--d": "340ms" } as React.CSSProperties}>
           <div className="mb-4 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-accent-green" />
             <h2 className="text-lg font-semibold">Популярные шаблоны</h2>
