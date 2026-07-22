@@ -449,7 +449,7 @@ export default function HubPage() {
                 onFocus={() => setSearchFocused(true)}
                 placeholder="Искать шаблоны, проекты, бренды…"
                 aria-label="Поиск по шаблонам и проектам"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint"
               />
               {query ? (
                 <button

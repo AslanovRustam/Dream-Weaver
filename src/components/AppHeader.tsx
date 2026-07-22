@@ -326,7 +326,7 @@ export function AppHeader() {
                   <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate ds-h2">{display}</p>
+                  <p className="truncate ds-h4">{display}</p>
                   <p className="truncate ds-caption">{displayEmail}</p>
                 </div>
               </div>
@@ -336,7 +336,7 @@ export function AppHeader() {
                 className="mt-1 block rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10"
               >
                 <div className="flex items-center justify-between">
-                  <span className="ds-h2">Кредиты</span>
+                  <span className="ds-h4">Кредиты</span>
                   <span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
                     осталось {creditsLabel}
                   </span>
@@ -853,7 +853,7 @@ function NotificationsMenu() {
         className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h2">Уведомления</span>
+          <span className="ds-h4">Уведомления</span>
           <span className="ds-caption">{NOTIFICATIONS.length}</span>
         </div>
         <div className="space-y-0.5">
@@ -896,7 +896,7 @@ function HelpMenu() {
         className="w-64 rounded-2xl border-border bg-popover p-2 text-foreground"
       >
         <div className="px-2 py-1.5">
-          <span className="ds-h2">Помощь</span>
+          <span className="ds-h4">Помощь</span>
         </div>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
           <a href="#" className="flex items-center gap-2 text-sm">
@@ -935,7 +935,7 @@ function ProjectsMenu() {
         className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h2">Мои проекты</span>
+          <span className="ds-h4">Мои проекты</span>
           <Link href="/history" className="ds-caption underline-offset-4 hover:underline">
             Вся история
           </Link>

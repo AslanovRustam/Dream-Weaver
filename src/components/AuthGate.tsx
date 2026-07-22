@@ -90,7 +90,7 @@ function GateModal({ reason, onClose }: { reason: string; onClose: () => void })
         <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-green/15 text-accent-green">
           <Sparkles className="h-6 w-6" />
         </span>
-        <h2 id="gate-title" className="ds-h2 text-lg">
+        <h2 id="gate-title" className="ds-h4 text-lg">
           Зарегистрируйтесь, чтобы продолжить
         </h2>
         <p className="mx-auto mt-1.5 max-w-xs ds-caption">{reason}</p>

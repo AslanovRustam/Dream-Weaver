@@ -242,7 +242,7 @@ function ProjectsTab() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Поиск по названию проекта"
               aria-label="Поиск проектов"
-              className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-accent-green"
+              className="h-11 w-full rounded-lg border border-border bg-elevated pl-9 pr-3 text-sm outline-none transition focus:border-accent-green"
             />
           </div>
           {/* Mobile: single Фильтры button → bottom sheet */}
@@ -493,7 +493,7 @@ function EditableName({ p, editing, setEditing, onRename }: { p: Project; editin
           if (e.key === "Enter") { onRename(p.id, draft); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-full rounded-md border border-accent-green/60 bg-background px-1.5 py-0.5 text-sm font-medium outline-none"
+        className="w-full rounded-md border border-accent-green/60 bg-elevated px-1.5 py-0.5 text-sm font-medium outline-none"
       />
     );
   }
@@ -597,7 +597,7 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
         <LayoutGrid className="h-7 w-7" />
       </span>
       <div className="space-y-1">
-        <p className="ds-h2">Здесь появятся ваши проекты</p>
+        <p className="ds-h4">Здесь появятся ваши проекты</p>
         <p className="ds-caption">Всё, что вы создадите в любом из разделов, сохранится тут.</p>
       </div>
       <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]">
@@ -753,7 +753,7 @@ function SortSelect({ sort, onSort, full }: { sort: SortKey; onSort: (v: SortKey
         value={sort}
         onChange={(e) => onSort(e.target.value as SortKey)}
         aria-label="Сортировка"
-        className={`h-11 appearance-none rounded-lg border border-border bg-background pl-3 pr-9 text-sm outline-none transition focus:border-accent-green ${full ? "w-full" : ""}`}
+        className={`h-11 appearance-none rounded-lg border border-border bg-elevated pl-3 pr-9 text-sm outline-none transition focus:border-accent-green ${full ? "w-full" : ""}`}
       >
         <option value="new">Сначала новые</option>
         <option value="old">Сначала старые</option>
@@ -836,7 +836,7 @@ function BottomSheet({ open, onClose, title, children }: { open: boolean; onClos
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
         {title ? (
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="truncate ds-h2">{title}</h3>
+            <h3 className="truncate ds-h4">{title}</h3>
             <button type="button" onClick={onClose} aria-label="Закрыть" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:text-foreground">
               <X className="h-4 w-4" />
             </button>

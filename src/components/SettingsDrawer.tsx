@@ -147,7 +147,7 @@ export function SettingsDrawer({
               value={brandName}
               onChange={(e) => saveBrandName(e.target.value)}
               placeholder="Например, Acme"
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-1 w-full rounded-md border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-foreground"
             />
           </div>
 
@@ -194,7 +194,7 @@ export function SettingsDrawer({
             <select
               value={language}
               onChange={(e) => saveLanguage(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-1 w-full rounded-md border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-foreground"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>
@@ -211,7 +211,7 @@ export function SettingsDrawer({
               value={url}
               onChange={(e) => saveUrl(e.target.value)}
               placeholder="https://..."
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              className="mt-1 w-full rounded-md border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-foreground"
             />
             <p className="mt-2 text-xs text-foreground/60">
               Сохраняется автоматически в localStorage.
