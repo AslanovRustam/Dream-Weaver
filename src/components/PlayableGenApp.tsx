@@ -1211,7 +1211,7 @@ function MechanicSidebar({
                 onClick={() => onSelect(m.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                   active
-                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(234,255,160,0.14)]"
+                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
                     : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
                 }`}
               >
