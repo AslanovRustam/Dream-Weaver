@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Clock, Coins, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Clock, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
@@ -279,7 +280,6 @@ export default function HubPage() {
   const { isAuthenticated, loading } = useAuth();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
-  const [credits, setCredits] = useState<number | null>(null);
   const [projectCount, setProjectCount] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [query, setQuery] = useState("");
@@ -298,14 +298,10 @@ export default function HubPage() {
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{
-      profile?: { first_name?: string; nickname?: string; credits_balance?: number | string };
-    }>("/api/me")
+    apiJson<{ profile?: { first_name?: string; nickname?: string } }>("/api/me")
       .then((r) => {
         if (cancelled) return;
         setFirstName(r?.profile?.first_name?.trim() || r?.profile?.nickname?.trim() || "");
-        const b = Number(r?.profile?.credits_balance);
-        if (!Number.isNaN(b)) setCredits(b);
       })
       .catch(() => {});
     return () => {
@@ -393,9 +389,9 @@ export default function HubPage() {
   const bannerSection = SECTION_BY_ID.get("banner")!;
   const otherSections = SECTIONS.filter((s) => s.id !== "banner");
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
-  // "0 проектов" would read as a scolding, so the projects metric only appears
-  // once there is something to count; credits show whenever we know them.
-  const showStats = projectCount > 0 || credits !== null;
+  // "0 проектов" would read as a scolding, so the strip only appears once there
+  // is something to count.
+  const showStats = projectCount > 0;
   const showOnboarding = historyLoaded && recent.length === 0;
 
   return (
@@ -405,13 +401,24 @@ export default function HubPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
         {/* ── Greeting + search ─────────────────────────────────────────── */}
-        <div className="hub-in mx-auto max-w-3xl text-center">
+        {/* .hub-in animates transform with fill-mode:both, which leaves this
+            element owning a stacking context forever — so the search dropdown
+            inside it can only rise above the tiles if the WHOLE hero is lifted
+            (z-50, above the z-40 scrim) while the dropdown is open. */}
+        <div
+          className={`hub-in relative mx-auto max-w-3xl text-center ${
+            searchOpen ? "z-50" : ""
+          }`}
+        >
           <h1 className="ds-h1 sm:text-3xl">{greeting}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Выберите инструмент или найдите готовый шаблон — каждый проведёт вас по шагам до
             результата.
           </p>
 
+          {/* Same shared scrim every other dropdown in the product uses — here
+              on desktop too, so the results separate from the tiles behind. */}
+          <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
           <div ref={searchRef} className="relative mt-5 text-left">
             <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -437,7 +444,7 @@ export default function HubPage() {
             </div>
 
             {searchOpen ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-border bg-popover p-2 text-foreground shadow-xl">
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-border bg-popover p-2 text-foreground shadow-xl">
                 {!hasResults ? (
                   <div className="px-3 py-6 text-center">
                     <p className="text-sm font-medium">Ничего не найдено</p>
@@ -523,26 +530,19 @@ export default function HubPage() {
             ) : null}
           </div>
 
-          {/* ── Quick stats: a little sense of progress above the tools ──── */}
+          {/* ── Quick stats: a little sense of progress above the tools.
+              Credits deliberately live only in the header — showing them here
+              too was pure duplication. ─────────────────────────────────────── */}
           {showStats ? (
             <div
-              className="hub-in mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center"
+              className="hub-in mt-6 flex justify-center"
               style={{ "--d": "60ms" } as React.CSSProperties}
             >
-              {projectCount > 0 ? (
-                <StatCard
-                  icon={<LayoutGrid className="h-4 w-4" />}
-                  value={projectCount}
-                  label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
-                />
-              ) : null}
-              {credits !== null ? (
-                <StatCard
-                  icon={<Coins className="h-4 w-4" />}
-                  value={credits}
-                  label={`${plural(credits, "кредит", "кредита", "кредитов")} осталось`}
-                />
-              ) : null}
+              <StatCard
+                icon={<LayoutGrid className="h-4 w-4" />}
+                value={projectCount}
+                label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
+              />
             </div>
           ) : null}
 

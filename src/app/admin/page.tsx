@@ -36,6 +36,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { apiJson, ApiError } from "@/lib/api-client";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES, TIERS } from "@/lib/rbac";
 
@@ -134,6 +135,12 @@ const GROUP_TITLES: Record<SettingFieldSpec["group"], string> = {
   ai: "AI-имена",
 };
 
+// Tabs speak the product's language (lime underline, same as История) instead
+// of the default grey pills, sit on a 44px tap target, and the row scrolls
+// horizontally so no tab becomes unreachable on a narrow screen.
+const TAB_CLS =
+  "min-h-11 shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition hover:text-foreground data-[state=active]:border-accent-green data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+
 export default function AdminPage() {
   const router = useRouter();
   useEffect(() => { document.title = "Админ — Dream Weaver Studio"; }, []);
@@ -165,8 +172,8 @@ export default function AdminPage() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Админ-панель</h1>
-            <p className="text-sm text-muted-foreground">Управление пользователями и тарифами</p>
+            <h1 className="ds-h1">Админ-панель</h1>
+            <p className="ds-caption">Пользователи, шаблоны, тарифы и настройки продукта</p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
@@ -179,14 +186,28 @@ export default function AdminPage() {
         </header>
 
         <Tabs defaultValue="overview">
-          <TabsList>
-            <TabsTrigger value="overview">Обзор</TabsTrigger>
-            <TabsTrigger value="users">Пользователи</TabsTrigger>
-            <TabsTrigger value="templates">Шаблоны</TabsTrigger>
-            <TabsTrigger value="histories">Истории</TabsTrigger>
-            <TabsTrigger value="pricing">Тарифы</TabsTrigger>
-            <TabsTrigger value="settings">Настройки</TabsTrigger>
-            <TabsTrigger value="logs">Логи</TabsTrigger>
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="overview" className={TAB_CLS}>
+              Обзор
+            </TabsTrigger>
+            <TabsTrigger value="users" className={TAB_CLS}>
+              Пользователи
+            </TabsTrigger>
+            <TabsTrigger value="templates" className={TAB_CLS}>
+              Шаблоны
+            </TabsTrigger>
+            <TabsTrigger value="histories" className={TAB_CLS}>
+              Истории
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className={TAB_CLS}>
+              Тарифы
+            </TabsTrigger>
+            <TabsTrigger value="settings" className={TAB_CLS}>
+              Настройки
+            </TabsTrigger>
+            <TabsTrigger value="logs" className={TAB_CLS}>
+              Логи
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <OverviewTab />
@@ -288,11 +309,12 @@ function TemplatesTab() {
     return SECTION_ORDER.filter((s) => by.has(s)).map((s) => [s, by.get(s)!] as const);
   }, [rows]);
 
-  const mutate = async (fn: () => Promise<unknown>) => {
+  const mutate = async (fn: () => Promise<unknown>, okMsg: string) => {
     setBusy(true);
     setErr("");
     try {
       await fn();
+      toast.success(okMsg);
       load();
       setDraft(null);
     } catch (e) {
@@ -314,10 +336,12 @@ function TemplatesTab() {
       visible: draft.visible,
       sort_order: draft.sort_order,
     };
-    return mutate(() =>
-      draft.id
-        ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
-        : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+    return mutate(
+      () =>
+        draft.id
+          ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
+          : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+      draft.id ? "Шаблон сохранён" : "Шаблон создан",
     );
   };
 
@@ -389,11 +413,13 @@ function TemplatesTab() {
                       variant="outline"
                       disabled={busy}
                       onClick={() =>
-                        mutate(() =>
-                          apiJson("/api/admin/templates", {
-                            method: "PATCH",
-                            json: { id: t.id, visible: !t.visible },
-                          }),
+                        mutate(
+                          () =>
+                            apiJson("/api/admin/templates", {
+                              method: "PATCH",
+                              json: { id: t.id, visible: !t.visible },
+                            }),
+                          t.visible ? "Шаблон скрыт" : "Шаблон опубликован",
                         )
                       }
                     >
@@ -408,10 +434,12 @@ function TemplatesTab() {
                       disabled={busy}
                       onClick={() => {
                         if (!confirm(`Удалить шаблон «${t.name}»?`)) return;
-                        mutate(() =>
-                          apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
-                            method: "DELETE",
-                          }),
+                        mutate(
+                          () =>
+                            apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
+                              method: "DELETE",
+                            }),
+                          "Шаблон удалён",
                         );
                       }}
                     >
@@ -684,7 +712,9 @@ function UsersTab() {
                         <Button size="sm" variant="outline" onClick={() => setRoleTarget(u)}>
                           Роль
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setTarget(u)}>
+                        {/* The main operational action — lime so it doesn't get
+                            lost among the secondary row buttons. */}
+                        <Button size="sm" onClick={() => setTarget(u)}>
                           Кредиты
                         </Button>
                       </div>
@@ -792,6 +822,12 @@ function CreditDialog({
                     note,
                   },
                 });
+                // Operational tool: never leave the admin guessing whether a
+                // balance change actually went through. Says who and how much.
+                const applied = Number(delta);
+                toast.success(
+                  `${applied > 0 ? "Начислено" : "Списано"} ${Math.abs(applied)} кр. — ${user.email}`,
+                );
                 onClose(true);
               } catch (e) {
                 setErr(e instanceof ApiError ? e.message : "Не удалось применить");
