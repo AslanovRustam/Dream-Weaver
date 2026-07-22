@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 import { AppHeader } from "@/components/AppHeader";
 import { VideoGenApp } from "@/components/VideoGenApp";
 import { useAuth } from "@/lib/auth-context";
 
 export default function VideoPage() {
-  const { isAuthenticated, loading } = useAuth();
-  const router = useRouter();
+  // Public for guests — see components/AuthGate.
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [loading, isAuthenticated, router]);
-
-  if (loading || !isAuthenticated) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Загрузка…

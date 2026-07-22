@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth-context";
+import { useAppRole } from "@/lib/roles";
 import { getBrowserClient } from "@/lib/supabase/browser";
 
 // After any login we send the user to the generation page (/). We still
@@ -80,13 +81,17 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
+  const { isGuest, loading: roleLoading } = useAppRole();
 
   // If already logged in, leave the login page → always to /.
+  // A dev-pinned "guest" keeps this screen reachable in local preview; in
+  // production isGuest is false for anyone holding a session, so the redirect
+  // behaves exactly as before.
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!loading && !roleLoading && isAuthenticated && !isGuest) {
       router.push(POST_LOGIN_TARGET);
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, roleLoading, isGuest, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -113,7 +118,12 @@ function LoginPageInner() {
           </div>
         </div>
 
-        <Tabs defaultValue="sign-in" className="w-full">
+        {/* ?mode=signup (used by the guest "Зарегистрироваться" CTAs) opens the
+            registration tab directly instead of dropping onto sign-in. */}
+        <Tabs
+          defaultValue={searchParams.get("mode") === "signup" ? "sign-up" : "sign-in"}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="sign-in">Вход</TabsTrigger>
             <TabsTrigger value="sign-up">Регистрация</TabsTrigger>

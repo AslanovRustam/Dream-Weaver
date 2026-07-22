@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
+import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
@@ -119,6 +120,7 @@ const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] =
 
 export function AppHeader() {
   const { isAuthenticated, signOut } = useAuth();
+  const { isGuest, isAdmin } = useAppRole();
   const router = useRouter();
   const pathname = usePathname();
   // Hub (start screen) shows a simplified header (no section switcher / editor
@@ -270,11 +272,13 @@ export function AppHeader() {
 
           {!isHub ? <GenerationIndicator /> : null}
 
-          <CreditsButton label={creditsLabel} max={CREDIT_POOL} />
+          {/* Guests have no balance to show (spec: no credits for guests). */}
+          {!isGuest ? <CreditsButton label={creditsLabel} max={CREDIT_POOL} /> : null}
           {/* Global creative-language default — visible on every screen. */}
           <LanguageSelector />
-          {/* The rest of the toolbar is editor chrome — hidden on the Hub. */}
-          {!isHub ? (
+          {/* The rest of the toolbar is editor chrome — hidden on the Hub and
+              for guests (nothing there is usable without an account). */}
+          {!isHub && !isGuest ? (
             <>
               {/* Bell hidden on mobile — notifications live inside the profile
                   menu there (see the mobile-only block in the avatar dropdown). */}
@@ -288,6 +292,9 @@ export function AppHeader() {
             </>
           ) : null}
 
+          {isGuest ? (
+            <GuestAuthButtons />
+          ) : (
           <DropdownMenu
             open={menuOpen}
             onOpenChange={(o) => {
@@ -447,7 +454,7 @@ export function AppHeader() {
                   Помощь и поддержка
                 </a>
               </DropdownMenuItem>
-              {me?.is_super_admin ? (
+              {isAdmin ? (
                 <DropdownMenuItem
                   asChild
                   className="text-foreground focus:bg-white/10 focus:text-foreground"
@@ -471,9 +478,30 @@ export function AppHeader() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </div>
     </header>
+  );
+}
+
+// Guests get sign-in / sign-up instead of the credits chip + avatar menu.
+function GuestAuthButtons() {
+  return (
+    <div className="ml-0.5 flex shrink-0 items-center gap-1.5 sm:gap-2">
+      <Link
+        href="/login"
+        className="inline-flex min-h-9 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition hover:text-foreground max-sm:min-h-11 sm:px-3"
+      >
+        Войти
+      </Link>
+      <Link
+        href="/login?mode=signup"
+        className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
+      >
+        Регистрация
+      </Link>
+    </div>
   );
 }
 
