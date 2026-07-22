@@ -55,6 +55,7 @@ export const CAPABILITIES = [
   "history.view_any",
   "impersonate",
   "stats.view",
+  "templates.edit",
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -64,7 +65,14 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   user: [],
   tester: [],
   support: ["users.view", "credits.grant", "history.view_any", "logs.view", "stats.view"],
-  moderator: ["users.view", "users.ban", "history.view_any", "logs.view", "stats.view"],
+  moderator: [
+    "users.view",
+    "users.ban",
+    "history.view_any",
+    "logs.view",
+    "stats.view",
+    "templates.edit",
+  ],
   admin: [
     "users.view",
     "users.edit",
@@ -77,6 +85,7 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     "history.view_any",
     "impersonate",
     "stats.view",
+    "templates.edit",
   ],
   superadmin: [...CAPABILITIES], // everything, incl. roles.assign
 };
