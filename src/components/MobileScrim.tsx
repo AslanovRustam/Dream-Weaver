@@ -13,25 +13,35 @@ import { createPortal } from "react-dom";
 
 export type ScrimIntensity = "strong" | "light";
 
+/** Where the scrim is shown. Defaults to "mobile" (the original behaviour);
+ *  "all" also dims on desktop — used by full-width overlays like the Hub
+ *  search dropdown, which needs separating from the content behind it on
+ *  every screen size. Kept on this component on purpose: one scrim for the
+ *  whole product beats another one-off overlay. */
+export type ScrimScope = "mobile" | "all";
+
 export function MobileScrim({
   open,
   onClose,
   intensity = "strong",
+  scope = "mobile",
 }: {
   open: boolean;
   onClose: () => void;
   intensity?: ScrimIntensity;
+  scope?: ScrimScope;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
   const shade = intensity === "light" ? "bg-black/25" : "bg-black/60";
+  const visibility = scope === "all" ? "" : "sm:hidden";
   return createPortal(
     <div
       aria-hidden
       onClick={onClose}
-      className={`fixed inset-0 z-40 ${shade} transition-opacity duration-200 sm:hidden ${
+      className={`fixed inset-0 z-40 ${shade} transition-opacity duration-200 ${visibility} ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     />,

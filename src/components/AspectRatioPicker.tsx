@@ -26,7 +26,7 @@ export function AspectRatioPicker({ ratios, value, onChange }: Props) {
             onClick={() => onChange(r)}
             className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all ${
               selected
-                ? "border-accent-green bg-accent-green text-black"
+                ? "border-accent-green bg-accent-green text-on-accent"
                 : "border-border bg-card text-foreground hover:border-foreground/40"
             }`}
           >

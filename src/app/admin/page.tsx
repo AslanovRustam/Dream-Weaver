@@ -36,6 +36,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { apiJson, ApiError } from "@/lib/api-client";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES, TIERS } from "@/lib/rbac";
 
@@ -134,6 +135,12 @@ const GROUP_TITLES: Record<SettingFieldSpec["group"], string> = {
   ai: "AI-имена",
 };
 
+// Tabs speak the product's language (lime underline, same as История) instead
+// of the default grey pills, sit on a 44px tap target, and the row scrolls
+// horizontally so no tab becomes unreachable on a narrow screen.
+const TAB_CLS =
+  "min-h-11 shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition hover:text-foreground data-[state=active]:border-accent-green data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+
 export default function AdminPage() {
   const router = useRouter();
   useEffect(() => { document.title = "Админ — Dream Weaver Studio"; }, []);
@@ -165,8 +172,8 @@ export default function AdminPage() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Админ-панель</h1>
-            <p className="text-sm text-muted-foreground">Управление пользователями и тарифами</p>
+            <h1 className="ds-h1">Админ-панель</h1>
+            <p className="ds-caption">Пользователи, шаблоны, тарифы и настройки продукта</p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
@@ -179,14 +186,28 @@ export default function AdminPage() {
         </header>
 
         <Tabs defaultValue="overview">
-          <TabsList>
-            <TabsTrigger value="overview">Обзор</TabsTrigger>
-            <TabsTrigger value="users">Пользователи</TabsTrigger>
-            <TabsTrigger value="templates">Шаблоны</TabsTrigger>
-            <TabsTrigger value="histories">Истории</TabsTrigger>
-            <TabsTrigger value="pricing">Тарифы</TabsTrigger>
-            <TabsTrigger value="settings">Настройки</TabsTrigger>
-            <TabsTrigger value="logs">Логи</TabsTrigger>
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="overview" className={TAB_CLS}>
+              Обзор
+            </TabsTrigger>
+            <TabsTrigger value="users" className={TAB_CLS}>
+              Пользователи
+            </TabsTrigger>
+            <TabsTrigger value="templates" className={TAB_CLS}>
+              Шаблоны
+            </TabsTrigger>
+            <TabsTrigger value="histories" className={TAB_CLS}>
+              Истории
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className={TAB_CLS}>
+              Тарифы
+            </TabsTrigger>
+            <TabsTrigger value="settings" className={TAB_CLS}>
+              Настройки
+            </TabsTrigger>
+            <TabsTrigger value="logs" className={TAB_CLS}>
+              Логи
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <OverviewTab />
@@ -288,11 +309,12 @@ function TemplatesTab() {
     return SECTION_ORDER.filter((s) => by.has(s)).map((s) => [s, by.get(s)!] as const);
   }, [rows]);
 
-  const mutate = async (fn: () => Promise<unknown>) => {
+  const mutate = async (fn: () => Promise<unknown>, okMsg: string) => {
     setBusy(true);
     setErr("");
     try {
       await fn();
+      toast.success(okMsg);
       load();
       setDraft(null);
     } catch (e) {
@@ -314,10 +336,12 @@ function TemplatesTab() {
       visible: draft.visible,
       sort_order: draft.sort_order,
     };
-    return mutate(() =>
-      draft.id
-        ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
-        : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+    return mutate(
+      () =>
+        draft.id
+          ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
+          : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+      draft.id ? "Шаблон сохранён" : "Шаблон создан",
     );
   };
 
@@ -389,11 +413,13 @@ function TemplatesTab() {
                       variant="outline"
                       disabled={busy}
                       onClick={() =>
-                        mutate(() =>
-                          apiJson("/api/admin/templates", {
-                            method: "PATCH",
-                            json: { id: t.id, visible: !t.visible },
-                          }),
+                        mutate(
+                          () =>
+                            apiJson("/api/admin/templates", {
+                              method: "PATCH",
+                              json: { id: t.id, visible: !t.visible },
+                            }),
+                          t.visible ? "Шаблон скрыт" : "Шаблон опубликован",
                         )
                       }
                     >
@@ -408,10 +434,12 @@ function TemplatesTab() {
                       disabled={busy}
                       onClick={() => {
                         if (!confirm(`Удалить шаблон «${t.name}»?`)) return;
-                        mutate(() =>
-                          apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
-                            method: "DELETE",
-                          }),
+                        mutate(
+                          () =>
+                            apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
+                              method: "DELETE",
+                            }),
+                          "Шаблон удалён",
                         );
                       }}
                     >
@@ -440,7 +468,7 @@ function TemplatesTab() {
                 <select
                   value={draft.section}
                   onChange={(e) => setDraft({ ...draft, section: e.target.value })}
-                  className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm"
+                  className="mt-1 h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm"
                 >
                   {SECTION_ORDER.map((s) => (
                     <option key={s} value={s}>
@@ -574,11 +602,13 @@ function OverviewTab() {
   );
 }
 
+// KPI tile, per the design system: overline label on top, then the big
+// tabular figure beneath it.
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <p className="text-2xl font-semibold tabular-nums text-accent-green">{value}</p>
-      <p className="mt-1 ds-caption">{label}</p>
+    <div className="rounded-2xl border border-[color:var(--border-subtle)] bg-card p-5">
+      <p className="ds-overline">{label}</p>
+      <p className="ds-stat mt-2 text-accent-green">{value}</p>
     </div>
   );
 }
@@ -684,7 +714,9 @@ function UsersTab() {
                         <Button size="sm" variant="outline" onClick={() => setRoleTarget(u)}>
                           Роль
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setTarget(u)}>
+                        {/* The main operational action — lime so it doesn't get
+                            lost among the secondary row buttons. */}
+                        <Button size="sm" onClick={() => setTarget(u)}>
                           Кредиты
                         </Button>
                       </div>
@@ -792,6 +824,12 @@ function CreditDialog({
                     note,
                   },
                 });
+                // Operational tool: never leave the admin guessing whether a
+                // balance change actually went through. Says who and how much.
+                const applied = Number(delta);
+                toast.success(
+                  `${applied > 0 ? "Начислено" : "Списано"} ${Math.abs(applied)} кр. — ${user.email}`,
+                );
                 onClose(true);
               } catch (e) {
                 setErr(e instanceof ApiError ? e.message : "Не удалось применить");
@@ -848,7 +886,7 @@ function RoleDialog({
             <Label htmlFor="role-sel">Роль (права)</Label>
             <select
               id="role-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
@@ -863,7 +901,7 @@ function RoleDialog({
             <Label htmlFor="tier-sel">Тариф (приоритет генерации)</Label>
             <select
               id="tier-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={tier}
               onChange={(e) => setTier(e.target.value)}
             >
@@ -876,7 +914,7 @@ function RoleDialog({
           </div>
 
           {dirty && user ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+            <div className="rounded-md border border-[color:var(--warning)]/30 bg-[color:var(--warning-tint)] p-2 text-xs">
               <p className="mb-1 font-medium">Будет применено:</p>
               {roleChanged ? (
                 <p>
@@ -1012,7 +1050,7 @@ function PricingTab() {
                 </div>
               </div>
             ))}
-            {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+            {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
             <div>
               <Button
                 disabled={saving}
@@ -1128,7 +1166,7 @@ function SettingsTab() {
       </CardHeader>
       <CardContent className="space-y-6">
         {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+        {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
         {loading || !rows ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
@@ -1209,7 +1247,7 @@ function SettingField({
   } else if (spec.kind === "enum") {
     input = (
       <select
-        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -1386,7 +1424,7 @@ function SystemLogsView() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={level}
           onChange={(e) => setLevel(e.target.value)}
         >
@@ -1397,7 +1435,7 @@ function SystemLogsView() {
           ))}
         </select>
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
@@ -1663,7 +1701,7 @@ function TokensLogsView() {
         <select
           value={msgFilter}
           onChange={(e) => setMsgFilter(e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+          className="rounded-md border border-border bg-elevated px-2 py-1 text-sm"
         >
           <option value="">Все типы</option>
           {Object.entries(TOKEN_MSG_LABELS).map(([v, l]) => (
@@ -1735,9 +1773,9 @@ function TokensLogsView() {
               const charge = c.charge != null ? Number(c.charge) : null;
               const typeColors: Record<string, string> = {
                 Мастер: "bg-accent-green/20 text-accent-green",
-                Ресайз: "bg-sky-500/20 text-sky-400",
-                Vision: "bg-amber-500/20 text-amber-400",
-                "AI-нейминг": "bg-purple-500/20 text-purple-400",
+                Ресайз: "bg-[color:var(--info-tint)] text-[color:var(--info)]",
+                Vision: "bg-[color:var(--warning-tint)] text-[color:var(--warning)]",
+                "AI-нейминг": "bg-[color:var(--violet-tint)] text-brand-violet",
               };
               return (
                 <tr key={row.id} className="border-b border-border/50 hover:bg-white/3">
@@ -1819,11 +1857,11 @@ function formatTs(iso: string): string {
 function levelClass(level: string): string {
   switch (level) {
     case "error":
-      return "bg-red-500/20 text-red-400";
+      return "bg-[color:var(--danger-tint)] text-[color:var(--danger)]";
     case "warn":
-      return "bg-amber-500/20 text-amber-400";
+      return "bg-[color:var(--warning-tint)] text-[color:var(--warning)]";
     case "info":
-      return "bg-sky-500/20 text-sky-400";
+      return "bg-[color:var(--info-tint)] text-[color:var(--info)]";
     case "debug":
       return "bg-muted text-muted-foreground";
     default:

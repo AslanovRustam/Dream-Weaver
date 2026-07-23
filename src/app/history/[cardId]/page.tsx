@@ -182,7 +182,7 @@ function CardBody() {
         {/сесси|войдите/i.test(err) ? (
           <Link
             href="/login"
-            className="mt-3 inline-flex items-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="mt-3 inline-flex items-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Войти снова
           </Link>

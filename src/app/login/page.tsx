@@ -311,7 +311,7 @@ function SignUpForm() {
         />
       </div>
       {err ? <p className="text-xs text-destructive">{err}</p> : null}
-      {ok ? <p className="text-xs text-emerald-500">{ok}</p> : null}
+      {ok ? <p className="text-xs text-[color:var(--success)]">{ok}</p> : null}
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? "Создаём…" : "Создать аккаунт"}
       </Button>

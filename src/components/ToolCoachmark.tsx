@@ -71,12 +71,12 @@ export function ToolCoachmark({ section }: { section: string }) {
           <Lightbulb className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="ds-h2">{tip.title}</p>
+          <p className="ds-h4">{tip.title}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{tip.body}</p>
           <button
             type="button"
             onClick={dismiss}
-            className="mt-2 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="mt-2 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Понятно
           </button>

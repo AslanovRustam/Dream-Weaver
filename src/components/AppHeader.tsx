@@ -319,14 +319,14 @@ export function AppHeader() {
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="w-72 rounded-2xl border-border bg-popover p-2 text-foreground"
+              className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
             >
               <div className="flex items-center gap-3 px-2 py-2">
                 <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
                   <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate ds-h2">{display}</p>
+                  <p className="truncate ds-h4">{display}</p>
                   <p className="truncate ds-caption">{displayEmail}</p>
                 </div>
               </div>
@@ -336,7 +336,7 @@ export function AppHeader() {
                 className="mt-1 block rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10"
               >
                 <div className="flex items-center justify-between">
-                  <span className="ds-h2">Кредиты</span>
+                  <span className="ds-h4">Кредиты</span>
                   <span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
                     осталось {creditsLabel}
                   </span>
@@ -360,7 +360,7 @@ export function AppHeader() {
                 </span>
                 <Link
                   href="/billing"
-                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   Пополнить
                 </Link>
@@ -497,7 +497,7 @@ function GuestAuthButtons() {
       </Link>
       <Link
         href="/login?mode=signup"
-        className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
+        className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
       >
         Регистрация
       </Link>
@@ -740,7 +740,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        className="w-64 rounded-2xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
+        className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
       >
         {SECTIONS.map((s) => {
           const Icon = s.icon;
@@ -776,7 +776,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
           <button
             type="button"
             onClick={dismissHint}
-            className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Понятно
           </button>
@@ -807,7 +807,7 @@ function LanguageSelector() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+        className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
       >
         {CREATIVE_LANGUAGES.map((l) => (
           <DropdownMenuItem
@@ -841,7 +841,7 @@ function NotificationsMenu() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
-            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-black">
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
               {unread}
             </span>
           ) : null}
@@ -850,10 +850,10 @@ function NotificationsMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h2">Уведомления</span>
+          <span className="ds-h4">Уведомления</span>
           <span className="ds-caption">{NOTIFICATIONS.length}</span>
         </div>
         <div className="space-y-0.5">
@@ -893,10 +893,10 @@ function HelpMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-64 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-64 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="px-2 py-1.5">
-          <span className="ds-h2">Помощь</span>
+          <span className="ds-h4">Помощь</span>
         </div>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
           <a href="#" className="flex items-center gap-2 text-sm">
@@ -932,10 +932,10 @@ function ProjectsMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 rounded-2xl border-border bg-popover p-2 text-foreground"
+        className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h2">Мои проекты</span>
+          <span className="ds-h4">Мои проекты</span>
           <Link href="/history" className="ds-caption underline-offset-4 hover:underline">
             Вся история
           </Link>

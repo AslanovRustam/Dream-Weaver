@@ -241,12 +241,12 @@ function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boo
         aria-label="Переключить период оплаты"
         onClick={() => onChange(!annual)}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
-          annual ? "bg-white/30" : "bg-white/15"
+          annual ? "bg-accent-green" : "bg-white/15"
         }`}
       >
         <span
-          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-            annual ? "translate-x-5" : "translate-x-0"
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-sm transition-transform ${
+            annual ? "translate-x-5 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
           }`}
         />
       </button>
@@ -277,20 +277,20 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
     <div
       className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 transition sm:p-7 ${
         popular
-          ? "border-accent-green shadow-[0_0_50px_rgba(212,255,61,0.10)] md:scale-[1.04]"
+          ? "border-accent-green shadow-[0_0_50px_rgba(198,255,61,0.10)] md:scale-[1.04]"
           : "border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
       }`}
       style={
         popular
           ? {
               background:
-                "linear-gradient(180deg, rgba(212,255,61,0.14) 0%, rgba(212,255,61,0.05) 20%, rgba(22,22,22,0.92) 52%, var(--bg-surface) 100%)",
+                "linear-gradient(180deg, rgba(198,255,61,0.14) 0%, rgba(198,255,61,0.05) 20%, rgba(18,20,26,0.92) 52%, var(--bg-surface) 100%)",
             }
           : undefined
       }
     >
       {popular ? (
-        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-accent-green px-3 py-1 text-xs font-semibold text-black">
+        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent">
           <Sparkles className="h-3.5 w-3.5" />
           Популярный выбор
         </span>
@@ -299,7 +299,12 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
       {/* Название + подзаголовок */}
       <div>
         <h2 className="text-xl font-semibold">{plan.name}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+        {/* Taglines run one or two lines depending on the plan, which knocked
+            everything below them out of alignment. Two lines are reserved from
+            md up — the breakpoint where the cards actually sit side by side.
+            Below it they stack, every tagline fits on one line, and reserving
+            would only add an empty row to each card. 2.5rem == 2 x 20px line. */}
+        <p className="mt-1 text-sm text-muted-foreground md:min-h-10">{plan.tagline}</p>
       </div>
 
       {/* Блок кредитов */}
@@ -335,21 +340,24 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
           type="button"
           className={`w-full rounded-lg px-5 py-3 text-sm font-semibold transition max-sm:min-h-12 ${
             popular
-              ? "bg-accent-green text-black hover:bg-[var(--accent-hover)]"
+              ? "bg-accent-green text-on-accent hover:bg-[var(--accent-hover)]"
               : // Desktop: outline. Mobile: solid white fill + dark text — the
                 // outline reads poorly on a small dark screen.
-                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-black max-sm:hover:bg-white/90"
+                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-on-accent max-sm:hover:bg-white/90"
           }`}
         >
           {plan.cta ?? "Выбрать план"}
         </button>
         {!custom ? (
-          // Слот экономии всегда занимает место (в помесячном режиме он
-          // невидим), чтобы карточки не прыгали по высоте при переключении.
+          // Слот экономии держит место, чтобы карточки не прыгали по высоте при
+          // переключении периода — но только на десктопе, где они стоят в ряд и
+          // выравниваются друг по другу. На мобильном карточки идут одна под
+          // другой, выравнивать нечего, и пустой слот читался бы дырой между
+          // кнопкой и списком, поэтому там он схлопывается.
           <div
             aria-hidden={!annual}
             className={`rounded-lg bg-white/[0.03] px-3 py-2 text-center text-xs ${
-              annual ? "" : "invisible"
+              annual ? "" : "invisible max-sm:hidden"
             }`}
           >
             <span className="font-semibold text-foreground">Экономия ${savings}</span>

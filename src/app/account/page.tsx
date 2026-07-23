@@ -146,7 +146,7 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               <RefreshCw className="h-4 w-4" />
               Обновить
@@ -411,7 +411,7 @@ function EditProfileModal({
             type="button"
             disabled={busy}
             onClick={submit}
-            className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+            className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-white/90 disabled:opacity-60"
           >
             {busy ? "Сохраняем…" : "Сохранить"}
           </button>

@@ -414,7 +414,7 @@ export function PlayableGenApp() {
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
                   rows={2}
-                  className="min-h-[80px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                  className="min-h-[80px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                   placeholder="Например: приветственный бонус 100% + 200 фриспинов"
                 />
               </SettingsSection>
@@ -466,13 +466,13 @@ export function PlayableGenApp() {
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     placeholder="Название бренда / проекта"
-                    className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
                     aria-label="Язык плейбла"
-                    className="h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   >
                     {CREATIVE_LANGUAGES.map((l) => (
                       <option key={l.value} value={l.value}>
@@ -552,7 +552,7 @@ export function PlayableGenApp() {
                             setWheelPrizes((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))
                           }
                           placeholder={`Приз ${i + 1}`}
-                          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                         />
                         <button
                           type="button"
@@ -585,7 +585,7 @@ export function PlayableGenApp() {
                       value={scratchPrize}
                       onChange={(e) => setScratchPrize(e.target.value)}
                       placeholder="Например: +100 фриспинов!"
-                      className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     />
                     <p className="mt-2 ds-caption">Пусто — покажем текст оффера.</p>
                   </div>
@@ -600,7 +600,7 @@ export function PlayableGenApp() {
                         value={quizQuestion}
                         onChange={(e) => setQuizQuestion(e.target.value)}
                         placeholder="Например: Хотите забрать бонус?"
-                        className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                     <div className="flex flex-col gap-2">
@@ -614,7 +614,7 @@ export function PlayableGenApp() {
                             title="Отметить правильным"
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
                               quizCorrect === i
-                                ? "border-accent-green bg-accent-green text-black"
+                                ? "border-accent-green bg-accent-green text-on-accent"
                                 : "border-border text-transparent hover:border-foreground/40"
                             }`}
                           >
@@ -627,7 +627,7 @@ export function PlayableGenApp() {
                               setQuizAnswers((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))
                             }
                             placeholder={`Вариант ${i + 1}`}
-                            className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                            className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                           />
                           <button
                             type="button"
@@ -689,7 +689,7 @@ export function PlayableGenApp() {
               {/* Always-win toggle */}
               <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3">
                 <div className="min-w-0">
-                  <p className="ds-h2">Результат всегда выигрышный</p>
+                  <p className="ds-h4">Результат всегда выигрышный</p>
                   <p className="mt-0.5 ds-caption">Игрок всегда «выигрывает» — стимулирует переход</p>
                 </div>
                 <Switch checked={alwaysWin} onChange={setAlwaysWin} />
@@ -697,7 +697,7 @@ export function PlayableGenApp() {
 
               {/* CTA text */}
               <div>
-                <label className="mb-2 block ds-h2">
+                <label className="mb-2 block ds-h4">
                   Текст CTA на финальном экране{" "}
                   <span className="text-muted-foreground">(опционально)</span>
                 </label>
@@ -706,14 +706,14 @@ export function PlayableGenApp() {
                   value={ctaText}
                   onChange={(e) => setCtaText(e.target.value)}
                   maxLength={32}
-                  className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   placeholder="Забрать бонус · Играть · Установить"
                 />
               </div>
 
               {/* Duration */}
               <div>
-                <label className="mb-2 block ds-h2">Длительность взаимодействия</label>
+                <label className="mb-2 block ds-h4">Длительность взаимодействия</label>
                 <div className="flex gap-2">
                   {PLAYABLE_DURATIONS.map((d) => (
                     <button
@@ -734,7 +734,7 @@ export function PlayableGenApp() {
 
               {/* Aspect ratio */}
               <div>
-                <label className="mb-2 block ds-h2">Соотношение сторон</label>
+                <label className="mb-2 block ds-h4">Соотношение сторон</label>
                 <div className="flex gap-2">
                   {PLAYABLE_RATIOS.map((r) => (
                     <button
@@ -762,7 +762,7 @@ export function PlayableGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
@@ -795,7 +795,7 @@ export function PlayableGenApp() {
             type="button"
             onClick={onGenerate}
             disabled={!canGenerate}
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
           >
             {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
           </button>
@@ -874,7 +874,7 @@ export function PlayableGenApp() {
                   <DropdownMenuContent
                     align="end"
                     sideOffset={8}
-                    className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                    className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
                     <DropdownMenuItem
                       onClick={onGenerate}
@@ -925,7 +925,7 @@ export function PlayableGenApp() {
                 <button
                   type="button"
                   onClick={download}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   <Download className="h-4 w-4" />
                   Скачать
@@ -965,7 +965,7 @@ export function PlayableGenApp() {
           role="dialog"
           aria-modal="true"
           aria-label="Плейбл на весь экран"
-          className="fixed inset-0 z-[90] flex flex-col bg-black"
+          className="fixed inset-0 z-[90] flex flex-col bg-[var(--bg-void)]"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <span className="truncate text-sm font-medium text-white/80">
@@ -1025,8 +1025,8 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          checked ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          checked ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>
@@ -1184,7 +1184,7 @@ function MechanicSidebar({
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <style>{ANIM_CSS}</style>
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <h2 className="ds-h2">Игровые механики</h2>
+        <h2 className="ds-h4">Игровые механики</h2>
         {/* "Все" hidden until there are multiple mechanic categories to group:
         <button
           type="button"
@@ -1211,7 +1211,7 @@ function MechanicSidebar({
                 onClick={() => onSelect(m.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                   active
-                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(234,255,160,0.14)]"
+                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
                     : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
                 }`}
               >
