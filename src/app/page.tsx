@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Clock, Coins, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Clock, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
@@ -106,7 +107,7 @@ function TilePreview({ sectionId }: { sectionId: string }) {
         />
         <div
           className="absolute inset-0"
-          style={{ background: "radial-gradient(46% 34% at 50% 22%, rgba(212,255,61,0.16), transparent 70%)" }}
+          style={{ background: "radial-gradient(46% 34% at 50% 22%, rgba(198,255,61,0.16), transparent 70%)" }}
         />
         <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 translate-y-[14%] flex-col items-center">
           <div className="h-10 w-10 rounded-full bg-[#070a10]" />
@@ -114,7 +115,7 @@ function TilePreview({ sectionId }: { sectionId: string }) {
         </div>
         <span className="relative z-10 mb-5 flex items-center justify-center">
           <span className="hub-pulse" style={{ inset: "-11px" }} aria-hidden />
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-green text-black shadow-[0_0_30px_rgba(212,255,61,0.4)]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-green text-on-accent shadow-glow-lime">
             <Play className="ml-0.5 h-6 w-6 fill-current" />
           </span>
         </span>
@@ -164,8 +165,15 @@ function SectionTile({
     <button
       type="button"
       onClick={onOpen}
-      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] text-left transition duration-200 hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(212,255,61,0.16)] focus:outline-none focus-visible:border-accent-green/60 focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
-        featured ? "min-h-[280px] lg:min-h-0" : "min-h-[168px] lg:min-h-0"
+      // The featured tile carries a resting lime glow — the system's cue for
+      // the one highlighted surface on a screen. Border colour lives inside the
+      // ternary (not alongside a base `border-border`) because two competing
+      // border-colour utilities would resolve by stylesheet order, not by the
+      // order they appear here.
+      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left transition duration-200 hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(198,255,61,0.16)] focus:outline-none focus-visible:border-accent-green/60 focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
+        featured
+          ? "min-h-[280px] border-accent-green/25 shadow-[0_0_40px_rgba(198,255,61,0.10)] lg:min-h-0"
+          : "min-h-[168px] border-border lg:min-h-0"
       }`}
     >
       {/* Preview fills the tile; scale on hover (ken-burns) + gloss sweep + the
@@ -177,7 +185,7 @@ function SectionTile({
       </div>
       {/* Unified brand grade — a consistent lime sheen (top-right) so all four
           previews, photo or illustration, read as one visual system. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(212,255,61,0.12)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(198,255,61,0.12)]" />
       <span className="hub-shine" aria-hidden />
       {/* Darkening overlay: transparent at the top (preview stays visible), dark
           at the bottom where the label + button sit — so text is legible over
@@ -185,7 +193,7 @@ function SectionTile({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
 
       {section.id === "banner" ? (
-        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[#0a0a0a] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
           Рекомендуем начать
         </span>
       ) : null}
@@ -212,7 +220,7 @@ function SectionTile({
         {/* Clearly-active primary button on every tile (uniform style, smaller
             footprint on the non-featured ones). */}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-black shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-on-accent shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
             featured ? "px-5 py-2.5" : "px-3.5 py-2"
           }`}
         >
@@ -279,7 +287,6 @@ export default function HubPage() {
   const { isAuthenticated, loading } = useAuth();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
-  const [credits, setCredits] = useState<number | null>(null);
   const [projectCount, setProjectCount] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [query, setQuery] = useState("");
@@ -298,14 +305,10 @@ export default function HubPage() {
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{
-      profile?: { first_name?: string; nickname?: string; credits_balance?: number | string };
-    }>("/api/me")
+    apiJson<{ profile?: { first_name?: string; nickname?: string } }>("/api/me")
       .then((r) => {
         if (cancelled) return;
         setFirstName(r?.profile?.first_name?.trim() || r?.profile?.nickname?.trim() || "");
-        const b = Number(r?.profile?.credits_balance);
-        if (!Number.isNaN(b)) setCredits(b);
       })
       .catch(() => {});
     return () => {
@@ -393,25 +396,49 @@ export default function HubPage() {
   const bannerSection = SECTION_BY_ID.get("banner")!;
   const otherSections = SECTIONS.filter((s) => s.id !== "banner");
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
-  // "0 проектов" would read as a scolding, so the projects metric only appears
-  // once there is something to count; credits show whenever we know them.
-  const showStats = projectCount > 0 || credits !== null;
+  // "0 проектов" would read as a scolding, so the strip only appears once there
+  // is something to count.
+  const showStats = projectCount > 0;
   const showOnboarding = historyLoaded && recent.length === 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
       <style>{HUB_ANIM}</style>
       <AppHeader />
 
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+      {/* Brand hero backdrop — the system's aurora (violet + lime radials) with
+          a fading dot-grid over it. Purely decorative: it is aria-hidden, takes
+          no pointer events, and sits behind the content by DOM order alone, so
+          nothing here needs a z-index. The header stays on top via its own
+          sticky z-30. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden"
+      >
+        <div className="ds-hero-glow absolute inset-0" />
+        <div className="ds-dotgrid ds-dotgrid-fade absolute inset-0 opacity-[0.14]" />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:py-12">
         {/* ── Greeting + search ─────────────────────────────────────────── */}
-        <div className="hub-in mx-auto max-w-3xl text-center">
+        {/* .hub-in animates transform with fill-mode:both, which leaves this
+            element owning a stacking context forever — so the search dropdown
+            inside it can only rise above the tiles if the WHOLE hero is lifted
+            (z-50, above the z-40 scrim) while the dropdown is open. */}
+        <div
+          className={`hub-in relative mx-auto max-w-3xl text-center ${
+            searchOpen ? "z-50" : ""
+          }`}
+        >
           <h1 className="ds-h1 sm:text-3xl">{greeting}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Выберите инструмент или найдите готовый шаблон — каждый проведёт вас по шагам до
             результата.
           </p>
 
+          {/* Same shared scrim every other dropdown in the product uses — here
+              on desktop too, so the results separate from the tiles behind. */}
+          <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
           <div ref={searchRef} className="relative mt-5 text-left">
             <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -422,7 +449,7 @@ export default function HubPage() {
                 onFocus={() => setSearchFocused(true)}
                 placeholder="Искать шаблоны, проекты, бренды…"
                 aria-label="Поиск по шаблонам и проектам"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint"
               />
               {query ? (
                 <button
@@ -437,7 +464,7 @@ export default function HubPage() {
             </div>
 
             {searchOpen ? (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-border bg-popover p-2 text-foreground shadow-xl">
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 text-foreground shadow-xl">
                 {!hasResults ? (
                   <div className="px-3 py-6 text-center">
                     <p className="text-sm font-medium">Ничего не найдено</p>
@@ -523,26 +550,19 @@ export default function HubPage() {
             ) : null}
           </div>
 
-          {/* ── Quick stats: a little sense of progress above the tools ──── */}
+          {/* ── Quick stats: a little sense of progress above the tools.
+              Credits deliberately live only in the header — showing them here
+              too was pure duplication. ─────────────────────────────────────── */}
           {showStats ? (
             <div
-              className="hub-in mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center"
+              className="hub-in mt-6 flex justify-center"
               style={{ "--d": "60ms" } as React.CSSProperties}
             >
-              {projectCount > 0 ? (
-                <StatCard
-                  icon={<LayoutGrid className="h-4 w-4" />}
-                  value={projectCount}
-                  label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
-                />
-              ) : null}
-              {credits !== null ? (
-                <StatCard
-                  icon={<Coins className="h-4 w-4" />}
-                  value={credits}
-                  label={`${plural(credits, "кредит", "кредита", "кредитов")} осталось`}
-                />
-              ) : null}
+              <StatCard
+                icon={<LayoutGrid className="h-4 w-4" />}
+                value={projectCount}
+                label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
+              />
             </div>
           ) : null}
 
@@ -603,9 +623,16 @@ export default function HubPage() {
         {/* ── Recent projects (only when the user has some) ─────────────── */}
         {recent.length > 0 ? (
           <section className="hub-in mt-12" style={{ "--d": "300ms" } as React.CSSProperties}>
-            <div className="mb-4 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-accent-green" />
-              <h2 className="text-lg font-semibold">Недавние проекты</h2>
+            {/* System section header: feature icon in a lime-tinted tile +
+                overline label above the heading. */}
+            <div className="mb-4 flex items-center gap-3">
+              <span className="ds-feature-icon h-9 w-9 shrink-0">
+                <Clock className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="ds-overline ds-overline-accent">Продолжить</p>
+                <h2 className="mt-0.5 text-lg font-semibold">Недавние проекты</h2>
+              </div>
             </div>
             <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
               {recent.map((p) => {
@@ -644,9 +671,14 @@ export default function HubPage() {
 
         {/* ── Popular templates (MOCK — see lib/hubTemplates) ───────────── */}
         <section className="hub-in mt-12" style={{ "--d": "340ms" } as React.CSSProperties}>
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent-green" />
-            <h2 className="text-lg font-semibold">Популярные шаблоны</h2>
+          <div className="mb-4 flex items-center gap-3">
+            <span className="ds-feature-icon h-9 w-9 shrink-0">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="ds-overline ds-overline-accent">Быстрый старт</p>
+              <h2 className="mt-0.5 text-lg font-semibold">Популярные шаблоны</h2>
+            </div>
           </div>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {POPULAR_TEMPLATES.map((t) => {

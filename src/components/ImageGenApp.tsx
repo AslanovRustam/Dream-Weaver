@@ -955,7 +955,7 @@ export function ImageGenApp() {
             <div className="flex flex-col gap-6">
               {!isSlotPreset && (
                 <div>
-                  <label className="mb-2 block ds-h2">
+                  <label className="mb-2 block ds-h4">
                     {isSportPreset ? "Опишите матч / событие" : "Тематика баннера"}{" "}
                     <span className="text-[color:var(--status-error)]">*</span>
                   </label>
@@ -963,7 +963,7 @@ export function ImageGenApp() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={3}
-                    className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                    className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                     placeholder={
                       isSportPreset
                         ? "Например: финал Лиги Чемпионов между PSG и Liverpool…"
@@ -977,14 +977,14 @@ export function ImageGenApp() {
 
               {isEventPreset && (
                 <div>
-                  <label className="mb-2 block ds-h2">
+                  <label className="mb-2 block ds-h4">
                     Событие / повод <span className="text-muted-foreground">(опционально)</span>
                   </label>
                   <input
                     type="text"
                     value={eventText}
                     onChange={(e) => setEventText(e.target.value)}
-                    className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     placeholder="Новый год, Пасха, День независимости, Black Friday…"
                   />
                 </div>
@@ -992,7 +992,7 @@ export function ImageGenApp() {
 
               {isSlotPreset && (
                 <div className="rounded-xl border border-border bg-background/40 p-3">
-                  <p className="mb-2 ds-h2">
+                  <p className="mb-2 ds-h4">
                     Слот <span className="text-[color:var(--status-error)]">*</span>
                   </p>
                   <input
@@ -1000,7 +1000,7 @@ export function ImageGenApp() {
                     value={slotName}
                     onChange={(e) => setSlotName(e.target.value)}
                     placeholder="Название слота (например, Sweet Bonanza)"
-                    className="mb-3 w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="mb-3 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
                   <div className="flex gap-3">
                     <div className="min-w-0 flex-1">
@@ -1034,14 +1034,14 @@ export function ImageGenApp() {
 
               {isSportPreset && (
                 <div className="space-y-3 rounded-xl border border-border bg-background/40 p-3">
-                  <p className="ds-h2">Параметры матча</p>
+                  <p className="ds-h4">Параметры матча</p>
                   <div className="flex flex-col gap-4">
                     <div>
                       <label className="mb-2 block ds-label">Тип спорта</label>
                       <select
                         value={sportType}
                         onChange={(e) => setSportType(e.target.value)}
-                        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       >
                         <option value="">Авто (определить из брифа)</option>
                         <option value="football">Футбол</option>
@@ -1066,7 +1066,7 @@ export function ImageGenApp() {
                       <select
                         value={matchType}
                         onChange={(e) => setMatchType(e.target.value)}
-                        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       >
                         <option value="auto">Определить автоматически</option>
                         <option value="national">Сборные / Национальные</option>
@@ -1084,7 +1084,7 @@ export function ImageGenApp() {
                         value={sideAName}
                         onChange={(e) => setSideAName(e.target.value)}
                         placeholder="Команда / игрок"
-                        className="mb-2 w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <div className="w-full">
                         <SlotUpload
@@ -1106,7 +1106,7 @@ export function ImageGenApp() {
                         value={sideBName}
                         onChange={(e) => setSideBName(e.target.value)}
                         placeholder="Команда / игрок"
-                        className="mb-2 w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <div className="w-full">
                         <SlotUpload
@@ -1130,7 +1130,7 @@ export function ImageGenApp() {
                         value={eventName}
                         onChange={(e) => setEventName(e.target.value)}
                         placeholder="UFC 312, Champions League Final…"
-                        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                     <div>
@@ -1140,7 +1140,7 @@ export function ImageGenApp() {
                         value={matchDatetime}
                         onChange={(e) => setMatchDatetime(e.target.value)}
                         placeholder="SAT OCT 17, 9:24 PM"
-                        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                     <div>
@@ -1150,7 +1150,7 @@ export function ImageGenApp() {
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
                         placeholder="Wembley, MSG, Camp Nou…"
-                        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                   </div>
@@ -1168,7 +1168,7 @@ export function ImageGenApp() {
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="ds-h2">Игроки на баннере</p>
+                        <p className="ds-h4">Игроки на баннере</p>
                         <p className="mt-1 ds-caption leading-relaxed">
                           Выключено — только символика: эмблемы, флаги, трофеи
                         </p>
@@ -1185,7 +1185,7 @@ export function ImageGenApp() {
                               value={sideAPlayers}
                               onChange={(e) => setSideAPlayers(e.target.value)}
                               placeholder="Например: Мбаппе, Дембеле"
-                              className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                              className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
                           </div>
                           <div>
@@ -1195,7 +1195,7 @@ export function ImageGenApp() {
                               value={sideBPlayers}
                               onChange={(e) => setSideBPlayers(e.target.value)}
                               placeholder="Например: Салах"
-                              className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                              className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
                           </div>
                         </div>
@@ -1214,7 +1214,7 @@ export function ImageGenApp() {
               )}
 
               <div className="rounded-xl border border-border bg-background/40 p-3">
-                <p className="mb-2 ds-h2">Бренд</p>
+                <p className="mb-2 ds-h4">Бренд</p>
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     {brandLogo ? (
@@ -1256,12 +1256,12 @@ export function ImageGenApp() {
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     placeholder="Название бренда / проекта"
-                    className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    className="h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                    className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     aria-label="Язык текстов на креативе"
                   >
                     {LANGUAGES.map((l) => (
@@ -1314,7 +1314,7 @@ export function ImageGenApp() {
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="ds-h2">Рекламные тексты в промпте</p>
+                        <p className="ds-h4">Рекламные тексты в промпте</p>
                         <p className="mt-0.5 ds-caption">Заголовок, фичи, цифры из шаблона</p>
                       </div>
                       <ToggleSwitch enabled={adTextsEnabled} onToggle={setAdTextsEnabled} />
@@ -1324,7 +1324,7 @@ export function ImageGenApp() {
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="ds-h2">Человек в кадре</p>
+                        <p className="ds-h4">Человек в кадре</p>
                         <p className="mt-0.5 ds-caption">Модель как центральный субъект</p>
                       </div>
                       <ToggleSwitch enabled={personEnabled} onToggle={setPersonEnabled} />
@@ -1355,7 +1355,7 @@ export function ImageGenApp() {
                   качество остаётся на своём значении по умолчанию ("low"). */}
               <div className="mt-2 flex flex-col gap-4">
                 <div className="min-w-0">
-                  <p className="mb-2 ds-h2">Соотношение сторон</p>
+                  <p className="mb-2 ds-h4">Соотношение сторон</p>
                   <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
                 </div>
               </div>
@@ -1374,7 +1374,7 @@ export function ImageGenApp() {
                   (!isSlotPreset && prompt.trim().length === 0) ||
                   (isSlotPreset && slotName.trim().length === 0))
               }
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Генерация…" : "Сгенерировать"}
             </button>
@@ -1443,7 +1443,7 @@ export function ImageGenApp() {
             <div className="flex items-center gap-2">
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                  hasBanner ? "bg-muted text-muted-foreground" : "bg-accent-green text-black"
+                  hasBanner ? "bg-muted text-muted-foreground" : "bg-accent-green text-on-accent"
                 }`}
               >
                 1
@@ -1457,7 +1457,7 @@ export function ImageGenApp() {
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
                   hasBanner
-                    ? "bg-accent-green text-black"
+                    ? "bg-accent-green text-on-accent"
                     : "border border-border text-muted-foreground"
                 }`}
               >
@@ -1482,7 +1482,7 @@ export function ImageGenApp() {
                 (!isSlotPreset && prompt.trim().length === 0) ||
                 (isSlotPreset && slotName.trim().length === 0))
             }
-            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
             {status === "loading" ? "Генерация…" : "Сгенерировать"}
           </button>
@@ -1638,7 +1638,7 @@ export function ImageGenApp() {
                         <DropdownMenuContent
                           align="end"
                           sideOffset={8}
-                          className="w-56 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+                          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
                         >
                           <DropdownMenuItem
                             onClick={() => {
@@ -1756,7 +1756,7 @@ export function ImageGenApp() {
                 <div className="flex max-w-xs flex-col items-center gap-6 text-center">
                   <ImageIcon className="h-20 w-20 text-muted-foreground/40" strokeWidth={1.5} />
                   <div className="space-y-1">
-                    <h2 className="ds-h2">Здесь появится ваш баннер</h2>
+                    <h2 className="ds-h4">Здесь появится ваш баннер</h2>
                     <p className="ds-caption">
                       Заполните настройки, чтобы сгенерировать баннер.
                     </p>
@@ -1837,7 +1837,7 @@ function OptionalField({
   return (
     <div className="rounded-xl border border-border bg-background/40 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="ds-h2">{label}</span>
+        <span className="ds-h4">{label}</span>
         <button
           type="button"
           role="switch"
@@ -1848,8 +1848,8 @@ function OptionalField({
           }`}
         >
           <span
-            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
+            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+              enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
             }`}
           />
         </button>
@@ -1859,7 +1859,7 @@ function OptionalField({
         onChange={(e) => onChange(e.target.value)}
         disabled={!enabled}
         maxLength={maxLength}
-        className="w-full h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green disabled:opacity-40"
+        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green disabled:opacity-40"
         placeholder={placeholder}
       />
       {maxLength && enabled ? (
@@ -1887,8 +1887,8 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: (v: b
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>

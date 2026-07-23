@@ -235,14 +235,14 @@ export function LandingEditor({ id }: { id: string }) {
   if (missing) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center text-foreground">
-        <p className="ds-h2">Проект не найден</p>
+        <p className="ds-h4">Проект не найден</p>
         <p className="max-w-sm ds-caption">
           Данные лендинга не найдены (возможно, ссылка устарела). Вернитесь и сгенерируйте заново.
         </p>
         <button
           type="button"
           onClick={goBack}
-          className="rounded-lg bg-accent-green px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+          className="rounded-lg bg-accent-green px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
         >
           К настройкам
         </button>
@@ -283,7 +283,7 @@ export function LandingEditor({ id }: { id: string }) {
           <button
             type="button"
             onClick={download}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             <Download className="h-4 w-4" />
             Скачать
@@ -350,7 +350,7 @@ export function LandingEditor({ id }: { id: string }) {
                 onClick={() => setActiveLang(code)}
                 className={`min-h-8 rounded-md px-2.5 text-sm font-semibold transition ${
                   activeLang === code
-                    ? "bg-accent-green text-black"
+                    ? "bg-accent-green text-on-accent"
                     : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                 }`}
               >
@@ -446,7 +446,7 @@ export function LandingEditor({ id }: { id: string }) {
         <button
           type="button"
           onClick={download}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-4 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-4 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
         >
           <Download className="h-4 w-4" />
           Скачать
@@ -552,7 +552,7 @@ function AddLanguageMenu({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-52 rounded-2xl border-border bg-popover p-1.5 text-foreground"
+        className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
       >
         {addable.length === 0 ? (
           <div className="px-2.5 py-2 ds-caption">Все языки добавлены</div>
@@ -577,7 +577,7 @@ function TextPanelHeader({ lang, onClose }: { lang: string; onClose: () => void 
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
       <div>
-        <p className="ds-h2">Тексты лендинга</p>
+        <p className="ds-h4">Тексты лендинга</p>
         <p className="ds-caption">Версия · {langLabel(lang)}</p>
       </div>
       <button
@@ -643,14 +643,14 @@ function TextFields({
                 value={value}
                 onChange={(e) => onChange(f.key, e.target.value)}
                 rows={2}
-                className="min-h-[64px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                className="min-h-[64px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
               />
             ) : (
               <input
                 type="text"
                 value={value}
                 onChange={(e) => onChange(f.key, e.target.value)}
-                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                className="h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
               />
             )}
           </div>
@@ -699,7 +699,7 @@ function TextStylePanel({
         <select
           value={style.fontFamily ?? ""}
           onChange={(e) => onChange({ fontFamily: e.target.value })}
-          className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-accent-green"
+          className="h-9 rounded-lg border border-border bg-elevated px-2 text-sm outline-none focus:border-accent-green"
         >
           {LANDING_FONTS.map((f) => (
             <option key={f.label} value={f.value}>
@@ -726,7 +726,7 @@ function TextStylePanel({
           max={LANDING_FONT_SIZE.max}
           value={size}
           onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-          className="h-9 w-14 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-accent-green"
+          className="h-9 w-14 rounded-lg border border-border bg-elevated px-2 text-sm outline-none focus:border-accent-green"
         />
         <span className="ds-micro text-muted-foreground">px</span>
       </label>
@@ -781,7 +781,7 @@ function DesktopThumb({ html }: { html: string }) {
   const scale = THUMB / W;
   return (
     <span
-      className="relative block shrink-0 overflow-hidden rounded-[4px] border border-border bg-white"
+      className="relative block shrink-0 overflow-hidden rounded-sm border border-border bg-white"
       style={{ width: THUMB, height: Math.round(H * scale) }}
     >
       <iframe
@@ -864,7 +864,7 @@ function DesktopZoomViewer({ html, onClose }: { html: string; onClose: () => voi
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[var(--bg-void)]">
       <div className="flex h-12 shrink-0 items-center justify-between px-3 text-white">
         <span className="text-sm font-medium">Десктоп-версия · {Math.round(t.s * 100)}%</span>
         <div className="flex items-center gap-1">
@@ -899,7 +899,7 @@ function DesktopZoomViewer({ html, onClose }: { html: string; onClose: () => voi
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className="relative flex-1 touch-none overflow-hidden bg-neutral-900"
+        className="relative flex-1 touch-none overflow-hidden bg-[var(--bg-void)]"
       >
         <div
           className="absolute left-0 top-0 origin-top-left"

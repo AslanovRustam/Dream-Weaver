@@ -36,7 +36,7 @@ export function GenerationProgress({
       <div className="w-full max-w-sm">
         <div className="mb-4 flex items-center justify-center gap-2 text-accent-green">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="ds-h2">{title}</span>
+          <span className="ds-h4">{title}</span>
         </div>
 
         {hasBar ? (
@@ -67,7 +67,7 @@ export function GenerationProgress({
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                       state === "done"
-                        ? "border-accent-green bg-accent-green text-black"
+                        ? "border-accent-green bg-accent-green text-on-accent"
                         : state === "active"
                           ? "border-accent-green text-accent-green"
                           : "border-border text-muted-foreground"

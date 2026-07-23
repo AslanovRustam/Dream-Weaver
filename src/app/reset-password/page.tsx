@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
         ) : null}
 
         {ok ? (
-          <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-500">
+          <div className="rounded-md border border-[color:var(--success)]/40 bg-[color:var(--success-tint)] p-3 text-sm text-[color:var(--success)]">
             Пароль обновлён. Можно пользоваться.
             <div className="mt-2">
               <Button size="sm" onClick={() => router.push("/")}>

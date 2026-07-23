@@ -366,7 +366,7 @@ export function LandingGenApp() {
                       aria-expanded={brandExpanded}
                       className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-accent-green/10"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-green text-black">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-green text-on-accent">
                         <Check className="h-4 w-4" />
                       </span>
                       {brandLogo ? (
@@ -434,7 +434,7 @@ export function LandingGenApp() {
                           value={brandName}
                           onChange={(e) => setBrandName(e.target.value)}
                           placeholder="Название бренда / проекта"
-                          className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                          className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                         />
                         <div>
                           <label className="mb-1.5 block ds-label">
@@ -445,7 +445,7 @@ export function LandingGenApp() {
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
                             rows={3}
-                            className="min-h-[88px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                            className="min-h-[88px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                             placeholder="Тематика лендинга…"
                           />
                         </div>
@@ -453,7 +453,7 @@ export function LandingGenApp() {
                           value={language}
                           onChange={(e) => setLanguage(e.target.value)}
                           aria-label="Язык лендинга"
-                          className="h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                          className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                         >
                           {CREATIVE_LANGUAGES.map((l) => (
                             <option key={l.value} value={l.value}>
@@ -472,7 +472,7 @@ export function LandingGenApp() {
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 ds-h2">
+                        <p className="flex items-center gap-1.5 ds-h4">
                           <ImageIcon className="h-4 w-4 text-accent-green" />
                           Баннер как Hero
                         </p>
@@ -493,8 +493,8 @@ export function LandingGenApp() {
                         }`}
                       >
                         <span
-                          className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-                            heroFromBanner ? "translate-x-4" : "translate-x-0"
+                          className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+                            heroFromBanner ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
                           }`}
                         />
                       </button>
@@ -526,7 +526,7 @@ export function LandingGenApp() {
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
                       rows={3}
-                      className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                      className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                       placeholder="Например: лендинг для приветственного бонуса казино — 100% на депозит + 200 фриспинов…"
                     />
                   </SettingsSection>
@@ -541,7 +541,7 @@ export function LandingGenApp() {
                       type="text"
                       value={occasion}
                       onChange={(e) => setOccasion(e.target.value)}
-                      className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       placeholder="Новый год, чемпионат, Black Friday…"
                     />
                   </SettingsSection>
@@ -595,13 +595,13 @@ export function LandingGenApp() {
                         value={brandName}
                         onChange={(e) => setBrandName(e.target.value)}
                         placeholder="Название бренда / проекта"
-                        className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <select
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
                         aria-label="Язык лендинга"
-                        className="h-12 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                        className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       >
                         {CREATIVE_LANGUAGES.map((l) => (
                           <option key={l.value} value={l.value}>
@@ -639,10 +639,10 @@ export function LandingGenApp() {
                         className="flex items-start gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5"
                       >
                         <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border transition ${
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                             checked
-                              ? "border-accent-green bg-accent-green text-black"
-                              : "border-border bg-background"
+                              ? "border-accent-green bg-accent-green text-on-accent"
+                              : "border-border bg-elevated"
                           }`}
                         >
                           {checked ? <Check className="h-3.5 w-3.5" /> : null}
@@ -685,7 +685,7 @@ export function LandingGenApp() {
                       value={ctaText}
                       onChange={(e) => setCtaText(e.target.value)}
                       maxLength={32}
-                      className="h-12 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-accent-green"
+                      className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       placeholder="Играть сейчас · Забрать бонус · Сделать ставку"
                     />
                   </div>
@@ -697,7 +697,7 @@ export function LandingGenApp() {
                       value={offerDetails}
                       onChange={(e) => setOfferDetails(e.target.value)}
                       rows={2}
-                      className="min-h-[72px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent-green"
+                      className="min-h-[72px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                       placeholder="Условия акции, вейджер, срок действия, мин. депозит…"
                     />
                   </div>
@@ -713,7 +713,7 @@ export function LandingGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-black transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Открываем редактор…" : "Сгенерировать"}
             </button>
@@ -749,7 +749,7 @@ function TemplateTile({
       onClick={onSelect}
       className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
         selected
-          ? "border-accent-green shadow-[0_0_30px_rgba(234,255,160,0.16)]"
+          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
           : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
@@ -759,7 +759,7 @@ function TemplateTile({
       />
       <p className="truncate text-xs font-medium">{template.name}</p>
       {selected && (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-black">
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
           <Check size={10} />
         </span>
       )}
@@ -846,7 +846,7 @@ function LandingTemplateSidebar({
   return (
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
-        <h2 className="ds-h2">Шаблоны</h2>
+        <h2 className="ds-h4">Шаблоны</h2>
       </div>
       <div ref={filterRef} className="relative px-4 pb-2 pt-2">
         <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
@@ -901,7 +901,7 @@ function LandingTemplateSidebar({
         <MobileScrim open={filterOpen} onClose={closeFilter} />
         {filterOpen && (
           <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
-            <p className="mb-2 ds-h2">Категория</p>
+            <p className="mb-2 ds-h4">Категория</p>
             <div className="relative">
               <button
                 type="button"

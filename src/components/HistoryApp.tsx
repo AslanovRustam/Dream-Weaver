@@ -242,7 +242,7 @@ function ProjectsTab() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Поиск по названию проекта"
               aria-label="Поиск проектов"
-              className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-accent-green"
+              className="h-11 w-full rounded-lg border border-border bg-elevated pl-9 pr-3 text-sm outline-none transition focus:border-accent-green"
             />
           </div>
           {/* Mobile: single Фильтры button → bottom sheet */}
@@ -254,7 +254,7 @@ function ProjectsTab() {
             <SlidersHorizontal className="h-4 w-4" />
             Фильтры
             {activeFilters > 0 ? (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-black">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
                 {activeFilters}
               </span>
             ) : null}
@@ -346,7 +346,7 @@ function ProjectsTab() {
           <button
             type="button"
             onClick={() => setFilterSheet(false)}
-            className="min-h-12 w-full rounded-lg bg-accent-green px-4 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]"
+            className="min-h-12 w-full rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
             Показать
           </button>
@@ -414,7 +414,7 @@ function ProjectGridCard({ p, selected, onSelect, actions }: { p: Project; selec
             tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
-            className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border text-xs transition ${selected ? "border-accent-green bg-accent-green text-black" : "border-white/40 bg-black/40 text-transparent opacity-0 backdrop-blur group-hover:opacity-100"}`}
+            className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border text-xs transition ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-white/40 bg-black/40 text-transparent opacity-0 backdrop-blur group-hover:opacity-100"}`}
           >
             <Check className="h-3.5 w-3.5" />
           </span>
@@ -448,7 +448,7 @@ function ProjectListRow({ p, selected, onSelect, actions }: { p: Project; select
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border transition ${selected ? "border-accent-green bg-accent-green text-black" : "border-border text-transparent"}`}
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-border text-transparent"}`}
       >
         <Check className="h-3.5 w-3.5" />
       </span>
@@ -493,7 +493,7 @@ function EditableName({ p, editing, setEditing, onRename }: { p: Project; editin
           if (e.key === "Enter") { onRename(p.id, draft); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-full rounded-md border border-accent-green/60 bg-background px-1.5 py-0.5 text-sm font-medium outline-none"
+        className="w-full rounded-md border border-accent-green/60 bg-elevated px-1.5 py-0.5 text-sm font-medium outline-none"
       />
     );
   }
@@ -597,10 +597,10 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
         <LayoutGrid className="h-7 w-7" />
       </span>
       <div className="space-y-1">
-        <p className="ds-h2">Здесь появятся ваши проекты</p>
+        <p className="ds-h4">Здесь появятся ваши проекты</p>
         <p className="ds-caption">Всё, что вы создадите в любом из разделов, сохранится тут.</p>
       </div>
-      <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]">
+      <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]">
         <Plus className="h-4 w-4" /> Создать первый проект
       </Link>
     </div>
@@ -643,7 +643,7 @@ function CreditsTab() {
               {balance} <span className="text-base font-normal text-muted-foreground">кредитов</span>
             </p>
           </div>
-          <Link href="/billing" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-black transition hover:bg-[var(--accent-hover)]">
+          <Link href="/billing" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]">
             <Plus className="h-4 w-4" /> Пополнить
           </Link>
         </div>
@@ -671,7 +671,7 @@ function CreditsTab() {
             key={id}
             type="button"
             onClick={() => setFilter(id)}
-            className={`min-h-9 rounded-lg px-3 text-sm font-medium transition ${filter === id ? "bg-accent-green text-black" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+            className={`min-h-9 rounded-lg px-3 text-sm font-medium transition ${filter === id ? "bg-accent-green text-on-accent" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
           >
             {label}
           </button>
@@ -729,14 +729,14 @@ function TypePills({ type, onType, wrap }: { type: ProjectType | "all"; onType: 
   const base = "min-h-9 rounded-lg px-3 text-sm font-medium transition";
   return (
     <div className={`flex items-center gap-1.5 ${wrap ? "flex-wrap" : ""}`}>
-      <button type="button" onClick={() => onType("all")} className={`${base} ${type === "all" ? "bg-accent-green text-black" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
+      <button type="button" onClick={() => onType("all")} className={`${base} ${type === "all" ? "bg-accent-green text-on-accent" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
         Все
       </button>
       {TYPES.map((t) => {
         const Icon = SECTION_BY_ID.get(t)!.icon;
         const active = type === t;
         return (
-          <button key={t} type="button" onClick={() => onType(t)} className={`${base} inline-flex items-center gap-1.5 ${active ? "bg-accent-green text-black" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
+          <button key={t} type="button" onClick={() => onType(t)} className={`${base} inline-flex items-center gap-1.5 ${active ? "bg-accent-green text-on-accent" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
             <Icon className="h-3.5 w-3.5" />
             {TYPE_PLURAL[t]}
           </button>
@@ -753,7 +753,7 @@ function SortSelect({ sort, onSort, full }: { sort: SortKey; onSort: (v: SortKey
         value={sort}
         onChange={(e) => onSort(e.target.value as SortKey)}
         aria-label="Сортировка"
-        className={`h-11 appearance-none rounded-lg border border-border bg-background pl-3 pr-9 text-sm outline-none transition focus:border-accent-green ${full ? "w-full" : ""}`}
+        className={`h-11 appearance-none rounded-lg border border-border bg-elevated pl-3 pr-9 text-sm outline-none transition focus:border-accent-green ${full ? "w-full" : ""}`}
       >
         <option value="new">Сначала новые</option>
         <option value="old">Сначала старые</option>
@@ -836,7 +836,7 @@ function BottomSheet({ open, onClose, title, children }: { open: boolean; onClos
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
         {title ? (
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="truncate ds-h2">{title}</h3>
+            <h3 className="truncate ds-h4">{title}</h3>
             <button type="button" onClick={onClose} aria-label="Закрыть" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:text-foreground">
               <X className="h-4 w-4" />
             </button>

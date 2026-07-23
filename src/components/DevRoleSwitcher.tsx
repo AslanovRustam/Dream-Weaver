@@ -27,7 +27,7 @@ export function DevRoleSwitcher() {
           onClick={() => setDevRole(active === o.id ? null : o.id)}
           className={`rounded-full px-2.5 py-1 ds-micro font-semibold transition ${
             active === o.id
-              ? "bg-accent-green text-black"
+              ? "bg-accent-green text-on-accent"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
