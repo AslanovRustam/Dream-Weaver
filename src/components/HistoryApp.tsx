@@ -448,7 +448,7 @@ function ProjectListRow({ p, selected, onSelect, actions }: { p: Project; select
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-border text-transparent"}`}
+        className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition after:absolute after:-inset-2 after:content-[''] ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-border text-transparent"}`}
       >
         <Check className="h-3.5 w-3.5" />
       </span>
@@ -593,7 +593,9 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
   }
   return (
     <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-green/15 text-accent-green">
+      {/* Violet anticipation accent, consistent with the generators' empty
+          states; the lime lives on the CTA below. */}
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:var(--violet-tint)] text-brand-violet shadow-glow-violet">
         <LayoutGrid className="h-7 w-7" />
       </span>
       <div className="space-y-1">
@@ -639,7 +641,9 @@ function CreditsTab() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="ds-caption">Текущий остаток</p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums text-accent-green">
+            <p
+              className={`mt-1 text-3xl font-semibold tabular-nums ${Number(balance) <= 20 ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+            >
               {balance} <span className="text-base font-normal text-muted-foreground">кредитов</span>
             </p>
           </div>
