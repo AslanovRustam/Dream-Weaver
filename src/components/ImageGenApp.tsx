@@ -1754,7 +1754,7 @@ export function ImageGenApp() {
                   style={fitStyle}
                 >
                 <div className="flex max-w-xs flex-col items-center gap-6 text-center">
-                  <ImageIcon className="h-20 w-20 text-muted-foreground/40" strokeWidth={1.5} />
+                  <ImageIcon className="h-20 w-20 text-brand-violet/35" strokeWidth={1.5} />
                   <div className="space-y-1">
                     <h2 className="ds-h4">Здесь появится ваш баннер</h2>
                     <p className="ds-caption">
