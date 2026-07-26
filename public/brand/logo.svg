@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 40" fill="none" role="img" aria-label="Gen-GO">
+  <!-- TEMPORARY PLACEHOLDER — replace this file with the client's Gen-GO export. -->
+  <rect x="1" y="9" width="22" height="22" rx="7" fill="#C6FF3D"/>
+  <path d="M8 20a6 6 0 1 1 6 6" stroke="#0B0D12" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="14" cy="20" r="1.8" fill="#0B0D12"/>
+  <text x="34" y="27" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="700" letter-spacing="-0.02em" fill="#F4F6F8">Gen<tspan fill="#C6FF3D">·</tspan>GO</text>
+</svg>

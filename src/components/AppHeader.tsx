@@ -52,6 +52,7 @@ import {
   CREATIVE_LANGUAGES,
   creativeLangShort,
 } from "@/lib/creative-language";
+import { BrandLogo } from "./BrandLogo";
 
 type MeResponse = {
   profile: {
@@ -79,8 +80,8 @@ export function refreshMe() {
     .catch(() => {});
 }
 
-// Monthly credit pool used for the "X из N" label (mirrors the account page).
-const CREDIT_POOL = 10;
+// Balance at/below which the credits chip turns amber to nudge a top-up.
+const LOW_CREDIT_THRESHOLD = 20;
 
 // UI-only mock data — swap for real endpoints once notifications / a projects
 // list exist on the backend.
@@ -197,7 +198,12 @@ export function AppHeader() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  if (!isAuthenticated) return null;
+  // Render for guests too — the header has a full guest branch (GuestAuthButtons
+  // + no credits/profile). Returning null on !isAuthenticated hid it from every
+  // logged-out visitor in production (guest == no session), leaving the public
+  // Hub with no branding and no way to register. Bail out only while the role is
+  // still unresolved (both false), which avoids a flash.
+  if (!isAuthenticated && !isGuest) return null;
 
   const balance = me ? Number(me.profile.credits_balance) || 0 : null;
   const display =
@@ -227,24 +233,40 @@ export function AppHeader() {
           {isHub ? (
             <Link
               href="/"
-              className="shrink-0 rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+              aria-label="Dream Weaver Studio — на главную"
+              className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
             >
-              <span className="hidden sm:inline">Dream Weaver Studio</span>
-              <span className="sm:hidden">DW</span>
+              <BrandLogo
+                className="h-7 max-sm:h-6"
+                fallback={
+                  <>
+                    <span className="hidden sm:inline">Dream Weaver Studio</span>
+                    <span className="sm:hidden">DW</span>
+                  </>
+                }
+              />
             </Link>
           ) : (
             <>
-              {/* Standalone text wordmark → Hub. White brand, no button chrome;
-                  the lime accent lives on the section switcher beside it, so the
-                  two can't be confused. Shortened to "DW" on mobile. */}
+              {/* Logo → Hub. The lime accent lives on the section switcher beside
+                  it, so the two can't be confused. Falls back to the text
+                  wordmark (full on ≥sm, "DW" on mobile) until the logo file is
+                  present. */}
               <Link
                 href="/"
-                aria-label="На главную — Dream Weaver Studio"
+                aria-label="Dream Weaver Studio — на главную"
                 title="На главную"
-                className="relative shrink-0 rounded text-base font-bold tracking-tight text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:text-sm"
+                className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
               >
-                <span className="hidden sm:inline">Dream Weaver Studio</span>
-                <span className="sm:hidden">DW</span>
+                <BrandLogo
+                  className="h-7 max-sm:h-6"
+                  fallback={
+                    <span className="text-base font-bold tracking-tight max-sm:text-sm">
+                      <span className="hidden sm:inline">Dream Weaver Studio</span>
+                      <span className="sm:hidden">DW</span>
+                    </span>
+                  }
+                />
               </Link>
               <SectionSwitcher pathname={pathname} />
             </>
@@ -273,7 +295,7 @@ export function AppHeader() {
           {!isHub ? <GenerationIndicator /> : null}
 
           {/* Guests have no balance to show (spec: no credits for guests). */}
-          {!isGuest ? <CreditsButton label={creditsLabel} max={CREDIT_POOL} /> : null}
+          {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
           {/* Global creative-language default — visible on every screen. */}
           <LanguageSelector />
           {/* The rest of the toolbar is editor chrome — hidden on the Hub and
@@ -331,27 +353,36 @@ export function AppHeader() {
                 </div>
               </div>
 
-              <Link
-                href="/account"
-                className="mt-1 block rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="ds-h4">Кредиты</span>
-                  <span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
-                    осталось {creditsLabel}
-                  </span>
-                </div>
-                <div className="mt-2 flex gap-1">
-                  {Array.from({ length: CREDIT_POOL }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={`h-2 flex-1 rounded-full ${
-                        i < Math.floor(Number(creditsLabel)) ? "bg-accent-green" : "bg-white/10"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </Link>
+              {/* No fixed-pool pip bar — there is no plan max in the model, so
+                  a 10-segment bar was meaningless. Show the balance; go amber +
+                  add a top-up hint when it runs low. */}
+              {(() => {
+                const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
+                return (
+                  <Link
+                    href={low ? "/billing" : "/account"}
+                    className={`mt-1 block rounded-xl border p-3 transition ${
+                      low
+                        ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
+                        : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="ds-h4">Кредиты</span>
+                      <span
+                        className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+                      >
+                        {creditsLabel}
+                      </span>
+                    </div>
+                    {low ? (
+                      <p className="mt-1 text-xs text-[color:var(--status-premium)]">
+                        Кредиты заканчиваются — пополнить
+                      </p>
+                    ) : null}
+                  </Link>
+                );
+              })()}
 
               <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -642,20 +673,37 @@ function GenerationIndicator() {
   );
 }
 
-function CreditsButton({ label, max }: { label: string; max: number }) {
+// Credit balance chip. Shows the raw balance only — no fixed "из N" denominator:
+// the pool was hardcoded to 10, so a user on a 1000-credit plan read "1000 из 10".
+// Low balances turn the chip amber as a top-up nudge. Tap target >=44px on mobile.
+function CreditsButton({ label }: { label: string }) {
+  const low = Number(label) <= LOW_CREDIT_THRESHOLD;
   return (
     <Link
       href="/billing"
-      title="Пополнить кредиты"
-      className="flex items-center gap-2 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10"
+      title={low ? "Кредиты заканчиваются — пополнить" : "Пополнить кредиты"}
+      className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition max-sm:min-h-11 ${
+        low
+          ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:border-[color:var(--status-premium)]/60"
+          : "border-border bg-white/5 hover:border-white/25 hover:bg-white/10"
+      }`}
     >
-      <Coins className="h-4 w-4 shrink-0 text-accent-green" />
+      <Coins
+        className={`h-4 w-4 shrink-0 ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+      />
       <span className="hidden tabular-nums sm:inline">
         <span className="text-muted-foreground">Кредиты: </span>
-        <span className="font-semibold text-accent-green">{label}</span>
-        <span className="text-muted-foreground"> из {max}</span>
+        <span
+          className={`font-semibold ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+        >
+          {label}
+        </span>
       </span>
-      <span className="font-semibold tabular-nums text-accent-green sm:hidden">{label}</span>
+      <span
+        className={`font-semibold tabular-nums sm:hidden ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+      >
+        {label}
+      </span>
     </Link>
   );
 }
@@ -787,40 +835,74 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
 }
 
 // Global creative-language default (the account-level "Язык" the sections
-// inherit). Compact code chip ("RU"/"EN"/…) opening the full list.
+// inherit). This sets the language of the GENERATED CONTENT (banner copy,
+// video script, landing text) — NOT the product UI, which stays Russian. That
+// distinction is easy to miss from a bare "RU" chip, so it is spelled out three
+// ways: a visible "Язык генерации" label (desktop), a hover tooltip (desktop),
+// and a caption inside the menu that every user sees on open (covers mobile,
+// which has no hover).
+const LANG_EXPLAINER =
+  "Определяет язык текста в сгенерированных креативах — баннерах, лендингах, видео. Интерфейс продукта остаётся русским.";
+
 function LanguageSelector() {
   const lang = useCreativeLanguage();
   return (
-    <DropdownMenu scrimIntensity="light">
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Язык креатива по умолчанию"
-          title="Язык креатива по умолчанию"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10"
-        >
-          <Globe className="h-4 w-4 shrink-0 text-accent-green" />
-          <span className="font-semibold">{creativeLangShort(lang)}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
-      >
-        {CREATIVE_LANGUAGES.map((l) => (
-          <DropdownMenuItem
-            key={l.value}
-            onClick={() => setCreativeLanguage(l.value)}
-            className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+    <div className="group relative shrink-0">
+      <DropdownMenu scrimIntensity="light">
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Язык генерации креативов"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10 max-sm:min-h-11"
           >
-            {l.label}
-            {l.value === lang ? <Check className="h-4 w-4 text-accent-green" /> : null}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <Globe className="h-4 w-4 shrink-0 text-accent-green" />
+            {/* Explicit purpose, shown where the header has room (lg+). Below
+                that the chip stays compact and the in-menu caption carries it. */}
+            <span className="hidden font-medium text-muted-foreground lg:inline">
+              Язык генерации
+            </span>
+            <span className="font-semibold">{creativeLangShort(lang)}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          sideOffset={8}
+          className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground"
+        >
+          {/* Always-visible explanation — the mobile equivalent of the hover
+              tooltip, and a safety net on desktop. */}
+          <div className="border-b border-border px-2.5 pb-2 pt-1.5">
+            <p className="text-sm font-semibold">Язык генерации</p>
+            <p className="ds-caption mt-0.5 leading-snug">
+              Язык текста в баннерах, лендингах и видео. Интерфейс остаётся русским.
+            </p>
+          </div>
+          <div className="pt-1.5">
+            {CREATIVE_LANGUAGES.map((l) => (
+              <DropdownMenuItem
+                key={l.value}
+                onClick={() => setCreativeLanguage(l.value)}
+                className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+              >
+                {l.label}
+                {l.value === lang ? <Check className="h-4 w-4 text-accent-green" /> : null}
+              </DropdownMenuItem>
+            ))}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Desktop hover tooltip. Pure CSS on group-hover — no hover on touch, so
+          it never fires on mobile. Hidden while the menu is open (the trigger
+          gets data-state=open) so it can't overlap the dropdown. */}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-border bg-popover px-3 py-2 text-xs leading-snug text-muted-foreground opacity-0 shadow-pop transition-opacity duration-150 group-hover:opacity-100 group-has-[[data-state=open]]:opacity-0 max-lg:hidden"
+      >
+        {LANG_EXPLAINER}
+      </span>
+    </div>
   );
 }
 

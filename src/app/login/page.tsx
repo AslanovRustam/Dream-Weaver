@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { getBrowserClient } from "@/lib/supabase/browser";
@@ -97,8 +98,14 @@ function LoginPageInner() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Dream Weaver Studio</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Войдите чтобы продолжить</p>
+          {/* Same swappable logo as the header — shows the text wordmark until
+              public/brand/logo.svg exists, then the image. */}
+          <BrandLogo
+            className="mx-auto h-9"
+            alt="Dream Weaver Studio"
+            fallback={<h1 className="text-2xl font-semibold tracking-tight">Dream Weaver Studio</h1>}
+          />
+          <p className="mt-2 text-sm text-muted-foreground">Войдите чтобы продолжить</p>
         </div>
 
         {searchParams.get("error") ? (
@@ -374,7 +381,7 @@ function ForgotPasswordInline({
                 setBusy(true);
                 setErr("");
                 try {
-                  await fetch("/api/auth/forgot-password", {
+                  const res = await fetch("/api/auth/forgot-password", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -382,7 +389,17 @@ function ForgotPasswordInline({
                       redirect_to: new URL("/reset-password", window.location.origin).toString(),
                     }),
                   });
-                  setDone(true);
+                  // Only claim success on a real 2xx. Rate-limits (429) and
+                  // server errors resolve without throwing, so without this
+                  // check the UI told users to wait for an email that was
+                  // never sent. The neutral success copy stays enumeration-safe.
+                  if (res.ok) {
+                    setDone(true);
+                  } else if (res.status === 429) {
+                    setErr("Слишком много попыток. Подождите пару минут и попробуйте снова.");
+                  } else {
+                    setErr("Не удалось отправить письмо. Попробуйте позже.");
+                  }
                 } catch {
                   setErr("Не удалось отправить письмо. Проверьте соединение и попробуйте снова.");
                 } finally {

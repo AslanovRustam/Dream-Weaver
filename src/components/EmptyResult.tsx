@@ -18,7 +18,10 @@ export function EmptyResult({
   return (
     <div className="flex w-full flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 max-lg:min-h-[360px]">
       <div className="max-w-xs text-center">
-        <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface)] text-accent-green">
+        {/* Violet "anticipation" accent for the pre-generation state — the lime
+            is reserved for the Generate action, so the empty column carries the
+            secondary accent + a soft violet glow. */}
+        <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--violet-tint)] text-brand-violet shadow-glow-violet">
           {icon}
         </span>
         <h2 className="ds-h4">{title}</h2>
