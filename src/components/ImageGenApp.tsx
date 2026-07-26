@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useGeneration } from "@/lib/generation-context";
+import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
 
@@ -216,6 +217,16 @@ export function ImageGenApp() {
   // Re-pressing "Сгенерировать" (master gen) still creates a fresh card.
   const [loadedCardId, setLoadedCardId] = useState<string | null>(null);
   const [loadedCardName, setLoadedCardName] = useState<string | null>(null);
+
+  // Warn on tab close / navigation when a freshly generated banner isn't saved
+  // to a history card yet — Playable and Video already do this; Banner didn't,
+  // so closing the tab silently lost the result. A banner loaded from history
+  // (loadedCardId) is already persisted, so it doesn't count as unsaved.
+  useEffect(() => {
+    const unsaved = imageUrl !== null && !loadedCardId;
+    setUnsavedWork(unsaved ? "banner" : null);
+    return () => setUnsavedWork(null);
+  }, [imageUrl, loadedCardId]);
   // Preset the loaded card was originally created with. If the user
   // switches the preset to anything different after loading, we treat
   // the next resize batch as a NEW card so the new tiles don't bleed
