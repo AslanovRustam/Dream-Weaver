@@ -126,6 +126,35 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
   }
 }
 
+// Cap how many landing drafts we keep in localStorage. Each generation minted a
+// new dw:landingProject:<id> entry (with a possibly-large base64 hero) and
+// nothing ever pruned them, so storage grew unbounded until quota errors made
+// edits silently stop saving. Keep the newest N, drop the rest.
+const LANDING_PROJECT_PREFIX = "dw:landingProject:";
+const MAX_LANDING_PROJECTS = 20;
+
+function pruneLandingProjects() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(LANDING_PROJECT_PREFIX)) keys.push(k);
+    }
+    if (keys.length <= MAX_LANDING_PROJECTS) return;
+    // The id is a base36 timestamp — oldest first after numeric sort.
+    keys.sort(
+      (a, b) =>
+        parseInt(a.slice(LANDING_PROJECT_PREFIX.length), 36) -
+        parseInt(b.slice(LANDING_PROJECT_PREFIX.length), 36),
+    );
+    keys
+      .slice(0, keys.length - MAX_LANDING_PROJECTS)
+      .forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    /* storage unavailable — ignore */
+  }
+}
+
 export function LandingGenApp() {
   const { isGuest, openGate } = useAuthGate();
   const [templateId, setTemplateId] = useState(() => {
@@ -302,13 +331,14 @@ export function LandingGenApp() {
       };
       const projectId = Date.now().toString(36);
       window.localStorage.setItem(
-        `dw:landingProject:${projectId}`,
+        `${LANDING_PROJECT_PREFIX}${projectId}`,
         JSON.stringify({
           input: inputObj,
           languages: [normalizeLandingLang(language)],
           overridesByLang: {},
         }),
       );
+      pruneLandingProjects(); // keep storage bounded
       router.push(`/landing/editor/${projectId}`);
     } catch {
       setStatus("idle");
