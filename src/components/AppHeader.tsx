@@ -480,10 +480,10 @@ export function AppHeader() {
                 asChild
                 className="text-foreground focus:bg-white/10 focus:text-foreground md:hidden"
               >
-                <a href="mailto:support@clickable.agency">
+                <Link href="/help">
                   <HelpCircle className="mr-2 h-4 w-4" />
                   Помощь и поддержка
-                </a>
+                </Link>
               </DropdownMenuItem>
               {isAdmin ? (
                 <DropdownMenuItem
@@ -981,16 +981,16 @@ function HelpMenu() {
           <span className="ds-h4">Помощь</span>
         </div>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <a href="#" className="flex items-center gap-2 text-sm">
+          <Link href="/help" className="flex items-center gap-2 text-sm">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
             База знаний и FAQ
-          </a>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <a href="mailto:support@clickable.agency" className="flex items-center gap-2 text-sm">
+          <Link href="/help#contact" className="flex items-center gap-2 text-sm">
             <Mail className="h-4 w-4 text-muted-foreground" />
             Написать в поддержку
-          </a>
+          </Link>
         </DropdownMenuItem>
         <div className="px-2 pb-1 pt-1.5 ds-caption">support@clickable.agency</div>
       </DropdownMenuContent>
