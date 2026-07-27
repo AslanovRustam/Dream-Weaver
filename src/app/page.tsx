@@ -193,8 +193,7 @@ function SectionTile({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
 
       {section.id === "banner" ? (
-        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-[color:var(--violet-400)]/50 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-[color:var(--violet-400)] shadow-glow-violet">
-          <Sparkles className="h-3 w-3" />
+        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
           Рекомендуем начать
         </span>
       ) : null}
@@ -571,11 +570,12 @@ export default function HubPage() {
               for returning users, and points at the tools right below it. */}
           {showOnboarding ? (
             <div
-              className="hub-in mt-6 flex items-center gap-3 rounded-2xl border border-[color:var(--brand-violet)]/25 bg-[color:var(--brand-violet)]/[0.06] p-4 text-left"
+              className="hub-in mt-6 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
               style={{ "--d": "90ms" } as React.CSSProperties}
             >
-              {/* Brand-gradient icon tile (lime→violet) — the signature blend. */}
-              <span className="ds-grad-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[color:var(--text-on-accent)] shadow-glow-violet">
+              {/* Single-accent lime icon tile (the system's feature-icon tile) —
+                  no two-tone gradient, which isn't a system pattern for icons. */}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
                 <Sparkles className="h-4 w-4" />
               </span>
               <p className="text-sm text-muted-foreground">
