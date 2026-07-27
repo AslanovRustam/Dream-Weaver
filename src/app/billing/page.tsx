@@ -15,8 +15,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, Sparkles, X } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/lib/auth-context";
+
+// Top-ups currently go through support (payment isn't wired yet) — the CTAs
+// route here so a click is never a dead no-op.
+const SUPPORT_MAILTO = "mailto:support@clickable.agency?subject=Оплата%20тарифа%20Dream%20Weaver";
 
 type Audience = "individual" | "business";
 
@@ -277,23 +283,34 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
     <div
       className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 transition sm:p-7 ${
         popular
-          ? "border-accent-green shadow-[0_0_50px_rgba(198,255,61,0.10)] md:scale-[1.04]"
+          ? // Premium plan = the violet emphasis surface (system: violet carries
+            // emphasis). Violet glow + violet-tinted fill; the lime CTA inside
+            // gives the signature lime+violet pairing.
+            "border-[color:var(--brand-violet)]/55 shadow-[0_0_60px_rgba(123,92,255,0.22)] md:scale-[1.04]"
           : "border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
       }`}
       style={
         popular
           ? {
               background:
-                "linear-gradient(180deg, rgba(198,255,61,0.14) 0%, rgba(198,255,61,0.05) 20%, rgba(18,20,26,0.92) 52%, var(--bg-surface) 100%)",
+                "linear-gradient(180deg, rgba(123,92,255,0.20) 0%, rgba(123,92,255,0.06) 22%, rgba(18,20,26,0.92) 52%, var(--bg-surface) 100%)",
             }
           : undefined
       }
     >
       {popular ? (
-        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent">
-          <Sparkles className="h-3.5 w-3.5" />
-          Популярный выбор
-        </span>
+        <>
+          {/* Violet top edge — the premium plan stays a single-accent violet
+              surface (no lime in the outline). */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-[color:var(--brand-violet)]"
+          />
+          <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[color:var(--violet-600)] px-3 py-1 text-xs font-semibold text-white shadow-glow-violet">
+            <Sparkles className="h-3.5 w-3.5" />
+            Популярный выбор
+          </span>
+        </>
       ) : null}
 
       {/* Название + подзаголовок */}
@@ -335,19 +352,37 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
 
       {/* CTA + экономия за год (только на годовой оплате) */}
       <div className="space-y-3">
-        {/* TODO: подключить оплату. Пока это UI без логики списания/начисления. */}
-        <button
-          type="button"
-          className={`w-full rounded-lg px-5 py-3 text-sm font-semibold transition max-sm:min-h-12 ${
+        {/* Payment isn't wired yet. Rather than a dead click: the enterprise
+            plan opens a real support mailto; the rest acknowledge with a toast
+            that routes to support (where top-ups actually happen today). */}
+        {(() => {
+          const cls = `block w-full rounded-lg px-5 py-3 text-center text-sm font-semibold transition max-sm:min-h-12 ${
             popular
               ? "bg-accent-green text-on-accent hover:bg-[var(--accent-hover)]"
-              : // Desktop: outline. Mobile: solid white fill + dark text — the
-                // outline reads poorly on a small dark screen.
-                "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-on-accent max-sm:hover:bg-white/90"
-          }`}
-        >
-          {plan.cta ?? "Выбрать план"}
-        </button>
+              : "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-on-accent max-sm:hover:bg-white/90"
+          }`;
+          if (custom) {
+            return (
+              <a href={SUPPORT_MAILTO} className={cls}>
+                {plan.cta ?? "Связаться с нами"}
+              </a>
+            );
+          }
+          return (
+            <button
+              type="button"
+              className={cls}
+              onClick={() =>
+                toast("Оплата скоро будет доступна", {
+                  description: "Сейчас пополнение — через поддержку, мы поможем подобрать тариф.",
+                  action: { label: "Написать", onClick: () => window.open(SUPPORT_MAILTO) },
+                })
+              }
+            >
+              {plan.cta ?? "Выбрать план"}
+            </button>
+          );
+        })()}
         {!custom ? (
           // Слот экономии держит место, чтобы карточки не прыгали по высоте при
           // переключении периода — но только на десктопе, где они стоят в ряд и

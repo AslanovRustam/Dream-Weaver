@@ -301,7 +301,17 @@ export function VideoGenApp() {
     toast("Генерация отменена");
   };
 
+  // Regenerate replaces a finished video — confirm first. First-time generation
+  // (no result yet) goes straight through with no prompt.
+  const regenerate = () => {
+    if (result && !window.confirm("Перегенерировать? Текущее видео будет заменено.")) return;
+    onGenerate();
+  };
+
   const removeResult = () => {
+    // Confirm before destroying a finished, unsaved video — matches Banner /
+    // Landing; Video was deleting on a single click.
+    if (result && !window.confirm("Удалить готовое видео? Действие необратимо.")) return;
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");
@@ -310,17 +320,19 @@ export function VideoGenApp() {
 
   const download = () => {
     if (!result) return;
-    toast.success("Видео скачано (MP4)");
+    // MP4 export isn't wired yet — don't claim a file was saved. Honest toast
+    // instead of the previous fake "Видео скачано".
+    toast("Экспорт MP4 скоро будет доступен", {
+      description: "Рендер видео подключается — предпросмотр уже работает.",
+    });
   };
 
   const getLink = async () => {
-    const url = `https://share.dreamweaver.studio/v/${genId}${normalize(previewLang || language)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Ссылка на видео скопирована");
-    } catch {
-      toast("Ссылка на видео", { description: url });
-    }
+    // The share artifact lives only in localStorage, so a public link resolves
+    // to nothing — don't copy a dead URL and claim success.
+    toast("Публичная ссылка скоро", {
+      description: "Пока поделиться можно будет экспортом файла.",
+    });
   };
 
   const allLangs = [normalize(language), ...extraLangs];
@@ -986,7 +998,7 @@ export function VideoGenApp() {
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
-              onClick={onGenerate}
+              onClick={regenerate}
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1019,7 +1031,7 @@ export function VideoGenApp() {
 
           <button
             type="button"
-            onClick={onGenerate}
+            onClick={regenerate}
             disabled={!canGenerate}
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
           >
@@ -1097,7 +1109,7 @@ export function VideoGenApp() {
                     className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
                     <DropdownMenuItem
-                      onClick={onGenerate}
+                      onClick={regenerate}
                       className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                     >
                       <RefreshCw className="h-4 w-4 text-muted-foreground" />

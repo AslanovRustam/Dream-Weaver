@@ -23,25 +23,27 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const OG_IMAGE =
-  "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e6965c32-536c-42f6-b3a1-39ebabffba82/id-preview-e561ceb0--ceb6de31-fc7c-43c6-abf0-df9f5110ead5.lovable.app-1778570053835.png";
+// Product identity for the browser tab and social unfurls. The scaffold shipped
+// "Lovable App" + a Lovable-hosted OG image here, so every shared link marketed
+// the wrong product. No branded OG image asset exists yet — omitted rather than
+// pointing at the wrong one; drop a real one in and add `images` back.
+const DESCRIPTION =
+  "Генерация рекламных креативов для iGaming: баннеры, лендинги, плейблы и видео — на базе ИИ.";
 
 export const metadata: Metadata = {
-  title: "Lovable App",
-  description: "Dream Weaver Studio generates images from text prompts using AI models.",
-  authors: [{ name: "Lovable" }],
+  title: "Dream Weaver Studio",
+  description: DESCRIPTION,
+  applicationName: "Dream Weaver Studio",
   openGraph: {
-    title: "Lovable App",
-    description: "Dream Weaver Studio generates images from text prompts using AI models.",
+    title: "Dream Weaver Studio",
+    description: DESCRIPTION,
     type: "website",
-    images: [OG_IMAGE],
+    siteName: "Dream Weaver Studio",
   },
   twitter: {
     card: "summary",
-    site: "@Lovable",
-    title: "Lovable App",
-    description: "Dream Weaver Studio generates images from text prompts using AI models.",
-    images: [OG_IMAGE],
+    title: "Dream Weaver Studio",
+    description: DESCRIPTION,
   },
 };
 

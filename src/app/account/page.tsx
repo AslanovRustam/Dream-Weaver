@@ -434,7 +434,16 @@ function SubscriptionCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background/40 p-5">
+        {/* Premium upsell = violet emphasis surface (system: violet carries
+            emphasis) with a soft violet glow; the lime "Улучшить план" CTA
+            inside keeps the lime+violet pairing. */}
+        <div
+          className="flex items-center justify-between gap-4 rounded-xl border border-[color:var(--brand-violet)]/30 p-5 shadow-[0_0_36px_-10px_rgba(123,92,255,0.5)]"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(123,92,255,0.16) 0%, rgba(123,92,255,0.04) 55%, var(--bg-surface) 100%)",
+          }}
+        >
           <div className="min-w-0">
             <p className="text-lg font-semibold">Бесплатный план</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -580,14 +589,17 @@ function PasswordCard() {
   );
 }
 
-// Assumed size of a full monthly credit pool — used for the "X / N" counter
-// and the progress bar (no real quota exists in the data model yet).
-const MAX_CREDIT_POOL = 10;
+// Balance at/below which the card nudges a top-up (mirrors the header chip).
+const LOW_CREDIT_THRESHOLD = 20;
 
 function CreditsCard({ balance }: { balance: number | string }) {
   const n = typeof balance === "number" ? balance : Number(balance) || 0;
   const label = n.toFixed(2).replace(/\.00$/, "");
-  const pct = Math.max(0, Math.min(100, Math.round((n / MAX_CREDIT_POOL) * 100)));
+  // No "/ N" and no progress bar: there is no plan quota in the model, so a
+  // fixed denominator read as nonsense once a balance exceeded it. Show the raw
+  // balance; turn amber and prompt a top-up when it runs low or hits zero.
+  const low = n <= LOW_CREDIT_THRESHOLD;
+  const empty = n <= 0;
   return (
     <Card className="flex min-h-[190px] flex-col">
       <CardHeader className="pb-0">
@@ -597,29 +609,37 @@ function CreditsCard({ balance }: { balance: number | string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col justify-center pt-4">
-        {/* Внутренняя панель: счётчик «осталось X / N» + кнопка + прогресс-бар. */}
-        <div className="rounded-xl border border-border bg-background/40 p-5">
+        <div
+          className={`rounded-xl border p-5 ${
+            low
+              ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10"
+              : "border-border bg-background/40"
+          }`}
+        >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">Осталось в этом месяце</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
+              <p className="text-sm text-muted-foreground">Текущий баланс</p>
+              <p
+                className={`mt-1 text-2xl font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : ""}`}
+              >
                 {label}
-                <span className="text-muted-foreground"> / {MAX_CREDIT_POOL}</span>
+                <span className="text-base font-normal text-muted-foreground"> кр.</span>
               </p>
             </div>
-            <Button asChild variant="outline" className="shrink-0">
+            <Button asChild variant={low ? "default" : "outline"} className="shrink-0">
               <Link href="/billing">
                 <Plus className="h-4 w-4" />
                 Купить кредиты
               </Link>
             </Button>
           </div>
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-accent-green transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+          {low ? (
+            <p className="mt-3 text-sm text-[color:var(--status-premium)]">
+              {empty
+                ? "Кредиты закончились — пополните, чтобы продолжить генерацию."
+                : "Кредиты заканчиваются — пополните баланс заранее."}
+            </p>
+          ) : null}
         </div>
       </CardContent>
     </Card>

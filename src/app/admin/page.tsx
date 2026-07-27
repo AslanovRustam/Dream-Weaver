@@ -986,6 +986,9 @@ function PricingTab() {
       setRows(data.items);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
+      // Resolve rows on error so the "Загрузка…" text clears and the error
+      // shows alone (it was rendering underneath a stuck spinner).
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -1108,6 +1111,8 @@ function SettingsTab() {
       setDraft(d);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
+      // Resolve rows on error so "Загрузка…" clears and the error shows alone.
+      setRows([]);
     } finally {
       setLoading(false);
     }
