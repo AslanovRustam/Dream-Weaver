@@ -191,9 +191,19 @@ function ProjectsTab() {
     patch(p.id, (x) => ({ ...x, favorite: !x.favorite }));
     if (p.real) apiJson(`/api/history/${p.id}`, { method: "PATCH", json: { is_favorite: !p.favorite } }).catch(() => {});
   };
-  const rename = (id: string, name: string) => patch(id, (x) => ({ ...x, name: name.trim() || x.name }));
+  const rename = (id: string, name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    const target = projects?.find((x) => x.id === id);
+    patch(id, (x) => ({ ...x, name: clean }));
+    // Persist for real cards (was local-only, so renames reverted on reload).
+    if (target?.real) apiJson(`/api/history/${id}`, { method: "PATCH", json: { name: clean } }).catch(() => {});
+  };
   const duplicate = (p: Project) => {
-    const copy: Project = { ...p, id: `${p.id}-copy-${p.name.length}${p.updatedAt.slice(-4)}`, name: `${p.name} (копия)`, updatedAt: new Date().toISOString(), favorite: false, real: false };
+    // Unique id — the old `${id}-copy-${name.length}${updatedAt slice}` scheme
+    // collided when the same card was duplicated twice (same length + tail),
+    // producing duplicate React keys that made later actions hit both copies.
+    const copy: Project = { ...p, id: `${p.id}-copy-${crypto.randomUUID().slice(0, 8)}`, name: `${p.name} (копия)`, updatedAt: new Date().toISOString(), favorite: false, real: false };
     setProjects((prev) => (prev ? [copy, ...prev] : prev));
     toast.success("Проект дублирован");
   };
@@ -203,7 +213,14 @@ function ProjectsTab() {
     if (p.real) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: [p.id] } }).catch(() => {});
     toast("Перемещено в корзину");
   };
-  const restore = (p: Project) => { patch(p.id, (x) => ({ ...x, deleted: false })); toast.success("Восстановлено"); };
+  const restore = (p: Project) => {
+    patch(p.id, (x) => ({ ...x, deleted: false }));
+    // Persist for real cards (restore endpoint takes one card_id).
+    if (p.real) apiJson("/api/history/restore", { method: "POST", json: { card_id: p.id } }).catch(() => {});
+    toast.success("Восстановлено");
+  };
+  // Permanent delete has no backend endpoint yet (only soft bulk-delete +
+  // restore exist), so this stays local until one lands.
   const hardDelete = (p: Project) => {
     setProjects((prev) => (prev ? prev.filter((x) => x.id !== p.id) : prev));
     setSelected((s) => { const n = new Set(s); n.delete(p.id); return n; });
@@ -215,15 +232,55 @@ function ProjectsTab() {
     else toast("Скачивание файла…");
   };
   const openProject = (p: Project) => {
-    const route = SECTION_BY_ID.get(p.type)!.route;
-    router.push(p.real && p.type === "banner" ? `${route}?card=${p.id}` : route);
+    // Only banners can be reopened with their saved state (?card= restore).
+    // Landing/playable/video have no restore flow yet, so routing to the bare
+    // generator opened a BLANK screen that looked like the project failed to
+    // load. Be honest instead of misleading.
+    if (p.real && p.type === "banner") {
+      router.push(`${SECTION_BY_ID.get(p.type)!.route}?card=${p.id}`);
+      return;
+    }
+    if (p.real) {
+      toast("Открытие проектов этого типа скоро — пока доступны баннеры");
+      return;
+    }
+    // Mock/demo cards: just open the matching generator fresh.
+    router.push(SECTION_BY_ID.get(p.type)!.route);
   };
+  // Read-only card detail (hero + resizes). Banner-only for now, which is also
+  // the only entry point into /history/[cardId] — that page was otherwise
+  // unreachable except by typing the URL.
+  const openCard = (p: Project) => router.push(`/history/${p.id}`);
 
   const bulkTrash = () => {
     const ids = new Set(selected);
+    const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
     setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: true } : p)) : prev));
     setSelected(new Set());
+    // Persist for real cards (was optimistic-only, so a bulk trash reverted on reload).
+    if (realIds.length) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: realIds } }).catch(() => {});
     toast(`Перемещено в корзину: ${ids.size}`);
+  };
+
+  // Trash-bucket bulk actions (the bar previously offered only "В корзину" even
+  // inside the trash, where it was a no-op).
+  const bulkRestore = () => {
+    const ids = new Set(selected);
+    const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
+    setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: false } : p)) : prev));
+    setSelected(new Set());
+    // Restore endpoint takes one card_id — fire per real card.
+    realIds.forEach((id) =>
+      apiJson("/api/history/restore", { method: "POST", json: { card_id: id } }).catch(() => {}),
+    );
+    toast.success(`Восстановлено: ${ids.size}`);
+  };
+  const bulkHardDelete = () => {
+    const ids = new Set(selected);
+    setProjects((prev) => (prev ? prev.filter((p) => !ids.has(p.id)) : prev));
+    setSelected(new Set());
+    // No permanent-delete endpoint yet — local only.
+    toast(`Удалено навсегда: ${ids.size}`);
   };
 
   const isMobile = useIsMobile();
@@ -288,7 +345,7 @@ function ProjectsTab() {
                   p={p}
                   selected={selected.has(p.id)}
                   onSelect={() => toggleSel(setSelected, p.id)}
-                  actions={{ openProject, duplicate, rename, download, trash, restore, hardDelete, toggleFav }}
+                  actions={{ openProject, openCard, duplicate, rename, download, trash, restore, hardDelete, toggleFav }}
                 />
               ))}
             </div>
@@ -300,7 +357,7 @@ function ProjectsTab() {
                   p={p}
                   selected={selected.has(p.id)}
                   onSelect={() => toggleSel(setSelected, p.id)}
-                  actions={{ openProject, duplicate, rename, download, trash, restore, hardDelete, toggleFav }}
+                  actions={{ openProject, openCard, duplicate, rename, download, trash, restore, hardDelete, toggleFav }}
                 />
               ))}
             </div>
@@ -314,13 +371,34 @@ function ProjectsTab() {
         <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
           <div className="flex items-center gap-2 rounded-full border border-border bg-popover px-3 py-2 shadow-xl">
             <span className="px-1 text-sm">Выделено: {selected.size}</span>
-            <button
-              type="button"
-              onClick={bulkTrash}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--status-error)]/15 px-3 py-1.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/25"
-            >
-              <Trash2 className="h-4 w-4" /> В корзину
-            </button>
+            {bucket === "trash" ? (
+              // In the trash bucket the useful bulk actions are restore and
+              // permanent delete — not another "В корзину" (which was a no-op).
+              <>
+                <button
+                  type="button"
+                  onClick={bulkRestore}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-accent-green/15 px-3 py-1.5 text-sm text-accent-green transition hover:bg-accent-green/25"
+                >
+                  <RotateCcw className="h-4 w-4" /> Восстановить
+                </button>
+                <button
+                  type="button"
+                  onClick={bulkHardDelete}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--status-error)]/15 px-3 py-1.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/25"
+                >
+                  <Trash2 className="h-4 w-4" /> Удалить навсегда
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={bulkTrash}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--status-error)]/15 px-3 py-1.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/25"
+              >
+                <Trash2 className="h-4 w-4" /> В корзину
+              </button>
+            )}
             <button type="button" onClick={() => setSelected(new Set())} aria-label="Снять выделение" className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
@@ -358,6 +436,7 @@ function ProjectsTab() {
 
 type CardActions = {
   openProject: (p: Project) => void;
+  openCard: (p: Project) => void;
   duplicate: (p: Project) => void;
   rename: (id: string, name: string) => void;
   download: (p: Project) => void;
@@ -519,6 +598,11 @@ function RowMenu({ p, onRename, actions }: { p: Project; onRename: () => void; a
       ]
     : [
         { label: "Открыть", icon: <ArrowLeft className="h-4 w-4 rotate-180" />, onClick: () => actions.openProject(p) },
+        // Read-only card detail exists only for banners today; it is also the
+        // sole entry point into the otherwise-orphaned /history/[cardId] page.
+        ...(p.real && p.type === "banner"
+          ? [{ label: "Открыть карточку", icon: <LayoutGrid className="h-4 w-4" />, onClick: () => actions.openCard(p) }]
+          : []),
         { label: "Дублировать", icon: <Copy className="h-4 w-4" />, onClick: () => actions.duplicate(p) },
         { label: "Переименовать", icon: <Pencil className="h-4 w-4" />, onClick: onRename },
         { label: "Скачать", icon: <Download className="h-4 w-4" />, onClick: () => actions.download(p) },
