@@ -415,12 +415,17 @@ function SupportForm() {
 
   const onPickFile = (f: File | null) => {
     if (!f) return;
+    // On reject, clear the native input too — a file input's onChange only fires
+    // when the value CHANGES, so without this, re-picking the same file after a
+    // rejection would be a silent no-op.
     if (!f.type.startsWith("image/")) {
       setError("Скриншот должен быть изображением (PNG или JPG).");
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     if (f.size > 5 * 1024 * 1024) {
       setError("Файл больше 5 МБ — прикрепите изображение поменьше.");
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     setError("");
