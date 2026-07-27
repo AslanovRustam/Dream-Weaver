@@ -300,11 +300,11 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
     >
       {popular ? (
         <>
-          {/* Signature brand gradient (lime→violet) as a top edge — the
-              system's fingerprint, on a strip that carries no text. */}
+          {/* Violet top edge — the premium plan stays a single-accent violet
+              surface (no lime in the outline). */}
           <span
             aria-hidden
-            className="ds-grad-brand pointer-events-none absolute inset-x-0 top-0 h-1 rounded-t-2xl"
+            className="pointer-events-none absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-[color:var(--brand-violet)]"
           />
           <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[color:var(--violet-600)] px-3 py-1 text-xs font-semibold text-white shadow-glow-violet">
             <Sparkles className="h-3.5 w-3.5" />
