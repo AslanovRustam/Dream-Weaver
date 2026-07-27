@@ -165,15 +165,15 @@ function SectionTile({
     <button
       type="button"
       onClick={onOpen}
-      // The featured tile carries a resting lime glow — the system's cue for
-      // the one highlighted surface on a screen. Border colour lives inside the
-      // ternary (not alongside a base `border-border`) because two competing
-      // border-colour utilities would resolve by stylesheet order, not by the
-      // order they appear here.
-      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left transition duration-200 hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(198,255,61,0.16)] focus:outline-none focus-visible:border-accent-green/60 focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
+      // The featured tile is the violet emphasis surface (system: violet carries
+      // emphasis); the other three keep the lime accent. Border AND hover glow
+      // live inside the ternary so the two treatments never both apply — two
+      // competing hover utilities would resolve by stylesheet order, not by the
+      // order written here.
+      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
         featured
-          ? "min-h-[280px] border-accent-green/25 shadow-[0_0_40px_rgba(198,255,61,0.10)] lg:min-h-0"
-          : "min-h-[168px] border-border lg:min-h-0"
+          ? "min-h-[280px] border-[color:var(--brand-violet)]/35 shadow-[0_0_44px_rgba(123,92,255,0.20)] hover:border-[color:var(--brand-violet)]/70 hover:shadow-[0_0_60px_rgba(123,92,255,0.30)] focus-visible:border-[color:var(--brand-violet)]/70 lg:min-h-0"
+          : "min-h-[168px] border-border hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(198,255,61,0.16)] focus-visible:border-accent-green/60 lg:min-h-0"
       }`}
     >
       {/* Preview fills the tile; scale on hover (ken-burns) + gloss sweep + the
@@ -573,6 +573,8 @@ export default function HubPage() {
               className="hub-in mt-6 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
               style={{ "--d": "90ms" } as React.CSSProperties}
             >
+              {/* Single-accent lime icon tile (the system's feature-icon tile) —
+                  no two-tone gradient, which isn't a system pattern for icons. */}
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
                 <Sparkles className="h-4 w-4" />
               </span>

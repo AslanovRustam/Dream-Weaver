@@ -239,6 +239,17 @@ export function PlayableGenApp() {
     }
   };
 
+  // generatePlayable is a promise (not a timer we can stop), so cancel is a
+  // flag: on cancel we flip it, and the resolved result is discarded. Matches
+  // Video's cancel affordance, which Playable was missing.
+  const genCancelledRef = useRef(false);
+
+  const cancelGenerate = () => {
+    genCancelledRef.current = true;
+    setStatus(result ? "done" : "idle");
+    toast("Генерация отменена");
+  };
+
   const onGenerate = async () => {
     // Guests may configure freely; generating needs an account.
     if (isGuest) {
@@ -254,6 +265,7 @@ export function PlayableGenApp() {
       return;
     }
     persistBrand();
+    genCancelledRef.current = false;
     setStatus("loading");
     setErrorMsg("");
     try {
@@ -277,11 +289,13 @@ export function PlayableGenApp() {
         quizCorrect,
         match3Moves,
       });
+      if (genCancelledRef.current) return; // cancelled while generating — drop it
       setResult(res);
       setGenId((n) => n + 1);
       setStatus("done");
       setMobileTab("result");
     } catch (e) {
+      if (genCancelledRef.current) return;
       setErrorMsg(e instanceof Error ? e.message : "");
       setStatus("error");
     }
@@ -321,10 +335,20 @@ export function PlayableGenApp() {
   };
 
   const removeResult = () => {
+    // Confirm before destroying a finished, unsaved creative — matches Banner
+    // and Landing; Playable was deleting on a single click.
+    if (result && !window.confirm("Удалить готовый плейбл? Действие необратимо.")) return;
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");
     toast("Плейбл удалён");
+  };
+
+  // Regenerate replaces a finished result — confirm first. First-time generation
+  // (no result yet) goes straight through onGenerate with no prompt.
+  const regenerate = () => {
+    if (result && !window.confirm("Перегенерировать? Текущий плейбл будет заменён.")) return;
+    onGenerate();
   };
 
   // Preview frame size from the chosen ratio + device toggle.
@@ -760,7 +784,7 @@ export function PlayableGenApp() {
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
-              onClick={onGenerate}
+              onClick={regenerate}
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -793,7 +817,7 @@ export function PlayableGenApp() {
 
           <button
             type="button"
-            onClick={onGenerate}
+            onClick={regenerate}
             disabled={!canGenerate}
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden"
           >
@@ -809,6 +833,7 @@ export function PlayableGenApp() {
             <GenerationProgress
               title="Собираем плейбл…"
               subtitle="Настраиваем механику и анимацию"
+              onCancel={cancelGenerate}
             />
           ) : status === "error" ? (
             <GenerationErrorCard
@@ -877,7 +902,7 @@ export function PlayableGenApp() {
                     className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
                     <DropdownMenuItem
-                      onClick={onGenerate}
+                      onClick={regenerate}
                       className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                     >
                       <RefreshCw className="h-4 w-4 text-muted-foreground" />
