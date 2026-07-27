@@ -278,16 +278,23 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
   const annualPerMonth = custom ? null : Math.round((plan.monthly as number) * 0.8);
   const current = annual ? annualPerMonth : plan.monthly;
   const savings = custom ? 0 : ((plan.monthly as number) - (annualPerMonth as number)) * 12;
+  // Split "300 кредитов/мес" → amount + period so "/мес" always sits on its own
+  // line. Every card's credits block is then the same height (два ряда), and the
+  // CTA below never jumps between packages.
+  const slashIdx = plan.credits.indexOf("/");
+  const creditAmount = slashIdx >= 0 ? plan.credits.slice(0, slashIdx) : plan.credits;
+  const creditPeriod = slashIdx >= 0 ? plan.credits.slice(slashIdx + 1) : null;
 
   return (
     <div
-      className={`relative flex h-full flex-col gap-6 rounded-2xl border p-6 transition sm:p-7 ${
+      className={`relative flex h-full flex-col gap-6 rounded-2xl p-6 transition sm:p-7 md:min-h-[640px] ${
         popular
           ? // Premium plan = the violet emphasis surface (system: violet carries
-            // emphasis). Violet glow + violet-tinted fill; the lime CTA inside
-            // gives the signature lime+violet pairing.
-            "border-[color:var(--brand-violet)]/55 shadow-[0_0_60px_rgba(123,92,255,0.22)] md:scale-[1.04]"
-          : "border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
+            // emphasis). A clean 2px violet border that follows the rounding on
+            // all four corners (no separate top bar), plus a violet glow +
+            // violet-tinted fill; the lime CTA inside keeps the lime+violet pair.
+            "border-2 border-[color:var(--brand-violet)]/70 shadow-[0_0_60px_rgba(123,92,255,0.22)] md:scale-[1.04]"
+          : "border border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
       }`}
       style={
         popular
@@ -299,18 +306,10 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
       }
     >
       {popular ? (
-        <>
-          {/* Violet top edge — the premium plan stays a single-accent violet
-              surface (no lime in the outline). */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-[color:var(--brand-violet)]"
-          />
-          <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[color:var(--violet-600)] px-3 py-1 text-xs font-semibold text-white shadow-glow-violet">
-            <Sparkles className="h-3.5 w-3.5" />
-            Популярный выбор
-          </span>
-        </>
+        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[color:var(--violet-600)] px-3 py-1 text-xs font-semibold text-white shadow-glow-violet">
+          <Sparkles className="h-3.5 w-3.5" />
+          Популярный выбор
+        </span>
       ) : null}
 
       {/* Название + подзаголовок */}
@@ -324,11 +323,20 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         <p className="mt-1 text-sm text-muted-foreground md:min-h-10">{plan.tagline}</p>
       </div>
 
-      {/* Блок кредитов */}
+      {/* Блок кредитов. "/мес" всегда на второй строке, а min-h резервирует две
+          строки — так блок кредитов у всех карточек одной высоты и кнопки ниже
+          не прыгают. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-accent-green" />
-          <span className="text-lg font-semibold">{plan.credits}</span>
+        <div className="flex min-h-12 items-start gap-2">
+          <Sparkles className="mt-1 h-4 w-4 shrink-0 text-accent-green" />
+          <span className="text-lg font-semibold leading-snug">
+            {creditAmount}
+            {creditPeriod ? (
+              <span className="block text-sm font-medium text-muted-foreground">
+                /{creditPeriod}
+              </span>
+            ) : null}
+          </span>
         </div>
         <ul className="mt-2 space-y-1 pl-6 text-sm text-muted-foreground">
           {plan.creditNotes.map((n) => (
