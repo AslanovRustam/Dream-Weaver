@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Clock, LayoutGrid, Play, Search, Sparkles, X } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  Clock,
+  HelpCircle,
+  LayoutGrid,
+  Mail,
+  Play,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { MobileScrim } from "@/components/MobileScrim";
@@ -170,27 +182,43 @@ function SectionTile({
       // live inside the ternary so the two treatments never both apply — two
       // competing hover utilities would resolve by stylesheet order, not by the
       // order written here.
-      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
+      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left shadow-[0_10px_34px_-14px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
         featured
-          ? "min-h-[280px] border-[color:var(--brand-violet)]/35 shadow-[0_0_44px_rgba(123,92,255,0.20)] hover:border-[color:var(--brand-violet)]/70 hover:shadow-[0_0_60px_rgba(123,92,255,0.30)] focus-visible:border-[color:var(--brand-violet)]/70 lg:min-h-0"
-          : "min-h-[168px] border-border hover:border-accent-green/60 hover:shadow-[0_0_50px_rgba(198,255,61,0.16)] focus-visible:border-accent-green/60 lg:min-h-0"
+          ? "min-h-[280px] border-[color:var(--brand-violet)]/40 shadow-[0_16px_48px_-16px_rgba(123,92,255,0.40)] hover:border-[color:var(--brand-violet)]/75 hover:shadow-[0_22px_66px_-16px_rgba(123,92,255,0.55)] focus-visible:border-[color:var(--brand-violet)]/75 lg:min-h-0"
+          : "min-h-[168px] border-border hover:border-accent-green/70 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.40)] focus-visible:border-accent-green/60 lg:min-h-0"
       }`}
     >
-      {/* Preview fills the tile; scale on hover (ken-burns) + gloss sweep + the
-          per-tile loop (playable/video) are the "comes alive" effect. */}
+      {/* Live preview fills the tile; ken-burns scale on hover + gloss sweep +
+          the per-tile loop (playable/video) are the "comes alive" effect. */}
       <div className="absolute inset-0">
-        <div className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.06]">
+        <div className="h-full w-full transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
           <TilePreview sectionId={section.id} />
         </div>
       </div>
-      {/* Unified brand grade — a consistent lime sheen (top-right) so all four
-          previews, photo or illustration, read as one visual system. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(198,255,61,0.12)]" />
+      {/* Brand-tinted sheen (top-right): violet on the featured tile, lime on the
+          rest — so each preview carries its section's accent. */}
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent ${
+          featured ? "to-[rgba(123,92,255,0.18)]" : "to-[rgba(198,255,61,0.12)]"
+        }`}
+      />
+      {/* Glassy top highlight — a thin light gradient for depth. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/[0.08] to-transparent" />
       <span className="hub-shine" aria-hidden />
-      {/* Darkening overlay: transparent at the top (preview stays visible), dark
-          at the bottom where the label + button sit — so text is legible over
-          ANY preview, no matter how bright. */}
+      {/* Darkening overlay: clear at the top (preview stays visible), dark at the
+          bottom where the label + button sit — legible over ANY preview. */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
+      {/* Brand halo behind the footer — colour depth without hurting contrast. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2"
+        style={{
+          background: featured
+            ? "radial-gradient(115% 90% at 16% 120%, rgba(123,92,255,0.45), transparent 58%)"
+            : "radial-gradient(125% 100% at 14% 122%, rgba(198,255,61,0.22), transparent 60%)",
+        }}
+      />
+      {/* Crisp inset edge. */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.07]" />
 
       {section.id === "banner" ? (
         <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
@@ -205,27 +233,39 @@ function SectionTile({
         className={`relative mt-auto flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2.5 p-4"}`}
       >
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Icon className={`shrink-0 text-accent-green ${featured ? "h-5 w-5" : "h-4 w-4"}`} />
+          <div className="flex items-center gap-2.5">
+            {/* Accent icon chip: violet on the featured tile, lime on the rest —
+                a small brand pop that anchors the title's hierarchy. */}
+            <span
+              className={`flex shrink-0 items-center justify-center rounded-lg backdrop-blur-sm ${
+                featured
+                  ? "h-8 w-8 bg-[color:var(--brand-violet)]/25 text-[color:var(--violet-400)] ring-1 ring-[color:var(--brand-violet)]/40"
+                  : "h-7 w-7 bg-accent-green/20 text-accent-green ring-1 ring-accent-green/30"
+              }`}
+            >
+              <Icon className={featured ? "h-[18px] w-[18px]" : "h-4 w-4"} />
+            </span>
             <h3
-              className={`truncate font-semibold text-white ${featured ? "text-xl lg:text-2xl" : "text-base"}`}
+              className={`truncate font-semibold tracking-tight text-white ${featured ? "text-xl lg:text-2xl" : "text-base"}`}
             >
               {section.title}
             </h3>
           </div>
-          <p className={`mt-1 text-white/80 ${featured ? "text-sm" : "truncate text-xs"}`}>
+          <p className={`mt-1.5 text-white/80 ${featured ? "text-sm" : "truncate text-xs"}`}>
             {section.description}
           </p>
         </div>
-        {/* Clearly-active primary button on every tile (uniform style, smaller
-            footprint on the non-featured ones). */}
+        {/* Premium primary button on every tile — lime CTA that brightens and
+            picks up a lime glow on hover; the arrow nudges forward. */}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green text-sm font-semibold text-on-accent shadow-sm transition group-hover:bg-[var(--accent-hover)] ${
-            featured ? "px-5 py-2.5" : "px-3.5 py-2"
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:bg-[var(--accent-hover)] group-hover:shadow-glow-lime ${
+            featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
           }`}
         >
           {section.cta}
-          <ArrowRight className={featured ? "h-4 w-4" : "h-3.5 w-3.5"} />
+          <ArrowRight
+            className={`transition-transform duration-200 group-hover:translate-x-0.5 ${featured ? "h-4 w-4" : "h-3.5 w-3.5"}`}
+          />
         </span>
       </div>
     </button>
@@ -268,8 +308,8 @@ function plural(n: number, one: string, few: string, many: string) {
 // as a workspace with progress rather than a catalogue of buttons.
 function StatCard({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-[var(--bg-surface)] px-3 py-3 sm:gap-3 sm:px-4">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
+    <div className="flex items-center gap-2.5 rounded-2xl border border-accent-green/20 bg-gradient-to-br from-accent-green/[0.08] to-[var(--bg-surface)] px-3 py-3 shadow-[0_6px_20px_-12px_rgba(198,255,61,0.45)] sm:gap-3 sm:px-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green ring-1 ring-accent-green/25">
         {icon}
       </span>
       <span className="min-w-0 text-left">
@@ -419,7 +459,7 @@ export default function HubPage() {
         <div className="ds-dotgrid ds-dotgrid-fade absolute inset-0 opacity-[0.14]" />
       </div>
 
-      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:py-12">
+      <div className="relative mx-auto max-w-6xl px-4 py-6 sm:py-8">
         {/* ── Greeting + search ─────────────────────────────────────────── */}
         {/* .hub-in animates transform with fill-mode:both, which leaves this
             element owning a stacking context forever — so the search dropdown
@@ -439,8 +479,8 @@ export default function HubPage() {
           {/* Same shared scrim every other dropdown in the product uses — here
               on desktop too, so the results separate from the tiles behind. */}
           <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
-          <div ref={searchRef} className="relative mt-5 text-left">
-            <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
+          <div ref={searchRef} className="relative mt-4 text-left">
+            <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 shadow-[0_8px_28px_-18px_rgba(0,0,0,0.8)] transition focus-within:border-accent-green focus-within:shadow-[0_0_0_4px_rgba(198,255,61,0.10)] focus-within:ring-1 focus-within:ring-accent-green">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
               <input
                 type="text"
@@ -555,7 +595,7 @@ export default function HubPage() {
               too was pure duplication. ─────────────────────────────────────── */}
           {showStats ? (
             <div
-              className="hub-in mt-6 flex justify-center"
+              className="hub-in mt-5 flex justify-center"
               style={{ "--d": "60ms" } as React.CSSProperties}
             >
               <StatCard
@@ -570,7 +610,7 @@ export default function HubPage() {
               for returning users, and points at the tools right below it. */}
           {showOnboarding ? (
             <div
-              className="hub-in mt-6 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
+              className="hub-in mt-5 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
               style={{ "--d": "90ms" } as React.CSSProperties}
             >
               {/* Single-accent lime icon tile (the system's feature-icon tile) —
@@ -589,10 +629,13 @@ export default function HubPage() {
         </div>
 
         {/* ── Quick start (asymmetric: banner featured) ─────────────────── */}
-        <div className="mt-10">
+        {/* Large bottom margin sets a clear break before "Недавние проекты"
+            (primary action → secondary content). A compact top margin and a
+            shorter grid keep all four tiles inside the first desktop viewport. */}
+        <div className="mt-6 mb-16 sm:mt-6 sm:mb-20">
           {/* The banner column is deliberately wider (1.35fr) — it is the primary
               tool; the other three share the remaining space as secondary. */}
-          <div className="grid grid-cols-1 gap-4 lg:h-[480px] lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2">
+          <div className="grid grid-cols-1 gap-4 lg:h-[420px] lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2">
             <div
               className="hub-in lg:col-start-1 lg:row-span-2"
               style={{ "--d": "120ms" } as React.CSSProperties}
@@ -644,7 +687,7 @@ export default function HubPage() {
                     key={p.id}
                     type="button"
                     onClick={() => router.push(`/banner?card=${p.id}`)}
-                    className="group flex w-40 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)] text-left transition hover:border-white/25 hover:bg-[var(--bg-surface-hover)] sm:w-auto"
+                    className="group flex w-40 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)] text-left transition-all hover:-translate-y-0.5 hover:border-accent-green/40 hover:bg-[var(--bg-surface-hover)] hover:shadow-[0_12px_32px_-14px_rgba(198,255,61,0.28)] sm:w-auto"
                   >
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-background">
                       <Thumb
@@ -691,7 +734,7 @@ export default function HubPage() {
                   key={`${t.sectionId}-${t.id}`}
                   type="button"
                   onClick={() => openTemplate(t)}
-                  className="group flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)] text-left transition hover:border-accent-green/50 hover:bg-[var(--bg-surface-hover)] sm:w-auto"
+                  className="group flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)] text-left transition-all hover:-translate-y-0.5 hover:border-accent-green/50 hover:bg-[var(--bg-surface-hover)] hover:shadow-[0_12px_32px_-14px_rgba(198,255,61,0.35)] sm:w-auto"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-background">
                     <div className="h-full w-full transition-transform duration-500 group-hover:scale-105">
@@ -715,6 +758,42 @@ export default function HubPage() {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        {/* ── Help / support entry, surfaced on the Hub ─────────────────── */}
+        <section
+          className="hub-in mb-2 mt-12"
+          style={{ "--d": "380ms" } as React.CSSProperties}
+        >
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <span className="ds-feature-icon h-11 w-11 shrink-0">
+                <HelpCircle className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold">Нужна помощь?</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  База знаний, частые вопросы и связь с поддержкой — в одном месте.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2.5">
+              <Link
+                href="/help"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)]"
+              >
+                <BookOpen className="h-4 w-4" />
+                База знаний
+              </Link>
+              <Link
+                href="/help#contact"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+              >
+                <Mail className="h-4 w-4" />
+                Написать в поддержку
+              </Link>
+            </div>
           </div>
         </section>
       </div>
