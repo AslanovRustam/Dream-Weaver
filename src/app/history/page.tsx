@@ -31,7 +31,8 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
+      <div className="ds-aurora" aria-hidden />
       <AppHeader />
       {isGuest ? (
         <GuestWall

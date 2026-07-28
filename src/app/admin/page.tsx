@@ -168,6 +168,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen">
+      <div className="ds-aurora ds-aurora-soft" aria-hidden />
       <AppHeader />
       <div className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6 flex items-center justify-between">

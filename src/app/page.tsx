@@ -250,10 +250,11 @@ function SectionTile({
             {section.description}
           </p>
         </div>
-        {/* Premium primary button on every tile — lime CTA that brightens and
-            picks up a lime glow on hover; the arrow nudges forward. */}
+        {/* Premium primary button on every tile — the signature lime→violet
+            gradient CTA that picks up a lime glow on hover; the arrow nudges. */}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:bg-[var(--accent-hover)] group-hover:shadow-glow-lime ${
+          style={{ backgroundImage: "linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%)" }}
+          className={`inline-flex items-center gap-1.5 rounded-lg font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:shadow-glow-lime ${
             featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
           }`}
         >

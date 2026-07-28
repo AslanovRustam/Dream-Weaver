@@ -17,8 +17,6 @@ import {
   X,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +47,30 @@ const AVATAR_URL = "https://i.pravatar.cc/128?img=68";
 function displayName(p: Profile): string {
   return (
     p.nickname || [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email || "Пользователь"
+  );
+}
+
+// Soft violet + lime aurora behind the page — the premium-trial backdrop.
+// Scoped to /account; see the PREMIUM SURFACES block in globals.css.
+function Aurora() {
+  return <div className="ds-aurora" aria-hidden />;
+}
+
+// Avatar wrapped in a lime→violet gradient ring with a dual-colour glow.
+function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string }) {
+  return (
+    <span
+      className="relative shrink-0 rounded-full p-[2px]"
+      style={{
+        backgroundImage: "var(--grad-brand)",
+        boxShadow: "0 0 22px -6px rgba(198,255,61,0.5), 0 0 26px -4px rgba(123,92,255,0.55)",
+      }}
+    >
+      <span className="block rounded-full bg-background p-[2px]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className={`${size} rounded-full object-cover`} />
+      </span>
+    </span>
   );
 }
 
@@ -108,20 +130,24 @@ export default function AccountPage() {
 
   if (isGuest) {
     return (
-      <div className="min-h-screen">
+      <div className="relative min-h-screen">
+        <Aurora />
         <AppHeader />
-        <GuestWall
-          title="Личный кабинет доступен после регистрации"
-          description="Профиль, кредиты и история появятся здесь после создания аккаунта."
-        />
+        <div className="relative z-10">
+          <GuestWall
+            title="Личный кабинет доступен после регистрации"
+            description="Профиль, кредиты и история появятся здесь после создания аккаунта."
+          />
+        </div>
       </div>
     );
   }
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen">
+      <div className="relative min-h-screen">
+        <Aurora />
         <AppHeader />
-        <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="relative z-10 flex min-h-[60vh] items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin text-accent-green" />
             <p className="text-sm">Загрузка профиля…</p>
@@ -132,10 +158,11 @@ export default function AccountPage() {
   }
   if (error || !me) {
     return (
-      <div className="min-h-screen">
+      <div className="relative min-h-screen">
+        <Aurora />
         <AppHeader />
-        <div className="flex min-h-[60vh] items-center justify-center px-4">
-          <div className="max-w-sm rounded-2xl border border-border bg-card p-6 text-center">
+        <div className="relative z-10 flex min-h-[60vh] items-center justify-center px-4">
+          <div className="ds-card ds-card-glow-violet max-w-sm p-6 text-center">
             <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--status-error)]/15 text-[color:var(--status-error)]">
               <AlertTriangle className="h-5 w-5" />
             </span>
@@ -146,7 +173,7 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+              className="ds-btn ds-btn-grad mx-auto mt-4 min-h-11 gap-2 px-4"
             >
               <RefreshCw className="h-4 w-4" />
               Обновить
@@ -167,31 +194,29 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="relative min-h-screen">
+      <Aurora />
       <AppHeader />
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        {/* Кнопка «К генерации» на месте кнопки «Назад» (сверху слева),
-            в стиле таба «Мужчина/Женщина»: салатовая обводка + прозрачная
-            салатовая заливка. */}
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8">
+        {/* «К генерации» на месте кнопки «Назад» — вторичная кнопка: салатовая
+            обводка на прозрачном фоне (без заливки), явно легче primary. */}
         <Link
           href="/banner"
-          className="mb-16 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-accent-green bg-accent-green/10 px-3 text-sm font-medium text-accent-green transition hover:bg-accent-green/15"
+          className="ds-btn ds-btn-outline-lime mb-12 min-h-11 gap-1.5 px-3"
         >
           <ChevronLeft className="h-4 w-4" />К генерации
         </Link>
 
-        <header className="mb-6 flex items-center justify-between gap-4">
+        <header className="mb-8 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="h-16 w-16 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-background">
-              <img src={avatar} alt="" className="h-full w-full object-cover" />
-            </span>
+            <AvatarRing src={avatar} />
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <h1 className="ds-h1 truncate">{displayName(me.profile)}</h1>
                 <button
                   type="button"
                   onClick={() => setEditOpen(true)}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-white/10"
+                  className="ds-btn ds-btn-outline-violet min-h-9 shrink-0 gap-1.5 px-3 py-1.5"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Изменить
@@ -201,9 +226,9 @@ export default function AccountPage() {
             </div>
           </div>
           {me.is_super_admin ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href="/admin">Админка</Link>
-            </Button>
+            <Link href="/admin" className="ds-btn ds-btn-outline-lime min-h-9 shrink-0 px-3">
+              Админка
+            </Link>
           ) : null}
         </header>
 
@@ -276,7 +301,7 @@ function EditProfileModal({
     }
   }, [open, profile, avatarUrl]);
 
-  // Field labels follow the app-wide ds-label convention (12px/500), same as
+  // Field labels follow the app-wide ds-label convention (13px/500), same as
   // every generator's settings fields and this page's own read-only Email row.
   const labelCls = "mb-2 block ds-label";
 
@@ -302,7 +327,7 @@ function EditProfileModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         hideClose
-        className="flex max-h-[85vh] w-full max-w-md flex-col gap-0 rounded-2xl border border-border bg-panel p-0"
+        className="ds-card ds-ring-grad flex max-h-[85vh] w-full max-w-md flex-col gap-0 overflow-hidden p-0"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <DialogTitle className="text-lg font-semibold">Редактировать профиль</DialogTitle>
@@ -319,13 +344,11 @@ function EditProfileModal({
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {/* Avatar + upload */}
           <div className="flex items-center gap-4">
-            <span className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-white/5">
-              <img src={avatar} alt="" className="h-full w-full object-cover" />
-            </span>
+            <AvatarRing src={avatar} />
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/15"
+              className="ds-btn ds-btn-outline-lime min-h-11 gap-2 px-4"
             >
               <Upload className="h-4 w-4" />
               Загрузить
@@ -403,7 +426,7 @@ function EditProfileModal({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-white/15"
+            className="ds-btn ds-btn-ghost min-h-11 px-5"
           >
             Отмена
           </button>
@@ -411,7 +434,7 @@ function EditProfileModal({
             type="button"
             disabled={busy}
             onClick={submit}
-            className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-white/90 disabled:opacity-60"
+            className="ds-btn ds-btn-grad min-h-11 px-5"
           >
             {busy ? "Сохраняем…" : "Сохранить"}
           </button>
@@ -425,37 +448,27 @@ function EditProfileModal({
 // state in the data model yet, so everyone shows as "Бесплатный план".
 // "Улучшить план" leads to the billing page.
 function SubscriptionCard() {
+  // Premium upsell = violet emphasis surface (system: violet carries emphasis):
+  // a violet resting glow + a lime→violet hairline ring, with a solid-violet
+  // PRIMARY CTA so violet reads as a co-equal primary alongside the lime one.
   return (
-    <Card className="flex flex-col">
-      <CardHeader className="pb-0">
-        <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
-          <Tag className="h-4 w-4" />
-          Подписка
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {/* Premium upsell = violet emphasis surface (system: violet carries
-            emphasis) with a soft violet glow; the lime "Улучшить план" CTA
-            inside keeps the lime+violet pairing. */}
-        <div
-          className="flex items-center justify-between gap-4 rounded-xl border border-[color:var(--brand-violet)]/30 p-5 shadow-[0_0_36px_-10px_rgba(123,92,255,0.5)]"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(123,92,255,0.16) 0%, rgba(123,92,255,0.04) 55%, var(--bg-surface) 100%)",
-          }}
-        >
-          <div className="min-w-0">
-            <p className="text-lg font-semibold">Бесплатный план</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Откройте все возможности с подпиской
-            </p>
-          </div>
-          <Button asChild className="shrink-0">
-            <Link href="/billing">Улучшить план</Link>
-          </Button>
+    <div className="ds-card ds-card-glow-violet ds-ring-grad p-5 sm:p-6">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Tag className="h-4 w-4 text-brand-violet" />
+        <span className="ds-overline">Подписка</span>
+      </div>
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="ds-h3">Бесплатный план</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Откройте все возможности с подпиской
+          </p>
         </div>
-      </CardContent>
-    </Card>
+        <Link href="/billing" className="ds-btn ds-btn-violet min-h-11 shrink-0 px-5">
+          Улучшить план
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -466,26 +479,24 @@ const SUPPORT_HREF = "mailto:support@clickable.agency";
 
 function AccountInfoCard({ email }: { email: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Данные аккаунта</CardTitle>
-        <CardDescription>Изменение email выполняется через администратора.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-1.5">
-          <p className="ds-label">Email</p>
-          <div className="flex h-11 items-center rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground">
-            {email}
-          </div>
+    <div className="ds-card p-5 sm:p-6">
+      <h2 className="ds-h4">Данные аккаунта</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Изменение email выполняется через администратора.
+      </p>
+      <div className="mt-5 space-y-1.5">
+        <p className="ds-label">Email</p>
+        <div className="flex h-11 items-center rounded-lg border border-border bg-background/50 px-3 text-sm text-muted-foreground">
+          {email}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Чтобы изменить email, обратитесь в поддержку — мы внесём правки вручную.
-        </p>
-        <Button asChild variant="outline">
-          <a href={SUPPORT_HREF}>Связаться с поддержкой</a>
-        </Button>
-      </CardContent>
-    </Card>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        Чтобы изменить email, обратитесь в поддержку — мы внесём правки вручную.
+      </p>
+      <a href={SUPPORT_HREF} className="ds-btn ds-btn-outline-lime mt-5 min-h-11 px-4">
+        Связаться с поддержкой
+      </a>
+    </div>
   );
 }
 
@@ -499,93 +510,93 @@ function PasswordCard() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Безопасность</CardTitle>
-        <CardDescription>
-          Смена пароля. Если входите через Google — добавит пароль к аккаунту.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="space-y-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setMsg(null);
-            if (pw.length < 8) {
-              setMsg({ kind: "err", text: "Минимум 8 символов" });
-              return;
-            }
-            if (pw !== pw2) {
-              setMsg({ kind: "err", text: "Пароли не совпадают" });
-              return;
-            }
-            setBusy(true);
-            try {
-              await apiJson("/api/auth/change-password", {
-                method: "POST",
-                json: { new_password: pw },
-              });
-              // Refresh the session so subsequent calls use a fresh token.
-              await getBrowserClient().auth.refreshSession();
-              setMsg({ kind: "ok", text: "Пароль обновлён" });
-              setPw("");
-              setPw2("");
-            } catch (e) {
-              // Server/Supabase messages here are raw English — only pass a
-              // message through if it's already Russian (e.g. the session-
-              // expired text), otherwise show a clear generic fallback.
-              const raw = e instanceof ApiError ? e.message : "";
-              setMsg({
-                kind: "err",
-                text: /[а-яА-Я]/.test(raw)
-                  ? raw
-                  : "Не удалось сменить пароль. Попробуйте ещё раз или обратитесь в поддержку.",
-              });
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-pw">Новый пароль</Label>
-              <Input
-                id="new-pw"
-                type="password"
-                autoComplete="new-password"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                minLength={8}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-pw2">Повторите</Label>
-              <Input
-                id="new-pw2"
-                type="password"
-                autoComplete="new-password"
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
-                minLength={8}
-              />
-            </div>
+    <div className="ds-card p-5 sm:p-6">
+      <h2 className="ds-h4">Безопасность</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Смена пароля. Если входите через Google — добавит пароль к аккаунту.
+      </p>
+      <form
+        className="mt-5 space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setMsg(null);
+          if (pw.length < 8) {
+            setMsg({ kind: "err", text: "Минимум 8 символов" });
+            return;
+          }
+          if (pw !== pw2) {
+            setMsg({ kind: "err", text: "Пароли не совпадают" });
+            return;
+          }
+          setBusy(true);
+          try {
+            await apiJson("/api/auth/change-password", {
+              method: "POST",
+              json: { new_password: pw },
+            });
+            // Refresh the session so subsequent calls use a fresh token.
+            await getBrowserClient().auth.refreshSession();
+            setMsg({ kind: "ok", text: "Пароль обновлён" });
+            setPw("");
+            setPw2("");
+          } catch (e) {
+            // Server/Supabase messages here are raw English — only pass a
+            // message through if it's already Russian (e.g. the session-
+            // expired text), otherwise show a clear generic fallback.
+            const raw = e instanceof ApiError ? e.message : "";
+            setMsg({
+              kind: "err",
+              text: /[а-яА-Я]/.test(raw)
+                ? raw
+                : "Не удалось сменить пароль. Попробуйте ещё раз или обратитесь в поддержку.",
+            });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-pw">Новый пароль</Label>
+            <Input
+              id="new-pw"
+              type="password"
+              autoComplete="new-password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              minLength={8}
+            />
           </div>
-          {msg ? (
-            <p
-              className={
-                msg.kind === "ok" ? "text-xs text-accent-green" : "text-xs text-destructive"
-              }
-            >
-              {msg.text}
-            </p>
-          ) : null}
-          <Button type="submit" disabled={busy}>
-            {busy ? "Сохраняем…" : "Сменить пароль"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-pw2">Повторите</Label>
+            <Input
+              id="new-pw2"
+              type="password"
+              autoComplete="new-password"
+              value={pw2}
+              onChange={(e) => setPw2(e.target.value)}
+              minLength={8}
+            />
+          </div>
+        </div>
+        {msg ? (
+          <p
+            className={
+              msg.kind === "ok" ? "text-xs text-accent-green" : "text-xs text-destructive"
+            }
+          >
+            {msg.text}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={busy}
+          className="ds-btn ds-btn-outline-violet min-h-11 px-4"
+        >
+          {busy ? "Сохраняем…" : "Сменить пароль"}
+        </button>
+      </form>
+    </div>
   );
 }
 
@@ -601,48 +612,36 @@ function CreditsCard({ balance }: { balance: number | string }) {
   const low = n <= LOW_CREDIT_THRESHOLD;
   const empty = n <= 0;
   return (
-    <Card className="flex min-h-[190px] flex-col">
-      <CardHeader className="pb-0">
-        <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
-          <Coins className="h-4 w-4" />
-          Кредиты
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-center pt-4">
-        <div
-          className={`rounded-xl border p-5 ${
-            low
-              ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10"
-              : "border-border bg-background/40"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">Текущий баланс</p>
-              <p
-                className={`mt-1 text-2xl font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : ""}`}
-              >
-                {label}
-                <span className="text-base font-normal text-muted-foreground"> кр.</span>
-              </p>
-            </div>
-            <Button asChild variant={low ? "default" : "outline"} className="shrink-0">
-              <Link href="/billing">
-                <Plus className="h-4 w-4" />
-                Купить кредиты
-              </Link>
-            </Button>
-          </div>
-          {low ? (
-            <p className="mt-3 text-sm text-[color:var(--status-premium)]">
-              {empty
-                ? "Кредиты закончились — пополните, чтобы продолжить генерацию."
-                : "Кредиты заканчиваются — пополните баланс заранее."}
-            </p>
-          ) : null}
+    <div className="ds-card ds-card-glow-lime ds-card-interactive flex min-h-[200px] flex-col p-5">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Coins className="h-4 w-4 text-brand-lime" />
+        <span className="ds-overline">Кредиты</span>
+      </div>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+        <div className="min-w-0">
+          <p className="ds-caption">Текущий баланс</p>
+          <p className="mt-1 ds-stat">
+            <span className={low ? "text-[color:var(--status-premium)]" : "ds-text-grad-lime"}>
+              {label}
+            </span>
+            <span className="ml-1.5 text-base font-normal text-muted-foreground">кр.</span>
+          </p>
         </div>
-      </CardContent>
-    </Card>
+        {/* PRIMARY action — brand-gradient fill (lime→violet), the boldest CTA
+            on the screen. */}
+        <Link href="/billing" className="ds-btn ds-btn-grad min-h-11 shrink-0 gap-1.5 px-4">
+          <Plus className="h-4 w-4" />
+          Купить
+        </Link>
+      </div>
+      {low ? (
+        <p className="mt-3 text-sm text-[color:var(--status-premium)]">
+          {empty
+            ? "Кредиты закончились — пополните, чтобы продолжить генерацию."
+            : "Кредиты заканчиваются — пополните баланс заранее."}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -658,31 +657,40 @@ function UsageHistoryCard() {
   start.setDate(today.getDate() - 30);
 
   return (
-    <Card className="flex min-h-[190px] flex-col">
-      <CardHeader className="pb-0">
-        <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
-          <TrendingUp className="h-4 w-4" />
-          История использования
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-end pt-6">
+    <div className="ds-card ds-card-glow-violet ds-card-interactive flex min-h-[200px] flex-col p-5">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <TrendingUp className="h-4 w-4 text-brand-violet" />
+        <span className="ds-overline">История использования</span>
+      </div>
+      <div className="mt-auto pt-6">
         <div className="flex h-20 items-end gap-1">
-          {bars.map((h, i) => (
-            <span
-              key={i}
-              style={{ height: `${Math.round(h * 100)}%` }}
-              className={`flex-1 rounded-sm ${
-                i === 19 ? "bg-accent-green" : "bg-muted-foreground/25"
-              }`}
-            />
-          ))}
+          {bars.map((h, i) =>
+            i === 19 ? (
+              // Peak = lime→violet gradient bar with a soft violet glow.
+              <span
+                key={i}
+                style={{
+                  height: `${Math.round(h * 100)}%`,
+                  backgroundImage: "linear-gradient(180deg, #9b85ff 0%, #c6ff3d 100%)",
+                  boxShadow: "0 0 16px -2px rgba(155,133,255,0.6)",
+                }}
+                className="flex-1 rounded-sm"
+              />
+            ) : (
+              <span
+                key={i}
+                style={{ height: `${Math.round(h * 100)}%` }}
+                className="flex-1 rounded-sm bg-muted-foreground/20"
+              />
+            ),
+          )}
         </div>
         <div className="mt-2 flex justify-between text-xs text-muted-foreground">
           <span>{fmt(start)}</span>
           <span>{fmt(mid)}</span>
           <span>{fmt(today)}</span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

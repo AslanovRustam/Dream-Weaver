@@ -147,6 +147,7 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen">
+      <div className="ds-aurora" aria-hidden />
       <AppHeader />
       <div className="mx-auto max-w-5xl px-4 py-8">
         <Link

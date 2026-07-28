@@ -306,6 +306,14 @@
 
   body {
     background-color: var(--bg-base);
+    /* Product-wide premium ambience: a whisper of violet (top-right) and lime
+       (bottom-left), fixed so it never scrolls. Deliberately faint — dense
+       screens stay clean; hero screens layer a stronger .ds-aurora on top. */
+    background-image:
+      radial-gradient(60% 45% at 100% 0%, rgba(123, 92, 255, 0.1), transparent 60%),
+      radial-gradient(50% 40% at 0% 100%, rgba(198, 255, 61, 0.05), transparent 55%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--color-foreground);
     font-family: var(--font-sans-stack);
     font-size: 0.875rem; /* 14px — the system's default body size */
@@ -535,12 +543,17 @@
     box-shadow: none;
   }
   .ds-btn-primary {
-    background: var(--brand-lime);
+    /* Signature primary: lime→violet gradient fill, dark text (both ends clear
+       AA on it). Brightens + dual glow on hover. Rolled out product-wide. */
+    background-image: linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%);
     color: var(--text-on-accent);
+    box-shadow: 0 8px 22px -10px rgba(123, 92, 255, 0.55);
   }
   .ds-btn-primary:not(:disabled):hover {
-    background: var(--lime-300);
-    box-shadow: var(--glow-lime);
+    filter: brightness(1.06);
+    box-shadow:
+      0 0 22px -2px rgba(198, 255, 61, 0.45),
+      0 0 28px -2px rgba(123, 92, 255, 0.5);
   }
   .ds-btn-secondary {
     border-color: var(--border-strong);
@@ -607,6 +620,13 @@
     background: var(--lime-tint);
     border: 1px solid rgba(198, 255, 61, 0.22);
     color: var(--brand-lime);
+  }
+  /* Violet twin — pair with .ds-feature-icon to alternate accent colour across
+     a set of tiles/features so lime and violet stay balanced. */
+  .ds-feature-icon-violet {
+    background: var(--violet-tint);
+    border-color: rgba(123, 92, 255, 0.28);
+    color: var(--violet-400);
   }
 }
 
@@ -758,4 +778,195 @@ select {
   textarea {
     min-height: 88px;
   }
+}
+
+/* =========================================================================
+   PREMIUM SURFACES — visual-direction TRIAL (Account screen only).
+
+   Additive & opt-in: every class below is applied ONLY on /account for the
+   restyle trial, so no other screen changes until the direction is approved
+   and rolled out deliberately. Built entirely on existing brand tokens.
+
+   Balance goal: lime (#c6ff3d) and violet (#7b5cff / #5e3ef0) as CO-EQUAL
+   accents — soft gradients, dual-colour glow, glass depth, and a clear
+   primary / secondary button split.
+   ========================================================================= */
+
+/* Page aurora — soft violet (top-right) + lime (lower-left) blobs behind the
+   content. Decorative, low-opacity, heavily blurred; never interactive. */
+.ds-aurora {
+  /* Drop-in background layer: fixed, sits behind page content (z:-1) and above
+     the body canvas, so a page only needs <div class="ds-aurora"/> as its first
+     child — no content-wrapping required (transparent page roots only). */
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Softer variant for utility screens (admin, forms) — same blobs, dialled down. */
+.ds-aurora-soft::before {
+  opacity: 0.5;
+}
+.ds-aurora-soft::after {
+  opacity: 0.5;
+}
+.ds-aurora::before,
+.ds-aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+}
+.ds-aurora::before {
+  width: 44rem;
+  height: 44rem;
+  top: -15rem;
+  right: -10rem;
+  background: radial-gradient(circle, rgba(123, 92, 255, 0.28), transparent 70%);
+}
+.ds-aurora::after {
+  width: 40rem;
+  height: 40rem;
+  bottom: -18rem;
+  left: -12rem;
+  background: radial-gradient(circle, rgba(198, 255, 61, 0.14), transparent 70%);
+}
+
+/* Premium glass card — translucent surface, top sheen, depth shadow. */
+.ds-card {
+  position: relative;
+  border-radius: var(--radius-2xl);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(22, 24, 31, 0.72), rgba(16, 18, 24, 0.72));
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card-val);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Opaque depth surface for generic cards (shared <Card>, dialogs): the same top
+   sheen over the system's vertical surface gradient — premium depth with no
+   translucency, so it's safe on any background. Replaces a flat bg-card. */
+.ds-card-surface {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 38%),
+    var(--grad-surface);
+}
+
+/* Resting colour glow — a different hue per card gives the screen a
+   multi-layered, "alive" feel instead of one uniform lime halo. */
+.ds-card-glow-lime {
+  box-shadow: var(--shadow-card-val), 0 0 42px -18px rgba(198, 255, 61, 0.55);
+}
+.ds-card-glow-violet {
+  box-shadow: var(--shadow-card-val), 0 0 46px -16px rgba(123, 92, 255, 0.6);
+}
+
+/* Interactive lift — hover raises the card, strengthens the border and blooms
+   the glow. Pair with a glow class above for the coloured bloom. */
+.ds-card-interactive {
+  transition:
+    transform var(--dur-base) var(--ease-emphasis),
+    box-shadow var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard);
+  will-change: transform;
+}
+.ds-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+}
+.ds-card-interactive.ds-card-glow-lime:hover {
+  box-shadow: var(--shadow-pop-val), 0 0 58px -14px rgba(198, 255, 61, 0.7);
+}
+.ds-card-interactive.ds-card-glow-violet:hover {
+  box-shadow: var(--shadow-pop-val), 0 0 62px -12px rgba(123, 92, 255, 0.78);
+}
+
+/* Gradient hairline ring (emphasis surfaces) — a lime→violet 1px ring drawn
+   with a masked pseudo-element so the glass fill stays intact. */
+.ds-ring-grad::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--grad-brand);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* PRIMARY (brand gradient) — lime→violet fill with dark text. Both gradient
+   ends clear AA on the near-black text; brightens + dual glow + lifts on
+   hover. The screen's main action; compose with .ds-btn. */
+.ds-btn-grad {
+  background-image: linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  box-shadow: 0 8px 22px -10px rgba(123, 92, 255, 0.55);
+  transition:
+    transform var(--dur-base) var(--ease-emphasis),
+    filter var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
+}
+.ds-btn-grad:not(:disabled):hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 22px -2px rgba(198, 255, 61, 0.45),
+    0 0 28px -2px rgba(123, 92, 255, 0.5);
+}
+
+/* PRIMARY (violet) — solid deep-violet fill, light text. Lets violet act as a
+   co-equal primary (used for the plan upsell). */
+.ds-btn-violet {
+  background-image: linear-gradient(160deg, #7b5cff 0%, #5e3ef0 100%);
+  color: #f4f6f8;
+  border-color: transparent;
+  box-shadow: 0 8px 22px -10px rgba(94, 62, 240, 0.6);
+  transition:
+    transform var(--dur-base) var(--ease-emphasis),
+    filter var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
+}
+.ds-btn-violet:not(:disabled):hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: var(--glow-violet);
+}
+
+/* SECONDARY — accent outline on transparent, no fill. Visibly lighter than a
+   primary while staying legible + clickable. Lime and violet variants. */
+.ds-btn-outline-lime {
+  background: transparent;
+  color: var(--brand-lime);
+  border-color: rgba(198, 255, 61, 0.45);
+}
+.ds-btn-outline-lime:not(:disabled):hover {
+  background: var(--lime-tint);
+  border-color: var(--brand-lime);
+}
+.ds-btn-outline-violet {
+  background: transparent;
+  color: var(--violet-400);
+  border-color: rgba(123, 92, 255, 0.5);
+}
+.ds-btn-outline-violet:not(:disabled):hover {
+  background: var(--violet-tint);
+  border-color: var(--violet-500);
+}
+
+/* Gradient number — the hero KPI reads as "data" in lime. Large text only
+   (gradient text on small sizes hurts legibility). */
+.ds-text-grad-lime {
+  background: var(--grad-lime);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
