@@ -202,11 +202,13 @@ export function VideoGenApp() {
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
-  // Signal an unsaved result so the header / beforeunload can warn on leave.
+  // Signal unsaved work (a typed topic or a generated result not yet saved) so
+  // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
-    setUnsavedWork(result ? "video" : null);
+    const dirty = topic.trim() !== "" || result !== null;
+    setUnsavedWork(dirty ? "video" : null);
     return () => setUnsavedWork(null);
-  }, [result]);
+  }, [topic, result]);
 
   const selectScene = (id: VideoSceneType) => {
     setSceneType(id);

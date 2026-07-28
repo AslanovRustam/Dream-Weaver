@@ -25,6 +25,7 @@ import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { CREATIVE_LANGUAGES, creativeLangShort } from "@/lib/creative-language";
 import { useGeneration } from "@/lib/generation-context";
+import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
 import {
   LANDING_SECTIONS,
@@ -189,6 +190,14 @@ export function LandingGenApp() {
   const [useBannerHero, setUseBannerHero] = useState(true);
   const [brandExpanded, setBrandExpanded] = useState(false);
   const bannerImage = gen.imageUrl ?? "";
+
+  // Signal unsaved work (a typed offer) so the header can warn before the user
+  // switches sections and loses it. Landing generates by navigating to the
+  // editor, so the offer text is the dirty signal (no in-component result).
+  useEffect(() => {
+    setUnsavedWork(offerDetails.trim() !== "" ? "landing" : null);
+    return () => setUnsavedWork(null);
+  }, [offerDetails]);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   // Runs the mount handoff exactly once. The effect consumes a one-time seed
