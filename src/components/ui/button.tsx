@@ -5,18 +5,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /*
- * Button hierarchy per the design system: one lime primary per screen, an
- * outlined secondary, a quiet ghost. Primary BRIGHTENS and picks up a lime
- * glow on hover (the system inverts the usual darken-on-hover), and every
- * variant sinks 1px on press. Heights follow the system: sm 32 / md 40 / lg 48.
+ * Button hierarchy per the design system: one primary per screen, an outlined
+ * secondary, a quiet ghost. Primary is the lime→violet gradient (`default`),
+ * with a solid-violet emphasis primary (`violet`) for premium/upsell actions;
+ * both BRIGHTEN and pick up a dual lime+violet glow on hover, and every variant
+ * sinks 1px on press. Heights follow the system: sm 32 / md 40 / lg 48.
  */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-transparent text-sm font-semibold transition active:translate-y-px disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default:
-          "bg-accent-green text-[color:var(--text-on-accent)] hover:bg-[var(--accent-hover)] hover:shadow-glow-lime",
+        // Primary: lime→violet gradient fill (.ds-btn-grad handles bg + dual-glow
+        // hover). The approved signature, rolled out product-wide.
+        default: "ds-btn-grad text-[color:var(--text-on-accent)]",
+        // Violet primary — a co-equal emphasis fill for premium/upsell actions.
+        violet: "ds-btn-violet",
         destructive: "bg-destructive text-white hover:bg-destructive/90",
         outline:
           "border-[color:var(--border-strong)] bg-transparent hover:border-white/28 hover:bg-[var(--overlay-hover)] hover:text-foreground",

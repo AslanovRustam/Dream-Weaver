@@ -7,8 +7,9 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        // System spec: surface fill, subtle outline, 16px radius, card elevation.
-        "rounded-2xl border border-[color:var(--border-subtle)] bg-card text-card-foreground shadow-card",
+        // System spec: depth surface (sheen + gradient), subtle outline, 16px
+        // radius, card elevation. .ds-card-surface replaces a flat bg-card.
+        "rounded-2xl border border-[color:var(--border-subtle)] ds-card-surface text-card-foreground shadow-card",
         className,
       )}
       {...props}
