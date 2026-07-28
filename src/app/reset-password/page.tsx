@@ -34,7 +34,8 @@ export default function ResetPasswordPage() {
   }, [loading, session, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="ds-aurora" aria-hidden />
       <div className="w-full max-w-sm space-y-5">
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Новый пароль</h1>
