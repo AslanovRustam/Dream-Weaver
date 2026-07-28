@@ -83,6 +83,12 @@ const ru = {
       hideIndicator: "Скрыть индикатор",
     },
     unsaved: "Есть несохранённые изменения. Продолжить?",
+    unsavedModal: {
+      title: "Несохранённые изменения",
+      body: "У вас есть несохранённые изменения. Если вы продолжите, они будут потеряны.",
+      stay: "Остаться",
+      leave: "Продолжить без сохранения",
+    },
   },
 };
 
@@ -129,6 +135,7 @@ export type Messages = {
       hideIndicator: string;
     };
     unsaved: string;
+    unsavedModal: { title: string; body: string; stay: string; leave: string };
   };
 };
 
@@ -203,6 +210,12 @@ const en: Messages = {
       hideIndicator: "Hide the indicator",
     },
     unsaved: "You have unsaved changes. Continue?",
+    unsavedModal: {
+      title: "Unsaved changes",
+      body: "You have unsaved changes. If you continue, they will be lost.",
+      stay: "Stay",
+      leave: "Leave without saving",
+    },
   },
 };
 
@@ -277,6 +290,12 @@ const uk: Messages = {
       hideIndicator: "Сховати індикатор",
     },
     unsaved: "Є незбережені зміни. Продовжити?",
+    unsavedModal: {
+      title: "Незбережені зміни",
+      body: "У вас є незбережені зміни. Якщо ви продовжите, їх буде втрачено.",
+      stay: "Залишитися",
+      leave: "Продовжити без збереження",
+    },
   },
 };
 

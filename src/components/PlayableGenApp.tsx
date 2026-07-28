@@ -172,11 +172,13 @@ export function PlayableGenApp() {
     setLanguage(b.language || "auto");
   }, []);
 
-  // Signal an unsaved result so the header / beforeunload can warn on leave.
+  // Signal unsaved work (a typed offer or a generated result not yet saved) so
+  // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
-    setUnsavedWork(result ? "playable" : null);
+    const dirty = offer.trim() !== "" || result !== null;
+    setUnsavedWork(dirty ? "playable" : null);
     return () => setUnsavedWork(null);
-  }, [result]);
+  }, [offer, result]);
 
   // Track the viewport so the fullscreen playable can be scaled to fit it.
   useEffect(() => {

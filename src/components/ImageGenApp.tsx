@@ -222,10 +222,13 @@ export function ImageGenApp() {
   // so closing the tab silently lost the result. A banner loaded from history
   // (loadedCardId) is already persisted, so it doesn't count as unsaved.
   useEffect(() => {
-    const unsaved = imageUrl !== null && !loadedCardId;
-    setUnsavedWork(unsaved ? "banner" : null);
+    // Dirty = project-specific work not yet saved as a history card: a typed
+    // topic ("Тематика баннера") or a freshly generated, unsaved result. A
+    // banner loaded from history (loadedCardId) is already persisted.
+    const dirty = !loadedCardId && (prompt.trim() !== "" || imageUrl !== null);
+    setUnsavedWork(dirty ? "banner" : null);
     return () => setUnsavedWork(null);
-  }, [imageUrl, loadedCardId]);
+  }, [imageUrl, loadedCardId, prompt]);
   // Preset the loaded card was originally created with. If the user
   // switches the preset to anything different after loading, we treat
   // the next resize batch as a NEW card so the new tiles don't bleed

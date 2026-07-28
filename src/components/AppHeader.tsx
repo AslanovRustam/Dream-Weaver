@@ -39,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
@@ -120,6 +121,9 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Pending destination for the unsaved-changes guard: when set, the modal is
+  // open and confirming navigates here (see requestNavigate).
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -201,6 +205,14 @@ export function AppHeader() {
     if (typeof window !== "undefined") window.localStorage.setItem("dw:projectName", v);
   };
 
+  // Guarded navigation: if the current section has unsaved work, open the modal
+  // and defer the push; otherwise navigate immediately. Used by the section
+  // switcher and the logo (→ Hub) — the two ways to leave a generator.
+  const requestNavigate = (href: string) => {
+    if (getUnsavedWork() !== null) setPendingNav(href);
+    else router.push(href);
+  };
+
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
       {/* The mobile scrim behind the profile menu (and every other dropdown) is
@@ -230,8 +242,9 @@ export function AppHeader() {
                   it, so the two can't be confused. Falls back to the text
                   wordmark (full on ≥sm, "DW" on mobile) until the logo file is
                   present. */}
-              <Link
-                href="/"
+              <button
+                type="button"
+                onClick={() => requestNavigate("/")}
                 aria-label={t("header.homeAria")}
                 title={t("header.home")}
                 className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
@@ -245,8 +258,8 @@ export function AppHeader() {
                     </span>
                   }
                 />
-              </Link>
-              <SectionSwitcher pathname={pathname} />
+              </button>
+              <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
             </>
           )}
           {isBannerEditor ? (
@@ -491,6 +504,43 @@ export function AppHeader() {
           )}
         </div>
       </div>
+
+      {/* Unsaved-changes guard modal — shown when leaving a generator with
+          unsaved work (section switcher / logo). Radix portals it to <body>. */}
+      <Dialog
+        open={pendingNav !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingNav(null);
+        }}
+      >
+        <DialogContent
+          hideClose
+          className="w-full max-w-sm rounded-2xl border border-border bg-panel p-6"
+        >
+          <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
+          <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setPendingNav(null)}
+              className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+            >
+              {t("header.unsavedModal.stay")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const h = pendingNav;
+                setPendingNav(null);
+                if (h) router.push(h);
+              }}
+              className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+            >
+              {t("header.unsavedModal.leave")}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
@@ -695,10 +745,17 @@ function CreditsButton({ label }: { label: string }) {
 // name + ▾, opening a menu of all four sections (current one checked) + "На
 // главную" (the Hub). The brand wordmark lives in a separate logo to the left.
 // Switching away from the banner editor with unsaved work asks for confirmation.
-function SectionSwitcher({ pathname }: { pathname: string | null }) {
-  const router = useRouter();
-  const gen = useGeneration();
+function SectionSwitcher({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string | null;
+  onNavigate: (route: string) => void;
+}) {
   const t = useT();
+  // Per-account onboarding: scope the section-hint flag by user id (lib/onboarding).
+  const { user } = useAuth();
+  const userKey = user?.id ?? null;
   const current = sectionFromPath(pathname);
   const CurrentIcon = current?.icon;
 
@@ -707,26 +764,17 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   // so the two never cover the UI at the same time.
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
-    if (current && !isSectionHintSeen()) setShowHint(true);
-  }, [current]);
+    if (current && !isSectionHintSeen(userKey)) setShowHint(true);
+  }, [current, userKey]);
   const dismissHint = () => {
     setShowHint(false);
-    markSectionHintSeen();
+    markSectionHintSeen(userKey);
   };
 
   const go = (route: string) => {
     if (current && route === current.route) return;
-    // Banner holds unsaved in-memory work in the generation context; playable /
-    // video report it via the shared unsaved-work signal.
-    const bannerDirty = current?.id === "banner" && (gen.imageUrl !== null || gen.isBusy);
-    const sectionDirty = getUnsavedWork() !== null && getUnsavedWork() === current?.id;
-    if (
-      (bannerDirty || sectionDirty) &&
-      !window.confirm(t("header.unsaved"))
-    ) {
-      return;
-    }
-    router.push(route);
+    // Navigation is guarded centrally in AppHeader (the unsaved-changes modal).
+    onNavigate(route);
   };
 
   return (
