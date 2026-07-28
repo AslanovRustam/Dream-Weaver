@@ -42,7 +42,7 @@ import { EmptyResult } from "@/components/EmptyResult";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
-import { getCreativeLanguage, CREATIVE_LANGUAGES } from "@/lib/creative-language";
+import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import { useAuthGate } from "@/components/AuthGate";
 import {
   PLAYABLE_MECHANICS,
@@ -156,7 +156,7 @@ export function PlayableGenApp() {
   );
 
   // Collapsible settings sections (accordion), shared pattern across generators.
-  const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false });
+  const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false, lang: false });
   const toggleSec = (id: keyof typeof openSec) => setOpenSec((p) => ({ ...p, [id]: !p[id] }));
 
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +169,7 @@ export function PlayableGenApp() {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
-    setLanguage(b.language && b.language !== "auto" ? b.language : getCreativeLanguage());
+    setLanguage(b.language || "auto");
   }, []);
 
   // Signal an unsaved result so the header / beforeunload can warn on leave.
@@ -223,6 +223,7 @@ export function PlayableGenApp() {
   const sectionList = [
     { id: "offer", title: "Оффер", done: offer.trim().length > 0 },
     { id: "brand", title: "Бренд", done: true },
+    { id: "lang", title: "Языки", done: true },
     { id: "mechanic", title: "Механика", done: mechanicValid },
     { id: "format", title: "Формат и результат", done: true },
   ];
@@ -492,19 +493,32 @@ export function PlayableGenApp() {
                     placeholder="Название бренда / проекта"
                     className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    aria-label="Язык плейбла"
-                    className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
-                  >
-                    {CREATIVE_LANGUAGES.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Языки"
+                done
+                open={openSec.lang}
+                onToggle={() => toggleSec("lang")}
+              >
+                {/* Язык ТЕКСТА в плейбле — локальная настройка раздела, не связана
+                    с языком интерфейса (тот переключается в шапке). */}
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  aria-label="Язык плейбла"
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                >
+                  {CREATIVE_LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 ds-caption">
+                  Язык текста в самом плейбле — не связан с языком интерфейса.
+                </p>
               </SettingsSection>
 
               <SettingsSection
