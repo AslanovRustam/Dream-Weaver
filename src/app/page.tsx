@@ -21,12 +21,7 @@ import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
-import {
-  ALL_TEMPLATES,
-  POPULAR_TEMPLATES,
-  searchTemplates,
-  type HubTemplate,
-} from "@/lib/hubTemplates";
+import { POPULAR_TEMPLATES, searchTemplates, type HubTemplate } from "@/lib/hubTemplates";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 
 type RecentCard = {
@@ -439,7 +434,10 @@ export default function HubPage() {
   // "0 проектов" would read as a scolding, so the strip only appears once there
   // is something to count.
   const showStats = projectCount > 0;
-  const showOnboarding = historyLoaded && recent.length === 0;
+  // Gate onboarding on the same count as the stat so the two are mutually
+  // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
+  // sees the stat, and malformed data can never show both at once.
+  const showOnboarding = historyLoaded && projectCount === 0;
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
