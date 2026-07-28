@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSmartBack } from "@/lib/use-back";
 import {
   ArrowLeft,
   Check,
@@ -66,18 +67,19 @@ const SHOW_FAVORITES = false;
 // ── main ────────────────────────────────────────────────────────────────────
 export function HistoryApp() {
   const router = useRouter();
+  const goBack = useSmartBack("/account");
   const [tab, setTab] = useState<Tab>("projects");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:py-8">
-      {/* Header: back → личный кабинет, title, tabs */}
+      {/* Header: back → previous screen (entry-aware), title, tabs */}
       <button
         type="button"
-        onClick={() => router.push("/account")}
+        onClick={goBack}
         className="-ml-1 mb-3 inline-flex min-h-9 items-center gap-1 rounded-lg px-1 text-sm text-muted-foreground transition hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Личный кабинет
+        Назад
       </button>
       <h1 className="ds-h1 sm:text-3xl">История</h1>
 

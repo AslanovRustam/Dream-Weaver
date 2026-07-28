@@ -23,11 +23,7 @@ import { getBrandSettings } from "@/components/SettingsDrawer";
 import { MobileScrim } from "@/components/MobileScrim";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
-import {
-  getCreativeLanguage,
-  CREATIVE_LANGUAGES,
-  creativeLangShort,
-} from "@/lib/creative-language";
+import { CREATIVE_LANGUAGES, creativeLangShort } from "@/lib/creative-language";
 import { useGeneration } from "@/lib/generation-context";
 import { useAuthGate } from "@/components/AuthGate";
 import {
@@ -210,7 +206,7 @@ export function LandingGenApp() {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
-    let lang = b.language && b.language !== "auto" ? b.language : getCreativeLanguage();
+    let lang = b.language || "auto";
 
     if (typeof window !== "undefined") {
       try {

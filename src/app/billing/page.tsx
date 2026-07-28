@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSmartBack } from "@/lib/use-back";
 import { Check, ChevronLeft, Sparkles, X } from "lucide-react";
 
 import { toast } from "sonner";
@@ -131,6 +132,7 @@ const BUSINESS_PLANS: Plan[] = [
 
 export default function BillingPage() {
   const router = useRouter();
+  const goBack = useSmartBack("/account");
   const { isAuthenticated, loading } = useAuth();
   const [audience, setAudience] = useState<Audience>("individual");
   const [annual, setAnnual] = useState(true);
@@ -149,13 +151,14 @@ export default function BillingPage() {
     <div className="min-h-screen">
       <AppHeader />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <Link
-          href="/account"
+        <button
+          type="button"
+          onClick={goBack}
           className="-mx-2 mb-6 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <ChevronLeft className="h-5 w-5" />
           Назад
-        </Link>
+        </button>
 
         <div className="mb-8 text-center">
           <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
