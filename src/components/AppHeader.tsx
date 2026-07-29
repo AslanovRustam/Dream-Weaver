@@ -104,6 +104,7 @@ export function AppHeader() {
   const pathname = usePathname();
   const t = useT();
   const m = useMessages();
+  const { locale, setLocale } = useLocale();
   // Hub (start screen) shows a simplified header (no section switcher / editor
   // chrome). Tool routes show the section switcher; the banner editor also gets
   // the project-name breadcrumb + undo/redo.
@@ -243,15 +244,7 @@ export function AppHeader() {
               aria-label={t("header.homeAria")}
               className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
             >
-              <BrandLogo
-                className="h-7 max-sm:h-6"
-                fallback={
-                  <>
-                    <span className="hidden sm:inline">Dream Weaver Studio</span>
-                    <span className="sm:hidden">DW</span>
-                  </>
-                }
-              />
+              <LogoArt />
             </Link>
           ) : (
             <>
@@ -266,15 +259,7 @@ export function AppHeader() {
                 title={t("header.home")}
                 className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
               >
-                <BrandLogo
-                  className="h-7 max-sm:h-6"
-                  fallback={
-                    <span className="text-base font-bold tracking-tight max-sm:text-sm">
-                      <span className="hidden sm:inline">Dream Weaver Studio</span>
-                      <span className="sm:hidden">DW</span>
-                    </span>
-                  }
-                />
+                <LogoArt />
               </button>
               <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
             </>
@@ -304,10 +289,9 @@ export function AppHeader() {
 
           {/* Guests have no balance to show (spec: no credits for guests). */}
           {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
-          {/* Interface-language switcher (RU/EN/UA) — visible on every screen. */}
-          <LanguageSelector />
-          {/* Workspace quick-switcher — icon only, beside the language icon;
-              shown on every page (Hub included). Full management: /workspace. */}
+          {/* Workspace quick-switcher — icon only. Shown on every page (Hub
+              included). Full management: /workspace. The language switcher now
+              lives inside the avatar menu (below) to keep the mobile bar light. */}
           {!isGuest ? <WorkspaceSwitcher onSelect={requestWorkspaceSwitch} /> : null}
           {/* The rest of the toolbar is editor chrome — hidden on the Hub and
               for guests (nothing there is usable without an account). */}
@@ -517,6 +501,33 @@ export function AppHeader() {
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator className="bg-border" />
+              {/* Interface language — moved here from the header to keep the
+                  mobile bar light. Segmented RU / EN / UA; switching is instant
+                  and keeps the menu open (plain buttons, not menu items). */}
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="flex items-center gap-2 text-sm text-foreground">
+                  <Globe className="h-4 w-4 text-accent-green" />
+                  {t("header.language.title")}
+                </span>
+                <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
+                  {UI_LOCALES.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => setLocale(l.code)}
+                      aria-pressed={l.code === locale}
+                      className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
+                        l.code === locale
+                          ? "bg-accent-green text-on-accent"
+                          : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                      }`}
+                    >
+                      {l.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuItem
                 onClick={async () => {
                   await signOut();
@@ -566,6 +577,22 @@ export function AppHeader() {
         </DialogContent>
       </Dialog>
     </header>
+  );
+}
+
+// Full wordmark on >=sm; just the MARK (no "Gen Go" text) on mobile so the
+// header stays compact. Both come from the same brand file — logo-mark.svg is
+// the viewBox-cropped mark of logo.svg.
+function LogoArt() {
+  return (
+    <>
+      <BrandLogo
+        className="hidden h-7 sm:block"
+        fallback={<span className="text-base font-bold tracking-tight">Dream Weaver Studio</span>}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-mark.svg" alt="" className="h-7 w-auto sm:hidden" draggable={false} />
+    </>
   );
 }
 
@@ -886,44 +913,6 @@ function SectionSwitcher({
         </div>
       ) : null}
     </div>
-  );
-}
-
-// Interface-language switcher — icon only (globe), no label. Sets the PRODUCT
-// UI language (RU / EN / UA); instant, no reload. Generated-content language
-// lives per-section inside each generator.
-function LanguageSelector() {
-  const { locale, setLocale } = useLocale();
-  const t = useT();
-  return (
-    <DropdownMenu scrimIntensity="light">
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("header.language.aria")}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white/5 px-2 py-1.5 text-muted-foreground transition hover:border-white/25 hover:bg-white/10 hover:text-foreground max-sm:min-h-11 max-sm:px-2.5"
-        >
-          <Globe className="h-4 w-4 shrink-0 text-accent-green" />
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-44 rounded-xl border-border bg-popover p-1.5 text-foreground"
-      >
-        {UI_LOCALES.map((l) => (
-          <DropdownMenuItem
-            key={l.code}
-            onClick={() => setLocale(l.code)}
-            className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
-          >
-            {l.label}
-            {l.code === locale ? <Check className="h-4 w-4 text-accent-green" /> : null}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
