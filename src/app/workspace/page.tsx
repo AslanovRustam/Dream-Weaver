@@ -11,9 +11,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Briefcase, ChevronLeft, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import {
+  Briefcase,
+  Check,
+  ChevronLeft,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AppHeader } from "@/components/AppHeader";
 import { GuestWall } from "@/components/AuthGate";
@@ -124,7 +139,7 @@ function WorkspacesManager() {
             return (
               <div
                 key={w.id}
-                className={`flex flex-col gap-3 px-4 py-3.5 transition sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
+                className={`flex items-center justify-between gap-3 px-4 py-3.5 transition sm:px-5 ${
                   active ? "bg-[color:var(--brand-violet)]/[0.07]" : "hover:bg-white/[0.02]"
                 }`}
               >
@@ -146,46 +161,51 @@ function WorkspacesManager() {
                     </p>
                   </div>
                 </div>
-                {/* Right: make active · rename · delete */}
-                <div className="flex items-center gap-2 max-sm:justify-end sm:shrink-0">
-                  {active ? (
-                    <span className="px-2 py-1 text-sm font-medium text-[color:var(--violet-400)]">
-                      Текущее
-                    </span>
-                  ) : (
+                {/* All actions collapsed into a "⋯" menu: make active / rename /
+                    delete — keeps the row compact on every width. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      onClick={() => setActive(w.id)}
-                      className="ds-btn ds-btn-outline-violet min-h-9 px-3 text-sm"
+                      aria-label="Действия с пространством"
+                      className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
                     >
-                      Сделать активным
+                      <MoreHorizontal className="h-5 w-5" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(w);
-                      setFormOpen(true);
-                    }}
-                    aria-label="Переименовать"
-                    title="Переименовать"
-                    className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={6}
+                    className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                   >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(w)}
-                    disabled={workspaces.length <= 1}
-                    aria-label="Удалить"
-                    title={
-                      workspaces.length <= 1 ? "Нельзя удалить последнее пространство" : "Удалить"
-                    }
-                    className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0 text-muted-foreground hover:text-[color:var(--status-error)] disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                    <DropdownMenuItem
+                      disabled={active}
+                      onClick={() => setActive(w.id)}
+                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                    >
+                      <Check className="h-4 w-4 text-[color:var(--violet-400)]" />
+                      Сделать активным
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditing(w);
+                        setFormOpen(true);
+                      }}
+                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Переименовать
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={workspaces.length <= 1}
+                      onClick={() => setDeleting(w)}
+                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)] max-sm:py-3 max-sm:text-base"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Удалить
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           })}
