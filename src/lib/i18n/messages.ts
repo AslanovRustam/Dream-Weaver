@@ -46,7 +46,7 @@ const ru = {
     },
     profile: {
       trigger: "Профиль",
-      account: "Личный кабинет",
+      account: "Аккаунт",
       history: "История",
       help: "Помощь и поддержка",
       admin: "Админ-панель",
@@ -264,7 +264,7 @@ const uk: Messages = {
     },
     profile: {
       trigger: "Профіль",
-      account: "Особистий кабінет",
+      account: "Акаунт",
       history: "Історія",
       help: "Допомога і підтримка",
       admin: "Адмін-панель",
