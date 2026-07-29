@@ -8,7 +8,6 @@ import {
   BookOpen,
   Clock,
   HelpCircle,
-  LayoutGrid,
   Mail,
   Play,
   Search,
@@ -21,6 +20,8 @@ import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
+import { useWorkspace } from "@/lib/workspace-context";
+import { getMockProjects } from "@/lib/historyMock";
 import { POPULAR_TEMPLATES, searchTemplates, type HubTemplate } from "@/lib/hubTemplates";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 
@@ -250,11 +251,10 @@ function SectionTile({
             {section.description}
           </p>
         </div>
-        {/* Premium primary button on every tile — the signature lime→violet
-            gradient CTA that picks up a lime glow on hover; the arrow nudges. */}
+        {/* Primary CTA on every tile — solid lime that brightens and picks up a
+            lime glow on hover (single accent); the arrow nudges forward. */}
         <span
-          style={{ backgroundImage: "linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%)" }}
-          className={`inline-flex items-center gap-1.5 rounded-lg font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:shadow-glow-lime ${
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:bg-[var(--accent-hover)] group-hover:shadow-glow-lime ${
             featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
           }`}
         >
@@ -291,36 +291,10 @@ function Thumb({
   );
 }
 
-// Russian plural for counts: 1 проект / 2 проекта / 5 проектов.
-function plural(n: number, one: string, few: string, many: string) {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
-}
-
-// Compact metric chip — big accent number over a quiet label, so the Hub reads
-// as a workspace with progress rather than a catalogue of buttons.
-function StatCard({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-2xl border border-accent-green/20 bg-gradient-to-br from-accent-green/[0.08] to-[var(--bg-surface)] px-3 py-3 shadow-[0_6px_20px_-12px_rgba(198,255,61,0.45)] sm:gap-3 sm:px-4">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green ring-1 ring-accent-green/25">
-        {icon}
-      </span>
-      <span className="min-w-0 text-left">
-        <span className="block text-2xl font-semibold leading-none tabular-nums text-accent-green">
-          {value}
-        </span>
-        <span className="mt-1 block ds-caption">{label}</span>
-      </span>
-    </div>
-  );
-}
-
 export default function HubPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const { activeId } = useWorkspace();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
   const [projectCount, setProjectCount] = useState(0);
@@ -352,15 +326,42 @@ export default function HubPage() {
     };
   }, [loading, isAuthenticated]);
 
-  // Recent projects across all sections. Only banner projects exist today, so we
-  // read the banner history. Any failure simply hides the block (never blocking).
+  // Recent projects + count for the ACTIVE workspace. Real banners when
+  // available (server-side filtering via ?workspace=<id> once the backend
+  // supports it), else the cross-type mock seeded to this workspace — so the
+  // Hub reflects only the current company/client. Re-runs on workspace switch.
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{ items?: unknown[] }>("/api/history?bucket=active")
+    const seed = activeId ?? undefined;
+    const qs = `/api/history?bucket=active${
+      activeId ? `&workspace=${encodeURIComponent(activeId)}` : ""
+    }`;
+    const applyMock = () => {
+      if (cancelled) return;
+      const list = getMockProjects(undefined, seed).filter((p) => !p.deleted);
+      setRecent(
+        list.slice(0, 6).map((p) => ({
+          id: p.id,
+          name: p.name,
+          updatedLabel: new Date(p.updatedAt).toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "short",
+          }),
+          thumb: p.thumb ?? null,
+        })),
+      );
+      setProjectCount(list.length);
+      setHistoryLoaded(true);
+    };
+    apiJson<{ items?: unknown[] }>(qs)
       .then((r) => {
         if (cancelled) return;
         const cards = Array.isArray(r?.items) ? r.items : [];
+        if (cards.length === 0) {
+          applyMock();
+          return;
+        }
         const mapped: RecentCard[] = cards.slice(0, 6).map((raw) => {
           const c = raw as Record<string, unknown>;
           const master = c.master as Record<string, unknown> | null | undefined;
@@ -384,12 +385,12 @@ export default function HubPage() {
         setHistoryLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) setHistoryLoaded(true);
+        applyMock();
       });
     return () => {
       cancelled = true;
     };
-  }, [loading, isAuthenticated]);
+  }, [loading, isAuthenticated, activeId]);
 
   // Close the search dropdown on outside click.
   useEffect(() => {
@@ -432,9 +433,6 @@ export default function HubPage() {
   const bannerSection = SECTION_BY_ID.get("banner")!;
   const otherSections = SECTIONS.filter((s) => s.id !== "banner");
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
-  // "0 проектов" would read as a scolding, so the strip only appears once there
-  // is something to count.
-  const showStats = projectCount > 0;
   // Gate onboarding on the same count as the stat so the two are mutually
   // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
   // sees the stat, and malformed data can never show both at once.
@@ -588,22 +586,6 @@ export default function HubPage() {
               </div>
             ) : null}
           </div>
-
-          {/* ── Quick stats: a little sense of progress above the tools.
-              Credits deliberately live only in the header — showing them here
-              too was pure duplication. ─────────────────────────────────────── */}
-          {showStats ? (
-            <div
-              className="hub-in mt-5 flex justify-center"
-              style={{ "--d": "60ms" } as React.CSSProperties}
-            >
-              <StatCard
-                icon={<LayoutGrid className="h-4 w-4" />}
-                value={projectCount}
-                label={`${plural(projectCount, "проект", "проекта", "проектов")} создано`}
-              />
-            </div>
-          ) : null}
 
           {/* First-visit nudge — fills the space that "Недавние проекты" takes
               for returning users, and points at the tools right below it. */}

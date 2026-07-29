@@ -46,7 +46,7 @@ const ru = {
     },
     profile: {
       trigger: "Профиль",
-      account: "Личный кабинет",
+      account: "Аккаунт",
       history: "История",
       help: "Помощь и поддержка",
       admin: "Админ-панель",
@@ -89,6 +89,11 @@ const ru = {
       stay: "Остаться",
       leave: "Продолжить без сохранения",
     },
+  },
+  workspace: {
+    switch: "Мой Workspace",
+    all: "Мои пространства",
+    manage: "Управление пространствами",
   },
 };
 
@@ -137,6 +142,7 @@ export type Messages = {
     unsaved: string;
     unsavedModal: { title: string; body: string; stay: string; leave: string };
   };
+  workspace: { switch: string; all: string; manage: string };
 };
 
 const en: Messages = {
@@ -217,6 +223,11 @@ const en: Messages = {
       leave: "Leave without saving",
     },
   },
+  workspace: {
+    switch: "My Workspace",
+    all: "My workspaces",
+    manage: "Manage workspaces",
+  },
 };
 
 const uk: Messages = {
@@ -253,7 +264,7 @@ const uk: Messages = {
     },
     profile: {
       trigger: "Профіль",
-      account: "Особистий кабінет",
+      account: "Акаунт",
       history: "Історія",
       help: "Допомога і підтримка",
       admin: "Адмін-панель",
@@ -296,6 +307,11 @@ const uk: Messages = {
       stay: "Залишитися",
       leave: "Продовжити без збереження",
     },
+  },
+  workspace: {
+    switch: "Мій Workspace",
+    all: "Мої простори",
+    manage: "Керування просторами",
   },
 };
 

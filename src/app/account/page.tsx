@@ -40,6 +40,24 @@ type Profile = {
 
 type MeResponse = { profile: Profile; is_super_admin: boolean };
 
+// Local dev build only: /api/me is unauthenticated there, so fall back to this
+// mock profile instead of the error screen — lets the account page render for
+// local review. Production is unaffected.
+const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === "true";
+const DEV_ME: MeResponse = {
+  profile: {
+    id: "00000000-0000-0000-0000-000000000000",
+    email: "dev@localhost",
+    first_name: "Дизайн",
+    last_name: "Менеджер",
+    nickname: "",
+    phone: "",
+    contact: "",
+    credits_balance: 148.5,
+  },
+  is_super_admin: false,
+};
+
 // Same placeholder avatar as the top-bar profile menu, for consistency.
 const AVATAR_URL = "https://i.pravatar.cc/128?img=68";
 
@@ -62,8 +80,8 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
     <span
       className="relative shrink-0 rounded-full p-[2px]"
       style={{
-        backgroundImage: "var(--grad-brand)",
-        boxShadow: "0 0 22px -6px rgba(198,255,61,0.5), 0 0 26px -4px rgba(123,92,255,0.55)",
+        background: "var(--brand-lime)",
+        boxShadow: "0 0 22px -6px rgba(198,255,61,0.5)",
       }}
     >
       <span className="block rounded-full bg-background p-[2px]">
@@ -77,7 +95,7 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
 export default function AccountPage() {
   const router = useRouter();
   useEffect(() => {
-    document.title = "Личный кабинет — Dream Weaver Studio";
+    document.title = "Аккаунт — Dream Weaver Studio";
   }, []);
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { isGuest } = useAppRole();
@@ -117,8 +135,10 @@ export default function AccountPage() {
         const data = await apiJson<MeResponse>("/api/me");
         if (!cancelled) setMe(data);
       } catch (e) {
-        if (!cancelled)
-          setError(e instanceof ApiError ? e.message : "Не удалось загрузить профиль");
+        if (cancelled) return;
+        // Dev build: render a mock profile instead of the error screen.
+        if (DEV_BYPASS) setMe(DEV_ME);
+        else setError(e instanceof ApiError ? e.message : "Не удалось загрузить профиль");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -173,7 +193,7 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="ds-btn ds-btn-grad mx-auto mt-4 min-h-11 gap-2 px-4"
+              className="ds-btn ds-btn-primary mx-auto mt-4 min-h-11 gap-2 px-4"
             >
               <RefreshCw className="h-4 w-4" />
               Обновить
@@ -327,7 +347,7 @@ function EditProfileModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         hideClose
-        className="ds-card ds-ring-grad flex max-h-[85vh] w-full max-w-md flex-col gap-0 overflow-hidden p-0"
+        className="ds-card flex max-h-[85vh] w-full max-w-md flex-col gap-0 overflow-hidden p-0"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <DialogTitle className="text-lg font-semibold">Редактировать профиль</DialogTitle>
@@ -434,7 +454,7 @@ function EditProfileModal({
             type="button"
             disabled={busy}
             onClick={submit}
-            className="ds-btn ds-btn-grad min-h-11 px-5"
+            className="ds-btn ds-btn-primary min-h-11 px-5"
           >
             {busy ? "Сохраняем…" : "Сохранить"}
           </button>
@@ -452,7 +472,7 @@ function SubscriptionCard() {
   // a violet resting glow + a lime→violet hairline ring, with a solid-violet
   // PRIMARY CTA so violet reads as a co-equal primary alongside the lime one.
   return (
-    <div className="ds-card ds-card-glow-violet ds-ring-grad p-5 sm:p-6">
+    <div className="ds-card ds-card-glow-violet p-5 sm:p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Tag className="h-4 w-4 text-brand-violet" />
         <span className="ds-overline">Подписка</span>
@@ -629,7 +649,7 @@ function CreditsCard({ balance }: { balance: number | string }) {
         </div>
         {/* PRIMARY action — brand-gradient fill (lime→violet), the boldest CTA
             on the screen. */}
-        <Link href="/billing" className="ds-btn ds-btn-grad min-h-11 shrink-0 gap-1.5 px-4">
+        <Link href="/billing" className="ds-btn ds-btn-primary min-h-11 shrink-0 gap-1.5 px-4">
           <Plus className="h-4 w-4" />
           Купить
         </Link>
@@ -671,8 +691,8 @@ function UsageHistoryCard() {
                 key={i}
                 style={{
                   height: `${Math.round(h * 100)}%`,
-                  backgroundImage: "linear-gradient(180deg, #9b85ff 0%, #c6ff3d 100%)",
-                  boxShadow: "0 0 16px -2px rgba(155,133,255,0.6)",
+                  background: "var(--brand-lime)",
+                  boxShadow: "0 0 16px -2px rgba(198,255,61,0.55)",
                 }}
                 className="flex-1 rounded-sm"
               />
