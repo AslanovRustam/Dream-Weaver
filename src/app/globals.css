@@ -543,17 +543,14 @@
     box-shadow: none;
   }
   .ds-btn-primary {
-    /* Signature primary: lime→violet gradient fill, dark text (both ends clear
-       AA on it). Brightens + dual glow on hover. Rolled out product-wide. */
-    background-image: linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%);
+    /* Solid lime fill, dark text. Brightens AND picks up a LIME glow on hover
+       (single accent per button — no lime/violet mixing). */
+    background: var(--brand-lime);
     color: var(--text-on-accent);
-    box-shadow: 0 8px 22px -10px rgba(123, 92, 255, 0.55);
   }
   .ds-btn-primary:not(:disabled):hover {
-    filter: brightness(1.06);
-    box-shadow:
-      0 0 22px -2px rgba(198, 255, 61, 0.45),
-      0 0 28px -2px rgba(123, 92, 255, 0.5);
+    background: var(--lime-300);
+    box-shadow: var(--glow-lime);
   }
   .ds-btn-secondary {
     border-color: var(--border-strong);
@@ -884,47 +881,11 @@ select {
   box-shadow: var(--shadow-pop-val), 0 0 62px -12px rgba(123, 92, 255, 0.78);
 }
 
-/* Gradient hairline ring (emphasis surfaces) — a lime→violet 1px ring drawn
-   with a masked pseudo-element so the glass fill stays intact. */
-.ds-ring-grad::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--grad-brand);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.55;
-  pointer-events: none;
-}
+/* One accent per button: no lime→violet gradient fills or mixed rings. The
+   primary stays solid lime (.ds-btn-primary); .ds-btn-violet is the solid
+   violet alternative. Each carries a glow in its OWN colour. */
 
-/* PRIMARY (brand gradient) — lime→violet fill with dark text. Both gradient
-   ends clear AA on the near-black text; brightens + dual glow + lifts on
-   hover. The screen's main action; compose with .ds-btn. */
-.ds-btn-grad {
-  background-image: linear-gradient(105deg, #c6ff3d 0%, #a7e24a 45%, #9b85ff 100%);
-  color: var(--text-on-accent);
-  border-color: transparent;
-  box-shadow: 0 8px 22px -10px rgba(123, 92, 255, 0.55);
-  transition:
-    transform var(--dur-base) var(--ease-emphasis),
-    filter var(--dur-base) var(--ease-standard),
-    box-shadow var(--dur-base) var(--ease-standard);
-}
-.ds-btn-grad:not(:disabled):hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 22px -2px rgba(198, 255, 61, 0.45),
-    0 0 28px -2px rgba(123, 92, 255, 0.5);
-}
-
-/* PRIMARY (violet) — solid deep-violet fill, light text. Lets violet act as a
-   co-equal primary (used for the plan upsell). */
+/* PRIMARY (violet) — solid deep-violet fill + violet glow, light text. */
 .ds-btn-violet {
   background-image: linear-gradient(160deg, #7b5cff 0%, #5e3ef0 100%);
   color: #f4f6f8;

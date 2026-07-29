@@ -12,7 +12,7 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
-  BookOpen,
+  Briefcase,
   Check,
   ChevronDown,
   Clock,
@@ -24,7 +24,6 @@ import {
   LayoutTemplate,
   Loader2,
   LogOut,
-  Mail,
   Pencil,
   ShieldCheck,
   Sparkles,
@@ -47,10 +46,8 @@ import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
-import { useWorkspace } from "@/lib/workspace-context";
 import { useLocale, useT, useMessages, UI_LOCALES } from "@/lib/i18n";
 import { BrandLogo } from "./BrandLogo";
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 type MeResponse = {
   profile: {
@@ -123,12 +120,9 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const { setActive: setActiveWorkspace } = useWorkspace();
-  // Pending guarded action for the unsaved-changes modal — either a navigation
-  // or a workspace switch. When set, the modal is open and confirming runs it.
-  const [pending, setPending] = useState<
-    { kind: "nav"; href: string } | { kind: "workspace"; id: string } | null
-  >(null);
+  // Pending destination for the unsaved-changes guard: when set, the modal is
+  // open and confirming navigates here (see requestNavigate).
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -214,20 +208,8 @@ export function AppHeader() {
   // and defer the push; otherwise navigate immediately. Used by the section
   // switcher and the logo (→ Hub) — the two ways to leave a generator.
   const requestNavigate = (href: string) => {
-    if (getUnsavedWork() !== null) setPending({ kind: "nav", href });
+    if (getUnsavedWork() !== null) setPendingNav(href);
     else router.push(href);
-  };
-  // Same unsaved-changes guard, applied to switching the active workspace.
-  const requestWorkspaceSwitch = (id: string) => {
-    if (getUnsavedWork() !== null) setPending({ kind: "workspace", id });
-    else setActiveWorkspace(id);
-  };
-  const runPending = () => {
-    const p = pending;
-    setPending(null);
-    if (!p) return;
-    if (p.kind === "nav") router.push(p.href);
-    else setActiveWorkspace(p.id);
   };
 
   return (
@@ -316,16 +298,10 @@ export function AppHeader() {
                 <NotificationsMenu />
               </span>
               <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
-                <HelpMenu />
                 <ProjectsMenu />
               </div>
             </>
           ) : null}
-
-          {/* Workspace switcher — the active company/client. A separate control
-              from the section switcher on the left; shown on every page (Hub
-              included), carrying the violet accent to stay distinct. */}
-          {!isGuest ? <WorkspaceSwitcher onSelect={requestWorkspaceSwitch} /> : null}
 
           {isGuest ? (
             <GuestAuthButtons />
@@ -485,6 +461,15 @@ export function AppHeader() {
                 asChild
                 className="text-foreground focus:bg-white/10 focus:text-foreground"
               >
+                <Link href="/workspace">
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  {t("workspace.switch")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
                 <Link href="/history">
                   <Clock className="mr-2 h-4 w-4" />
                   {t("header.profile.history")}
@@ -492,7 +477,7 @@ export function AppHeader() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground md:hidden"
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
               >
                 <Link href="/help">
                   <HelpCircle className="mr-2 h-4 w-4" />
@@ -530,9 +515,9 @@ export function AppHeader() {
       {/* Unsaved-changes guard modal — shown when leaving a generator with
           unsaved work (section switcher / logo). Radix portals it to <body>. */}
       <Dialog
-        open={pending !== null}
+        open={pendingNav !== null}
         onOpenChange={(o) => {
-          if (!o) setPending(null);
+          if (!o) setPendingNav(null);
         }}
       >
         <DialogContent
@@ -544,14 +529,18 @@ export function AppHeader() {
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={() => setPending(null)}
+              onClick={() => setPendingNav(null)}
               className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               {t("header.unsavedModal.stay")}
             </button>
             <button
               type="button"
-              onClick={runPending}
+              onClick={() => {
+                const h = pendingNav;
+                setPendingNav(null);
+                if (h) router.push(h);
+              }}
               className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
             >
               {t("header.unsavedModal.leave")}
@@ -883,66 +872,41 @@ function SectionSwitcher({
   );
 }
 
-// Interface-language switcher. Sets the PRODUCT UI language (RU / EN / UA) — not
-// the generated-content language, which now lives per-section inside each
-// generator (see each generator's "Языки" section). Switching is instant, no
-// reload, via the locale context.
+// Interface-language switcher — icon only (globe), no label. Sets the PRODUCT
+// UI language (RU / EN / UA); instant, no reload. Generated-content language
+// lives per-section inside each generator.
 function LanguageSelector() {
   const { locale, setLocale } = useLocale();
   const t = useT();
-  const current = UI_LOCALES.find((l) => l.code === locale) ?? UI_LOCALES[0];
   return (
-    <div className="group relative shrink-0">
-      <DropdownMenu scrimIntensity="light">
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("header.language.aria")}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10 max-sm:min-h-11"
-          >
-            <Globe className="h-4 w-4 shrink-0 text-accent-green" />
-            {/* Explicit purpose where the header has room (lg+); below that the
-                chip stays compact and the in-menu caption carries it. */}
-            <span className="hidden font-medium text-muted-foreground lg:inline">
-              {t("header.language.title")}
-            </span>
-            <span className="font-semibold">{current.short}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          sideOffset={8}
-          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
+    <DropdownMenu scrimIntensity="light">
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("header.language.aria")}
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white/5 px-2 py-1.5 text-muted-foreground transition hover:border-white/25 hover:bg-white/10 hover:text-foreground max-sm:min-h-11 max-sm:px-2.5"
         >
-          <div className="border-b border-border px-2.5 pb-2 pt-1.5">
-            <p className="text-sm font-semibold">{t("header.language.title")}</p>
-            <p className="ds-caption mt-0.5 leading-snug">{t("header.language.hint")}</p>
-          </div>
-          <div className="pt-1.5">
-            {UI_LOCALES.map((l) => (
-              <DropdownMenuItem
-                key={l.code}
-                onClick={() => setLocale(l.code)}
-                className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
-              >
-                {l.label}
-                {l.code === locale ? <Check className="h-4 w-4 text-accent-green" /> : null}
-              </DropdownMenuItem>
-            ))}
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Desktop hover tooltip. Pure CSS on group-hover — no hover on touch, so
-          it never fires on mobile. Hidden while the menu is open. */}
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-border bg-popover px-3 py-2 text-xs leading-snug text-muted-foreground opacity-0 shadow-pop transition-opacity duration-150 group-hover:opacity-100 group-has-[[data-state=open]]:opacity-0 max-lg:hidden"
+          <Globe className="h-4 w-4 shrink-0 text-accent-green" />
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-44 rounded-xl border-border bg-popover p-1.5 text-foreground"
       >
-        {t("header.language.hint")}
-      </span>
-    </div>
+        {UI_LOCALES.map((l) => (
+          <DropdownMenuItem
+            key={l.code}
+            onClick={() => setLocale(l.code)}
+            className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+          >
+            {l.label}
+            {l.code === locale ? <Check className="h-4 w-4 text-accent-green" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -998,45 +962,6 @@ function NotificationsMenu() {
             );
           })}
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function HelpMenu() {
-  const t = useT();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("header.help.trigger")}
-          className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={10}
-        className="w-64 rounded-xl border-border bg-popover p-2 text-foreground"
-      >
-        <div className="px-2 py-1.5">
-          <span className="ds-h4">{t("header.help.trigger")}</span>
-        </div>
-        <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <Link href="/help" className="flex items-center gap-2 text-sm">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            {t("header.help.kb")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <Link href="/help#contact" className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            {t("header.help.contact")}
-          </Link>
-        </DropdownMenuItem>
-        <div className="px-2 pb-1 pt-1.5 ds-caption">support@clickable.agency</div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
