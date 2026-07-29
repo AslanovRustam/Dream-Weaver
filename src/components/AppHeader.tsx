@@ -47,8 +47,10 @@ import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
+import { useWorkspace } from "@/lib/workspace-context";
 import { useLocale, useT, useMessages, UI_LOCALES } from "@/lib/i18n";
 import { BrandLogo } from "./BrandLogo";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 type MeResponse = {
   profile: {
@@ -121,9 +123,12 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  // Pending destination for the unsaved-changes guard: when set, the modal is
-  // open and confirming navigates here (see requestNavigate).
-  const [pendingNav, setPendingNav] = useState<string | null>(null);
+  const { setActive: setActiveWorkspace } = useWorkspace();
+  // Pending guarded action for the unsaved-changes modal — either a navigation
+  // or a workspace switch. When set, the modal is open and confirming runs it.
+  const [pending, setPending] = useState<
+    { kind: "nav"; href: string } | { kind: "workspace"; id: string } | null
+  >(null);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -209,8 +214,20 @@ export function AppHeader() {
   // and defer the push; otherwise navigate immediately. Used by the section
   // switcher and the logo (→ Hub) — the two ways to leave a generator.
   const requestNavigate = (href: string) => {
-    if (getUnsavedWork() !== null) setPendingNav(href);
+    if (getUnsavedWork() !== null) setPending({ kind: "nav", href });
     else router.push(href);
+  };
+  // Same unsaved-changes guard, applied to switching the active workspace.
+  const requestWorkspaceSwitch = (id: string) => {
+    if (getUnsavedWork() !== null) setPending({ kind: "workspace", id });
+    else setActiveWorkspace(id);
+  };
+  const runPending = () => {
+    const p = pending;
+    setPending(null);
+    if (!p) return;
+    if (p.kind === "nav") router.push(p.href);
+    else setActiveWorkspace(p.id);
   };
 
   return (
@@ -304,6 +321,11 @@ export function AppHeader() {
               </div>
             </>
           ) : null}
+
+          {/* Workspace switcher — the active company/client. A separate control
+              from the section switcher on the left; shown on every page (Hub
+              included), carrying the violet accent to stay distinct. */}
+          {!isGuest ? <WorkspaceSwitcher onSelect={requestWorkspaceSwitch} /> : null}
 
           {isGuest ? (
             <GuestAuthButtons />
@@ -508,9 +530,9 @@ export function AppHeader() {
       {/* Unsaved-changes guard modal — shown when leaving a generator with
           unsaved work (section switcher / logo). Radix portals it to <body>. */}
       <Dialog
-        open={pendingNav !== null}
+        open={pending !== null}
         onOpenChange={(o) => {
-          if (!o) setPendingNav(null);
+          if (!o) setPending(null);
         }}
       >
         <DialogContent
@@ -522,18 +544,14 @@ export function AppHeader() {
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={() => setPendingNav(null)}
+              onClick={() => setPending(null)}
               className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               {t("header.unsavedModal.stay")}
             </button>
             <button
               type="button"
-              onClick={() => {
-                const h = pendingNav;
-                setPendingNav(null);
-                if (h) router.push(h);
-              }}
+              onClick={runPending}
               className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
             >
               {t("header.unsavedModal.leave")}

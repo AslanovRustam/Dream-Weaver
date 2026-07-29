@@ -21,6 +21,8 @@ import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
+import { useWorkspace } from "@/lib/workspace-context";
+import { getMockProjects } from "@/lib/historyMock";
 import { POPULAR_TEMPLATES, searchTemplates, type HubTemplate } from "@/lib/hubTemplates";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 
@@ -321,6 +323,7 @@ function StatCard({ icon, value, label }: { icon: React.ReactNode; value: number
 export default function HubPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const { activeId } = useWorkspace();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
   const [projectCount, setProjectCount] = useState(0);
@@ -352,15 +355,42 @@ export default function HubPage() {
     };
   }, [loading, isAuthenticated]);
 
-  // Recent projects across all sections. Only banner projects exist today, so we
-  // read the banner history. Any failure simply hides the block (never blocking).
+  // Recent projects + count for the ACTIVE workspace. Real banners when
+  // available (server-side filtering via ?workspace=<id> once the backend
+  // supports it), else the cross-type mock seeded to this workspace — so the
+  // Hub reflects only the current company/client. Re-runs on workspace switch.
   useEffect(() => {
     if (loading || !isAuthenticated) return;
     let cancelled = false;
-    apiJson<{ items?: unknown[] }>("/api/history?bucket=active")
+    const seed = activeId ?? undefined;
+    const qs = `/api/history?bucket=active${
+      activeId ? `&workspace=${encodeURIComponent(activeId)}` : ""
+    }`;
+    const applyMock = () => {
+      if (cancelled) return;
+      const list = getMockProjects(undefined, seed).filter((p) => !p.deleted);
+      setRecent(
+        list.slice(0, 6).map((p) => ({
+          id: p.id,
+          name: p.name,
+          updatedLabel: new Date(p.updatedAt).toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "short",
+          }),
+          thumb: p.thumb ?? null,
+        })),
+      );
+      setProjectCount(list.length);
+      setHistoryLoaded(true);
+    };
+    apiJson<{ items?: unknown[] }>(qs)
       .then((r) => {
         if (cancelled) return;
         const cards = Array.isArray(r?.items) ? r.items : [];
+        if (cards.length === 0) {
+          applyMock();
+          return;
+        }
         const mapped: RecentCard[] = cards.slice(0, 6).map((raw) => {
           const c = raw as Record<string, unknown>;
           const master = c.master as Record<string, unknown> | null | undefined;
@@ -384,12 +414,12 @@ export default function HubPage() {
         setHistoryLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) setHistoryLoaded(true);
+        applyMock();
       });
     return () => {
       cancelled = true;
     };
-  }, [loading, isAuthenticated]);
+  }, [loading, isAuthenticated, activeId]);
 
   // Close the search dropdown on outside click.
   useEffect(() => {

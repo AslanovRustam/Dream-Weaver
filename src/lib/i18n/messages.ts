@@ -90,6 +90,11 @@ const ru = {
       leave: "Продолжить без сохранения",
     },
   },
+  workspace: {
+    switch: "Рабочее пространство",
+    all: "Все пространства",
+    manage: "Управление пространствами",
+  },
 };
 
 export type Messages = {
@@ -137,6 +142,7 @@ export type Messages = {
     unsaved: string;
     unsavedModal: { title: string; body: string; stay: string; leave: string };
   };
+  workspace: { switch: string; all: string; manage: string };
 };
 
 const en: Messages = {
@@ -217,6 +223,11 @@ const en: Messages = {
       leave: "Leave without saving",
     },
   },
+  workspace: {
+    switch: "Workspace",
+    all: "All workspaces",
+    manage: "Manage workspaces",
+  },
 };
 
 const uk: Messages = {
@@ -296,6 +307,11 @@ const uk: Messages = {
       stay: "Залишитися",
       leave: "Продовжити без збереження",
     },
+  },
+  workspace: {
+    switch: "Робочий простір",
+    all: "Усі простори",
+    manage: "Керування просторами",
   },
 };
 
