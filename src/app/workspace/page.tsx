@@ -1,6 +1,7 @@
 "use client";
 
-// Standalone "Рабочее пространство" section (moved out of the header + account).
+// Standalone "Мой Workspace" section (full management; the header only has a
+// quick-switcher). Moved out of the account page.
 // Manage the user's company/client spaces: list, create, rename, delete, and
 // set the active one. Client-side + per account (see lib/workspaces). Credits
 // stay account-wide; only projects / history / stats are isolated per space.
@@ -32,7 +33,7 @@ function pluralWs(n: number, one: string, few: string, many: string) {
 
 export default function WorkspacePage() {
   useEffect(() => {
-    document.title = "Рабочее пространство — Dream Weaver Studio";
+    document.title = "Мой Workspace — Dream Weaver Studio";
   }, []);
   const { isGuest } = useAppRole();
 
@@ -43,7 +44,7 @@ export default function WorkspacePage() {
         <AppHeader />
         <div className="relative z-10">
           <GuestWall
-            title="Рабочие пространства доступны после регистрации"
+            title="«Мой Workspace» доступен после регистрации"
             description="Создавайте пространства для компаний и клиентов после создания аккаунта."
           />
         </div>
@@ -68,7 +69,7 @@ export default function WorkspacePage() {
             <Briefcase className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="ds-h1">Рабочие пространства</h1>
+            <h1 className="ds-h1">Мой Workspace</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Компании и клиенты — проекты, история и статистика изолированы по каждому пространству.
             </p>
@@ -89,8 +90,10 @@ function WorkspacesManager() {
 
   return (
     <>
-      <div className="ds-card ds-card-glow-violet p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="ds-card ds-card-glow-violet overflow-hidden">
+        {/* Header bar: count + create (create/rename/delete stay here, not in
+            the header quick-switcher). */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border-subtle)] px-4 py-3.5 sm:px-5">
           <p className="ds-caption">
             {workspaces.length} {pluralWs(workspaces.length, "пространство", "пространства", "пространств")}
           </p>
@@ -107,7 +110,9 @@ function WorkspacesManager() {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {/* LIST view — full-width rows (not cards), dividers + custom scroll. On
+            mobile the row stacks so all three actions stay visible. */}
+        <div className="max-h-[62vh] divide-y divide-[color:var(--border-subtle)] overflow-y-auto">
           {workspaces.map((w) => {
             const count = projectCount(w.id);
             const active = w.id === activeId;
@@ -119,15 +124,14 @@ function WorkspacesManager() {
             return (
               <div
                 key={w.id}
-                className={`rounded-xl border p-4 transition ${
-                  active
-                    ? "border-[color:var(--brand-violet)]/50 bg-[color:var(--brand-violet)]/[0.08]"
-                    : "border-border bg-background/40 hover:border-white/20"
+                className={`flex flex-col gap-3 px-4 py-3.5 transition sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
+                  active ? "bg-[color:var(--brand-violet)]/[0.07]" : "hover:bg-white/[0.02]"
                 }`}
               >
-                <div className="flex items-start gap-3">
+                {/* Left: logo + name + meta */}
+                <div className="flex min-w-0 items-center gap-3">
                   <WorkspaceAvatar ws={w} size={40} />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="truncate font-semibold text-foreground">{w.name}</p>
                       {active ? (
@@ -142,9 +146,10 @@ function WorkspacesManager() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
+                {/* Right: make active · rename · delete */}
+                <div className="flex items-center gap-2 max-sm:justify-end sm:shrink-0">
                   {active ? (
-                    <span className="ds-btn min-h-9 cursor-default px-3 text-sm text-muted-foreground">
+                    <span className="px-2 py-1 text-sm font-medium text-[color:var(--violet-400)]">
                       Текущее
                     </span>
                   ) : (
@@ -164,7 +169,7 @@ function WorkspacesManager() {
                     }}
                     aria-label="Переименовать"
                     title="Переименовать"
-                    className="ds-btn ds-btn-ghost min-h-9 w-9 px-0"
+                    className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -176,7 +181,7 @@ function WorkspacesManager() {
                     title={
                       workspaces.length <= 1 ? "Нельзя удалить последнее пространство" : "Удалить"
                     }
-                    className="ds-btn ds-btn-ghost min-h-9 w-9 px-0 text-muted-foreground hover:text-[color:var(--status-error)] disabled:opacity-40"
+                    className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0 text-muted-foreground hover:text-[color:var(--status-error)] disabled:opacity-40"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
