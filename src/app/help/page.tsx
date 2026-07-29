@@ -190,6 +190,7 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen">
+      <div className="ds-aurora" aria-hidden />
       <AppHeader />
 
       {/* Decorative aurora + fading dot-grid, same brand backdrop as the Hub.
