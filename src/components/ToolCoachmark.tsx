@@ -7,7 +7,8 @@
 import { useEffect, useState } from "react";
 import { Lightbulb, X } from "lucide-react";
 
-import { isSectionHintSeen, onSectionHintSeen } from "@/lib/onboarding";
+import { isSectionHintSeen, onSectionHintSeen, toolHintKey } from "@/lib/onboarding";
+import { useAuth } from "@/lib/auth-context";
 
 const TIPS: Record<string, { title: string; body: string }> = {
   banner: {
@@ -29,6 +30,10 @@ const TIPS: Record<string, { title: string; body: string }> = {
 };
 
 export function ToolCoachmark({ section }: { section: string }) {
+  // Per-account: scope the "seen" flag by user id so a different account on the
+  // same browser gets its own onboarding (see lib/onboarding).
+  const { user } = useAuth();
+  const userKey = user?.id ?? null;
   const [show, setShow] = useState(false);
   const tip = TIPS[section];
 
@@ -38,23 +43,23 @@ export function ToolCoachmark({ section }: { section: string }) {
     // both at once covered the form and offered two rival "Понятно" buttons.
     // Re-check on dismissal so this appears the moment the first one is gone.
     const evaluate = () => {
-      if (!isSectionHintSeen()) return;
+      if (!isSectionHintSeen(userKey)) return;
       try {
-        if (!window.localStorage.getItem(`dw:toolHint:${section}`)) setShow(true);
+        if (!window.localStorage.getItem(toolHintKey(section, userKey))) setShow(true);
       } catch {
         /* ignore */
       }
     };
     evaluate();
     return onSectionHintSeen(evaluate);
-  }, [section, tip]);
+  }, [section, tip, userKey]);
 
   if (!show || !tip) return null;
 
   const dismiss = () => {
     setShow(false);
     try {
-      window.localStorage.setItem(`dw:toolHint:${section}`, "1");
+      window.localStorage.setItem(toolHintKey(section, userKey), "1");
     } catch {
       /* ignore */
     }

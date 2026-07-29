@@ -39,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
@@ -46,12 +47,7 @@ import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
-import {
-  useCreativeLanguage,
-  setCreativeLanguage,
-  CREATIVE_LANGUAGES,
-  creativeLangShort,
-} from "@/lib/creative-language";
+import { useLocale, useT, useMessages, UI_LOCALES } from "@/lib/i18n";
 import { BrandLogo } from "./BrandLogo";
 
 type MeResponse = {
@@ -85,31 +81,12 @@ const LOW_CREDIT_THRESHOLD = 20;
 
 // UI-only mock data — swap for real endpoints once notifications / a projects
 // list exist on the backend.
-const NOTIFICATIONS: { id: string; icon: typeof Sparkles; title: string; desc: string; time: string; unread: boolean }[] = [
-  {
-    id: "n1",
-    icon: Sparkles,
-    title: "Генерация завершена",
-    desc: "Пакет из 6 баннеров готов к скачиванию",
-    time: "2 мин",
-    unread: true,
-  },
-  {
-    id: "n2",
-    icon: LayoutTemplate,
-    title: "Новый шаблон добавлен",
-    desc: "Betting · «Экспресс дня»",
-    time: "1 ч",
-    unread: true,
-  },
-  {
-    id: "n3",
-    icon: ShieldCheck,
-    title: "Аккаунт активен",
-    desc: "Текущий план: Бесплатный",
-    time: "вчера",
-    unread: false,
-  },
+// Structural metadata for the mock notifications; the localized title/desc/time
+// come from the i18n dictionary (header.notifications.items), index-aligned.
+const NOTIF_META: { id: string; icon: typeof Sparkles; unread: boolean }[] = [
+  { id: "n1", icon: Sparkles, unread: true },
+  { id: "n2", icon: LayoutTemplate, unread: true },
+  { id: "n3", icon: ShieldCheck, unread: false },
 ];
 
 const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] = [
@@ -124,6 +101,8 @@ export function AppHeader() {
   const { isGuest, isAdmin } = useAppRole();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useT();
+  const m = useMessages();
   // Hub (start screen) shows a simplified header (no section switcher / editor
   // chrome). Tool routes show the section switcher; the banner editor also gets
   // the project-name breadcrumb + undo/redo.
@@ -142,6 +121,9 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Pending destination for the unsaved-changes guard: when set, the modal is
+  // open and confirming navigates here (see requestNavigate).
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -223,6 +205,14 @@ export function AppHeader() {
     if (typeof window !== "undefined") window.localStorage.setItem("dw:projectName", v);
   };
 
+  // Guarded navigation: if the current section has unsaved work, open the modal
+  // and defer the push; otherwise navigate immediately. Used by the section
+  // switcher and the logo (→ Hub) — the two ways to leave a generator.
+  const requestNavigate = (href: string) => {
+    if (getUnsavedWork() !== null) setPendingNav(href);
+    else router.push(href);
+  };
+
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
       {/* The mobile scrim behind the profile menu (and every other dropdown) is
@@ -233,7 +223,7 @@ export function AppHeader() {
           {isHub ? (
             <Link
               href="/"
-              aria-label="Dream Weaver Studio — на главную"
+              aria-label={t("header.homeAria")}
               className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
             >
               <BrandLogo
@@ -252,10 +242,11 @@ export function AppHeader() {
                   it, so the two can't be confused. Falls back to the text
                   wordmark (full on ≥sm, "DW" on mobile) until the logo file is
                   present. */}
-              <Link
-                href="/"
-                aria-label="Dream Weaver Studio — на главную"
-                title="На главную"
+              <button
+                type="button"
+                onClick={() => requestNavigate("/")}
+                aria-label={t("header.homeAria")}
+                title={t("header.home")}
                 className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
               >
                 <BrandLogo
@@ -267,8 +258,8 @@ export function AppHeader() {
                     </span>
                   }
                 />
-              </Link>
-              <SectionSwitcher pathname={pathname} />
+              </button>
+              <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
             </>
           )}
           {isBannerEditor ? (
@@ -284,7 +275,7 @@ export function AppHeader() {
           {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
             <Link
               href="/history"
-              title={`${uploadStatus.failed} файлов не сохранены в облаке. Откройте историю.`}
+              title={t("header.uploadFailed", { n: uploadStatus.failed })}
               className="hidden items-center gap-1 rounded-md border border-[var(--status-premium)]/40 bg-[var(--status-premium)]/10 px-2 py-1 text-xs text-[var(--status-premium)] sm:flex"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
@@ -296,7 +287,7 @@ export function AppHeader() {
 
           {/* Guests have no balance to show (spec: no credits for guests). */}
           {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
-          {/* Global creative-language default — visible on every screen. */}
+          {/* Interface-language switcher (RU/EN/UA) — visible on every screen. */}
           <LanguageSelector />
           {/* The rest of the toolbar is editor chrome — hidden on the Hub and
               for guests (nothing there is usable without an account). */}
@@ -327,7 +318,7 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label="Профиль"
+                aria-label={t("header.profile.trigger")}
                 className="ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
               >
                 {/* Visual avatar is smaller than the 44px tap target on mobile. */}
@@ -368,7 +359,7 @@ export function AppHeader() {
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="ds-h4">Кредиты</span>
+                      <span className="ds-h4">{t("header.credits.title")}</span>
                       <span
                         className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
                       >
@@ -377,7 +368,7 @@ export function AppHeader() {
                     </div>
                     {low ? (
                       <p className="mt-1 text-xs text-[color:var(--status-premium)]">
-                        Кредиты заканчиваются — пополнить
+                        {t("header.credits.low")}
                       </p>
                     ) : null}
                   </Link>
@@ -387,13 +378,13 @@ export function AppHeader() {
               <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <Crown className="h-4 w-4 text-accent-green" />
-                  Больше кредитов
+                  {t("header.credits.more")}
                 </span>
                 <Link
                   href="/billing"
                   className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
-                  Пополнить
+                  {t("header.credits.topUpShort")}
                 </Link>
               </div>
 
@@ -413,11 +404,11 @@ export function AppHeader() {
                 >
                   <span className="flex items-center gap-2">
                     <Bell className="h-4 w-4" />
-                    Уведомления
+                    {t("header.notifications.title")}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    {NOTIFICATIONS.length > 0 ? (
-                      <span className="ds-caption tabular-nums">{NOTIFICATIONS.length}</span>
+                    {NOTIF_META.length > 0 ? (
+                      <span className="ds-caption tabular-nums">{NOTIF_META.length}</span>
                     ) : null}
                     <ChevronDown
                       className={`h-4 w-4 text-muted-foreground transition-transform ${
@@ -428,13 +419,14 @@ export function AppHeader() {
                 </DropdownMenuItem>
                 {notifOpen ? (
                   <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
-                    {NOTIFICATIONS.length === 0 ? (
+                    {NOTIF_META.length === 0 ? (
                       <p className="px-2 py-3 text-sm text-muted-foreground">
-                        Новых уведомлений нет
+                        {t("header.notifications.empty")}
                       </p>
                     ) : (
-                      NOTIFICATIONS.map((n) => {
+                      NOTIF_META.map((n, i) => {
                         const Icon = n.icon;
+                        const item = m.header.notifications.items[i];
                         return (
                           <div
                             key={n.id}
@@ -444,10 +436,10 @@ export function AppHeader() {
                               <Icon className="h-3.5 w-3.5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{n.title}</p>
-                              <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
+                              <p className="truncate text-sm font-medium">{item.title}</p>
+                              <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
                             </div>
-                            <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
+                            <span className="shrink-0 ds-micro text-muted-foreground">{item.time}</span>
                           </div>
                         );
                       })
@@ -464,7 +456,7 @@ export function AppHeader() {
               >
                 <Link href="/account">
                   <UserIcon className="mr-2 h-4 w-4" />
-                  Личный кабинет
+                  {t("header.profile.account")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -473,7 +465,7 @@ export function AppHeader() {
               >
                 <Link href="/history">
                   <Clock className="mr-2 h-4 w-4" />
-                  История
+                  {t("header.profile.history")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -482,7 +474,7 @@ export function AppHeader() {
               >
                 <Link href="/help">
                   <HelpCircle className="mr-2 h-4 w-4" />
-                  Помощь и поддержка
+                  {t("header.profile.help")}
                 </Link>
               </DropdownMenuItem>
               {isAdmin ? (
@@ -492,7 +484,7 @@ export function AppHeader() {
                 >
                   <Link href="/admin">
                     <ShieldCheck className="mr-2 h-4 w-4" />
-                    Админ-панель
+                    {t("header.profile.admin")}
                   </Link>
                 </DropdownMenuItem>
               ) : null}
@@ -505,32 +497,70 @@ export function AppHeader() {
                 className="text-foreground focus:bg-white/10 focus:text-foreground"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Выйти
+                {t("header.profile.signOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           )}
         </div>
       </div>
+
+      {/* Unsaved-changes guard modal — shown when leaving a generator with
+          unsaved work (section switcher / logo). Radix portals it to <body>. */}
+      <Dialog
+        open={pendingNav !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingNav(null);
+        }}
+      >
+        <DialogContent
+          hideClose
+          className="w-full max-w-sm rounded-2xl border border-border bg-panel p-6"
+        >
+          <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
+          <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setPendingNav(null)}
+              className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+            >
+              {t("header.unsavedModal.stay")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const h = pendingNav;
+                setPendingNav(null);
+                if (h) router.push(h);
+              }}
+              className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+            >
+              {t("header.unsavedModal.leave")}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
 
 // Guests get sign-in / sign-up instead of the credits chip + avatar menu.
 function GuestAuthButtons() {
+  const t = useT();
   return (
     <div className="ml-0.5 flex shrink-0 items-center gap-1.5 sm:gap-2">
       <Link
         href="/login"
         className="inline-flex min-h-9 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition hover:text-foreground max-sm:min-h-11 sm:px-3"
       >
-        Войти
+        {t("header.guest.login")}
       </Link>
       <Link
         href="/login?mode=signup"
         className="inline-flex min-h-9 items-center rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] max-sm:min-h-11 sm:px-3.5"
       >
-        Регистрация
+        {t("header.guest.register")}
       </Link>
     </div>
   );
@@ -539,10 +569,11 @@ function GuestAuthButtons() {
 // ---- Left cluster -----------------------------------------------------------
 
 function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
-  const display = value.trim() || "Проект без названия";
+  const display = value.trim() || t("header.project.untitled");
 
   useEffect(() => {
     if (editing) {
@@ -568,7 +599,7 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
           }
           if (e.key === "Escape") setEditing(false);
         }}
-        placeholder="Проект без названия"
+        placeholder={t("header.project.untitled")}
         className="min-w-0 max-w-[220px] rounded-md border border-accent-green/60 bg-transparent px-1.5 py-0.5 text-sm font-medium text-foreground outline-none"
       />
     );
@@ -578,7 +609,7 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
     <button
       type="button"
       onClick={() => setEditing(true)}
-      title="Переименовать проект"
+      title={t("header.project.rename")}
       className={`group flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-medium transition hover:bg-white/5 ${
         value.trim() ? "text-foreground" : "text-muted-foreground"
       }`}
@@ -607,6 +638,7 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
 function GenerationIndicator() {
   const gen = useGeneration();
   const router = useRouter();
+  const t = useT();
   const isActive = gen.isBusy;
   // Show whenever there's anything for the user to come back to:
   //   • work in flight (master_running / batch_running)
@@ -623,13 +655,13 @@ function GenerationIndicator() {
     !isActive && gen.totalTiles === 0 && gen.imageUrl !== null && gen.status !== "error";
   const label =
     gen.status === "error"
-      ? "Ошибка"
+      ? t("header.progress.error")
       : gen.status === "master_running"
-        ? "Мастер"
+        ? t("header.progress.master")
         : isBatch
           ? `${gen.doneTiles}/${gen.totalTiles}`
           : isMasterDoneNoBatch
-            ? "Готово"
+            ? t("header.progress.done")
             : "";
 
   // Tokens only — the error/success roles use the same --status-* variables as
@@ -649,7 +681,7 @@ function GenerationIndicator() {
         type="button"
         onClick={() => router.push("/banner")}
         className="flex items-center gap-1"
-        title="Открыть страницу генерации"
+        title={t("header.progress.open")}
       >
         {isActive ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -664,8 +696,8 @@ function GenerationIndicator() {
         type="button"
         onClick={() => (isActive ? gen.cancel() : gen.clear())}
         className="relative flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
-        aria-label={isActive ? "Прервать" : "Скрыть"}
-        title={isActive ? "Прервать оставшиеся задачи" : "Скрыть индикатор"}
+        aria-label={isActive ? t("header.progress.abort") : t("header.progress.hide")}
+        title={isActive ? t("header.progress.abortAll") : t("header.progress.hideIndicator")}
       >
         <X className="h-3 w-3" />
       </button>
@@ -677,11 +709,12 @@ function GenerationIndicator() {
 // the pool was hardcoded to 10, so a user on a 1000-credit plan read "1000 из 10".
 // Low balances turn the chip amber as a top-up nudge. Tap target >=44px on mobile.
 function CreditsButton({ label }: { label: string }) {
+  const t = useT();
   const low = Number(label) <= LOW_CREDIT_THRESHOLD;
   return (
     <Link
       href="/billing"
-      title={low ? "Кредиты заканчиваются — пополнить" : "Пополнить кредиты"}
+      title={low ? t("header.credits.low") : t("header.credits.topUp")}
       className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition max-sm:min-h-11 ${
         low
           ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:border-[color:var(--status-premium)]/60"
@@ -692,7 +725,7 @@ function CreditsButton({ label }: { label: string }) {
         className={`h-4 w-4 shrink-0 ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
       />
       <span className="hidden tabular-nums sm:inline">
-        <span className="text-muted-foreground">Кредиты: </span>
+        <span className="text-muted-foreground">{t("header.credits.label")} </span>
         <span
           className={`font-semibold ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
         >
@@ -712,9 +745,17 @@ function CreditsButton({ label }: { label: string }) {
 // name + ▾, opening a menu of all four sections (current one checked) + "На
 // главную" (the Hub). The brand wordmark lives in a separate logo to the left.
 // Switching away from the banner editor with unsaved work asks for confirmation.
-function SectionSwitcher({ pathname }: { pathname: string | null }) {
-  const router = useRouter();
-  const gen = useGeneration();
+function SectionSwitcher({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string | null;
+  onNavigate: (route: string) => void;
+}) {
+  const t = useT();
+  // Per-account onboarding: scope the section-hint flag by user id (lib/onboarding).
+  const { user } = useAuth();
+  const userKey = user?.id ?? null;
   const current = sectionFromPath(pathname);
   const CurrentIcon = current?.icon;
 
@@ -723,26 +764,17 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   // so the two never cover the UI at the same time.
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
-    if (current && !isSectionHintSeen()) setShowHint(true);
-  }, [current]);
+    if (current && !isSectionHintSeen(userKey)) setShowHint(true);
+  }, [current, userKey]);
   const dismissHint = () => {
     setShowHint(false);
-    markSectionHintSeen();
+    markSectionHintSeen(userKey);
   };
 
   const go = (route: string) => {
     if (current && route === current.route) return;
-    // Banner holds unsaved in-memory work in the generation context; playable /
-    // video report it via the shared unsaved-work signal.
-    const bannerDirty = current?.id === "banner" && (gen.imageUrl !== null || gen.isBusy);
-    const sectionDirty = getUnsavedWork() !== null && getUnsavedWork() === current?.id;
-    if (
-      (bannerDirty || sectionDirty) &&
-      !window.confirm("Есть несохранённые изменения. Продолжить?")
-    ) {
-      return;
-    }
-    router.push(route);
+    // Navigation is guarded centrally in AppHeader (the unsaved-changes modal).
+    onNavigate(route);
   };
 
   return (
@@ -755,8 +787,8 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Переключить раздел"
-            title="Переключить раздел"
+            aria-label={t("header.sections.switch")}
+            title={t("header.sections.switch")}
             className="group inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-base font-semibold tracking-tight transition hover:border-white/25 hover:bg-white/10 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25 max-sm:min-h-11 max-sm:px-3"
           >
             {/* Section chip: lime current-section icon + white name + lime
@@ -770,7 +802,7 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
               ) : (
                 <LayoutGrid className="h-4 w-4 shrink-0 text-accent-green" />
               )}
-              <span className="text-foreground">{current ? current.title : "Разделы"}</span>
+              <span className="text-foreground">{current ? current.title : t("header.sections.all")}</span>
             </span>
             <span className="flex items-center sm:hidden">
               {CurrentIcon ? (
@@ -818,15 +850,14 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
         >
           <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-accent-green/40 bg-popover" />
           <p className="text-xs leading-relaxed text-foreground">
-            Здесь можно переключаться между Баннер-генератором, Лендинг-генератором и другими
-            инструментами.
+            {t("header.sections.coach")}
           </p>
           <button
             type="button"
             onClick={dismissHint}
             className="mt-2.5 rounded-md bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
           >
-            Понятно
+            {t("header.sections.coachOk")}
           </button>
         </div>
       ) : null}
@@ -834,59 +865,51 @@ function SectionSwitcher({ pathname }: { pathname: string | null }) {
   );
 }
 
-// Global creative-language default (the account-level "Язык" the sections
-// inherit). This sets the language of the GENERATED CONTENT (banner copy,
-// video script, landing text) — NOT the product UI, which stays Russian. That
-// distinction is easy to miss from a bare "RU" chip, so it is spelled out three
-// ways: a visible "Язык генерации" label (desktop), a hover tooltip (desktop),
-// and a caption inside the menu that every user sees on open (covers mobile,
-// which has no hover).
-const LANG_EXPLAINER =
-  "Определяет язык текста в сгенерированных креативах — баннерах, лендингах, видео. Интерфейс продукта остаётся русским.";
-
+// Interface-language switcher. Sets the PRODUCT UI language (RU / EN / UA) — not
+// the generated-content language, which now lives per-section inside each
+// generator (see each generator's "Языки" section). Switching is instant, no
+// reload, via the locale context.
 function LanguageSelector() {
-  const lang = useCreativeLanguage();
+  const { locale, setLocale } = useLocale();
+  const t = useT();
+  const current = UI_LOCALES.find((l) => l.code === locale) ?? UI_LOCALES[0];
   return (
     <div className="group relative shrink-0">
       <DropdownMenu scrimIntensity="light">
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Язык генерации креативов"
+            aria-label={t("header.language.aria")}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10 max-sm:min-h-11"
           >
             <Globe className="h-4 w-4 shrink-0 text-accent-green" />
-            {/* Explicit purpose, shown where the header has room (lg+). Below
-                that the chip stays compact and the in-menu caption carries it. */}
+            {/* Explicit purpose where the header has room (lg+); below that the
+                chip stays compact and the in-menu caption carries it. */}
             <span className="hidden font-medium text-muted-foreground lg:inline">
-              Язык генерации
+              {t("header.language.title")}
             </span>
-            <span className="font-semibold">{creativeLangShort(lang)}</span>
+            <span className="font-semibold">{current.short}</span>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
           sideOffset={8}
-          className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground"
+          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
         >
-          {/* Always-visible explanation — the mobile equivalent of the hover
-              tooltip, and a safety net on desktop. */}
           <div className="border-b border-border px-2.5 pb-2 pt-1.5">
-            <p className="text-sm font-semibold">Язык генерации</p>
-            <p className="ds-caption mt-0.5 leading-snug">
-              Язык текста в баннерах, лендингах и видео. Интерфейс остаётся русским.
-            </p>
+            <p className="text-sm font-semibold">{t("header.language.title")}</p>
+            <p className="ds-caption mt-0.5 leading-snug">{t("header.language.hint")}</p>
           </div>
           <div className="pt-1.5">
-            {CREATIVE_LANGUAGES.map((l) => (
+            {UI_LOCALES.map((l) => (
               <DropdownMenuItem
-                key={l.value}
-                onClick={() => setCreativeLanguage(l.value)}
+                key={l.code}
+                onClick={() => setLocale(l.code)}
                 className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
               >
                 {l.label}
-                {l.value === lang ? <Check className="h-4 w-4 text-accent-green" /> : null}
+                {l.code === locale ? <Check className="h-4 w-4 text-accent-green" /> : null}
               </DropdownMenuItem>
             ))}
           </div>
@@ -894,21 +917,22 @@ function LanguageSelector() {
       </DropdownMenu>
 
       {/* Desktop hover tooltip. Pure CSS on group-hover — no hover on touch, so
-          it never fires on mobile. Hidden while the menu is open (the trigger
-          gets data-state=open) so it can't overlap the dropdown. */}
+          it never fires on mobile. Hidden while the menu is open. */}
       <span
         role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-border bg-popover px-3 py-2 text-xs leading-snug text-muted-foreground opacity-0 shadow-pop transition-opacity duration-150 group-hover:opacity-100 group-has-[[data-state=open]]:opacity-0 max-lg:hidden"
+        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-border bg-popover px-3 py-2 text-xs leading-snug text-muted-foreground opacity-0 shadow-pop transition-opacity duration-150 group-hover:opacity-100 group-has-[[data-state=open]]:opacity-0 max-lg:hidden"
       >
-        {LANG_EXPLAINER}
+        {t("header.language.hint")}
       </span>
     </div>
   );
 }
 
 function NotificationsMenu() {
+  const t = useT();
+  const m = useMessages();
   const [readAll, setReadAll] = useState(false);
-  const unread = readAll ? 0 : NOTIFICATIONS.filter((n) => n.unread).length;
+  const unread = readAll ? 0 : NOTIF_META.filter((n) => n.unread).length;
   return (
     <DropdownMenu
       onOpenChange={(o) => {
@@ -935,22 +959,23 @@ function NotificationsMenu() {
         className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h4">Уведомления</span>
-          <span className="ds-caption">{NOTIFICATIONS.length}</span>
+          <span className="ds-h4">{t("header.notifications.title")}</span>
+          <span className="ds-caption">{NOTIF_META.length}</span>
         </div>
         <div className="space-y-0.5">
-          {NOTIFICATIONS.map((n) => {
+          {NOTIF_META.map((n, i) => {
             const Icon = n.icon;
+            const item = m.header.notifications.items[i];
             return (
               <div key={n.id} className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5">
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
                   <Icon className="h-3.5 w-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{n.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{n.desc}</p>
+                  <p className="truncate text-sm font-medium">{item.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
                 </div>
-                <span className="shrink-0 ds-micro text-muted-foreground">{n.time}</span>
+                <span className="shrink-0 ds-micro text-muted-foreground">{item.time}</span>
               </div>
             );
           })}
@@ -961,12 +986,13 @@ function NotificationsMenu() {
 }
 
 function HelpMenu() {
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Помощь"
+          aria-label={t("header.help.trigger")}
           className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <HelpCircle className="h-4 w-4" />
@@ -978,18 +1004,18 @@ function HelpMenu() {
         className="w-64 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="px-2 py-1.5">
-          <span className="ds-h4">Помощь</span>
+          <span className="ds-h4">{t("header.help.trigger")}</span>
         </div>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
           <Link href="/help" className="flex items-center gap-2 text-sm">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
-            База знаний и FAQ
+            {t("header.help.kb")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
           <Link href="/help#contact" className="flex items-center gap-2 text-sm">
             <Mail className="h-4 w-4 text-muted-foreground" />
-            Написать в поддержку
+            {t("header.help.contact")}
           </Link>
         </DropdownMenuItem>
         <div className="px-2 pb-1 pt-1.5 ds-caption">support@clickable.agency</div>
@@ -1000,12 +1026,13 @@ function HelpMenu() {
 
 function ProjectsMenu() {
   const router = useRouter();
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Мои проекты"
+          aria-label={t("header.projects.trigger")}
           className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           <LayoutGrid className="h-4 w-4" />
@@ -1017,9 +1044,9 @@ function ProjectsMenu() {
         className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="ds-h4">Мои проекты</span>
+          <span className="ds-h4">{t("header.projects.trigger")}</span>
           <Link href="/history" className="ds-caption underline-offset-4 hover:underline">
-            Вся история
+            {t("header.projects.all")}
           </Link>
         </div>
         <div className="space-y-0.5">
@@ -1035,7 +1062,7 @@ function ProjectsMenu() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{p.name}</p>
-                <p className="truncate text-xs text-muted-foreground">Изменён {p.updated}</p>
+                <p className="truncate text-xs text-muted-foreground">{t("header.projects.updated", { date: p.updated })}</p>
               </div>
             </button>
           ))}

@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { AuthGateProvider } from "@/components/AuthGate";
 import { GenerationProvider } from "@/lib/generation-context";
 import { EditorHistoryProvider } from "@/lib/editor-history";
+import { LocaleProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { DevRoleSwitcher } from "@/components/DevRoleSwitcher";
@@ -19,16 +20,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AuthGateProvider>
-          <GenerationProvider>
-            <EditorHistoryProvider>{children}</EditorHistoryProvider>
-          </GenerationProvider>
-          <DevRoleSwitcher />
-        </AuthGateProvider>
-      </AuthProvider>
-      <OfflineBanner />
-      <Toaster position="top-center" />
+      <LocaleProvider>
+        <AuthProvider>
+          <AuthGateProvider>
+            <GenerationProvider>
+              <EditorHistoryProvider>{children}</EditorHistoryProvider>
+            </GenerationProvider>
+            <DevRoleSwitcher />
+          </AuthGateProvider>
+        </AuthProvider>
+        <OfflineBanner />
+        <Toaster position="top-center" />
+      </LocaleProvider>
     </QueryClientProvider>
   );
 }

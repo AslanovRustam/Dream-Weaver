@@ -10,7 +10,7 @@ import { ChevronLeft, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
-import { getCreativeLanguage, CREATIVE_LANGUAGES } from "@/lib/creative-language";
+import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import type { Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 
@@ -35,11 +35,12 @@ export function SectionScaffold({ section }: { section: Section }) {
     if (!loading && !isAuthenticated) router.push("/login");
   }, [loading, isAuthenticated, router]);
 
-  // Default the section's language field from the global creative language,
-  // and (landing only) accept the "create from banner" handoff.
+  // Default the section's language field to "auto" — a local, per-section
+  // setting now (no longer tied to the header). Landing also accepts the
+  // "create from banner" handoff, which may carry its own language.
   useEffect(() => {
     document.title = `${section.title} — Dream Weaver Studio`;
-    let lang = getCreativeLanguage();
+    let lang = "auto";
     if (section.id === "landing" && typeof window !== "undefined") {
       try {
         const raw = window.localStorage.getItem("dw:landingSeed");
