@@ -91,8 +91,8 @@ const ru = {
     },
   },
   workspace: {
-    switch: "Рабочее пространство",
-    all: "Все пространства",
+    switch: "Мой Workspace",
+    all: "Мои пространства",
     manage: "Управление пространствами",
   },
 };
@@ -224,8 +224,8 @@ const en: Messages = {
     },
   },
   workspace: {
-    switch: "Workspace",
-    all: "All workspaces",
+    switch: "My Workspace",
+    all: "My workspaces",
     manage: "Manage workspaces",
   },
 };
@@ -309,8 +309,8 @@ const uk: Messages = {
     },
   },
   workspace: {
-    switch: "Робочий простір",
-    all: "Усі простори",
+    switch: "Мій Workspace",
+    all: "Мої простори",
     manage: "Керування просторами",
   },
 };
