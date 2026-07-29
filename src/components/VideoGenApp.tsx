@@ -51,7 +51,6 @@ import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import {
-  getCreativeLanguage,
   CREATIVE_LANGUAGES,
   creativeLangShort,
 } from "@/lib/creative-language";
@@ -195,7 +194,7 @@ export function VideoGenApp() {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
-    setLanguage(b.language && b.language !== "auto" ? b.language : getCreativeLanguage());
+    setLanguage(b.language || "auto");
   }, []);
 
   // Stop the progress timer on unmount so a background sim never leaks.
@@ -203,11 +202,13 @@ export function VideoGenApp() {
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
-  // Signal an unsaved result so the header / beforeunload can warn on leave.
+  // Signal unsaved work (a typed topic or a generated result not yet saved) so
+  // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
-    setUnsavedWork(result ? "video" : null);
+    const dirty = topic.trim() !== "" || result !== null;
+    setUnsavedWork(dirty ? "video" : null);
     return () => setUnsavedWork(null);
-  }, [result]);
+  }, [topic, result]);
 
   const selectScene = (id: VideoSceneType) => {
     setSceneType(id);
@@ -1214,11 +1215,11 @@ export function VideoGenApp() {
   );
 }
 
-// Resolve "auto" to the actual creative language for mock text / labels.
+// Resolve "auto" to a concrete language for mock text / labels. The generation
+// language is a local, per-section setting now, so "auto" simply defaults to ru.
 function normalize(lang: string): string {
   if (lang && lang !== "auto") return lang;
-  const g = getCreativeLanguage();
-  return g && g !== "auto" ? g : "ru";
+  return "ru";
 }
 
 // ---- shared bits ------------------------------------------------------------

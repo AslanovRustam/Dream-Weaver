@@ -30,7 +30,6 @@ import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
 import { formatGenerationError } from "@/lib/generation-errors";
-import { getCreativeLanguage } from "@/lib/creative-language";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
 import {
@@ -223,10 +222,13 @@ export function ImageGenApp() {
   // so closing the tab silently lost the result. A banner loaded from history
   // (loadedCardId) is already persisted, so it doesn't count as unsaved.
   useEffect(() => {
-    const unsaved = imageUrl !== null && !loadedCardId;
-    setUnsavedWork(unsaved ? "banner" : null);
+    // Dirty = project-specific work not yet saved as a history card: a typed
+    // topic ("Тематика баннера") or a freshly generated, unsaved result. A
+    // banner loaded from history (loadedCardId) is already persisted.
+    const dirty = !loadedCardId && (prompt.trim() !== "" || imageUrl !== null);
+    setUnsavedWork(dirty ? "banner" : null);
     return () => setUnsavedWork(null);
-  }, [imageUrl, loadedCardId]);
+  }, [imageUrl, loadedCardId, prompt]);
   // Preset the loaded card was originally created with. If the user
   // switches the preset to anything different after loading, we treat
   // the next resize batch as a NEW card so the new tiles don't bleed
@@ -388,7 +390,7 @@ export function ImageGenApp() {
     // Default the field from the global creative language unless the brand has
     // an explicit (non-auto) language saved — a local override stays a local
     // override and isn't clobbered by the global.
-    setLanguage(b.language && b.language !== "auto" ? b.language : getCreativeLanguage());
+    setLanguage(b.language || "auto");
     if (typeof window !== "undefined") {
       try {
         // History of generations is intentionally NOT persisted — proper
@@ -1269,21 +1271,30 @@ export function ImageGenApp() {
                     placeholder="Название бренда / проекта"
                     className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
-                    aria-label="Язык текстов на креативе"
-                  >
-                    {LANGUAGES.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
                 <p className="mt-2 ds-caption">
-                  Логотип/название и язык текстов будут учтены при генерации.
+                  Логотип и название будут учтены при генерации.
+                </p>
+              </div>
+
+              {/* Языки — язык ТЕКСТА в креативе. Локальная настройка раздела,
+                  не связана с языком интерфейса (тот переключается в шапке). */}
+              <div className="rounded-xl border border-border bg-background/40 p-3">
+                <p className="mb-2 ds-h4">Языки</p>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                  aria-label="Язык текстов на креативе"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 ds-caption">
+                  Язык текста на самом креативе — не связан с языком интерфейса.
                 </p>
               </div>
 
