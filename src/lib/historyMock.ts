@@ -54,10 +54,26 @@ const GRAD: Record<ProjectType, string> = {
 const H = 3600_000;
 const D = 24 * H;
 
+// Deterministic per-workspace bucketing for the MOCK data: each project lands
+// in a stable subset of workspaces keyed by a hash of (projectId, workspaceId),
+// so switching the active workspace shows a distinct, repeatable set of projects
+// (that's how the isolation is testable before a backend stores a workspace id).
+function wsHash(s: string): number {
+  let x = 0;
+  for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) >>> 0;
+  return x;
+}
+function inWorkspaceSeed(projectId: string, seed: string): boolean {
+  // ~60% of projects per workspace — keeps every space populated while making
+  // the sets clearly different between workspaces.
+  return wsHash(projectId + "|" + seed) % 10 < 6;
+}
+
 /** Cross-type project list. Dates are relative to `now` so the day-grouping
  *  ("Сегодня"/"Вчера") stays meaningful. Called from a client effect to avoid
- *  SSR/CSR time drift. */
-export function getMockProjects(now = Date.now()): Project[] {
+ *  SSR/CSR time drift. Pass `workspaceSeed` (the active workspace id) to get
+ *  only that workspace's projects — see inWorkspaceSeed. */
+export function getMockProjects(now = Date.now(), workspaceSeed?: string): Project[] {
   const iso = (ms: number) => new Date(now - ms).toISOString();
   const rows: Array<{
     id: string;
@@ -90,7 +106,7 @@ export function getMockProjects(now = Date.now()): Project[] {
     { id: "m-t1", type: "banner", name: "Черновик — старый баннер", ago: 1 * D, favorite: false, deleted: true, thumb: presetSport.src, meta: "1080×1080" },
     { id: "m-t2", type: "landing", name: "Тестовый лендинг", ago: 4 * D, favorite: false, deleted: true, meta: "Лендинг · 3 блока", grad: true },
   ];
-  return rows.map((r) => ({
+  const mapped: Project[] = rows.map((r) => ({
     id: r.id,
     type: r.type,
     name: r.name,
@@ -103,6 +119,13 @@ export function getMockProjects(now = Date.now()): Project[] {
     createdAt: iso(r.ago + 2 * H),
     real: false,
   }));
+  return workspaceSeed ? mapped.filter((p) => inWorkspaceSeed(p.id, workspaceSeed)) : mapped;
+}
+
+/** Count of ACTIVE (non-trash) mock projects in a workspace — powers the
+ *  project-count badge on the workspace cards. */
+export function countMockProjects(workspaceSeed: string, now = Date.now()): number {
+  return getMockProjects(now, workspaceSeed).filter((p) => !p.deleted).length;
 }
 
 const SPEND_LABEL: Record<ProjectType, string> = {

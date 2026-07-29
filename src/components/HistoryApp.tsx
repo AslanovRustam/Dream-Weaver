@@ -39,6 +39,9 @@ import { toast } from "sonner";
 import { MobileScrim } from "@/components/MobileScrim";
 import { SECTION_BY_ID, type SectionId } from "@/lib/sections";
 import { apiJson } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
+import { useWorkspace } from "@/lib/workspace-context";
+import { readProjectMap } from "@/lib/workspaces";
 import {
   getMockCredits,
   getMockProjects,
@@ -118,6 +121,8 @@ export function HistoryApp() {
 // ── Tab 1: projects ───────────────────────────────────────────────────────────
 function ProjectsTab() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { activeId, workspaces } = useWorkspace();
   const [projects, setProjects] = useState<Project[] | null>(null); // null = loading
   const [q, setQ] = useState("");
   const [type, setType] = useState<ProjectType | "all">("all");
@@ -129,22 +134,37 @@ function ProjectsTab() {
   const [visible, setVisible] = useState(12); // client-side pagination (infinite scroll)
   const [filterSheet, setFilterSheet] = useState(false);
 
-  // Load: real banners when available, else cross-type mock for review.
+  // Load projects for the ACTIVE workspace. Real banners when available are
+  // filtered by their workspace tag (untagged/legacy fall back to the default
+  // space); otherwise the cross-type mock, seeded to this workspace. The
+  // ?workspace=<id> param lets a backend filter server-side later. Re-runs on
+  // workspace switch, so История shows only the current company's projects.
   useEffect(() => {
     let cancelled = false;
-    apiJson<{ items?: unknown[] }>("/api/history?bucket=active&limit=100")
+    const uid = user?.id ?? null;
+    const seed = activeId ?? undefined;
+    const defaultId = workspaces[0]?.id ?? null;
+    const qs = `/api/history?bucket=active&limit=100${
+      activeId ? `&workspace=${encodeURIComponent(activeId)}` : ""
+    }`;
+    apiJson<{ items?: unknown[] }>(qs)
       .then((r) => {
         if (cancelled) return;
         const items = Array.isArray(r?.items) ? r.items : [];
-        setProjects(items.length > 0 ? mapRealCards(items) : getMockProjects());
+        if (items.length > 0) {
+          const map = readProjectMap(uid);
+          setProjects(mapRealCards(items).filter((c) => (map[c.id] || defaultId) === activeId));
+        } else {
+          setProjects(getMockProjects(undefined, seed));
+        }
       })
       .catch(() => {
-        if (!cancelled) setProjects(getMockProjects());
+        if (!cancelled) setProjects(getMockProjects(undefined, seed));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeId, workspaces, user]);
 
   const filtered = useMemo(() => {
     if (!projects) return [];

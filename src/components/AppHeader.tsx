@@ -12,7 +12,7 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
-  BookOpen,
+  Briefcase,
   Check,
   ChevronDown,
   Clock,
@@ -24,7 +24,6 @@ import {
   LayoutTemplate,
   Loader2,
   LogOut,
-  Mail,
   Pencil,
   ShieldCheck,
   Sparkles,
@@ -47,8 +46,10 @@ import { apiJson } from "@/lib/api-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
+import { useWorkspace } from "@/lib/workspace-context";
 import { useLocale, useT, useMessages, UI_LOCALES } from "@/lib/i18n";
 import { BrandLogo } from "./BrandLogo";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 type MeResponse = {
   profile: {
@@ -103,6 +104,7 @@ export function AppHeader() {
   const pathname = usePathname();
   const t = useT();
   const m = useMessages();
+  const { locale, setLocale } = useLocale();
   // Hub (start screen) shows a simplified header (no section switcher / editor
   // chrome). Tool routes show the section switcher; the banner editor also gets
   // the project-name breadcrumb + undo/redo.
@@ -121,9 +123,12 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  // Pending destination for the unsaved-changes guard: when set, the modal is
-  // open and confirming navigates here (see requestNavigate).
-  const [pendingNav, setPendingNav] = useState<string | null>(null);
+  const { setActive: setActiveWorkspace } = useWorkspace();
+  // Pending guarded action for the unsaved-changes modal — either a navigation
+  // or a workspace switch. When set, the modal is open and confirming runs it.
+  const [pending, setPending] = useState<
+    { kind: "nav"; href: string } | { kind: "workspace"; id: string } | null
+  >(null);
 
   useEffect(() => {
     meListeners.add(setLocalMe);
@@ -209,8 +214,21 @@ export function AppHeader() {
   // and defer the push; otherwise navigate immediately. Used by the section
   // switcher and the logo (→ Hub) — the two ways to leave a generator.
   const requestNavigate = (href: string) => {
-    if (getUnsavedWork() !== null) setPendingNav(href);
+    if (getUnsavedWork() !== null) setPending({ kind: "nav", href });
     else router.push(href);
+  };
+  // Same unsaved-changes guard, applied to switching the active workspace from
+  // the header quick-switcher.
+  const requestWorkspaceSwitch = (id: string) => {
+    if (getUnsavedWork() !== null) setPending({ kind: "workspace", id });
+    else setActiveWorkspace(id);
+  };
+  const runPending = () => {
+    const p = pending;
+    setPending(null);
+    if (!p) return;
+    if (p.kind === "nav") router.push(p.href);
+    else setActiveWorkspace(p.id);
   };
 
   return (
@@ -226,15 +244,7 @@ export function AppHeader() {
               aria-label={t("header.homeAria")}
               className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
             >
-              <BrandLogo
-                className="h-7 max-sm:h-6"
-                fallback={
-                  <>
-                    <span className="hidden sm:inline">Dream Weaver Studio</span>
-                    <span className="sm:hidden">DW</span>
-                  </>
-                }
-              />
+              <LogoArt />
             </Link>
           ) : (
             <>
@@ -249,15 +259,7 @@ export function AppHeader() {
                 title={t("header.home")}
                 className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
               >
-                <BrandLogo
-                  className="h-7 max-sm:h-6"
-                  fallback={
-                    <span className="text-base font-bold tracking-tight max-sm:text-sm">
-                      <span className="hidden sm:inline">Dream Weaver Studio</span>
-                      <span className="sm:hidden">DW</span>
-                    </span>
-                  }
-                />
+                <LogoArt />
               </button>
               <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
             </>
@@ -287,8 +289,10 @@ export function AppHeader() {
 
           {/* Guests have no balance to show (spec: no credits for guests). */}
           {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
-          {/* Interface-language switcher (RU/EN/UA) — visible on every screen. */}
-          <LanguageSelector />
+          {/* Workspace quick-switcher — icon only. Shown on every page (Hub
+              included). Full management: /workspace. The language switcher now
+              lives inside the avatar menu (below) to keep the mobile bar light. */}
+          {!isGuest ? <WorkspaceSwitcher onSelect={requestWorkspaceSwitch} /> : null}
           {/* The rest of the toolbar is editor chrome — hidden on the Hub and
               for guests (nothing there is usable without an account). */}
           {!isHub && !isGuest ? (
@@ -299,7 +303,6 @@ export function AppHeader() {
                 <NotificationsMenu />
               </span>
               <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
-                <HelpMenu />
                 <ProjectsMenu />
               </div>
             </>
@@ -463,6 +466,15 @@ export function AppHeader() {
                 asChild
                 className="text-foreground focus:bg-white/10 focus:text-foreground"
               >
+                <Link href="/workspace">
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  {t("workspace.switch")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
                 <Link href="/history">
                   <Clock className="mr-2 h-4 w-4" />
                   {t("header.profile.history")}
@@ -470,7 +482,7 @@ export function AppHeader() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground md:hidden"
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
               >
                 <Link href="/help">
                   <HelpCircle className="mr-2 h-4 w-4" />
@@ -488,6 +500,33 @@ export function AppHeader() {
                   </Link>
                 </DropdownMenuItem>
               ) : null}
+              <DropdownMenuSeparator className="bg-border" />
+              {/* Interface language — moved here from the header to keep the
+                  mobile bar light. Segmented RU / EN / UA; switching is instant
+                  and keeps the menu open (plain buttons, not menu items). */}
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="flex items-center gap-2 text-sm text-foreground">
+                  <Globe className="h-4 w-4 text-accent-green" />
+                  {t("header.language.title")}
+                </span>
+                <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
+                  {UI_LOCALES.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => setLocale(l.code)}
+                      aria-pressed={l.code === locale}
+                      className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
+                        l.code === locale
+                          ? "bg-accent-green text-on-accent"
+                          : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                      }`}
+                    >
+                      {l.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuItem
                 onClick={async () => {
@@ -508,9 +547,9 @@ export function AppHeader() {
       {/* Unsaved-changes guard modal — shown when leaving a generator with
           unsaved work (section switcher / logo). Radix portals it to <body>. */}
       <Dialog
-        open={pendingNav !== null}
+        open={pending !== null}
         onOpenChange={(o) => {
-          if (!o) setPendingNav(null);
+          if (!o) setPending(null);
         }}
       >
         <DialogContent
@@ -522,18 +561,14 @@ export function AppHeader() {
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={() => setPendingNav(null)}
+              onClick={() => setPending(null)}
               className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               {t("header.unsavedModal.stay")}
             </button>
             <button
               type="button"
-              onClick={() => {
-                const h = pendingNav;
-                setPendingNav(null);
-                if (h) router.push(h);
-              }}
+              onClick={runPending}
               className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
             >
               {t("header.unsavedModal.leave")}
@@ -542,6 +577,22 @@ export function AppHeader() {
         </DialogContent>
       </Dialog>
     </header>
+  );
+}
+
+// Full wordmark on >=sm; just the MARK (no "Gen Go" text) on mobile so the
+// header stays compact. Both come from the same brand file — logo-mark.svg is
+// the viewBox-cropped mark of logo.svg.
+function LogoArt() {
+  return (
+    <>
+      <BrandLogo
+        className="hidden h-7 sm:block"
+        fallback={<span className="text-base font-bold tracking-tight">Dream Weaver Studio</span>}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-mark.svg" alt="" className="h-7 w-auto sm:hidden" draggable={false} />
+    </>
   );
 }
 
@@ -865,69 +916,6 @@ function SectionSwitcher({
   );
 }
 
-// Interface-language switcher. Sets the PRODUCT UI language (RU / EN / UA) — not
-// the generated-content language, which now lives per-section inside each
-// generator (see each generator's "Языки" section). Switching is instant, no
-// reload, via the locale context.
-function LanguageSelector() {
-  const { locale, setLocale } = useLocale();
-  const t = useT();
-  const current = UI_LOCALES.find((l) => l.code === locale) ?? UI_LOCALES[0];
-  return (
-    <div className="group relative shrink-0">
-      <DropdownMenu scrimIntensity="light">
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("header.language.aria")}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-2.5 py-1.5 text-sm transition hover:border-white/25 hover:bg-white/10 max-sm:min-h-11"
-          >
-            <Globe className="h-4 w-4 shrink-0 text-accent-green" />
-            {/* Explicit purpose where the header has room (lg+); below that the
-                chip stays compact and the in-menu caption carries it. */}
-            <span className="hidden font-medium text-muted-foreground lg:inline">
-              {t("header.language.title")}
-            </span>
-            <span className="font-semibold">{current.short}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          sideOffset={8}
-          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
-        >
-          <div className="border-b border-border px-2.5 pb-2 pt-1.5">
-            <p className="text-sm font-semibold">{t("header.language.title")}</p>
-            <p className="ds-caption mt-0.5 leading-snug">{t("header.language.hint")}</p>
-          </div>
-          <div className="pt-1.5">
-            {UI_LOCALES.map((l) => (
-              <DropdownMenuItem
-                key={l.code}
-                onClick={() => setLocale(l.code)}
-                className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
-              >
-                {l.label}
-                {l.code === locale ? <Check className="h-4 w-4 text-accent-green" /> : null}
-              </DropdownMenuItem>
-            ))}
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Desktop hover tooltip. Pure CSS on group-hover — no hover on touch, so
-          it never fires on mobile. Hidden while the menu is open. */}
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-border bg-popover px-3 py-2 text-xs leading-snug text-muted-foreground opacity-0 shadow-pop transition-opacity duration-150 group-hover:opacity-100 group-has-[[data-state=open]]:opacity-0 max-lg:hidden"
-      >
-        {t("header.language.hint")}
-      </span>
-    </div>
-  );
-}
-
 function NotificationsMenu() {
   const t = useT();
   const m = useMessages();
@@ -980,45 +968,6 @@ function NotificationsMenu() {
             );
           })}
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function HelpMenu() {
-  const t = useT();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("header.help.trigger")}
-          className="rounded-md p-2.5 text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={10}
-        className="w-64 rounded-xl border-border bg-popover p-2 text-foreground"
-      >
-        <div className="px-2 py-1.5">
-          <span className="ds-h4">{t("header.help.trigger")}</span>
-        </div>
-        <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <Link href="/help" className="flex items-center gap-2 text-sm">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            {t("header.help.kb")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="focus:bg-white/10 focus:text-foreground">
-          <Link href="/help#contact" className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            {t("header.help.contact")}
-          </Link>
-        </DropdownMenuItem>
-        <div className="px-2 pb-1 pt-1.5 ds-caption">support@clickable.agency</div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

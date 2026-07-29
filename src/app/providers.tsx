@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthProvider } from "@/lib/auth-context";
 import { AuthGateProvider } from "@/components/AuthGate";
+import { WorkspaceProvider } from "@/lib/workspace-context";
 import { GenerationProvider } from "@/lib/generation-context";
 import { EditorHistoryProvider } from "@/lib/editor-history";
 import { LocaleProvider } from "@/lib/i18n";
@@ -23,9 +24,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <LocaleProvider>
         <AuthProvider>
           <AuthGateProvider>
-            <GenerationProvider>
-              <EditorHistoryProvider>{children}</EditorHistoryProvider>
-            </GenerationProvider>
+            <WorkspaceProvider>
+              <GenerationProvider>
+                <EditorHistoryProvider>{children}</EditorHistoryProvider>
+              </GenerationProvider>
+            </WorkspaceProvider>
             <DevRoleSwitcher />
           </AuthGateProvider>
         </AuthProvider>
