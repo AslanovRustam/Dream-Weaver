@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
-  ChevronLeft,
+  ArrowLeft,
   Code2,
   Download,
   Gamepad2,
@@ -422,7 +422,7 @@ export function PlayableGenApp() {
               onClick={() => setMobileTab("templates")}
               className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
             <SectionDots sections={sectionList} />
@@ -729,15 +729,15 @@ export function PlayableGenApp() {
               {/* Always-win toggle */}
               <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3">
                 <div className="min-w-0">
-                  <p className="ds-h4">Результат всегда выигрышный</p>
+                  <p className="text-sm font-medium text-foreground">Результат всегда выигрышный</p>
                   <p className="mt-0.5 ds-caption">Игрок всегда «выигрывает» — стимулирует переход</p>
                 </div>
                 <Switch checked={alwaysWin} onChange={setAlwaysWin} />
               </div>
 
               {/* CTA text */}
-              <div>
-                <label className="mb-2 block ds-h4">
+              <div className="mt-4">
+                <label className="mb-2 block ds-label">
                   Текст CTA на финальном экране{" "}
                   <span className="text-muted-foreground">(опционально)</span>
                 </label>
@@ -752,8 +752,8 @@ export function PlayableGenApp() {
               </div>
 
               {/* Duration */}
-              <div>
-                <label className="mb-2 block ds-h4">Длительность взаимодействия</label>
+              <div className="mt-4">
+                <label className="mb-2 block ds-label">Длительность взаимодействия</label>
                 <div className="flex gap-2">
                   {PLAYABLE_DURATIONS.map((d) => (
                     <button
@@ -773,8 +773,8 @@ export function PlayableGenApp() {
               </div>
 
               {/* Aspect ratio */}
-              <div>
-                <label className="mb-2 block ds-h4">Соотношение сторон</label>
+              <div className="mt-4">
+                <label className="mb-2 block ds-label">Соотношение сторон</label>
                 <div className="flex gap-2">
                   {PLAYABLE_RATIOS.map((r) => (
                     <button
@@ -826,7 +826,7 @@ export function PlayableGenApp() {
               onClick={() => setMobileTab("settings")}
               className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
           ) : null}

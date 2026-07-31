@@ -14,11 +14,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSmartBack } from "@/lib/use-back";
-import { Check, ChevronLeft, Sparkles, X } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/lib/auth-context";
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
@@ -152,14 +153,7 @@ export default function BillingPage() {
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <button
-          type="button"
-          onClick={goBack}
-          className="-mx-2 mb-6 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-        >
-          <ChevronLeft className="h-5 w-5" />
-          Назад
-        </button>
+        <BackButton onClick={goBack} className="-ml-2 mb-6" />
 
         <div className="mb-8 text-center">
           <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>

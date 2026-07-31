@@ -6,7 +6,7 @@
 // but with placeholder content. No real generation logic yet.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, LayoutGrid } from "lucide-react";
+import { ArrowLeft, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
@@ -114,7 +114,7 @@ export function SectionScaffold({ section }: { section: Section }) {
               onClick={() => setMobileTab("templates")}
               className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
           </div>
@@ -209,7 +209,7 @@ export function SectionScaffold({ section }: { section: Section }) {
             onClick={() => setMobileTab("settings")}
             className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
             Назад
           </button>
           <div className="flex w-full flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6">

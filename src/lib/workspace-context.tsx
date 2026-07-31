@@ -26,6 +26,7 @@ import {
   readWorkspaces,
   writeActiveWorkspaceId,
   writeWorkspaces,
+  type BrandKit,
   type Workspace,
 } from "@/lib/workspaces";
 
@@ -38,7 +39,10 @@ type WorkspaceContextValue = {
   active: Workspace | null;
   setActive: (id: string) => void;
   create: (name: string, logo?: string | null) => Workspace | null;
-  update: (id: string, patch: { name?: string; logo?: string | null }) => void;
+  update: (
+    id: string,
+    patch: { name?: string; logo?: string | null; brandKit?: BrandKit },
+  ) => void;
   remove: (id: string) => void;
   /** Number of projects in a workspace (mock in the dev build; real tag-map otherwise). */
   projectCount: (id: string) => number;
@@ -117,13 +121,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const update = useCallback(
-    (id: string, patch: { name?: string; logo?: string | null }) => {
+    (id: string, patch: { name?: string; logo?: string | null; brandKit?: BrandKit }) => {
       const next = workspaces.map((w) =>
         w.id === id
           ? {
               ...w,
               name: patch.name !== undefined ? patch.name.trim() || w.name : w.name,
               logo: patch.logo !== undefined ? patch.logo : w.logo,
+              brandKit: patch.brandKit !== undefined ? patch.brandKit : w.brandKit,
             }
           : w,
       );

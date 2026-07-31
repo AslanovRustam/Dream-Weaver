@@ -11,11 +11,21 @@
 // Credits are deliberately NOT modelled here — they are account-wide (one
 // balance per user, spent from any workspace). See the header credits chip.
 
+/** Client brand kit — set once per workspace and prefilled into new projects
+ *  created inside it (brand name + language today; colours are stored for the
+ *  upcoming generator prefill and shown as swatches on the workspace page). */
+export type BrandKit = {
+  brandName: string;
+  language: string; // "auto" | "ru" | "en" | "uk" | ...
+  colors: string[]; // hex strings, e.g. ["#c6ff3d", "#7b5cff"]
+};
+
 export type Workspace = {
   id: string;
   name: string;
   logo: string | null; // data URL, optional
   createdAt: string; // ISO
+  brandKit?: BrandKit; // optional; absent until the user fills it
 };
 
 const K_WS = (uid: string | null) => `dw:workspaces:${uid || "anon"}`;

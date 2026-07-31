@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
-  ChevronLeft,
+  ArrowLeft,
   ChevronRight,
   Download,
   Eye,
@@ -420,7 +420,7 @@ export function ResizeBatchPanel({
                   onClick={() => setOpen(false)}
                   className="-mx-2 mb-3 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                   Назад
                 </button>
                 <DialogTitle className="ds-h4 text-left">
@@ -583,7 +583,7 @@ export function ResizeBatchPanel({
                     onClick={backToSelect}
                     className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <ArrowLeft className="h-4 w-4" />
                     Назад
                   </button>
                   {/* Direct exit from the result — the natural end of the flow.
