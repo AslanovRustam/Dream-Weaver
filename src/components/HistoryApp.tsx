@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { BackButton } from "@/components/BackButton";
 import { MobileScrim } from "@/components/MobileScrim";
 import { SECTION_BY_ID, type SectionId } from "@/lib/sections";
 import { apiJson } from "@/lib/api-client";
@@ -76,14 +77,7 @@ export function HistoryApp() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:py-8">
       {/* Header: back → previous screen (entry-aware), title, tabs */}
-      <button
-        type="button"
-        onClick={goBack}
-        className="-ml-1 mb-3 inline-flex min-h-9 items-center gap-1 rounded-lg px-1 text-sm text-muted-foreground transition hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Назад
-      </button>
+      <BackButton onClick={goBack} className="-ml-2 mb-3" />
       <h1 className="ds-h1 sm:text-3xl">История</h1>
 
       <div className="mt-4 flex border-b border-border">
@@ -478,7 +472,7 @@ function toggleSel(setSelected: React.Dispatch<React.SetStateAction<Set<string>>
 }
 
 // Shared preview (image / gradient / video play overlay) + type chip.
-function Preview({ p, rounded }: { p: Project; rounded: string }) {
+export function Preview({ p, rounded }: { p: Project; rounded: string }) {
   const Icon = SECTION_BY_ID.get(p.type)!.icon;
   return (
     <div className={`relative overflow-hidden bg-background ${rounded}`}>
@@ -835,7 +829,7 @@ function CreditRow({ t, onProject }: { t: CreditTx; onProject?: () => void }) {
 }
 
 // ── small controls ────────────────────────────────────────────────────────────
-function TypePills({ type, onType, wrap }: { type: ProjectType | "all"; onType: (v: ProjectType | "all") => void; wrap?: boolean }) {
+export function TypePills({ type, onType, wrap }: { type: ProjectType | "all"; onType: (v: ProjectType | "all") => void; wrap?: boolean }) {
   const base = "min-h-9 rounded-lg px-3 text-sm font-medium transition";
   return (
     <div className={`flex items-center gap-1.5 ${wrap ? "flex-wrap" : ""}`}>
@@ -1003,7 +997,7 @@ function mapRealCards(items: unknown[]): Project[] {
   });
 }
 
-function formatRelative(iso: string): string {
+export function formatRelative(iso: string): string {
   const d = new Date(iso).getTime();
   const diff = (Date.now() - d) / 1000;
   if (diff < 60) return "только что";
