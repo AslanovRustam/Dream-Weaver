@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
@@ -199,7 +200,25 @@ export function AppHeader() {
     me?.profile.email ||
     "John Doe";
   const displayEmail = me?.profile.email || "john.doe@example.com";
-  const avatarUrl = "https://i.pravatar.cc/128?img=68";
+  // User avatar: the uploaded photo (dw:avatar) if the user set one, else a
+  // neutral illustrative placeholder (see UserAvatar) — no stock-photo default.
+  const [avatar, setAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    const read = () => {
+      try {
+        setAvatar(window.localStorage.getItem("dw:avatar"));
+      } catch {
+        /* ignore */
+      }
+    };
+    read();
+    window.addEventListener("storage", read);
+    window.addEventListener("dw:avatar", read);
+    return () => {
+      window.removeEventListener("storage", read);
+      window.removeEventListener("dw:avatar", read);
+    };
+  }, []);
   // Real balance when the profile has loaded; otherwise a sensible placeholder
   // (the /api/me call is unauthenticated in the dev-bypass build).
   const creditsLabel = balance === null ? "8" : balance.toFixed(2).replace(/\.00$/, "");
@@ -237,7 +256,7 @@ export function AppHeader() {
           now provided by the shared <DropdownMenu> wrapper — see MobileScrim. */}
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
         {/* LEFT: logo + breadcrumb + save + undo/redo */}
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
           {isHub ? (
             <Link
               href="/"
@@ -273,7 +292,7 @@ export function AppHeader() {
         </div>
 
         {/* RIGHT: generation → credits → notifications → help → projects → avatar */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
             <Link
               href="/history"
@@ -292,7 +311,12 @@ export function AppHeader() {
           {/* Workspace quick-switcher — icon only. Shown on every page (Hub
               included). Full management: /workspace. The language switcher now
               lives inside the avatar menu (below) to keep the mobile bar light. */}
-          {!isGuest ? <WorkspaceSwitcher onSelect={requestWorkspaceSwitch} /> : null}
+          {!isGuest ? (
+            <WorkspaceSwitcher
+              onSelect={requestWorkspaceSwitch}
+              onCreate={() => requestNavigate("/workspace?new=1")}
+            />
+          ) : null}
           {/* The rest of the toolbar is editor chrome — hidden on the Hub and
               for guests (nothing there is usable without an account). */}
           {!isHub && !isGuest ? (
@@ -322,14 +346,10 @@ export function AppHeader() {
               <button
                 type="button"
                 aria-label={t("header.profile.trigger")}
-                className="ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
               >
                 {/* Visual avatar is smaller than the 44px tap target on mobile. */}
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  className="h-9 w-9 rounded-full object-cover max-sm:h-8 max-sm:w-8"
-                />
+                <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -339,7 +359,7 @@ export function AppHeader() {
             >
               <div className="flex items-center gap-3 px-2 py-2">
                 <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
-                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  <UserAvatar src={avatar} className="h-full w-full" />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate ds-h4">{display}</p>
@@ -562,14 +582,14 @@ export function AppHeader() {
             <button
               type="button"
               onClick={() => setPending(null)}
-              className="min-h-11 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+              className="min-h-11 whitespace-nowrap rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               {t("header.unsavedModal.stay")}
             </button>
             <button
               type="button"
               onClick={runPending}
-              className="min-h-11 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+              className="min-h-11 whitespace-nowrap rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
             >
               {t("header.unsavedModal.leave")}
             </button>

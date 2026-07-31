@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Captions,
   Check,
-  ChevronLeft,
+  ArrowLeft,
   Clapperboard,
   Download,
   Film,
@@ -398,7 +398,7 @@ export function VideoGenApp() {
               onClick={() => setMobileTab("templates")}
               className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
             <SectionDots sections={visibleSections} />
@@ -1025,7 +1025,7 @@ export function VideoGenApp() {
               onClick={() => setMobileTab("settings")}
               className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
           ) : null}

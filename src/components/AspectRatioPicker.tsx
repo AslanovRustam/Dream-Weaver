@@ -31,7 +31,7 @@ export function AspectRatioPicker({ ratios, value, onChange }: Props) {
             }`}
           >
             <span
-              className={`block border ${selected ? "border-black" : "border-foreground/60"}`}
+              className={`block border ${selected ? "border-[color:var(--text-on-accent)]" : "border-foreground/60"}`}
               style={{ width: `${boxW}px`, height: `${boxH}px` }}
             />
             {r}

@@ -17,7 +17,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
+  ArrowLeft,
   Download,
   Link2,
   Loader2,
@@ -271,7 +271,7 @@ export function LandingEditor({ id }: { id: string }) {
           onClick={goBack}
           className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:min-h-11"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
           Назад
         </button>
         <span className="mx-1 h-5 w-px bg-border" />

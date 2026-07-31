@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
-  ChevronLeft,
   Coins,
   Loader2,
   Mail,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import {
   Accordion,
   AccordionContent,
@@ -64,7 +64,7 @@ const FAQ_GROUPS: FaqGroup[] = [
       {
         id: "credits-topup",
         q: "Как пополнить баланс или оплатить тариф?",
-        a: "Откройте раздел «Тарифы» (кнопка в шапке или в личном кабинете), выберите план и нажмите кнопку оплаты. Для индивидуального объёма выберите план Enterprise — откроется письмо в поддержку, и мы подберём условия под ваши задачи.",
+        a: "Откройте раздел «Тарифы» (кнопка в шапке или в личном кабинете), выберите план и нажмите «Выбрать план». Для индивидуального объёма выберите план «Корпоративный» — откроется письмо в поддержку, и мы подберём условия под ваши задачи.",
       },
       {
         id: "credits-empty",
@@ -204,14 +204,7 @@ export default function HelpPage() {
       </div>
 
       <div className="relative mx-auto max-w-3xl px-4 py-8">
-        <button
-          type="button"
-          onClick={goBack}
-          className="mb-8 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-foreground transition hover:bg-white/10"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Назад
-        </button>
+        <BackButton onClick={goBack} className="-ml-2 mb-8" />
 
         {/* ── Hero: heading + knowledge-base search ─────────────────────────── */}
         <header className="text-center">

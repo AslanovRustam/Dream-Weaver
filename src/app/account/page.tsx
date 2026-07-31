@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  ChevronLeft,
   Coins,
   Loader2,
   Pencil,
@@ -24,7 +23,9 @@ import { useAuth } from "@/lib/auth-context";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { GuestWall } from "@/components/AuthGate";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAppRole } from "@/lib/roles";
 
 type Profile = {
@@ -58,8 +59,9 @@ const DEV_ME: MeResponse = {
   is_super_admin: false,
 };
 
-// Same placeholder avatar as the top-bar profile menu, for consistency.
-const AVATAR_URL = "https://i.pravatar.cc/128?img=68";
+// No stock-photo default: an empty avatar renders the neutral illustrative
+// placeholder (see UserAvatar). An uploaded photo (dw:avatar) overrides it.
+const AVATAR_URL = "";
 
 // Display name derived from the real profile (same convention as AppHeader).
 function displayName(p: Profile): string {
@@ -85,8 +87,7 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
       }}
     >
       <span className="block rounded-full bg-background p-[2px]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className={`${size} rounded-full object-cover`} />
+        <UserAvatar src={src || null} className={size} />
       </span>
     </span>
   );
@@ -120,6 +121,8 @@ export default function AccountPage() {
     setAvatar(dataUrl);
     try {
       window.localStorage.setItem("dw:avatar", dataUrl);
+      // Let the header (and any other tab) pick up the new photo immediately.
+      window.dispatchEvent(new Event("dw:avatar"));
     } catch {
       /* ignore quota errors */
     }
@@ -218,28 +221,29 @@ export default function AccountPage() {
       <Aurora />
       <AppHeader />
       <div className="relative z-10 mx-auto max-w-5xl px-4 py-8">
-        {/* «К генерации» на месте кнопки «Назад» — вторичная кнопка: салатовая
-            обводка на прозрачном фоне (без заливки), явно легче primary. */}
-        <Link
-          href="/banner"
-          className="ds-btn ds-btn-outline-lime mb-12 min-h-11 gap-1.5 px-3"
-        >
-          <ChevronLeft className="h-4 w-4" />К генерации
-        </Link>
+        {/* Unified back control (see BackButton) — same thin "← Назад" everywhere. */}
+        <BackButton href="/banner" className="-ml-2 mb-12" />
 
         <header className="mb-8 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <AvatarRing src={avatar} />
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <h1 className="ds-h1 truncate">{displayName(me.profile)}</h1>
+                <h1 className="ds-h1 min-w-0 truncate">{displayName(me.profile)}</h1>
+                {/* Clearly-visible secondary button (was a low-contrast violet
+                    outline that testers missed): the same bordered + bg-white/5
+                    surface as the header icon buttons. Opens the profile editor
+                    — email/password are managed separately (support card /
+                    security card below), so the label says "профиль", not a bare
+                    "Изменить" that read as an email edit. */}
                 <button
                   type="button"
                   onClick={() => setEditOpen(true)}
-                  className="ds-btn ds-btn-outline-violet min-h-9 shrink-0 gap-1.5 px-3 py-1.5"
+                  aria-label="Редактировать профиль"
+                  className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-3 text-sm font-medium text-foreground transition hover:border-white/25 hover:bg-white/10"
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                  Изменить
+                  Редактировать
                 </button>
               </div>
               <p className="truncate text-sm text-muted-foreground">{me.profile.email}</p>
@@ -632,7 +636,7 @@ function CreditsCard({ balance }: { balance: number | string }) {
   const low = n <= LOW_CREDIT_THRESHOLD;
   const empty = n <= 0;
   return (
-    <div className="ds-card ds-card-glow-lime ds-card-interactive flex min-h-[200px] flex-col p-5">
+    <div className="ds-card ds-card-glow-lime ds-card-interactive flex min-h-[200px] flex-col p-5 sm:p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Coins className="h-4 w-4 text-brand-lime" />
         <span className="ds-overline">Кредиты</span>
@@ -666,9 +670,25 @@ function CreditsCard({ balance }: { balance: number | string }) {
 }
 
 function UsageHistoryCard() {
-  // Placeholder chart until a real usage-history endpoint exists. Fixed bar
-  // heights (one spike) mirror the reference; dates span the last ~30 days.
-  const bars = Array.from({ length: 28 }, (_, i) => (i === 19 ? 0.95 : 0.05 + (i % 3) * 0.03));
+  // Placeholder distribution until a real usage-history endpoint exists. The old
+  // version hard-coded a single tall bar (i === 19), which read as a broken
+  // chart — one column across the whole month. This builds a believable 30-day
+  // curve instead: a weekday rhythm, a gentle mid-period rise, a few busy peaks
+  // and a couple of idle days. It is DETERMINISTIC (a pure function of the day
+  // index — no Date.now()/Math.random() in render) so SSR and client match.
+  // Swap `bars` for real per-day counts once the endpoint lands.
+  const DAYS = 30;
+  const bars = Array.from({ length: DAYS }, (_, i) => {
+    const jitter = (Math.abs(Math.sin(i * 12.9898) * 43758.5453)) % 1; // stable 0..1
+    const weekday = i % 7 < 5 ? 1 : 0.4; // weekdays busier than weekends
+    const trend = 0.45 + 0.4 * Math.sin((i / (DAYS - 1)) * Math.PI); // rise then ease
+    let v = 0.12 + jitter * 0.72 * weekday * trend;
+    if (i === 8 || i === 17 || i === 24) v += 0.28; // standout busy days
+    if (i === 5 || i === 14 || i === 27) v = 0.05; // quiet days
+    return Math.max(0.05, Math.min(1, v));
+  });
+  const peak = bars.reduce((m, v, i) => (v > bars[m] ? i : m), 0);
+
   const fmt = (d: Date) => d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   const today = new Date();
   const mid = new Date(today);
@@ -677,33 +697,35 @@ function UsageHistoryCard() {
   start.setDate(today.getDate() - 30);
 
   return (
-    <div className="ds-card ds-card-glow-violet ds-card-interactive flex min-h-[200px] flex-col p-5">
+    <div className="ds-card ds-card-glow-violet ds-card-interactive flex min-h-[200px] flex-col p-5 sm:p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
         <TrendingUp className="h-4 w-4 text-brand-violet" />
         <span className="ds-overline">История использования</span>
       </div>
       <div className="mt-auto pt-6">
+        {/* Single accent per surface: violet card → violet bars. The busiest day
+            is highlighted (brighter violet + glow); the rest are muted violet. */}
         <div className="flex h-20 items-end gap-1">
-          {bars.map((h, i) =>
-            i === 19 ? (
-              // Peak = lime→violet gradient bar with a soft violet glow.
-              <span
-                key={i}
-                style={{
-                  height: `${Math.round(h * 100)}%`,
-                  background: "var(--brand-lime)",
-                  boxShadow: "0 0 16px -2px rgba(198,255,61,0.55)",
-                }}
-                className="flex-1 rounded-sm"
-              />
-            ) : (
-              <span
-                key={i}
-                style={{ height: `${Math.round(h * 100)}%` }}
-                className="flex-1 rounded-sm bg-muted-foreground/20"
-              />
-            ),
-          )}
+          {bars.map((h, i) => (
+            <span
+              key={i}
+              title={`${fmt(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))}`}
+              style={
+                i === peak
+                  ? {
+                      height: `${Math.round(h * 100)}%`,
+                      backgroundImage: "var(--grad-violet)",
+                      boxShadow: "0 0 16px -2px rgba(123,92,255,0.6)",
+                    }
+                  : { height: `${Math.round(h * 100)}%` }
+              }
+              className={
+                i === peak
+                  ? "flex-1 rounded-sm"
+                  : "flex-1 rounded-sm bg-[color:var(--violet-400)]/25"
+              }
+            />
+          ))}
         </div>
         <div className="mt-2 flex justify-between text-xs text-muted-foreground">
           <span>{fmt(start)}</span>

@@ -14,7 +14,6 @@ import Link from "next/link";
 import {
   Briefcase,
   Check,
-  ChevronLeft,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -31,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { GuestWall } from "@/components/AuthGate";
 import { useAppRole } from "@/lib/roles";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -72,12 +72,7 @@ export default function WorkspacePage() {
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
       <div className="relative z-10 mx-auto max-w-3xl px-4 py-8">
-        <Link
-          href="/account"
-          className="ds-btn ds-btn-outline-violet mb-8 min-h-11 gap-1.5 px-3"
-        >
-          <ChevronLeft className="h-4 w-4" />В аккаунт
-        </Link>
+        <BackButton href="/account" className="-ml-2 mb-8" />
 
         <header className="mb-6 flex items-center gap-3">
           <span className="ds-feature-icon ds-feature-icon-violet h-11 w-11 shrink-0">
@@ -102,6 +97,18 @@ function WorkspacesManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Workspace | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
+
+  // Opened from the header dropdown's "Создать пространство" (…?new=1): open the
+  // create form immediately, then strip the param so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("new") === null) return;
+    setEditing(null);
+    setFormOpen(true);
+    url.searchParams.delete("new");
+    window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
+  }, []);
 
   return (
     <>
@@ -143,69 +150,86 @@ function WorkspacesManager() {
                   active ? "bg-[color:var(--brand-violet)]/[0.07]" : "hover:bg-white/[0.02]"
                 }`}
               >
-                {/* Left: logo + name + meta */}
-                <div className="flex min-w-0 items-center gap-3">
+                {/* Left → open the workspace's own page (projects + brand kit). */}
+                <Link
+                  href={`/workspace/${w.id}`}
+                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-violet)]/50"
+                >
                   <WorkspaceAvatar ws={w} size={40} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-semibold text-foreground">{w.name}</p>
-                      {active ? (
-                        <span className="ds-pill shrink-0 bg-[color:var(--brand-violet)]/15 text-[color:var(--violet-400)]">
-                          <span className="ds-dot" />
-                          Активно
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-0.5 ds-caption">
+                    <p className="truncate font-semibold text-foreground transition group-hover:text-white">
+                      {w.name}
+                    </p>
+                    <p className="mt-0.5 truncate ds-caption">
                       {count} {pluralWs(count, "проект", "проекта", "проектов")} · создано {created}
                     </p>
                   </div>
-                </div>
-                {/* All actions collapsed into a "⋯" menu: make active / rename /
-                    delete — keeps the row compact on every width. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                </Link>
+                {/* Right cluster: the activate control + an overflow menu. Both
+                    states share ONE slot: active → a static "Активно" indicator
+                    (same outline geometry, non-interactive); inactive → the
+                    "Сделать активным" button. On mobile both collapse to an icon
+                    so the row stays compact. */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {active ? (
+                    // Active = a STATUS, not an action: a plain accent label with
+                    // a small dot — no button box / border / hover. Reads clearly
+                    // as "already selected", distinct from the outlined button.
+                    <span
+                      aria-label="Активное пространство"
+                      className="inline-flex min-h-9 shrink-0 items-center gap-1.5 px-1.5 text-sm font-medium text-[color:var(--violet-400)]"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+                      Активно
+                    </span>
+                  ) : (
                     <button
                       type="button"
-                      aria-label="Действия с пространством"
-                      className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    sideOffset={6}
-                    className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
-                  >
-                    <DropdownMenuItem
-                      disabled={active}
                       onClick={() => setActive(w.id)}
-                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                      aria-label="Сделать активным"
+                      title="Сделать активным"
+                      className="ds-btn ds-btn-outline-violet min-h-9 shrink-0 gap-1.5 px-3 max-sm:w-9 max-sm:px-0"
                     >
-                      <Check className="h-4 w-4 text-[color:var(--violet-400)]" />
-                      Сделать активным
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setEditing(w);
-                        setFormOpen(true);
-                      }}
-                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                      <Check className="h-4 w-4 shrink-0" />
+                      <span className="max-sm:hidden">Сделать активным</span>
+                    </button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Ещё действия"
+                        className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      sideOffset={6}
+                      className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
                     >
-                      <Pencil className="h-4 w-4" />
-                      Переименовать
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={workspaces.length <= 1}
-                      onClick={() => setDeleting(w)}
-                      className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)] max-sm:py-3 max-sm:text-base"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Удалить
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(w);
+                          setFormOpen(true);
+                        }}
+                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Переименовать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={workspaces.length <= 1}
+                        onClick={() => setDeleting(w)}
+                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)] max-sm:py-3 max-sm:text-base"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Удалить
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             );
           })}

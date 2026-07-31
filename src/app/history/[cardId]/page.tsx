@@ -12,11 +12,12 @@
 //     via CSS columns) so a 9:16 tile looks tall and a 16:9 tile looks
 //     wide, no uniform square forcing.
 import { useEffect, useState } from "react";
-import { ArrowLeft, Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
+import { Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,12 +173,7 @@ function CardBody() {
   if (err) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <Link
-          href="/history"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> К истории
-        </Link>
+        <BackButton href="/history" className="-ml-2" />
         <p className="mt-6 text-sm text-destructive">{err}</p>
         {/сесси|войдите/i.test(err) ? (
           <Link
@@ -202,13 +198,8 @@ function CardBody() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4">
       {/* Sticky top bar */}
-      <div className="sticky top-12 z-20 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <Link
-          href="/history"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> История
-        </Link>
+      <div className="sticky top-16 z-20 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <BackButton href="/history" />
 
         <div className="flex flex-1 items-center gap-2 min-w-[200px]">
           {renaming ? (
@@ -256,7 +247,7 @@ function CardBody() {
               <Heart
                 className={
                   "h-4 w-4 " +
-                  (detail.is_favorite ? "fill-rose-500 text-rose-500" : "text-muted-foreground")
+                  (detail.is_favorite ? "fill-accent-green text-accent-green" : "text-muted-foreground")
                 }
               />
             </button>
