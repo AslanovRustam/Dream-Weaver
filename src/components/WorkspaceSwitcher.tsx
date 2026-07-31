@@ -8,19 +8,27 @@
 // management (create / rename / delete) lives in the "Мой Workspace" section
 // (avatar menu -> /workspace).
 
-import { Briefcase, Check, ChevronDown } from "lucide-react";
+import { Briefcase, Check, ChevronDown, Plus } from "lucide-react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useT } from "@/lib/i18n";
 import { useWorkspace } from "@/lib/workspace-context";
 import { WorkspaceAvatar } from "@/components/WorkspaceAvatar";
 
-export function WorkspaceSwitcher({ onSelect }: { onSelect: (id: string) => void }) {
+export function WorkspaceSwitcher({
+  onSelect,
+  onCreate,
+}: {
+  onSelect: (id: string) => void;
+  /** Jump to the full section with the create form open (see AppHeader). */
+  onCreate: () => void;
+}) {
   const t = useT();
   const { workspaces, activeId, active, ready } = useWorkspace();
 
@@ -68,6 +76,17 @@ export function WorkspaceSwitcher({ onSelect }: { onSelect: (id: string) => void
             );
           })}
         </div>
+        {/* Quick "create" straight from the dropdown — jumps to the full
+            "Мой Workspace" section with the create form already open (simpler
+            than a second modal here; full management still lives there). */}
+        <DropdownMenuSeparator className="my-1 bg-border" />
+        <DropdownMenuItem
+          onClick={onCreate}
+          className="gap-2.5 rounded-lg px-2 py-2 text-sm font-medium text-[color:var(--violet-400)] focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+        >
+          <Plus className="h-4 w-4 shrink-0" />
+          Создать пространство
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
