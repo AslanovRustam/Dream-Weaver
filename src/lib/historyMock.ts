@@ -128,6 +128,16 @@ export function countMockProjects(workspaceSeed: string, now = Date.now()): numb
   return getMockProjects(now, workspaceSeed).filter((p) => !p.deleted).length;
 }
 
+/** Mock credits SPENT within a workspace: sum of spend-transactions whose
+ *  project belongs to that workspace's set. The account balance stays global —
+ *  this is only a per-space "spent here" view for the workspace summary. */
+export function mockWorkspaceSpend(workspaceSeed: string, now = Date.now()): number {
+  const ids = new Set(getMockProjects(now, workspaceSeed).map((p) => p.id));
+  return getMockCredits(now)
+    .filter((t) => t.kind === "spend" && !!t.projectId && ids.has(t.projectId))
+    .reduce((s, t) => s + t.amount, 0);
+}
+
 const SPEND_LABEL: Record<ProjectType, string> = {
   banner: "Генерация баннера",
   landing: "Генерация лендинга",

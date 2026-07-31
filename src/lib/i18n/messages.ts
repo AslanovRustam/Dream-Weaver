@@ -58,7 +58,7 @@ const ru = {
     },
     language: {
       aria: "Язык интерфейса",
-      title: "Язык интерфейса",
+      title: "Язык",
       hint: "Меняет язык интерфейса продукта.",
     },
     sections: {
@@ -87,7 +87,7 @@ const ru = {
       title: "Несохранённые изменения",
       body: "У вас есть несохранённые изменения. Если вы продолжите, они будут потеряны.",
       stay: "Остаться",
-      leave: "Продолжить без сохранения",
+      leave: "Не сохранять",
     },
   },
   workspace: {
@@ -191,7 +191,7 @@ const en: Messages = {
     },
     language: {
       aria: "Interface language",
-      title: "Interface language",
+      title: "Language",
       hint: "Changes the product interface language.",
     },
     sections: {
@@ -220,7 +220,7 @@ const en: Messages = {
       title: "Unsaved changes",
       body: "You have unsaved changes. If you continue, they will be lost.",
       stay: "Stay",
-      leave: "Leave without saving",
+      leave: "Don't save",
     },
   },
   workspace: {
@@ -276,7 +276,7 @@ const uk: Messages = {
     },
     language: {
       aria: "Мова інтерфейсу",
-      title: "Мова інтерфейсу",
+      title: "Мова",
       hint: "Змінює мову інтерфейсу продукту.",
     },
     sections: {
@@ -305,7 +305,7 @@ const uk: Messages = {
       title: "Незбережені зміни",
       body: "У вас є незбережені зміни. Якщо ви продовжите, їх буде втрачено.",
       stay: "Залишитися",
-      leave: "Продовжити без збереження",
+      leave: "Не зберігати",
     },
   },
   workspace: {

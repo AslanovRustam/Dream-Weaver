@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronDown,
-  ChevronLeft,
+  ArrowLeft,
   Filter,
   Image as ImageIcon,
   Search,
@@ -382,7 +382,7 @@ export function LandingGenApp() {
                 onClick={() => setMobileTab("templates")}
                 className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4" />
                 Назад
               </button>
               <SectionDots sections={landSections} />

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
-  ChevronLeft,
+  ArrowLeft,
   Download,
   Image as ImageIcon,
   LayoutGrid,
@@ -39,7 +39,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useGeneration } from "@/lib/generation-context";
+import { useGeneration, type BatchTile } from "@/lib/generation-context";
+import { useWorkspace } from "@/lib/workspace-context";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
@@ -229,6 +230,24 @@ export function ImageGenApp() {
     setUnsavedWork(dirty ? "banner" : null);
     return () => setUnsavedWork(null);
   }, [imageUrl, loadedCardId, prompt]);
+
+  // Brand-kit prefill: a project created inside a workspace inherits that
+  // client's brand kit (brand name + language) as defaults. Fills BLANKS only —
+  // never clobbers a saved draft, user input, or a history-loaded card (skipped
+  // entirely when opened via ?card=). Other generators can adopt the same hook.
+  const { active: activeWorkspace } = useWorkspace();
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("card")) {
+      return;
+    }
+    const bk = activeWorkspace?.brandKit;
+    if (!bk) return;
+    if (bk.brandName) setBrandName((cur) => (cur.trim() === "" ? bk.brandName : cur));
+    if (bk.language && bk.language !== "auto") {
+      setLanguage((cur) => (cur === "auto" ? bk.language : cur));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace?.id]);
   // Preset the loaded card was originally created with. If the user
   // switches the preset to anything different after loading, we treat
   // the next resize batch as a NEW card so the new tiles don't bleed
@@ -443,16 +462,21 @@ export function ImageGenApp() {
     const cardId = url.searchParams.get("card");
     if (!cardId) return;
 
+    type CardGeneration = {
+      image_url: string | null;
+      width: number | null;
+      height: number | null;
+    };
     type CardDetail = {
       id: string;
       name: string;
       preset_id: string;
       form_snapshot: Record<string, unknown>;
-      master: {
-        image_url: string | null;
-        width: number | null;
-        height: number | null;
-      } | null;
+      master: CardGeneration | null;
+      // Sibling resize generations (is_master=false) saved for this card. The
+      // detail API returns these; the restore flow rehydrates them as tiles so
+      // opening a project pulls the resizes too, not just the master.
+      resizes?: CardGeneration[];
     };
 
     apiJson<{ card: CardDetail }>(`/api/history/${cardId}`)
@@ -571,11 +595,31 @@ export function ImageGenApp() {
               : "low",
           card_id: card.id,
         };
+        // Rehydrate the resize grid: every saved resize becomes a "done" tile
+        // showing its stored image, so the project opens with master + resizes
+        // (deduped by w×h; the saved URL is the tile image directly).
+        const seenTiles = new Set<string>();
+        const restoredTiles: BatchTile[] = [];
+        for (const r of card.resizes ?? []) {
+          if (!r.image_url || !r.width || !r.height) continue;
+          const id = `${r.width}x${r.height}`;
+          if (seenTiles.has(id)) continue;
+          seenTiles.add(id);
+          restoredTiles.push({
+            id,
+            size: { w: r.width, h: r.height, ratio: aspectFromDims(r.width, r.height) },
+            status: "done",
+            kind: "scale_from_master",
+            dataUrl: r.image_url,
+          });
+        }
+
         gen.setMasterImage({
           image: card.master.image_url,
           payload: restoredPayload,
           ratio: derivedRatio,
           cardId: card.id,
+          tiles: restoredTiles,
         });
         // On mobile the loaded master lives on the "result" pane; jump there so
         // the user actually sees the banner they picked (desktop shows all
@@ -960,7 +1004,7 @@ export function ImageGenApp() {
               onClick={() => setMobileTab("templates")}
               className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
           </div>
@@ -1431,7 +1475,7 @@ export function ImageGenApp() {
               onClick={() => setMobileTab("settings")}
               className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
               Назад
             </button>
           ) : null}
@@ -1524,8 +1568,8 @@ export function ImageGenApp() {
           ) : null}
 
           {loadedCardId && loadedCardName ? (
-            <div className="flex items-center justify-between rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-xs">
-              <span>
+            <div className="flex items-center justify-between gap-2 rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-xs">
+              <span className="min-w-0">
                 Загружено из истории: <span className="font-medium">{loadedCardName}</span>. Ресайзы
                 добавятся в эту карточку.
               </span>
@@ -1537,7 +1581,7 @@ export function ImageGenApp() {
                   setLoadedFromPreset(null);
                   setLastPayload((prev) => (prev ? { ...prev, card_id: undefined } : prev));
                 }}
-                className="relative ml-2 text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
+                className="relative ml-2 shrink-0 text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
                 aria-label="Отвязать"
                 title="Создать новую карточку при следующем ресайзе"
               >
