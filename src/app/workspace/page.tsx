@@ -371,6 +371,14 @@ function DeleteWorkspaceModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  // Same type-the-name gate as the space's Settings › Danger zone, so deleting a
+  // space (and all its projects) takes the same deliberate step from both entry points.
+  const [confirmText, setConfirmText] = useState("");
+  useEffect(() => {
+    setConfirmText("");
+  }, [ws?.id]);
+  const armed = ws ? confirmText.trim() === ws.name.trim() : false;
+
   return (
     <Dialog
       open={ws !== null}
@@ -393,14 +401,28 @@ function DeleteWorkspaceModal({
           )}{" "}
           Действие необратимо.
         </p>
+        <div className="mt-4">
+          <label className="ds-label mb-1.5 block">
+            Введите <span className="font-semibold text-foreground">{ws?.name}</span> для подтверждения
+          </label>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={ws?.name ?? ""}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && armed) onConfirm();
+            }}
+          />
+        </div>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost min-h-11 flex-1 px-5 sm:flex-none">
             Отмена
           </button>
           <button
             type="button"
+            disabled={!armed}
             onClick={onConfirm}
-            className="ds-btn min-h-11 flex-1 justify-center gap-1.5 px-5 font-semibold text-white sm:flex-none"
+            className="ds-btn min-h-11 flex-1 justify-center gap-1.5 px-5 font-semibold text-white disabled:opacity-40 sm:flex-none"
             style={{ backgroundColor: "var(--status-error)" }}
           >
             <Trash2 className="h-4 w-4" />
