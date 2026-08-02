@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { BackButton } from "@/components/BackButton";
@@ -127,7 +128,7 @@ function CardBody() {
       setDetail({ ...detail, name: next });
       setRenaming(false);
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось переименовать");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось переименовать");
     }
   };
 
@@ -145,13 +146,15 @@ function CardBody() {
   };
 
   const remove = async () => {
-    if (!confirm("Переместить карточку в корзину?")) return;
+    // Moving to trash is reversible (restore below), so no confirm — just act +
+    // toast, matching История's list. Irreversible actions use the confirm modal.
     setBusy(true);
     try {
       await apiJson(`/api/history/${cardId}`, { method: "DELETE" });
+      toast("Перемещено в корзину");
       router.push("/history");
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось удалить");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось удалить");
       setBusy(false);
     }
   };
@@ -165,7 +168,7 @@ function CardBody() {
       });
       router.push("/history");
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось восстановить");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось восстановить");
       setBusy(false);
     }
   };
@@ -387,6 +390,6 @@ async function downloadCardZip(cardId: string) {
     a.remove();
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert(e instanceof Error ? e.message : "Не удалось скачать архив");
+    toast.error(e instanceof Error ? e.message : "Не удалось скачать архив");
   }
 }

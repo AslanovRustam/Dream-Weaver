@@ -38,6 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuth } from "@/lib/auth-context";
 import {
   buildLandingHtml,
@@ -70,6 +71,7 @@ const langLabel = (code: string) => LANDING_LANGS.find((l) => l.code === code)?.
 
 export function LandingEditor({ id }: { id: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const { isAuthenticated, loading } = useAuth();
 
   const [input, setInput] = useState<LandingInput | null>(null);
@@ -208,9 +210,16 @@ export function LandingEditor({ id }: { id: string }) {
     }
   };
 
-  const regenerate = () => {
+  const regenerate = async () => {
     const hasEdits = Object.keys(overridesByLang[activeLang] || {}).length > 0;
-    if (hasEdits && !window.confirm("Перегенерация сбросит ручные правки текстов этого языка. Продолжить?")) {
+    if (
+      hasEdits &&
+      !(await confirm({
+        title: "Перегенерировать лендинг?",
+        body: "Ручные правки текстов этого языка будут сброшены.",
+        confirmLabel: "Перегенерировать",
+      }))
+    ) {
       return;
     }
     setOverridesByLang((prev) => ({ ...prev, [activeLang]: {} }));
