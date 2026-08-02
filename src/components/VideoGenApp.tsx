@@ -206,10 +206,12 @@ export function VideoGenApp() {
   // Signal unsaved work (a typed topic or a generated result not yet saved) so
   // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
-    const dirty = topic.trim() !== "" || result !== null;
+    // Dirty on the PRIMARY field (script) too, not just the optional topic
+    // helper — otherwise a written script left leaving unguarded.
+    const dirty = script.trim() !== "" || topic.trim() !== "" || result !== null;
     setUnsavedWork(dirty ? "video" : null);
     return () => setUnsavedWork(null);
-  }, [topic, result]);
+  }, [script, topic, result]);
 
   const confirm = useConfirm();
 
@@ -1006,7 +1008,7 @@ export function VideoGenApp() {
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
             </button>
             {script.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">

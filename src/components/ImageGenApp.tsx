@@ -1447,7 +1447,7 @@ export function ImageGenApp() {
               }
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
             </button>
             {((!isSlotPreset && prompt.trim().length === 0) ||
               (isSlotPreset && slotName.trim().length === 0)) &&
@@ -1555,7 +1555,7 @@ export function ImageGenApp() {
             }
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
-            {status === "loading" ? "Генерация…" : "Сгенерировать"}
+            {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
           </button>
           {((!isSlotPreset && prompt.trim().length === 0) ||
             (isSlotPreset && slotName.trim().length === 0)) &&
