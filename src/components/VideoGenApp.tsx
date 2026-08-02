@@ -48,6 +48,7 @@ import { GenerationProgress } from "@/components/GenerationProgress";
 import { EmptyResult } from "@/components/EmptyResult";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import {
@@ -210,6 +211,8 @@ export function VideoGenApp() {
     return () => setUnsavedWork(null);
   }, [topic, result]);
 
+  const confirm = useConfirm();
+
   const selectScene = (id: VideoSceneType) => {
     setSceneType(id);
     setMobileTab("settings");
@@ -304,15 +307,15 @@ export function VideoGenApp() {
 
   // Regenerate replaces a finished video — confirm first. First-time generation
   // (no result yet) goes straight through with no prompt.
-  const regenerate = () => {
-    if (result && !window.confirm("Перегенерировать? Текущее видео будет заменено.")) return;
+  const regenerate = async () => {
+    if (result && !(await confirm({ title: "Перегенерировать?", body: "Текущее видео будет заменено.", confirmLabel: "Перегенерировать" }))) return;
     onGenerate();
   };
 
-  const removeResult = () => {
+  const removeResult = async () => {
     // Confirm before destroying a finished, unsaved video — matches Banner /
     // Landing; Video was deleting on a single click.
-    if (result && !window.confirm("Удалить готовое видео? Действие необратимо.")) return;
+    if (result && !(await confirm({ title: "Удалить готовое видео?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");

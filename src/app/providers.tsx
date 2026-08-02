@@ -8,6 +8,7 @@ import { AuthGateProvider } from "@/components/AuthGate";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import { GenerationProvider } from "@/lib/generation-context";
 import { EditorHistoryProvider } from "@/lib/editor-history";
+import { ConfirmProvider } from "@/components/ui/confirm";
 import { LocaleProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -26,7 +27,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AuthGateProvider>
             <WorkspaceProvider>
               <GenerationProvider>
-                <EditorHistoryProvider>{children}</EditorHistoryProvider>
+                <EditorHistoryProvider>
+                  <ConfirmProvider>{children}</ConfirmProvider>
+                </EditorHistoryProvider>
               </GenerationProvider>
             </WorkspaceProvider>
             <DevRoleSwitcher />

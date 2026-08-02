@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, Globe, Loader2, Palette, Plus, Trash2, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { BackButton } from "@/components/BackButton";
@@ -20,11 +21,13 @@ import { Input } from "@/components/ui/input";
 import { useAppRole } from "@/lib/roles";
 import { useWorkspace } from "@/lib/workspace-context";
 
-const LANGS: { value: string; label: string }[] = [
-  { value: "auto", label: "Авто" },
-  { value: "ru", label: "Русский" },
-  { value: "en", label: "English" },
-  { value: "uk", label: "Українська" },
+// `short` is shown on mobile so all four options fit one row without wrapping;
+// the full `label` is used from ≥sm.
+const LANGS: { value: string; label: string; short: string }[] = [
+  { value: "auto", label: "Авто", short: "Авто" },
+  { value: "ru", label: "Русский", short: "RU" },
+  { value: "en", label: "English", short: "EN" },
+  { value: "uk", label: "Українська", short: "UA" },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -32,7 +35,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-8">{children}</div>
+      <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:py-8">{children}</div>
     </div>
   );
 }
@@ -115,6 +118,7 @@ export default function WorkspaceSettingsPage() {
   const doDelete = () => {
     if (!deleteArmed || !canDelete) return;
     remove(ws.id);
+    toast("Пространство удалено");
     router.push("/workspace");
   };
 
@@ -144,7 +148,7 @@ export default function WorkspaceSettingsPage() {
               className="ds-btn ds-btn-outline-violet min-h-9 gap-2 px-3 text-sm"
             >
               <Upload className="h-4 w-4" />
-              {logo ? "Заменить лого" : "Загрузить лого"}
+              {logo ? "Заменить логотип" : "Загрузить логотип"}
             </button>
             {logo ? (
               <button
@@ -152,7 +156,7 @@ export default function WorkspaceSettingsPage() {
                 onClick={() => setLogo(null)}
                 className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
-                Убрать лого
+                Убрать логотип
               </button>
             ) : null}
           </div>
@@ -208,7 +212,8 @@ export default function WorkspaceSettingsPage() {
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5" />
-                  {l.label}
+                  <span className="sm:hidden">{l.short}</span>
+                  <span className="hidden sm:inline">{l.label}</span>
                 </span>
               </button>
             ))}

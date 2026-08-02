@@ -188,7 +188,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8">{children}</div>
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:py-8">{children}</div>
     </div>
   );
 }
@@ -278,7 +278,7 @@ function BrandKitCard({ ws, onEdit }: { ws: Workspace; onEdit: () => void }) {
         <button
           type="button"
           onClick={onEdit}
-          className="ds-btn ds-btn-outline-violet min-h-8 gap-1.5 px-2.5 text-xs"
+          className="ds-btn ds-btn-outline-violet min-h-9 gap-1.5 px-2.5 text-xs"
         >
           <Pencil className="h-3.5 w-3.5" />
           {filled ? "Редактировать" : "Настроить"}
@@ -320,20 +320,12 @@ function BrandKitCard({ ws, onEdit }: { ws: Workspace; onEdit: () => void }) {
             </BkField>
           </div>
         ) : (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border p-4">
-            <p className="ds-caption">
-              Задайте бренд, язык и цвета один раз — они подставятся по умолчанию в новые
-              проекты этого клиента.
-            </p>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="ds-btn ds-btn-violet min-h-9 gap-1.5 px-3.5"
-            >
-              <Plus className="h-4 w-4" />
-              Настроить бренд-кит
-            </button>
-          </div>
+          // Empty state: no duplicate CTA — the single "Настроить" button lives
+          // next to the heading (above). Just the explanatory hint here.
+          <p className="ds-caption">
+            Задайте бренд, язык и цвета один раз — они подставятся по умолчанию в новые
+            проекты этого клиента.
+          </p>
         )}
       </div>
     </div>
@@ -375,23 +367,27 @@ function ProjectsSection({
   const total = raw?.length ?? 0;
 
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="ds-h4">Проекты</h2>
-        {total > 0 ? (
-          <button type="button" onClick={onCreate} className="ds-btn ds-btn-violet min-h-9 gap-1.5 px-3.5">
+    <section className={`mt-8 ${total > 0 ? "pb-24 sm:pb-0" : ""}`}>
+      <h2 className="ds-h4">Проекты</h2>
+
+      {/* Tabs + primary action on ONE row (desktop): type filter left
+          (scrollable), "Создать проект" right. On mobile the button moves to a
+          sticky bottom bar (see below), matching the app's other mobile actions. */}
+      {total > 0 ? (
+        <div className="mt-4 flex items-center gap-3">
+          <div className="min-w-0 flex-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="w-max">
+              <TypePills type={type} onType={setType} />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="ds-btn ds-btn-violet hidden min-h-9 shrink-0 gap-1.5 px-3.5 sm:inline-flex"
+          >
             <Plus className="h-4 w-4" />
             Создать проект
           </button>
-        ) : null}
-      </div>
-
-      {/* Type filter — reused from История, horizontally scrollable on mobile. */}
-      {total > 0 ? (
-        <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="w-max">
-            <TypePills type={type} onType={setType} />
-          </div>
         </div>
       ) : null}
 
@@ -428,6 +424,20 @@ function ProjectsSection({
           ))}
         </div>
       )}
+
+      {/* Mobile sticky primary action (desktop shows it inline with the tabs). */}
+      {total > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
+          <button
+            type="button"
+            onClick={onCreate}
+            className="ds-btn ds-btn-violet min-h-11 w-full gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Создать проект
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

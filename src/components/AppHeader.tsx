@@ -578,18 +578,20 @@ export function AppHeader() {
         >
           <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
           <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {/* One row on every breakpoint: cancel (secondary) + continue
+              (primary). Equal-width on mobile, content-width right-aligned on ≥sm. */}
+          <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setPending(null)}
-              className="min-h-11 whitespace-nowrap rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+              className="min-h-11 flex-1 whitespace-nowrap rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground sm:flex-none sm:px-5"
             >
               {t("header.unsavedModal.stay")}
             </button>
             <button
               type="button"
               onClick={runPending}
-              className="min-h-11 whitespace-nowrap rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+              className="min-h-11 flex-1 whitespace-nowrap rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:flex-none sm:px-5"
             >
               {t("header.unsavedModal.leave")}
             </button>
