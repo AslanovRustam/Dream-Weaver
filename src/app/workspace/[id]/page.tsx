@@ -115,7 +115,7 @@ export default function WorkspaceDetailPage() {
 
   return (
     <Shell>
-      <BackButton href="/workspace" className="-ml-2 mb-6" />
+      <BackButton href="/workspace" className="-ml-2 mb-4" />
 
       {/* Header: logo + name + activate/active + settings */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -145,14 +145,18 @@ export default function WorkspaceDetailPage() {
               Сделать активным
             </button>
           )}
+          {/* Icon-only on mobile (40px square, matches the sibling pill height)
+              to reclaim the row for the primary "Сделать активным" action; the
+              full label returns from sm up. */}
           <button
             type="button"
             onClick={() => router.push(`/workspace/${ws.id}/settings`)}
-            className="ds-btn ds-btn-violet min-h-10 shrink-0 gap-1.5 px-3.5"
+            aria-label="Настройки пространства"
+            title="Настройки пространства"
+            className="ds-btn ds-btn-violet min-h-10 shrink-0 gap-1.5 max-sm:w-10 max-sm:px-0 sm:px-3.5"
           >
             <Settings className="h-4 w-4" />
             <span className="max-sm:hidden">Настройки пространства</span>
-            <span className="sm:hidden">Настройки</span>
           </button>
         </div>
       </header>
@@ -188,7 +192,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:py-8">{children}</div>
+      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">{children}</div>
     </div>
   );
 }
@@ -407,7 +411,11 @@ function ProjectsSection({
               Создайте первый проект — он автоматически привяжется к «{ws.name}».
             </p>
           </div>
-          <button type="button" onClick={onCreate} className="ds-btn ds-btn-violet min-h-11 gap-1.5 px-4">
+          <button
+            type="button"
+            onClick={onCreate}
+            className="ds-btn ds-btn-violet min-h-11 w-full gap-1.5 px-4 sm:w-auto"
+          >
             <Plus className="h-4 w-4" />
             Создать первый проект
           </button>

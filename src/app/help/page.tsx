@@ -203,8 +203,8 @@ export default function HelpPage() {
         <div className="ds-dotgrid ds-dotgrid-fade absolute inset-0 opacity-[0.14]" />
       </div>
 
-      <div className="relative mx-auto max-w-3xl px-4 py-6 sm:py-8">
-        <BackButton onClick={goBack} className="-ml-2 mb-6" />
+      <div className="relative mx-auto max-w-3xl px-4 pt-4 pb-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
         {/* ── Hero: heading + knowledge-base search ─────────────────────────── */}
         <header className="text-center">
@@ -372,7 +372,7 @@ function ContactCard({
         ) : (
           <a
             href={href}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)]"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)] sm:w-auto"
           >
             <Mail className="h-4 w-4" />
             {cta}
