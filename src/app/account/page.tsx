@@ -24,6 +24,7 @@ import { apiJson, ApiError } from "@/lib/api-client";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { AppHeader } from "@/components/AppHeader";
 import { BackButton } from "@/components/BackButton";
+import { useSmartBack } from "@/lib/use-back";
 import { GuestWall } from "@/components/AuthGate";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAppRole } from "@/lib/roles";
@@ -95,6 +96,7 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
 
 export default function AccountPage() {
   const router = useRouter();
+  const goBack = useSmartBack("/banner");
   useEffect(() => {
     document.title = "Аккаунт — Dream Weaver Studio";
   }, []);
@@ -220,9 +222,9 @@ export default function AccountPage() {
     <div className="relative min-h-screen">
       <Aurora />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8">
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:py-8">
         {/* Unified back control (see BackButton) — same thin "← Назад" everywhere. */}
-        <BackButton href="/banner" className="-ml-2 mb-12" />
+        <BackButton onClick={goBack} className="-ml-2 mb-6" />
 
         <header className="mb-8 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
@@ -655,7 +657,7 @@ function CreditsCard({ balance }: { balance: number | string }) {
             on the screen. */}
         <Link href="/billing" className="ds-btn ds-btn-primary min-h-11 shrink-0 gap-1.5 px-4">
           <Plus className="h-4 w-4" />
-          Купить
+          Пополнить
         </Link>
       </div>
       {low ? (

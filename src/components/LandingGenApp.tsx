@@ -195,9 +195,12 @@ export function LandingGenApp() {
   // switches sections and loses it. Landing generates by navigating to the
   // editor, so the offer text is the dirty signal (no in-component result).
   useEffect(() => {
-    setUnsavedWork(offerDetails.trim() !== "" ? "landing" : null);
+    // Dirty on the PRIMARY field (тема лендинга) too, not just the optional
+    // offer text — otherwise filling only the required field left leaving unguarded.
+    const dirty = subject.trim() !== "" || offerDetails.trim() !== "";
+    setUnsavedWork(dirty ? "landing" : null);
     return () => setUnsavedWork(null);
-  }, [offerDetails]);
+  }, [subject, offerDetails]);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   // Runs the mount handoff exactly once. The effect consumes a one-time seed
@@ -748,7 +751,7 @@ export function LandingGenApp() {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate}
-              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-0 lg:py-3 lg:text-sm"
             >
               {status === "loading" ? "Открываем редактор…" : "Сгенерировать"}
             </button>

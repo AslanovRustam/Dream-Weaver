@@ -86,8 +86,8 @@ const ru = {
     unsavedModal: {
       title: "Несохранённые изменения",
       body: "У вас есть несохранённые изменения. Если вы продолжите, они будут потеряны.",
-      stay: "Остаться",
-      leave: "Не сохранять",
+      stay: "Отмена",
+      leave: "Продолжить",
     },
   },
   workspace: {
@@ -219,8 +219,8 @@ const en: Messages = {
     unsavedModal: {
       title: "Unsaved changes",
       body: "You have unsaved changes. If you continue, they will be lost.",
-      stay: "Stay",
-      leave: "Don't save",
+      stay: "Cancel",
+      leave: "Continue",
     },
   },
   workspace: {
@@ -304,8 +304,8 @@ const uk: Messages = {
     unsavedModal: {
       title: "Незбережені зміни",
       body: "У вас є незбережені зміни. Якщо ви продовжите, їх буде втрачено.",
-      stay: "Залишитися",
-      leave: "Не зберігати",
+      stay: "Скасувати",
+      leave: "Продовжити",
     },
   },
   workspace: {

@@ -37,6 +37,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES, TIERS } from "@/lib/rbac";
 
@@ -284,6 +285,7 @@ const EMPTY_TEMPLATE: TemplateRow = {
 // Adding a template used to require a developer; this tab is the whole point of
 // moving them out of frontend constants.
 function TemplatesTab() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<TemplateRow[] | null>(null);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<TemplateRow | null>(null);
@@ -433,8 +435,16 @@ function TemplatesTab() {
                       size="sm"
                       variant="outline"
                       disabled={busy}
-                      onClick={() => {
-                        if (!confirm(`Удалить шаблон «${t.name}»?`)) return;
+                      onClick={async () => {
+                        if (
+                          !(await confirm({
+                            title: `Удалить шаблон «${t.name}»?`,
+                            body: "Действие необратимо.",
+                            destructive: true,
+                            confirmLabel: "Удалить",
+                          }))
+                        )
+                          return;
                         mutate(
                           () =>
                             apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
