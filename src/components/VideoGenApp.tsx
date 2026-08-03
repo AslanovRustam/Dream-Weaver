@@ -48,6 +48,7 @@ import { GenerationProgress } from "@/components/GenerationProgress";
 import { EmptyResult } from "@/components/EmptyResult";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import {
@@ -205,10 +206,14 @@ export function VideoGenApp() {
   // Signal unsaved work (a typed topic or a generated result not yet saved) so
   // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
-    const dirty = topic.trim() !== "" || result !== null;
+    // Dirty on the PRIMARY field (script) too, not just the optional topic
+    // helper — otherwise a written script left leaving unguarded.
+    const dirty = script.trim() !== "" || topic.trim() !== "" || result !== null;
     setUnsavedWork(dirty ? "video" : null);
     return () => setUnsavedWork(null);
-  }, [topic, result]);
+  }, [script, topic, result]);
+
+  const confirm = useConfirm();
 
   const selectScene = (id: VideoSceneType) => {
     setSceneType(id);
@@ -304,15 +309,15 @@ export function VideoGenApp() {
 
   // Regenerate replaces a finished video — confirm first. First-time generation
   // (no result yet) goes straight through with no prompt.
-  const regenerate = () => {
-    if (result && !window.confirm("Перегенерировать? Текущее видео будет заменено.")) return;
+  const regenerate = async () => {
+    if (result && !(await confirm({ title: "Перегенерировать?", body: "Текущее видео будет заменено.", confirmLabel: "Перегенерировать" }))) return;
     onGenerate();
   };
 
-  const removeResult = () => {
+  const removeResult = async () => {
     // Confirm before destroying a finished, unsaved video — matches Banner /
     // Landing; Video was deleting on a single click.
-    if (result && !window.confirm("Удалить готовое видео? Действие необратимо.")) return;
+    if (result && !(await confirm({ title: "Удалить готовое видео?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");
@@ -1003,7 +1008,7 @@ export function VideoGenApp() {
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
             </button>
             {script.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">

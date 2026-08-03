@@ -203,8 +203,8 @@ export default function HelpPage() {
         <div className="ds-dotgrid ds-dotgrid-fade absolute inset-0 opacity-[0.14]" />
       </div>
 
-      <div className="relative mx-auto max-w-3xl px-4 py-8">
-        <BackButton onClick={goBack} className="-ml-2 mb-8" />
+      <div className="relative mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-6" />
 
         {/* ── Hero: heading + knowledge-base search ─────────────────────────── */}
         <header className="text-center">
@@ -467,7 +467,7 @@ function SupportForm() {
               Мы ответим в течение 24 часов на{" "}
               <span className="text-foreground">{email.trim()}</span>.
             </p>
-            <Button variant="outline" className="mt-5 min-h-11" onClick={reset}>
+            <Button variant="outline" className="mt-5 min-h-11 w-full sm:w-auto" onClick={reset}>
               Отправить ещё одно
             </Button>
           </div>
@@ -530,7 +530,7 @@ function SupportForm() {
                 onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               />
               {file ? (
-                <div className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-elevated py-2 pl-3 pr-2 text-sm">
+                <div className="flex w-full items-center gap-2 rounded-lg border border-border bg-elevated py-2 pl-3 pr-2 text-sm sm:inline-flex sm:w-auto sm:max-w-full">
                   <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate text-foreground">{file.name}</span>
                   <button
@@ -549,7 +549,7 @@ function SupportForm() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-elevated px-4 text-sm text-muted-foreground transition hover:border-white/28 hover:text-foreground"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-elevated px-4 text-sm text-muted-foreground transition hover:border-white/28 hover:text-foreground sm:w-auto sm:justify-start"
                 >
                   <Paperclip className="h-4 w-4" />
                   Прикрепить скриншот
@@ -564,7 +564,7 @@ function SupportForm() {
               <Button
                 type="submit"
                 disabled={status === "sending"}
-                className="min-h-11 self-start"
+                className="min-h-11 w-full sm:w-auto sm:self-start"
               >
                 {status === "sending" ? (
                   <>

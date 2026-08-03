@@ -42,6 +42,7 @@ import {
 import { useGeneration, type BatchTile } from "@/lib/generation-context";
 import { useWorkspace } from "@/lib/workspace-context";
 import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
 
@@ -230,6 +231,8 @@ export function ImageGenApp() {
     setUnsavedWork(dirty ? "banner" : null);
     return () => setUnsavedWork(null);
   }, [imageUrl, loadedCardId, prompt]);
+
+  const confirm = useConfirm();
 
   // Brand-kit prefill: a project created inside a workspace inherits that
   // client's brand kit (brand name + language) as defaults. Fills BLANKS only —
@@ -482,6 +485,7 @@ export function ImageGenApp() {
     apiJson<{ card: CardDetail }>(`/api/history/${cardId}`)
       .then(({ card }) => {
         if (!card.master?.image_url) {
+          setStatus("error");
           setErrorMsg("У карточки нет мастер-изображения");
           return;
         }
@@ -632,6 +636,7 @@ export function ImageGenApp() {
         window.history.replaceState({}, "", cleaned);
       })
       .catch((e) => {
+        setStatus("error");
         setErrorMsg(e instanceof ApiError ? e.message : "Не удалось загрузить карточку из истории");
       });
     // Empty deps: runs once on mount.
@@ -948,9 +953,9 @@ export function ImageGenApp() {
   // and regenerate). Does not touch generation logic beyond clearing.
   // Because this discards a fresh, not-yet-saved master, confirm first so a
   // stray click can't silently destroy the user's banner.
-  const backToStart = () => {
+  const backToStart = async () => {
     if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
-      const ok = window.confirm("Вы начнёте заново — текущий баннер будет удалён. Продолжить?");
+      const ok = await confirm({ title: "Начать заново?", body: "Текущий баннер будет удалён.", destructive: true, confirmLabel: "Начать заново" });
       if (!ok) return;
     }
     reset();
@@ -963,9 +968,9 @@ export function ImageGenApp() {
   // the [preset] effect above calls gen.clear() on the change. If such a
   // result exists and isn't already safely saved in history, confirm before
   // discarding it; otherwise the switch is free and silent.
-  const changePreset = (p: string) => {
+  const changePreset = async (p: string) => {
     if (p !== preset && imageUrl !== null && !loadedCardId && !gen.isBusy) {
-      const ok = window.confirm("Смена шаблона удалит текущий баннер. Продолжить?");
+      const ok = await confirm({ title: "Сменить шаблон?", body: "Текущий баннер будет удалён.", destructive: true, confirmLabel: "Сменить" });
       if (!ok) return;
     }
     setPreset(p);
@@ -1442,7 +1447,7 @@ export function ImageGenApp() {
               }
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
             </button>
             {((!isSlotPreset && prompt.trim().length === 0) ||
               (isSlotPreset && slotName.trim().length === 0)) &&
@@ -1550,7 +1555,7 @@ export function ImageGenApp() {
             }
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
-            {status === "loading" ? "Генерация…" : "Сгенерировать"}
+            {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
           </button>
           {((!isSlotPreset && prompt.trim().length === 0) ||
             (isSlotPreset && slotName.trim().length === 0)) &&
@@ -1717,7 +1722,8 @@ export function ImageGenApp() {
                             Открыть
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => {
+                            onClick={async () => {
+                              if (!(await confirm({ title: "Перегенерировать?", body: "Текущий баннер будет заменён.", confirmLabel: "Перегенерировать" }))) return;
                               void onGenerate();
                             }}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
@@ -1769,7 +1775,8 @@ export function ImageGenApp() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
-                            onClick={() => {
+                            onClick={async () => {
+                              if (!(await confirm({ title: "Удалить баннер?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
                               gen.clear();
                               setStatus("idle");
                               // Also drop the history link so the "Загружено из

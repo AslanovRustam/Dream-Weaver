@@ -41,6 +41,7 @@ import { GenerationProgress } from "@/components/GenerationProgress";
 import { EmptyResult } from "@/components/EmptyResult";
 import { SettingsSection, SectionDots } from "@/components/SettingsSection";
 import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useConfirm } from "@/components/ui/confirm";
 import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import { useAuthGate } from "@/components/AuthGate";
@@ -179,6 +180,8 @@ export function PlayableGenApp() {
     setUnsavedWork(dirty ? "playable" : null);
     return () => setUnsavedWork(null);
   }, [offer, result]);
+
+  const confirm = useConfirm();
 
   // Track the viewport so the fullscreen playable can be scaled to fit it.
   useEffect(() => {
@@ -337,10 +340,10 @@ export function PlayableGenApp() {
     }
   };
 
-  const removeResult = () => {
+  const removeResult = async () => {
     // Confirm before destroying a finished, unsaved creative — matches Banner
     // and Landing; Playable was deleting on a single click.
-    if (result && !window.confirm("Удалить готовый плейбл? Действие необратимо.")) return;
+    if (result && !(await confirm({ title: "Удалить готовый плейбл?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     setResult(null);
     setStatus("idle");
     setMobileTab("settings");
@@ -349,8 +352,8 @@ export function PlayableGenApp() {
 
   // Regenerate replaces a finished result — confirm first. First-time generation
   // (no result yet) goes straight through onGenerate with no prompt.
-  const regenerate = () => {
-    if (result && !window.confirm("Перегенерировать? Текущий плейбл будет заменён.")) return;
+  const regenerate = async () => {
+    if (result && !(await confirm({ title: "Перегенерировать?", body: "Текущий плейбл будет заменён.", confirmLabel: "Перегенерировать" }))) return;
     onGenerate();
   };
 
@@ -431,7 +434,7 @@ export function PlayableGenApp() {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
               <SettingsSection
-                title="Оффер / тематика"
+                title="Тематика / оффер"
                 required
                 done={offer.trim().length > 0}
                 open={openSec.offer}
@@ -804,7 +807,7 @@ export function PlayableGenApp() {
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
+              {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
             </button>
             {offer.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">

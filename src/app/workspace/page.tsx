@@ -14,7 +14,6 @@ import Link from "next/link";
 import {
   Briefcase,
   Check,
-  MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
@@ -22,15 +21,13 @@ import {
 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+
 import { AppHeader } from "@/components/AppHeader";
 import { BackButton } from "@/components/BackButton";
+import { RowActionMenu } from "@/components/RowActionMenu";
+import { useSmartBack } from "@/lib/use-back";
 import { GuestWall } from "@/components/AuthGate";
 import { useAppRole } from "@/lib/roles";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -51,6 +48,7 @@ export default function WorkspacePage() {
     document.title = "Мой Workspace — Dream Weaver Studio";
   }, []);
   const { isGuest } = useAppRole();
+  const goBack = useSmartBack("/account");
 
   if (isGuest) {
     return (
@@ -71,8 +69,8 @@ export default function WorkspacePage() {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-8">
-        <BackButton href="/account" className="-ml-2 mb-8" />
+      <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-6" />
 
         <header className="mb-6 flex items-center gap-3">
           <span className="ds-feature-icon ds-feature-icon-violet h-11 w-11 shrink-0">
@@ -188,47 +186,33 @@ function WorkspacesManager() {
                       onClick={() => setActive(w.id)}
                       aria-label="Сделать активным"
                       title="Сделать активным"
-                      className="ds-btn ds-btn-outline-violet min-h-9 shrink-0 gap-1.5 px-3 max-sm:w-9 max-sm:px-0"
+                      className="ds-btn ds-btn-outline-violet min-h-9 shrink-0 gap-1.5 px-3 max-sm:h-11 max-sm:w-11 max-sm:px-0"
                     >
                       <Check className="h-4 w-4 shrink-0" />
                       <span className="max-sm:hidden">Сделать активным</span>
                     </button>
                   )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Ещё действия"
-                        className="ds-btn ds-btn-ghost min-h-9 w-9 shrink-0 px-0"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      sideOffset={6}
-                      className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground"
-                    >
-                      <DropdownMenuItem
-                        onClick={() => {
+                  <RowActionMenu
+                    title={w.name}
+                    ariaLabel="Ещё действия"
+                    items={[
+                      {
+                        label: "Переименовать",
+                        icon: <Pencil className="h-4 w-4" />,
+                        onClick: () => {
                           setEditing(w);
                           setFormOpen(true);
-                        }}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Переименовать
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={workspaces.length <= 1}
-                        onClick={() => setDeleting(w)}
-                        className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)] max-sm:py-3 max-sm:text-base"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Удалить
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        },
+                      },
+                      {
+                        label: "Удалить",
+                        icon: <Trash2 className="h-4 w-4" />,
+                        danger: true,
+                        disabled: workspaces.length <= 1,
+                        onClick: () => setDeleting(w),
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             );
@@ -255,7 +239,10 @@ function WorkspacesManager() {
         count={deleting ? projectCount(deleting.id) : 0}
         onClose={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting) remove(deleting.id);
+          if (deleting) {
+            remove(deleting.id);
+            toast("Пространство удалено");
+          }
           setDeleting(null);
         }}
       />
@@ -354,15 +341,15 @@ function WorkspaceFormModal({
           />
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost min-h-11 px-5">
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost min-h-11 flex-1 px-5 sm:flex-none">
             Отмена
           </button>
           <button
             type="button"
             disabled={!canSave}
             onClick={() => onSubmit(name.trim(), logo)}
-            className="ds-btn ds-btn-violet min-h-11 px-5"
+            className="ds-btn ds-btn-violet min-h-11 flex-1 px-5 sm:flex-none"
           >
             {initial ? "Сохранить" : "Создать"}
           </button>
@@ -384,6 +371,14 @@ function DeleteWorkspaceModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  // Same type-the-name gate as the space's Settings › Danger zone, so deleting a
+  // space (and all its projects) takes the same deliberate step from both entry points.
+  const [confirmText, setConfirmText] = useState("");
+  useEffect(() => {
+    setConfirmText("");
+  }, [ws?.id]);
+  const armed = ws ? confirmText.trim() === ws.name.trim() : false;
+
   return (
     <Dialog
       open={ws !== null}
@@ -406,14 +401,28 @@ function DeleteWorkspaceModal({
           )}{" "}
           Действие необратимо.
         </p>
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost min-h-11 px-5">
+        <div className="mt-4">
+          <label className="ds-label mb-1.5 block">
+            Введите <span className="font-semibold text-foreground">{ws?.name}</span> для подтверждения
+          </label>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={ws?.name ?? ""}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && armed) onConfirm();
+            }}
+          />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost min-h-11 flex-1 px-5 sm:flex-none">
             Отмена
           </button>
           <button
             type="button"
+            disabled={!armed}
             onClick={onConfirm}
-            className="ds-btn min-h-11 gap-1.5 px-5 font-semibold text-white"
+            className="ds-btn min-h-11 flex-1 justify-center gap-1.5 px-5 font-semibold text-white disabled:opacity-40 sm:flex-none"
             style={{ backgroundColor: "var(--status-error)" }}
           >
             <Trash2 className="h-4 w-4" />

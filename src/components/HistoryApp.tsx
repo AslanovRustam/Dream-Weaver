@@ -23,7 +23,6 @@ import {
   Heart,
   LayoutGrid,
   List as ListIcon,
-  MoreHorizontal,
   Pencil,
   Play,
   Plus,
@@ -37,7 +36,9 @@ import {
 import { toast } from "sonner";
 
 import { BackButton } from "@/components/BackButton";
-import { MobileScrim } from "@/components/MobileScrim";
+import { RowActionMenu, type RowAction } from "@/components/RowActionMenu";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { useConfirm } from "@/components/ui/confirm";
 import { SECTION_BY_ID, type SectionId } from "@/lib/sections";
 import { apiJson } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -77,7 +78,7 @@ export function HistoryApp() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:py-8">
       {/* Header: back → previous screen (entry-aware), title, tabs */}
-      <BackButton onClick={goBack} className="-ml-2 mb-3" />
+      <BackButton onClick={goBack} className="-ml-2 mb-6" />
       <h1 className="ds-h1 sm:text-3xl">История</h1>
 
       <div className="mt-4 flex border-b border-border">
@@ -280,6 +281,8 @@ function ProjectsTab() {
 
   // Trash-bucket bulk actions (the bar previously offered only "В корзину" even
   // inside the trash, where it was a no-op).
+  const confirm = useConfirm();
+
   const bulkRestore = () => {
     const ids = new Set(selected);
     const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
@@ -291,7 +294,9 @@ function ProjectsTab() {
     );
     toast.success(`Восстановлено: ${ids.size}`);
   };
-  const bulkHardDelete = () => {
+  const bulkHardDelete = async () => {
+    // Guard the irreversible bulk delete the same way the per-card ⋯ menu does.
+    if (!(await confirm({ title: "Удалить выбранные проекты навсегда?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     const ids = new Set(selected);
     setProjects((prev) => (prev ? prev.filter((p) => !ids.has(p.id)) : prev));
     setSelected(new Set());
@@ -315,19 +320,31 @@ function ProjectsTab() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Поиск по названию проекта"
               aria-label="Поиск проектов"
-              className="h-11 w-full rounded-lg border border-border bg-elevated pl-9 pr-3 text-sm outline-none transition focus:border-accent-green"
+              className="h-11 w-full rounded-lg border border-border bg-elevated pl-9 pr-10 text-sm outline-none transition focus:border-accent-green"
             />
+            {q ? (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                aria-label="Очистить поиск"
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
-          {/* Mobile: single Фильтры button → bottom sheet */}
+          {/* Mobile: icon-only filter trigger → bottom sheet (count as a corner
+              badge). Text label dropped to match the app's other icon-only
+              mobile controls. */}
           <button
             type="button"
             onClick={() => setFilterSheet(true)}
-            className="relative inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-sm transition hover:bg-white/5 sm:hidden"
+            aria-label="Фильтры и сортировка"
+            className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border transition hover:bg-white/5 sm:hidden"
           >
             <SlidersHorizontal className="h-4 w-4" />
-            Фильтры
             {activeFilters > 0 ? (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
                 {activeFilters}
               </span>
             ) : null}
@@ -394,16 +411,18 @@ function ProjectsTab() {
                 <button
                   type="button"
                   onClick={bulkRestore}
+                  aria-label="Восстановить"
                   className="inline-flex items-center gap-1.5 rounded-full bg-accent-green/15 px-3 py-1.5 text-sm text-accent-green transition hover:bg-accent-green/25"
                 >
-                  <RotateCcw className="h-4 w-4" /> Восстановить
+                  <RotateCcw className="h-4 w-4" /> <span className="max-sm:hidden">Восстановить</span>
                 </button>
                 <button
                   type="button"
                   onClick={bulkHardDelete}
+                  aria-label="Удалить навсегда"
                   className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--status-error)]/15 px-3 py-1.5 text-sm text-[color:var(--status-error)] transition hover:bg-[color:var(--status-error)]/25"
                 >
-                  <Trash2 className="h-4 w-4" /> Удалить навсегда
+                  <Trash2 className="h-4 w-4" /> <span className="max-sm:hidden">Удалить навсегда</span>
                 </button>
               </>
             ) : (
@@ -509,7 +528,7 @@ function ProjectGridCard({ p, selected, onSelect, actions }: { p: Project; selec
             tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
-            className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border text-xs transition ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-white/40 bg-black/40 text-transparent opacity-0 backdrop-blur group-hover:opacity-100"}`}
+            className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border text-xs transition ${selected ? "border-accent-green bg-accent-green text-on-accent" : "border-white/40 bg-black/40 text-transparent opacity-0 backdrop-blur group-hover:opacity-100 focus-visible:opacity-100"}`}
           >
             <Check className="h-3.5 w-3.5" />
           </span>
@@ -597,20 +616,27 @@ function EditableName({ p, editing, setEditing, onRename }: { p: Project; editin
 
 // ⋯ menu — desktop anchored popover + mobile bottom sheet, one open state.
 function RowMenu({ p, onRename, actions }: { p: Project; onRename: () => void; actions: CardActions }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-
+  const confirm = useConfirm();
   const inTrash = p.deleted;
-  const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean }[] = inTrash
+  const items: RowAction[] = inTrash
     ? [
         { label: "Восстановить", icon: <RotateCcw className="h-4 w-4" />, onClick: () => actions.restore(p) },
-        { label: "Удалить навсегда", icon: <Trash2 className="h-4 w-4" />, onClick: () => { if (confirm("Удалить проект навсегда?")) actions.hardDelete(p); }, danger: true },
+        {
+          label: "Удалить навсегда",
+          icon: <Trash2 className="h-4 w-4" />,
+          danger: true,
+          onClick: async () => {
+            if (
+              await confirm({
+                title: "Удалить проект навсегда?",
+                body: "Действие необратимо.",
+                destructive: true,
+                confirmLabel: "Удалить",
+              })
+            )
+              actions.hardDelete(p);
+          },
+        },
       ]
     : [
         { label: "Открыть", icon: <ArrowLeft className="h-4 w-4 rotate-180" />, onClick: () => actions.openProject(p) },
@@ -622,53 +648,10 @@ function RowMenu({ p, onRename, actions }: { p: Project; onRename: () => void; a
         { label: "Дублировать", icon: <Copy className="h-4 w-4" />, onClick: () => actions.duplicate(p) },
         { label: "Переименовать", icon: <Pencil className="h-4 w-4" />, onClick: onRename },
         { label: "Скачать", icon: <Download className="h-4 w-4" />, onClick: () => actions.download(p) },
-        { label: "Удалить", icon: <Trash2 className="h-4 w-4" />, onClick: () => actions.trash(p), danger: true },
+        { label: "Удалить", icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => actions.trash(p) },
       ];
 
-  const run = (fn: () => void) => { setOpen(false); fn(); };
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-label="Действия"
-        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen((o) => !o); }}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:h-11 max-sm:w-11"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-      {open ? (
-        <div className="absolute right-0 top-full z-40 mt-1 hidden w-52 rounded-xl border border-border bg-popover p-1.5 shadow-xl sm:block">
-          {items.map((it) => (
-            <button
-              key={it.label}
-              type="button"
-              onClick={() => run(it.onClick)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-white/5 ${it.danger ? "text-[color:var(--status-error)]" : "text-foreground"}`}
-            >
-              {it.icon}
-              {it.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <BottomSheet open={open} onClose={() => setOpen(false)} title={p.name}>
-        <div className="flex flex-col">
-          {items.map((it) => (
-            <button
-              key={it.label}
-              type="button"
-              onClick={() => run(it.onClick)}
-              className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-2 text-left text-base transition hover:bg-white/5 ${it.danger ? "text-[color:var(--status-error)]" : "text-foreground"}`}
-            >
-              {it.icon}
-              {it.label}
-            </button>
-          ))}
-        </div>
-      </BottomSheet>
-    </div>
-  );
+  return <RowActionMenu items={items} title={p.name} />;
 }
 
 function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filtered: boolean }) {
@@ -927,30 +910,8 @@ function BucketToggle({ bucket, onBucket, full }: { bucket: "active" | "trash"; 
   );
 }
 
-// ── bottom sheet (mobile) ─────────────────────────────────────────────────────
-function BottomSheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: React.ReactNode }) {
-  return (
-    <>
-      <MobileScrim open={open} onClose={onClose} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl transition-transform duration-200 sm:hidden ${open ? "translate-y-0" : "pointer-events-none translate-y-full"}`}
-      >
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
-        {title ? (
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="truncate ds-h4">{title}</h3>
-            <button type="button" onClick={onClose} aria-label="Закрыть" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:text-foreground">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-        {children}
-      </div>
-    </>
-  );
-}
+// BottomSheet now lives in @/components/ui/bottom-sheet (shared with
+// RowActionMenu); imported above.
 
 function SheetGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
