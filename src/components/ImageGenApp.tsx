@@ -1634,7 +1634,7 @@ export function ImageGenApp() {
                     <button
                       type="button"
                       onClick={cancelMaster}
-                      className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                      className="mt-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:w-full"
                     >
                       <X className="h-4 w-4" />
                       Отменить

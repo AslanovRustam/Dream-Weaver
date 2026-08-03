@@ -76,9 +76,9 @@ export function HistoryApp() {
   const [tab, setTab] = useState<Tab>("projects");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:py-8">
+    <div className="mx-auto max-w-6xl px-4 pt-4 pb-24 sm:py-8">
       {/* Header: back → previous screen (entry-aware), title, tabs */}
-      <BackButton onClick={goBack} className="-ml-2 mb-6" />
+      <BackButton onClick={goBack} className="-ml-2 mb-4" />
       <h1 className="ds-h1 sm:text-3xl">История</h1>
 
       <div className="mt-4 flex border-b border-border">
@@ -685,7 +685,10 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
         <p className="ds-h4">Здесь появятся ваши проекты</p>
         <p className="ds-caption">Всё, что вы создадите в любом из разделов, сохранится тут.</p>
       </div>
-      <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]">
+      <Link
+        href="/"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:w-auto"
+      >
         <Plus className="h-4 w-4" /> Создать первый проект
       </Link>
     </div>
@@ -730,7 +733,10 @@ function CreditsTab() {
               {balance} <span className="text-base font-normal text-muted-foreground">кредитов</span>
             </p>
           </div>
-          <Link href="/billing" className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]">
+          <Link
+            href="/billing"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:w-auto"
+          >
             <Plus className="h-4 w-4" /> Пополнить
           </Link>
         </div>

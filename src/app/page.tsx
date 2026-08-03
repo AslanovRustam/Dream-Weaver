@@ -759,17 +759,19 @@ export default function HubPage() {
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2.5">
+            {/* Full-width stacked buttons on mobile (same pattern as the Help
+                page); inline auto-width row from sm up. */}
+            <div className="flex w-full shrink-0 flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap">
               <Link
                 href="/help"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)]"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)] sm:w-auto"
               >
                 <BookOpen className="h-4 w-4" />
                 База знаний
               </Link>
               <Link
                 href="/help#contact"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground sm:w-auto"
               >
                 <Mail className="h-4 w-4" />
                 Написать в поддержку
