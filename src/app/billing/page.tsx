@@ -152,8 +152,8 @@ export default function BillingPage() {
     <div className="min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
-        <BackButton onClick={goBack} className="-ml-2 mb-6" />
+      <div className="mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
         <div className="mb-8 text-center">
           <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
