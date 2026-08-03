@@ -69,8 +69,8 @@ export default function WorkspacePage() {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:py-8">
-        <BackButton onClick={goBack} className="-ml-2 mb-6" />
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pt-4 pb-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
         <header className="mb-6 flex items-center gap-3">
           <span className="ds-feature-icon ds-feature-icon-violet h-11 w-11 shrink-0">

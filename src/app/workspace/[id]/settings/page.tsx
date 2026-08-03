@@ -35,7 +35,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:py-8">{children}</div>
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pt-4 pb-6 sm:py-8">{children}</div>
     </div>
   );
 }
@@ -124,7 +124,7 @@ export default function WorkspaceSettingsPage() {
 
   return (
     <Shell>
-      <BackButton href={`/workspace/${ws.id}`} className="-ml-2 mb-6" />
+      <BackButton href={`/workspace/${ws.id}`} className="-ml-2 mb-4" />
 
       <header className="mb-6 flex items-center gap-3">
         <WorkspaceAvatar ws={{ ...ws, name: name || ws.name, logo }} size={44} />
@@ -302,7 +302,7 @@ export default function WorkspaceSettingsPage() {
               type="button"
               disabled={!deleteArmed}
               onClick={doDelete}
-              className="ds-btn mt-3 min-h-11 gap-1.5 px-5 font-semibold text-white disabled:opacity-40"
+              className="ds-btn mt-3 min-h-11 w-full gap-1.5 px-5 font-semibold text-white disabled:opacity-40 sm:w-auto"
               style={{ backgroundColor: "var(--status-error)" }}
             >
               <Trash2 className="h-4 w-4" />
