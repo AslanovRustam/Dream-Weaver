@@ -42,6 +42,9 @@ type Profile = {
 
 type MeResponse = { profile: Profile; is_super_admin: boolean };
 
+// Mobile splits the account into these three tabs; desktop keeps one scroll.
+type AccountTab = "credits" | "subscription" | "account";
+
 // Local dev build only: /api/me is unauthenticated there, so fall back to this
 // mock profile instead of the error screen — lets the account page render for
 // local review. Production is unaffected.
@@ -94,6 +97,41 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
   );
 }
 
+// Mobile-only tab bar — full-width segmented control, same look as the History
+// filters (bordered track, active segment on a subtle fill). Splits the account
+// into Кредиты / Подписка / Аккаунт; the name stays above as the section header.
+function AccountTabs({ active, onChange }: { active: AccountTab; onChange: (t: AccountTab) => void }) {
+  const tabs: [AccountTab, string][] = [
+    ["credits", "Кредиты"],
+    ["subscription", "Подписка"],
+    ["account", "Аккаунт"],
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="Разделы аккаунта"
+      className="flex w-full rounded-lg border border-border p-0.5"
+    >
+      {tabs.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={active === id}
+          onClick={() => onChange(id)}
+          className={`min-h-10 flex-1 rounded-md px-2 text-sm font-medium transition ${
+            active === id
+              ? "bg-white/10 text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AccountPage() {
   const router = useRouter();
   const goBack = useSmartBack("/banner");
@@ -109,6 +147,8 @@ export default function AccountPage() {
   // Avatar is UI-only (no endpoint yet): mirrored to localStorage.
   const [avatar, setAvatar] = useState<string>(AVATAR_URL);
   const [editOpen, setEditOpen] = useState(false);
+  // Active tab in the mobile-only tabbed layout (Кредиты / Подписка / Аккаунт).
+  const [accTab, setAccTab] = useState<AccountTab>("credits");
 
   useEffect(() => {
     try {
@@ -198,7 +238,7 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="ds-btn ds-btn-primary mx-auto mt-4 min-h-11 gap-2 px-4"
+              className="ds-btn ds-btn-primary mx-auto mt-4 min-h-11 w-full gap-2 px-4 sm:w-auto"
             >
               <RefreshCw className="h-4 w-4" />
               Обновить
@@ -222,30 +262,39 @@ export default function AccountPage() {
     <div className="relative min-h-screen">
       <Aurora />
       <AppHeader />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:py-8">
-        {/* Unified back control (see BackButton) — same thin "← Назад" everywhere. */}
-        <BackButton onClick={goBack} className="-ml-2 mb-6" />
+      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
+        {/* Unified back control (see BackButton) — same thin "← Назад" everywhere.
+            Unified top rhythm on mobile: 16px header→back (container pt-4) and
+            16px back→content (mb-4). */}
+        <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
+        <header className="mb-6 flex items-center justify-between gap-4 sm:mb-8">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             <AvatarRing src={avatar} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <h1 className="ds-h1 min-w-0 truncate">{displayName(me.profile)}</h1>
+            <div className="min-w-0 flex-1 sm:flex-none">
+              {/* Name row stretches the full container so the edit control pins to
+                  the right edge; the name itself flexes and ellipsis-truncates.
+                  Smaller title on mobile (24px) so the name is actually readable
+                  before it clips — full 32px from sm up. */}
+              <div className="flex items-center gap-2">
+                <h1 className="ds-h1 min-w-0 flex-1 truncate text-xl sm:flex-none sm:text-[2rem]">
+                  {displayName(me.profile)}
+                </h1>
                 {/* Clearly-visible secondary button (was a low-contrast violet
                     outline that testers missed): the same bordered + bg-white/5
-                    surface as the header icon buttons. Opens the profile editor
-                    — email/password are managed separately (support card /
-                    security card below), so the label says "профиль", not a bare
-                    "Изменить" that read as an email edit. */}
+                    surface as the header icon buttons. Icon-only on mobile (square
+                    44px touch target) to reclaim room for the name; label returns
+                    from sm up. Opens the profile editor — email/password are
+                    managed separately (support / security cards below). */}
                 <button
                   type="button"
                   onClick={() => setEditOpen(true)}
                   aria-label="Редактировать профиль"
-                  className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/5 px-3 text-sm font-medium text-foreground transition hover:border-white/25 hover:bg-white/10"
+                  title="Редактировать профиль"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-white/5 text-sm font-medium text-foreground transition hover:border-white/25 hover:bg-white/10 max-sm:h-11 max-sm:w-11 sm:min-h-9 sm:px-3"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Редактировать
+                  <Pencil className="h-4 w-4" />
+                  <span className="max-sm:hidden">Редактировать</span>
                 </button>
               </div>
               <p className="truncate text-sm text-muted-foreground">{me.profile.email}</p>
@@ -258,15 +307,38 @@ export default function AccountPage() {
           ) : null}
         </header>
 
-        <div className="mb-6 grid gap-6 md:grid-cols-2">
-          <CreditsCard balance={me.profile.credits_balance} />
-          <UsageHistoryCard />
+        {/* Mobile: 3 tabs (name above stays as the section header). */}
+        <div className="sm:hidden">
+          <AccountTabs active={accTab} onChange={setAccTab} />
+          <div className="mt-5">
+            {accTab === "credits" ? (
+              <div className="space-y-6">
+                <CreditsCard balance={me.profile.credits_balance} />
+                <UsageHistoryCard />
+              </div>
+            ) : accTab === "subscription" ? (
+              <SubscriptionCard />
+            ) : (
+              <div className="space-y-6">
+                <AccountInfoCard email={me.profile.email} />
+                <PasswordCard />
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <SubscriptionCard />
-          <AccountInfoCard email={me.profile.email} />
-          <PasswordCard />
+        {/* Desktop: single-scroll layout (unchanged). */}
+        <div className="hidden sm:block">
+          <div className="mb-6 grid gap-6 md:grid-cols-2">
+            <CreditsCard balance={me.profile.credits_balance} />
+            <UsageHistoryCard />
+          </div>
+
+          <div className="space-y-6">
+            <SubscriptionCard />
+            <AccountInfoCard email={me.profile.email} />
+            <PasswordCard />
+          </div>
         </div>
       </div>
 
@@ -490,7 +562,10 @@ function SubscriptionCard() {
             Откройте все возможности с подпиской
           </p>
         </div>
-        <Link href="/billing" className="ds-btn ds-btn-violet min-h-11 shrink-0 px-5">
+        <Link
+          href="/billing"
+          className="ds-btn ds-btn-violet min-h-11 w-full shrink-0 px-5 sm:w-auto"
+        >
           Улучшить план
         </Link>
       </div>
@@ -519,7 +594,10 @@ function AccountInfoCard({ email }: { email: string }) {
       <p className="mt-4 text-sm text-muted-foreground">
         Чтобы изменить email, обратитесь в поддержку — мы внесём правки вручную.
       </p>
-      <a href={SUPPORT_HREF} className="ds-btn ds-btn-outline-lime mt-5 min-h-11 px-4">
+      <a
+        href={SUPPORT_HREF}
+        className="ds-btn ds-btn-outline-lime mt-5 min-h-11 w-full px-4 sm:w-auto"
+      >
         Связаться с поддержкой
       </a>
     </div>
@@ -617,7 +695,7 @@ function PasswordCard() {
         <button
           type="submit"
           disabled={busy}
-          className="ds-btn ds-btn-outline-violet min-h-11 px-4"
+          className="ds-btn ds-btn-outline-violet min-h-11 w-full px-4 sm:w-auto"
         >
           {busy ? "Сохраняем…" : "Сменить пароль"}
         </button>
@@ -643,7 +721,7 @@ function CreditsCard({ balance }: { balance: number | string }) {
         <Coins className="h-4 w-4 text-brand-lime" />
         <span className="ds-overline">Кредиты</span>
       </div>
-      <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+      <div className="mt-auto flex flex-col items-stretch gap-3 pt-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="ds-caption">Текущий баланс</p>
           <p className="mt-1 ds-stat">
@@ -655,7 +733,10 @@ function CreditsCard({ balance }: { balance: number | string }) {
         </div>
         {/* PRIMARY action — brand-gradient fill (lime→violet), the boldest CTA
             on the screen. */}
-        <Link href="/billing" className="ds-btn ds-btn-primary min-h-11 shrink-0 gap-1.5 px-4">
+        <Link
+          href="/billing"
+          className="ds-btn ds-btn-primary min-h-11 w-full shrink-0 gap-1.5 px-4 sm:w-auto"
+        >
           <Plus className="h-4 w-4" />
           Пополнить
         </Link>
