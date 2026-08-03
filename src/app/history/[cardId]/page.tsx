@@ -175,13 +175,13 @@ function CardBody() {
 
   if (err) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <BackButton href="/history" className="-ml-2" />
-        <p className="mt-6 text-sm text-destructive">{err}</p>
+      <div className="mx-auto max-w-4xl px-4 pt-4 pb-8 sm:py-8">
+        <BackButton href="/history" className="-ml-2 mb-4" />
+        <p className="text-sm text-destructive">{err}</p>
         {/сесси|войдите/i.test(err) ? (
           <Link
             href="/login"
-            className="mt-3 inline-flex items-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:w-auto"
           >
             Войти снова
           </Link>

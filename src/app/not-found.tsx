@@ -12,7 +12,7 @@ export default function NotFound() {
           Страница, которую вы ищете, не существует или была перемещена.
         </p>
         <div className="mt-6">
-          <Link href="/" className="ds-btn ds-btn-primary min-h-11 px-4">
+          <Link href="/" className="ds-btn ds-btn-primary min-h-11 w-full px-4 sm:w-auto">
             На главную
           </Link>
         </div>
