@@ -21,7 +21,7 @@ import {
 import { apiJson, ApiError } from "@/lib/api-client";
 import { PresetSidebar, PRESETS } from "./PresetSidebar";
 import { AspectRatioPicker } from "./AspectRatioPicker";
-import { ModelToggle, type ModelKey } from "./ModelToggle";
+import { type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
 import { FullscreenImageModal } from "./FullscreenImageModal";
 import { GenerationErrorCard } from "./GenerationErrorCard";
@@ -62,11 +62,6 @@ const RATIOS_NANO = [
   "9:21",
 ];
 
-/**
- * Reduce a width × height pair to one of our canonical aspect labels.
- * Uses the smallest absolute-difference match — good enough since the
- * master is always one of OpenAI's three native canvas sizes.
- */
 function aspectFromDims(w: number, h: number): string {
   const r = w / h;
   const candidates: Array<[string, number]> = [
@@ -110,6 +105,14 @@ const LANGUAGES: { value: string; label: string }[] = [
 
 type Status = "idle" | "loading" | "success" | "error";
 
+const SHOW_MOBILE_TABBAR = false;
+
+// DEV ONLY: показывает экран результата (баннер → одобрить → ресайзы) с
+// картинкой-заглушкой, без реальной генерации (она требует авторизации).
+// Поставь false, когда закончишь дорабатывать этот экран.
+const DEV_PREVIEW_RESULT = false;
+const DEV_PREVIEW_IMAGE = "https://picsum.photos/seed/dwbanner/900/900";
+
 export function ImageGenApp() {
   // Generation context lives at root level so the master image and
   // resize-batch progress survive navigation to /history or /admin. We
@@ -119,6 +122,9 @@ export function ImageGenApp() {
   const { isGuest, openGate } = useAuthGate();
   const router = useRouter();
   const imageUrl = gen.imageUrl;
+  // A banner exists → we're on step 2 (choose resizes). Drives the step
+  // indicator and the "Назад" button. Accounts for the dev preview flag.
+  const hasBanner = DEV_PREVIEW_RESULT || imageUrl !== null;
   const lastUsage = gen.lastUsage;
   const lastPayload = gen.lastPayload;
   const lastMasterRatio = gen.lastMasterRatio;
@@ -166,6 +172,19 @@ export function ImageGenApp() {
   const [quality, setQuality] = useState<Quality>("low");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // Live elapsed-seconds counter for the master loader. The static "10–30 сек"
+  // copy alone reads as frozen on longer runs; a ticking counter proves the
+  // process is still alive.
+  const [genSeconds, setGenSeconds] = useState(0);
+  // Active pane on mobile (< lg). Desktop shows all three columns at once and
+  // ignores this. "templates" | "settings" | "result".
+  // If a finished banner survived from a previous visit (its image is in the
+  // shared context), land on the result pane so the user actually sees it —
+  // otherwise the editor always reopened on "templates" and the banner looked
+  // lost, reachable only by starting a new generation.
+  const [mobileTab, setMobileTab] = useState<"templates" | "settings" | "result">(
+    imageUrl ? "result" : "templates",
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
@@ -245,6 +264,145 @@ export function ImageGenApp() {
   const isSlotPreset = preset === "preset2";
   const isEventPreset = preset === "preset3";
   const isSportPreset = preset === "preset4";
+
+  // ---- Undo/Redo wiring -----------------------------------------------------
+  // The header's Undo/Redo buttons drive the global editor history. We keep a
+  // live snapshot of the editable content fields in a ref, register a
+  // getState/setState pair once, and push a debounced snapshot on every edit.
+  const editHistory = useEditorHistory();
+  const editStateRef = useRef<Snapshot>({});
+  editStateRef.current = {
+    preset,
+    buttonText,
+    bannerText,
+    buttonTextEnabled,
+    bannerTextEnabled,
+    adTextsEnabled,
+    personEnabled,
+    personGender,
+    prompt,
+    model,
+    ratio,
+    quality,
+    brandName,
+    brandLogo,
+    language,
+    slotName,
+    slotScreenshot,
+    slotLogo,
+    eventText,
+    subheadline,
+    subheadlineEnabled,
+    sportType,
+    matchType,
+    sideAName,
+    sideALogo,
+    sideBName,
+    sideBLogo,
+    eventName,
+    matchDatetime,
+    location,
+    bonusText,
+    bonusEnabled,
+    playersEnabled,
+    sideAPlayers,
+    sideBPlayers,
+  };
+  const applyEditSnapshot = useCallback((s: Snapshot) => {
+    setPreset(s.preset as string);
+    setButtonText(s.buttonText as string);
+    setBannerText(s.bannerText as string);
+    setButtonTextEnabled(s.buttonTextEnabled as boolean);
+    setBannerTextEnabled(s.bannerTextEnabled as boolean);
+    setAdTextsEnabled(s.adTextsEnabled as boolean);
+    setPersonEnabled(s.personEnabled as boolean);
+    setPersonGender(s.personGender as "female" | "male");
+    setPrompt(s.prompt as string);
+    setModel(s.model as ModelKey);
+    setRatio(s.ratio as string);
+    setQuality(s.quality as Quality);
+    setBrandName(s.brandName as string);
+    setBrandLogo(s.brandLogo as string);
+    setLanguage(s.language as string);
+    setSlotName(s.slotName as string);
+    setSlotScreenshot(s.slotScreenshot as string);
+    setSlotLogo(s.slotLogo as string);
+    setEventText(s.eventText as string);
+    setSubheadline(s.subheadline as string);
+    setSubheadlineEnabled(s.subheadlineEnabled as boolean);
+    setSportType(s.sportType as string);
+    setMatchType(s.matchType as string);
+    setSideAName(s.sideAName as string);
+    setSideALogo(s.sideALogo as string);
+    setSideBName(s.sideBName as string);
+    setSideBLogo(s.sideBLogo as string);
+    setEventName(s.eventName as string);
+    setMatchDatetime(s.matchDatetime as string);
+    setLocation(s.location as string);
+    setBonusText(s.bonusText as string);
+    setBonusEnabled(s.bonusEnabled as boolean);
+    setPlayersEnabled(s.playersEnabled as boolean);
+    setSideAPlayers(s.sideAPlayers as string);
+    setSideBPlayers(s.sideBPlayers as string);
+  }, []);
+  useEffect(() => {
+    editHistory.register({ getState: () => editStateRef.current, setState: applyEditSnapshot });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const editSerialized = JSON.stringify(editStateRef.current);
+  useEffect(() => {
+    const id = window.setTimeout(() => editHistory.record(), 500);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSerialized]);
+
+  // Tick the elapsed-seconds counter while the master is generating.
+  const masterLoading = status === "loading" || gen.status === "master_running";
+  useEffect(() => {
+    if (!masterLoading) {
+      setGenSeconds(0);
+      return;
+    }
+    setGenSeconds(0);
+    const id = window.setInterval(() => setGenSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [masterLoading]);
+
+  // Restore the form from the banner that survived a previous visit. The image
+  // and the values that produced it live in the shared context, but the editor
+  // fields are local and would otherwise come back blank after visiting another
+  // screen — making the on-screen banner and the form disagree, and letting a
+  // regenerate run with emptied fields. Runs once on mount; only fills fields
+  // the user hasn't already typed into. The ?card flow has its own restore.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("card")) return;
+    const p = gen.lastPayload;
+    if (!p) return;
+    const fillStr = (setter: (v: string | ((cur: string) => string)) => void, val: unknown) => {
+      if (typeof val === "string" && val) setter((cur) => (cur.trim() === "" ? val : cur));
+    };
+    fillStr(setPrompt, p.prompt);
+    fillStr(setSlotName, p.slot_name);
+    fillStr(setBannerText, p.banner_text);
+    fillStr(setButtonText, p.button_text);
+    fillStr(setEventText, p.event_text);
+    fillStr(setSubheadline, p.subheadline_text);
+    fillStr(setSportType, p.sport_type);
+    fillStr(setSideAName, p.side_a_name);
+    fillStr(setSideBName, p.side_b_name);
+    fillStr(setEventName, p.event_name);
+    fillStr(setMatchDatetime, p.match_datetime);
+    fillStr(setLocation, p.location);
+    fillStr(setBonusText, p.bonus_text);
+    if (typeof p.match_type === "string" && p.match_type) setMatchType(p.match_type);
+    if (typeof p.banner_text_enabled === "boolean") setBannerTextEnabled(p.banner_text_enabled);
+    if (typeof p.button_text_enabled === "boolean") setButtonTextEnabled(p.button_text_enabled);
+    if (typeof p.subheadline_enabled === "boolean") setSubheadlineEnabled(p.subheadline_enabled);
+    if (typeof p.bonus_enabled === "boolean") setBonusEnabled(p.bonus_enabled);
+    if (typeof p.aspect_ratio === "string" && p.aspect_ratio) setRatio(p.aspect_ratio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // load persisted brand settings
   useEffect(() => {
@@ -467,6 +625,10 @@ export function ImageGenApp() {
           cardId: card.id,
           tiles: restoredTiles,
         });
+        // On mobile the loaded master lives on the "result" pane; jump there so
+        // the user actually sees the banner they picked (desktop shows all
+        // columns at once, so this is a no-op there).
+        setMobileTab("result");
 
         // Clean the URL so reload doesn't re-trigger.
         url.searchParams.delete("card");
@@ -521,23 +683,32 @@ export function ImageGenApp() {
         setLastPayload((prev) => (prev ? { ...prev, card_id: r.card_id } : prev));
       })
       .catch((e) => {
-        // Non-fatal: tiles just won't persist this round. Surface via
-        // the existing error message slot so the user knows.
-        setErrorMsg(
+        // Non-fatal: the master banner is still valid — only re-attaching this
+        // round's resizes to a new card under the new preset failed. Surface it
+        // as a toast (visible, non-blocking) instead of the full error card,
+        // which would blank the still-usable result. Previously this wrote to
+        // errorMsg, which is only rendered when status==="error" — so the user
+        // never actually saw it.
+        toast.error(
           e instanceof ApiError
-            ? `Не удалось создать новую карточку под пресет: ${e.message}`
-            : "Не удалось создать новую карточку под этот пресет",
+            ? `Не удалось привязать ресайзы к новому шаблону: ${e.message}`
+            : "Не удалось привязать ресайзы к новому шаблону. Попробуйте сменить шаблон ещё раз.",
         );
       });
   }, [preset, loadedCardId, loadedFromPreset]);
   const compressImageFile = (file: File | null, setter: (v: string) => void, maxPx = 512) => {
     if (!file) return;
+    const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+    if (!isSvg && !file.type.startsWith("image/")) {
+      alert("Нужен файл изображения — PNG, JPG или SVG.");
+      return;
+    }
     if (file.size > 8 * 1024 * 1024) {
-      alert("Файл слишком большой (макс 8MB)");
+      alert("Файл слишком большой (макс 8 МБ).");
       return;
     }
     const reader = new FileReader();
-    const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+    reader.onerror = () => alert("Не удалось прочитать файл. Попробуйте другой.");
     reader.onload = () => {
       const r = reader.result;
       if (typeof r !== "string") return;
@@ -561,7 +732,7 @@ export function ImageGenApp() {
         ctx.drawImage(img, 0, 0, w, h);
         setter(canvas.toDataURL("image/jpeg", 0.85));
       };
-      img.onerror = () => setter(r);
+      img.onerror = () => alert("Не удалось обработать изображение. Попробуйте другой файл.");
       img.src = r;
     };
     if (isSvg) {
@@ -646,12 +817,15 @@ export function ImageGenApp() {
   }, [preset, model]);
 
   const onLaunchBatch = (sizes: SelectedSize[]) => {
-    if (!imageUrl || !lastPayload) return;
+    // In dev preview there's no real master/payload — fall back to the
+    // placeholder image so the simulated batch can run for design work.
+    const master = imageUrl ?? (DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : null);
+    if (!master) return;
     void gen.runBatch({
       sizes,
-      master: imageUrl,
-      masterRatio: lastMasterRatio,
-      basePayload: lastPayload,
+      master,
+      masterRatio: imageUrl ? lastMasterRatio : ratio,
+      basePayload: lastPayload ?? ({} as GeneratePayload),
     });
   };
 
@@ -689,6 +863,8 @@ export function ImageGenApp() {
     }
     setStatus("loading");
     setErrorMsg("");
+    // On mobile, jump to the Результат pane so the user watches it generate.
+    setMobileTab("result");
     // A fresh master generation always starts a new card. The history
     // banner clears so the UI doesn't lie about provenance.
     setLoadedCardId(null);
@@ -739,7 +915,11 @@ export function ImageGenApp() {
       // string. We use the return value (not gen.imageUrl, which would
       // be stale in this closure) to seed the in-memory thumbnail list.
       const img = await gen.runMaster(payload);
-      setStatus("success");
+      // runMaster never throws: on failure it patches gen.status="error" +
+      // gen.errorMsg and returns null. Don't force "success" in that case —
+      // otherwise the error branch below (driven off gen.status) is masked
+      // and the user sees the idle placeholder instead of the error card.
+      setStatus(img ? "success" : "idle");
       if (img) {
         setHistory((prev) => {
           const list = prev[preset] ? [img, ...prev[preset]] : [img];
@@ -809,55 +989,12 @@ export function ImageGenApp() {
       <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Image Generator</h1>
 
-        <PresetSidebar value={preset} onChange={setPreset} />
-
-        <main className="flex min-w-0 flex-1 flex-col gap-4">
-          {/* TOP — history for current preset.
-              Single source of truth for the active master is gen.imageUrl
-              from the root-level context (survives navigation). The
-              local `history` list is just a session-scoped breadcrumb
-              of additional thumbnails the user generated this visit. */}
-          {(() => {
-            const items = history[preset] ?? [];
-            // Show whenever there's an active master in the context OR
-            // any session history OR a loading / error state.
-            const showSection =
-              imageUrl !== null ||
-              items.length > 0 ||
-              status === "loading" ||
-              status === "error" ||
-              gen.status === "master_running";
-            if (!showSection) return null;
-            // Build the preview list: gen.imageUrl first (most current),
-            // then any older thumbnails from session history. Dedupe so
-            // we don't show the same image twice if history-sync
-            // already added it.
-            const previewItems = imageUrl
-              ? [imageUrl, ...items.filter((s) => s !== imageUrl)]
-              : items;
-            return (
-              <section className="rounded-2xl border border-border bg-panel p-6">
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold">
-                    История: <span className="text-foreground/70">{currentPreset?.name}</span>
-                  </h2>
-                  {items.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // In-memory clear only — history isn't persisted.
-                        setHistory((prev) => {
-                          const next = { ...prev };
-                          delete next[preset];
-                          return next;
-                        });
-                      }}
-                      className="text-xs text-foreground/50 hover:text-foreground"
-                    >
-                      Очистить
-                    </button>
-                  )}
-                </div>
+        {/* COLUMN 1 — templates. Own mobile tab; a normal column on desktop.
+            lg:contents makes this wrapper vanish from layout on desktop so the
+            sidebar's own flex-[2] participates directly in the row. */}
+        <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
+          <PresetSidebar value={preset} onChange={changePreset} />
+        </div>
 
         {/* COLUMN 2 — settings panel. Every field stacked vertically. */}
         <section
@@ -882,7 +1019,7 @@ export function ImageGenApp() {
                 <div>
                   <label className="mb-2 block ds-h4">
                     {isSportPreset ? "Опишите матч / событие" : "Тематика баннера"}{" "}
-                    <span className="text-accent-green">*</span>
+                    <span className="text-[color:var(--status-error)]">*</span>
                   </label>
                   <textarea
                     value={prompt}
@@ -894,7 +1031,7 @@ export function ImageGenApp() {
                         ? "Например: финал Лиги Чемпионов между PSG и Liverpool…"
                         : isEventPreset
                           ? "Например: турнир по покеру на новогодние праздники, призовой фонд $100k…"
-                          : "Покерный турнир, акция, фри спины, кэшбэк, новый слот…"
+                          : "Новинка, акция, скидка, ключевые преимущества, спецпредложение…"
                     }
                   />
                 </div>
@@ -927,8 +1064,8 @@ export function ImageGenApp() {
                     placeholder="Название слота (например, Sweet Bonanza)"
                     className="mb-3 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
-                  <div className="flex flex-wrap gap-3">
-                    <div className="w-24">
+                  <div className="flex gap-3">
+                    <div className="min-w-0 flex-1">
                       <SlotUpload
                         label="Скриншот слота"
                         value={slotScreenshot}
@@ -936,10 +1073,10 @@ export function ImageGenApp() {
                         onPick={() => slotShotInputRef.current?.click()}
                         inputRef={slotShotInputRef}
                         onFile={(f) => compressImageFile(f, setSlotScreenshot, 512)}
-                        aspect="square"
+                        aspect="fixed"
                       />
                     </div>
-                    <div className="w-24">
+                    <div className="min-w-0 flex-1">
                       <SlotUpload
                         label="Логотип слота"
                         value={slotLogo}
@@ -947,11 +1084,11 @@ export function ImageGenApp() {
                         onPick={() => slotLogoInputRef.current?.click()}
                         inputRef={slotLogoInputRef}
                         onFile={(f) => compressImageFile(f, setSlotLogo, 256)}
-                        aspect="square"
+                        aspect="fixed"
                       />
                     </div>
                   </div>
-                  <p className="mt-2 text-[11px] text-foreground/50">
+                  <p className="mt-2 ds-caption">
                     Скриншот станет ключевым визуалом, логотип будет размещён по правилам шаблона.
                   </p>
                 </div>
@@ -962,9 +1099,7 @@ export function ImageGenApp() {
                   <p className="ds-h4">Параметры матча</p>
                   <div className="flex flex-col gap-4">
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Тип спорта
-                      </label>
+                      <label className="mb-2 block ds-label">Тип спорта</label>
                       <select
                         value={sportType}
                         onChange={(e) => setSportType(e.target.value)}
@@ -989,9 +1124,7 @@ export function ImageGenApp() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Тип матча
-                      </label>
+                      <label className="mb-2 block ds-label">Тип матча</label>
                       <select
                         value={matchType}
                         onChange={(e) => setMatchType(e.target.value)}
@@ -1005,11 +1138,9 @@ export function ImageGenApp() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Сторона A
-                      </label>
+                      <label className="mb-2 block ds-label">Сторона A</label>
                       <input
                         type="text"
                         value={sideAName}
@@ -1017,7 +1148,7 @@ export function ImageGenApp() {
                         placeholder="Команда / игрок"
                         className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
-                      <div className="w-24">
+                      <div className="w-full">
                         <SlotUpload
                           label="Лого / флаг A"
                           value={sideALogo}
@@ -1025,15 +1156,13 @@ export function ImageGenApp() {
                           onPick={() => sideALogoInputRef.current?.click()}
                           inputRef={sideALogoInputRef}
                           onFile={(f) => compressImageFile(f, setSideALogo, 256)}
-                          aspect="square"
+                          aspect="fixed"
                         />
                       </div>
                     </div>
-                    <span className="pb-2 text-base font-bold text-accent-green">VS</span>
+                    <span className="text-base font-bold text-muted-foreground">VS</span>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Сторона B
-                      </label>
+                      <label className="mb-2 block ds-label">Сторона B</label>
                       <input
                         type="text"
                         value={sideBName}
@@ -1041,7 +1170,7 @@ export function ImageGenApp() {
                         placeholder="Команда / игрок"
                         className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
-                      <div className="w-24">
+                      <div className="w-full">
                         <SlotUpload
                           label="Лого / флаг B"
                           value={sideBLogo}
@@ -1049,17 +1178,15 @@ export function ImageGenApp() {
                           onPick={() => sideBLogoInputRef.current?.click()}
                           inputRef={sideBLogoInputRef}
                           onFile={(f) => compressImageFile(f, setSideBLogo, 256)}
-                          aspect="square"
+                          aspect="fixed"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="flex flex-col gap-4">
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Название события
-                      </label>
+                      <label className="mb-2 block ds-label">Название события</label>
                       <input
                         type="text"
                         value={eventName}
@@ -1069,9 +1196,7 @@ export function ImageGenApp() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Дата и время
-                      </label>
+                      <label className="mb-2 block ds-label">Дата и время</label>
                       <input
                         type="text"
                         value={matchDatetime}
@@ -1081,9 +1206,7 @@ export function ImageGenApp() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                        Локация / стадион
-                      </label>
+                      <label className="mb-2 block ds-label">Локация / стадион</label>
                       <input
                         type="text"
                         value={location}
@@ -1101,10 +1224,11 @@ export function ImageGenApp() {
                     value={bonusText}
                     onChange={setBonusText}
                     placeholder="+200% на первую ставку, Odds Boost 5.0…"
+                  maxLength={60}
                   />
 
-                  <div className="rounded-md border border-border bg-background/40 p-3">
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="ds-h4">Игроки на баннере</p>
                         <p className="mt-1 ds-caption leading-relaxed">
@@ -1114,12 +1238,10 @@ export function ImageGenApp() {
                       <ToggleSwitch enabled={playersEnabled} onToggle={setPlayersEnabled} />
                     </div>
                     {playersEnabled && (
-                      <div className="mt-3 space-y-3">
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="mt-5 space-y-5">
+                        <div className="flex flex-col gap-5">
                           <div>
-                            <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                              Сторона A — Игрок(и)
-                            </label>
+                            <label className="mb-2 block ds-label">Сторона A — игроки</label>
                             <input
                               type="text"
                               value={sideAPlayers}
@@ -1127,14 +1249,9 @@ export function ImageGenApp() {
                               placeholder="Например: Мбаппе, Дембеле"
                               className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
-                            <p className="mt-1 text-[11px] text-foreground/50">
-                              Если пусто — нейросеть подберёт топового игрока автоматически
-                            </p>
                           </div>
                           <div>
-                            <label className="mb-1 block text-[11px] font-medium text-foreground/70">
-                              Сторона B — Игрок(и)
-                            </label>
+                            <label className="mb-2 block ds-label">Сторона B — игроки</label>
                             <input
                               type="text"
                               value={sideBPlayers}
@@ -1142,16 +1259,16 @@ export function ImageGenApp() {
                               placeholder="Например: Салах"
                               className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
-                            <p className="mt-1 text-[11px] text-foreground/50">
-                              Если пусто — нейросеть подберёт топового игрока автоматически
-                            </p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-foreground/60">
-                          💡 Можно указать одного или нескольких игроков через запятую. В
-                          индивидуальных видах спорта (бокс, теннис, ММА) — обычно сам спортсмен. В
-                          командных — звезда команды.
-                        </p>
+                        <div className="space-y-2 ds-caption leading-relaxed">
+                          <p>Оставьте поле пустым — нейросеть подберёт топового игрока сама.</p>
+                          <p>
+                            💡 Нескольких игроков перечислите через запятую. В индивидуальных видах
+                            спорта (бокс, теннис, ММА) — обычно сам спортсмен, в командных — звезда
+                            команды.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1163,26 +1280,26 @@ export function ImageGenApp() {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     {brandLogo ? (
-                      <div className="relative">
+                      <div className="relative w-full">
                         <img
                           src={brandLogo}
                           alt="brand logo"
-                          className="h-24 w-24 rounded-md border border-border bg-white object-contain p-1"
+                          className="h-24 w-full rounded-md border border-border bg-white object-contain p-1"
                         />
                         <button
                           type="button"
                           onClick={() => setBrandLogo("")}
                           aria-label="Удалить логотип"
-                          className="absolute -right-2 -top-2 rounded-full bg-foreground p-0.5 text-background hover:opacity-80"
+                          className="absolute -right-2 -top-2 rounded-full bg-foreground p-1 text-background hover:opacity-80 after:absolute after:-inset-2.5 after:content-['']"
                         >
-                          <X size={10} />
+                          <X size={12} />
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => logoInputRef.current?.click()}
-                        className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-[11px] text-foreground/50 hover:border-foreground/40 hover:text-foreground/80"
+                        className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border ds-caption hover:border-foreground/40 hover:text-foreground/80"
                       >
                         <Upload size={16} />
                         Лого
@@ -1230,7 +1347,7 @@ export function ImageGenApp() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="flex flex-col gap-4">
                 <OptionalField
                   label="Текст на баннере"
                   enabled={bannerTextEnabled}
@@ -1238,6 +1355,7 @@ export function ImageGenApp() {
                   value={bannerText}
                   onChange={setBannerText}
                   placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Летняя акция"}
+                  maxLength={50}
                 />
                 <OptionalField
                   label="Текст на кнопке"
@@ -1246,6 +1364,7 @@ export function ImageGenApp() {
                   value={buttonText}
                   onChange={setButtonText}
                   placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Купить"}
+                  maxLength={24}
                 />
               </div>
 
@@ -1257,12 +1376,13 @@ export function ImageGenApp() {
                   value={subheadline}
                   onChange={setSubheadline}
                   placeholder="Пусто = ИИ сгенерирует 2–3 преимущества"
+                  maxLength={120}
                 />
               )}
 
               {!isSlotPreset && !isSportPreset && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-md border border-border bg-background/40 p-3">
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="ds-h4">Рекламные тексты в промпте</p>
@@ -1272,7 +1392,7 @@ export function ImageGenApp() {
                     </div>
                   </div>
 
-                  <div className="rounded-md border border-border bg-background/40 p-3">
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="ds-h4">Человек в кадре</p>
@@ -1287,13 +1407,13 @@ export function ImageGenApp() {
                             key={g}
                             type="button"
                             onClick={() => setPersonGender(g)}
-                            className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                            className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                               personGender === g
                                 ? "border-accent-green bg-accent-green/10 text-accent-green"
                                 : "border-border text-foreground/70 hover:bg-white/5"
                             }`}
                           >
-                            {g === "female" ? "Девушка" : "Мужчина"}
+                            {g === "female" ? "Женщина" : "Мужчина"}
                           </button>
                         ))}
                       </div>
@@ -1725,6 +1845,47 @@ export function ImageGenApp() {
       {zoomOpen && zoomSrc && (
         <FullscreenImageModal src={zoomSrc} onClose={() => setZoomOpen(false)} />
       )}
+
+      {/* Mobile bottom navigation — turns the three desktop columns into
+          switchable panes. Hidden on lg where all three show side by side.
+          Currently gated off via SHOW_MOBILE_TABBAR (kept for quick re-enable). */}
+      {SHOW_MOBILE_TABBAR ? (
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex h-[4.25rem] items-stretch border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+          {(
+            [
+              { id: "templates", label: "Шаблоны", Icon: LayoutGrid },
+              { id: "settings", label: "Настройки", Icon: SlidersHorizontal },
+              { id: "result", label: "Результат", Icon: Sparkles },
+            ] as const
+          ).map(({ id, label, Icon }) => {
+            const active = mobileTab === id;
+            const busyDot = id === "result" && (gen.isBusy || hasBanner);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMobileTab(id)}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
+                  active ? "text-accent-green" : "text-muted-foreground"
+                }`}
+              >
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {busyDot ? (
+                    <span
+                      className={`absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-accent-green ${
+                        gen.isBusy ? "animate-pulse" : ""
+                      }`}
+                    />
+                  ) : null}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
     </div>
   );
 }
@@ -1736,6 +1897,7 @@ function OptionalField({
   value,
   onChange,
   placeholder,
+  maxLength,
 }: {
   label: string;
   enabled: boolean;
@@ -1743,9 +1905,10 @@ function OptionalField({
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background/40 p-3">
+    <div className="rounded-xl border border-border bg-background/40 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="ds-h4">{label}</span>
         <button
@@ -1772,6 +1935,15 @@ function OptionalField({
         className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green disabled:opacity-40"
         placeholder={placeholder}
       />
+      {maxLength && enabled ? (
+        <p
+          className={`mt-1 text-right ds-micro ${
+            value.length >= maxLength ? "text-[color:var(--status-error)]" : "text-muted-foreground"
+          }`}
+        >
+          {value.length}/{maxLength}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1783,7 +1955,7 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: (v: b
       role="switch"
       aria-checked={enabled}
       onClick={() => onToggle(!enabled)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
         enabled ? "bg-accent-green" : "bg-white/15"
       }`}
     >
@@ -1811,12 +1983,13 @@ function SlotUpload({
   onPick: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onFile: (f: File | null) => void;
-  aspect: "rect" | "square";
+  aspect: "rect" | "square" | "fixed";
 }) {
-  const aspectClass = aspect === "rect" ? "aspect-video" : "aspect-square";
+  const aspectClass =
+    aspect === "rect" ? "aspect-video" : aspect === "fixed" ? "h-24" : "aspect-square";
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-medium text-foreground/70">{label}</p>
+      <p className="mb-1.5 ds-label">{label}</p>
       {value ? (
         <div className="relative">
           <img
@@ -1828,16 +2001,16 @@ function SlotUpload({
             type="button"
             onClick={onClear}
             aria-label="Удалить"
-            className="absolute -right-2 -top-2 rounded-full bg-foreground p-0.5 text-background hover:opacity-80"
+            className="absolute -right-2 -top-2 rounded-full bg-foreground p-1 text-background hover:opacity-80 after:absolute after:-inset-2.5 after:content-['']"
           >
-            <X size={10} />
+            <X size={12} />
           </button>
         </div>
       ) : (
         <button
           type="button"
           onClick={onPick}
-          className={`${aspectClass} flex w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-[11px] text-foreground/50 hover:border-foreground/40 hover:text-foreground/80`}
+          className={`${aspectClass} flex w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border ds-caption hover:border-foreground/40 hover:text-foreground/80`}
         >
           <Upload size={16} />
           Загрузить
@@ -1867,7 +2040,7 @@ function UsageStrip({ usage }: { usage: UsageInfo }) {
     const total = usage.total_tokens ?? inTxt + inImg + outImg;
     const cost = typeof usage.cost_usd === "number" ? `≈ $${usage.cost_usd.toFixed(4)}` : "—";
     return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 text-[10px] text-foreground/45">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 ds-caption">
         <span>{qLabel}</span>
         <span>·</span>
         <span>{timeLabel}</span>
@@ -1885,7 +2058,7 @@ function UsageStrip({ usage }: { usage: UsageInfo }) {
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 text-[10px] text-foreground/45">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 ds-caption">
       <span>{qLabel}</span>
       <span>·</span>
       <span>{timeLabel}</span>

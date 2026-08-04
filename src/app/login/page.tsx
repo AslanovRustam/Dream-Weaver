@@ -19,6 +19,30 @@ import { getBrowserClient } from "@/lib/supabase/browser";
 
 const POST_LOGIN_TARGET = "/" as const;
 
+// Supabase returns English, technical auth errors. Map the handful users
+// actually hit to clear Russian copy, with a friendly fallback for the rest —
+// so the login screen (the most failure-prone one) never shows raw English.
+function authErrorRu(message: string | null | undefined): string {
+  const m = (message || "").toLowerCase();
+  if (m.includes("invalid login credentials") || m.includes("invalid credentials"))
+    return "Неверный email или пароль.";
+  if (m.includes("email not confirmed"))
+    return "Email не подтверждён — проверьте почту и подтвердите адрес.";
+  if (m.includes("already registered") || m.includes("already been registered") || m.includes("user already"))
+    return "Этот email уже зарегистрирован. Войдите или восстановите пароль.";
+  if (m.includes("password should be at least") || m.includes("password is too short"))
+    return "Пароль слишком короткий — минимум 8 символов.";
+  if (m.includes("unable to validate email") || m.includes("invalid email") || m.includes("invalid format"))
+    return "Проверьте формат email.";
+  if (m.includes("for security purposes") || m.includes("rate limit") || m.includes("too many"))
+    return "Слишком много попыток. Подождите немного и попробуйте снова.";
+  if (m.includes("signups not allowed") || m.includes("signup is disabled"))
+    return "Регистрация сейчас недоступна.";
+  if (m.includes("network") || m.includes("failed to fetch") || m.includes("load failed"))
+    return "Нет соединения. Проверьте интернет и попробуйте снова.";
+  return "Не удалось выполнить вход. Проверьте данные и попробуйте снова.";
+}
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 48 48" className="h-4 w-4">
@@ -54,9 +78,7 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
-  useEffect(() => {
-    document.title = "Войти — Dream Weaver Studio";
-  }, []);
+  useEffect(() => { document.title = "Войти — Dream Weaver Studio"; }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
@@ -82,9 +104,7 @@ function LoginPageInner() {
           <BrandLogo
             className="mx-auto h-9"
             alt="Dream Weaver Studio"
-            fallback={
-              <h1 className="text-2xl font-semibold tracking-tight">Dream Weaver Studio</h1>
-            }
+            fallback={<h1 className="text-2xl font-semibold tracking-tight">Dream Weaver Studio</h1>}
           />
           <p className="mt-2 text-sm text-muted-foreground">Войдите чтобы продолжить</p>
         </div>
@@ -157,7 +177,7 @@ function GoogleButton({ redirectTo }: { redirectTo: string }) {
             },
           });
           if (error) {
-            setErr(error.message);
+            setErr(authErrorRu(error.message));
             setBusy(false);
           }
           // On success Supabase redirects away from this page.
@@ -192,7 +212,7 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
         });
         setBusy(false);
         if (error) {
-          setErr(error.message);
+          setErr(authErrorRu(error.message));
           return;
         }
         router.push(redirectTo);
@@ -262,7 +282,7 @@ function SignUpForm() {
         });
         setBusy(false);
         if (error) {
-          setErr(error.message);
+          setErr(authErrorRu(error.message));
           return;
         }
         // If "Confirm email" is enabled in Supabase, session is null and a
@@ -322,6 +342,7 @@ function ForgotPasswordInline({
   const [email, setEmail] = useState(initialEmail);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
   useEffect(() => setEmail(initialEmail), [initialEmail]);
 
   if (!open) return null;
@@ -393,6 +414,7 @@ function ForgotPasswordInline({
               Отмена
             </Button>
           </div>
+          {err ? <p className="text-xs text-destructive">{err}</p> : null}
         </div>
       )}
     </div>

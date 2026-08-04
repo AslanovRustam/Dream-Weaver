@@ -88,6 +88,13 @@ interface GenerationContextValue extends GenerationStateSnapshot {
   }) => Promise<void>;
   /** Abort everything pending. In-flight provider calls return naturally. */
   cancel: () => void;
+  /** Re-run generation for ONE tile in place. Does NOT flip global status to
+   *  batch_running, so the result list stays visible and the other tiles are
+   *  untouched — only this tile shows a local "running" spinner. */
+  regenerateTile: (id: string) => Promise<void>;
+  /** Drop a single tile from the current batch (user deleted that format).
+   *  A later "Download ZIP" naturally excludes it. */
+  removeTile: (id: string) => void;
   /** Wipe master + tiles. Used when starting fresh from a different brief. */
   clear: () => void;
   /** Imperatively patch payload (e.g. when loaded from history). Pass `tiles`
@@ -187,7 +194,16 @@ function loadFromStorage(): GenerationStateSnapshot | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<GenerationStateSnapshot> | null;
     if (!parsed || typeof parsed !== "object") return null;
-    return { ...INITIAL, ...parsed };
+    const merged = { ...INITIAL, ...parsed };
+    // A persisted in-flight status can't have a live request behind it after a
+    // reload (the fetch died with the old page). Coerce it to a terminal state
+    // so the app never rehydrates into a stuck loader with no way out — this is
+    // especially bad on mobile, where cancel/back are hidden during generation.
+    if (merged.status === "master_running" || merged.status === "batch_running") {
+      merged.status = "idle";
+      merged.tiles = [];
+    }
+    return merged;
   } catch {
     return null;
   }
@@ -231,6 +247,10 @@ async function persistResizeTile(
 export function GenerationProvider({ children }: ProviderProps) {
   const [state, setState] = useState<GenerationStateSnapshot>(() => loadFromStorage() ?? INITIAL);
   const cancelRef = useRef(false);
+  // Live mirror of state so regenerateTile can read the current master/payload
+  // without being re-created (and re-memoised) on every state change.
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Persist any changes so a hard reload restores recent state.
   useEffect(() => {
@@ -262,9 +282,16 @@ export function GenerationProvider({ children }: ProviderProps) {
     cancelRef.current = true;
     setState((prev) => ({
       ...prev,
-      status: prev.status === "batch_running" ? "done" : prev.status,
+      status:
+        prev.status === "batch_running"
+          ? "done"
+          : prev.status === "master_running"
+            ? "idle"
+            : prev.status,
       tiles: prev.tiles.map((t) =>
-        t.status === "queued" ? { ...t, status: "error", error: "Отменено" } : t,
+        t.status === "queued" || t.status === "running"
+          ? { ...t, status: "error", error: "Отменено" }
+          : t,
       ),
     }));
   }, []);
@@ -530,13 +557,15 @@ export function GenerationProvider({ children }: ProviderProps) {
             void persistResizeTile(basePayload.card_id, t.size, exact);
           }
         } catch (e) {
-          // Both i2i and t2i failed — stretch scale from master as last resort.
-          console.error("[runBatch] bucket fully failed, stretch scale fallback", { ratio, error: e });
+          // Both i2i and t2i failed — surface a real error on every tile in
+          // this bucket. Previously we stretch-scaled the master and marked the
+          // tiles "done", which passed off a wrong-aspect image as a genuine
+          // result and polluted the counter, the result list and the ZIP, while
+          // leaving errorCount at 0 so "Повторить упавшие" never appeared.
+          console.error("[runBatch] bucket fully failed", { ratio, error: e });
+          const message = formatGenerationError(e instanceof Error ? e.message : "Ошибка");
           for (const t of bucketTiles) {
-            if (cancelRef.current) break;
-            const exact = await scaleWithRetry(masterDataUrl, t.size.w, t.size.h, masterDataUrl);
-            updateTile(t.id, { status: "done", dataUrl: exact });
-            void persistResizeTile(basePayload.card_id, t.size, exact);
+            updateTile(t.id, { status: "error", error: message });
           }
         }
       }
@@ -544,6 +573,108 @@ export function GenerationProvider({ children }: ProviderProps) {
       patch({ status: "done" });
     },
     [patch, updateTile],
+  );
+
+  const removeTile = useCallback((id: string) => {
+    setState((prev) => ({ ...prev, tiles: prev.tiles.filter((t) => t.id !== id) }));
+  }, []);
+
+  const regenerateTile = useCallback<GenerationContextValue["regenerateTile"]>(
+    async (id) => {
+      const snap = stateRef.current;
+      const tile = snap.tiles.find((t) => t.id === id);
+      const master = snap.imageUrl;
+      if (!tile || !master) return;
+      // Already regenerating this tile (e.g. a fast double-tap, or a tap while a
+      // full-batch run is in flight) — ignore the second request so two calls
+      // can't race and overwrite each other's result out of order.
+      if (tile.status === "running" || snap.status === "batch_running") return;
+      const basePayload = snap.lastPayload ?? ({} as GeneratePayload);
+      const masterRatio = snap.lastMasterRatio;
+
+      updateTile(id, { status: "running", error: undefined });
+      // Keep the spinner on screen for a beat even when the work is an instant
+      // client-side scale — avoids a jarring one-frame flash.
+      const minVisible = new Promise((r) => setTimeout(r, 400));
+
+      const scaleWithRetry = async (src: string, w: number, h: number, fallback: string) => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            return await resizeToExact(src, w, h, "image/jpeg", 0.92);
+          } catch {
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+          }
+        }
+        return fallback;
+      };
+
+      try {
+        // Resolve a remote master to a dataURL first (canvas is CORS-tainted
+        // otherwise), same as runBatch.
+        let masterDataUrl = master;
+        if (master.startsWith("http://") || master.startsWith("https://")) {
+          try {
+            const r = await apiJson<{ dataUrl: string }>("/api/fetch-master", {
+              method: "POST",
+              body: JSON.stringify({ url: master }),
+            });
+            masterDataUrl = r.dataUrl;
+          } catch {
+            /* keep as-is; same-aspect scale may still work */
+          }
+        }
+
+        let sourceForScale = masterDataUrl;
+        // Different aspect than the master → this tile needs a fresh i2i.
+        // Same aspect → a pure client-side re-scale from the master.
+        if (tile.size.ratio !== masterRatio) {
+          let masterDetails: MasterDetails | null = null;
+          try {
+            masterDetails = await extractMasterDetails(masterDataUrl);
+          } catch {
+            masterDetails = null;
+          }
+          const i2iPayload: GeneratePayload = {
+            ...basePayload,
+            aspect_ratio: tile.size.ratio,
+            source_image: masterDataUrl,
+            target_w: tile.size.w,
+            target_h: tile.size.h,
+            master_details: masterDetails ?? undefined,
+            group_id: tile.size.group_id,
+            skip_history_attach: true,
+          };
+          try {
+            const res = await generateImage(i2iPayload);
+            sourceForScale = res.image;
+          } catch (e) {
+            // content_filter → retry as t2i with the original prompt.
+            if (e instanceof Error && e.message.startsWith("[content_filter]")) {
+              const res = await generateImage({
+                ...i2iPayload,
+                source_image: undefined,
+                master_details: undefined,
+              });
+              sourceForScale = res.image;
+            } else {
+              throw e;
+            }
+          }
+        }
+
+        const exact = await scaleWithRetry(sourceForScale, tile.size.w, tile.size.h, masterDataUrl);
+        await minVisible;
+        updateTile(id, { status: "done", dataUrl: exact, error: undefined });
+        void persistResizeTile(basePayload.card_id, tile.size, exact);
+      } catch (e) {
+        await minVisible;
+        updateTile(id, {
+          status: "error",
+          error: formatGenerationError(e instanceof Error ? e.message : "Ошибка"),
+        });
+      }
+    },
+    [updateTile],
   );
 
   const totalTiles = state.tiles.length;
@@ -561,6 +692,8 @@ export function GenerationProvider({ children }: ProviderProps) {
       runMaster,
       runBatch,
       cancel,
+      regenerateTile,
+      removeTile,
       clear,
       setMasterImage,
       setLastPayload,
@@ -574,6 +707,8 @@ export function GenerationProvider({ children }: ProviderProps) {
       runMaster,
       runBatch,
       cancel,
+      regenerateTile,
+      removeTile,
       clear,
       setMasterImage,
       setLastPayload,

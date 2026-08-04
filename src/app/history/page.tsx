@@ -23,8 +23,9 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Загрузка…
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-accent-green" />
+        <p className="text-sm">Загрузка…</p>
       </div>
     );
   }

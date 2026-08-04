@@ -163,7 +163,7 @@ export function SettingsDrawer({
                   className="h-12 w-12 rounded-md border border-border bg-white object-contain p-1"
                 />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-foreground/40">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-border ds-micro text-foreground/40">
                   нет
                 </div>
               )}

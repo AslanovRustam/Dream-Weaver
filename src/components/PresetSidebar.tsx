@@ -345,6 +345,32 @@ export function PresetSidebar({ value, onChange }: Props) {
                     })}
                   </div>
                 )}
+              </div>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {groups.length === 0 && (
+          <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
+            <Search className="h-7 w-7 text-muted-foreground/40" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+              <p className="ds-caption">
+                {q
+                  ? `По запросу «${query.trim()}» шаблонов нет`
+                  : "В этой категории пока нет шаблонов"}
+              </p>
+            </div>
+            {(searching || filterActive) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  clearFilter();
+                }}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-white/5"
+              >
+                Сбросить
               </button>
             )}
           </div>

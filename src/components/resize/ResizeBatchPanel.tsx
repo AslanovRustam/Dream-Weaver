@@ -1,6 +1,11 @@
-// ResizeBatchPanel — collapsible picker that lets the user select target
-// pixel sizes for a resize batch. Shown under the main "Сгенерировать"
-// button only when there is an approved master banner to adapt from.
+// ResizeBatchPanel — a single modal that owns the ENTIRE resize-batch flow
+// in three steps. Nothing about the batch is shown on the main screen.
+//
+//   1. select     — categories + checkboxes, "Сгенерировать пакет" / "Сбросить".
+//   2. generating — one overall progress bar + "Сгенерировано X из N баннеров"
+//                   + a dynamic ETA. No "Назад"/close while generating.
+//   3. result     — "Скачать ZIP" (primary) + "Сгенерировать заново" (secondary)
+//                   + a top "Назад" that returns to step 1 to change formats.
 //
 // Progress and ETA are derived from the REAL per-file batch status coming from
 // the generation context (tiles flipping queued→running→done). The ETA is a
@@ -28,47 +33,132 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ResizeLightbox } from "./ResizeLightbox";
+import type { BatchTile, GenerationStatus } from "@/lib/generation-context";
 
 export type SelectedSize = BannerSize;
 
+/** Russian plural: plural(1,"формат","формата","форматов") → "формат". */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
 type Props = {
   disabled?: boolean;
-  /**
-   * Aspect ratio of the existing master. Sizes with this ratio skip the
-   * i2i call (they're cropped directly from the master) — so the cost
-   * counter must not count this ratio as a "unique" billable aspect.
-   */
   masterRatio?: string;
-  /** Called when "Сгенерировать пакет" is clicked. */
+  /** Starts a batch for the given sizes (parent supplies the master image). */
   onLaunch: (sizes: SelectedSize[]) => void;
+  /** Live batch tiles from the generation context. */
+  tiles: BatchTile[];
+  /** Live generation status from the context. */
+  batchStatus: GenerationStatus;
+  /** Re-run generation for a single tile in place. */
+  onRegenerateTile?: (id: string) => void | Promise<void>;
+  /** Remove a single tile from the batch. */
+  onRemoveTile?: (id: string) => void;
+  /** Abort the running batch (stops queued/in-flight tiles). */
+  onCancel?: () => void;
 };
 
-export function ResizeBatchPanel({ disabled, masterRatio, onLaunch }: Props) {
+type Phase = "select" | "generating" | "result";
+
+function ruSeconds(n: number) {
+  const d = n % 10;
+  const dd = n % 100;
+  if (d === 1 && dd !== 11) return "секунда";
+  if (d >= 2 && d <= 4 && (dd < 10 || dd >= 20)) return "секунды";
+  return "секунд";
+}
+
+export function ResizeBatchPanel({
+  disabled,
+  masterRatio,
+  onLaunch,
+  tiles,
+  batchStatus,
+  onRegenerateTile,
+  onRemoveTile,
+  onCancel,
+}: Props) {
   const [open, setOpen] = useState(false);
-  // sizeKey -> size
+  const [phase, setPhase] = useState<Phase>("select");
   const [selected, setSelected] = useState<Map<string, SelectedSize>>(new Map());
-  // Which use-case groups are expanded inside the panel.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // All categories expanded by default so the user sees every format at once
+  // (they can still collapse any group). The two web-banner data groups are
+  // shown merged under the "web-banners" display id.
+  // All categories expanded by default. The two web-banner data groups are
+  // shown merged under the "web-banners" display id.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const g of BANNER_SIZE_GROUPS) {
+      if (g.id === "web-horizontal" || g.id === "web-vertical") ids.add("web-banners");
+      else ids.add(g.id);
+    }
+    return ids;
+  });
+  const [zipping, setZipping] = useState(false);
+  const [, setTick] = useState(0);
+  const startRef = useRef<number | null>(null);
+  // Which finished tile is open in the fullscreen viewer (null = none). Kept
+  // separate from the modal so opening it never resets the batch/scroll.
+  const [viewTile, setViewTile] = useState<BatchTile | null>(null);
+  // Tile pending a delete confirmation (null = no confirm shown).
+  const [confirmDelete, setConfirmDelete] = useState<BatchTile | null>(null);
 
   const selectedCount = selected.size;
-
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
 
-  // Number of UNIQUE aspect ratios in the current selection MINUS the
-  // master's aspect (if present) — that one is free, derived from the
-  // existing master via crop without a new i2i call.
-  const billableAspects = useMemo(() => {
-    const set = new Set<string>();
-    selected.forEach((s) => set.add(s.ratio));
-    if (masterRatio) set.delete(masterRatio);
-    return set.size;
-  }, [selected, masterRatio]);
+  const total = tiles.length;
+  const doneCount = tiles.filter((t) => t.status === "done").length;
+  const errorCount = tiles.filter((t) => t.status === "error").length;
+  const processed = doneCount + errorCount;
+  const isRunning = batchStatus === "batch_running";
 
-  const hasFreeMasterCrops = useMemo(() => {
-    if (!masterRatio) return false;
-    for (const s of selected.values()) if (s.ratio === masterRatio) return true;
-    return false;
-  }, [selected, masterRatio]);
+  // Drive step transitions off the real batch status.
+  useEffect(() => {
+    if (isRunning) setPhase("generating");
+    else if (total > 0 && processed === total) setPhase((p) => (p === "generating" ? "result" : p));
+  }, [isRunning, total, processed]);
+
+  // Tick once a second while generating so the ETA counts down between
+  // individual file completions.
+  useEffect(() => {
+    if (phase !== "generating") return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // If the batch was wiped mid-run (e.g. a new master), don't get stuck on a
+  // stale "generating" screen. On the RESULT screen we deliberately stay put
+  // even at zero tiles (the user deleted the last format) and show an explicit
+  // empty state instead of silently snapping back to the format picker.
+  const effectivePhase: Phase =
+    phase === "generating" && total === 0 && !isRunning ? "select" : phase;
+  const closable = effectivePhase !== "generating";
+
+  // The select step is large (fills most of the viewport) so the full format
+  // catalogue is visible with minimal scrolling. Generation/result stay compact.
+  // On phones (<sm) every step is a full-screen sheet; from sm up it's the
+  // centred card sized per step.
+  const contentSize =
+    effectivePhase === "select"
+      ? "sm:h-[88vh] sm:max-h-[90vh] sm:w-[90vw] sm:max-w-6xl"
+      : "sm:max-h-[85vh] sm:w-full sm:max-w-2xl";
+  // Full-screen on mobile: overrides Radix's centred/translated positioning.
+  const mobileFullscreen =
+    "max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
 
   const toggleSize = (size: BannerSize) => {
     const k = sizeKey(size);
@@ -89,42 +179,195 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch }: Props) {
     });
   };
 
-  const selectAllInGroup = (id: string) => {
-    const g = BANNER_SIZE_GROUPS.find((x) => x.id === id);
-    if (!g) return;
+  const selectAllSizes = (sizes: BannerSize[]) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      g.sizes.forEach((s) => next.set(sizeKey(s), s));
+      sizes.forEach((s) => next.set(sizeKey(s), s));
       return next;
     });
   };
 
-  const clearGroup = (id: string) => {
-    const g = BANNER_SIZE_GROUPS.find((x) => x.id === id);
-    if (!g) return;
+  const clearSizes = (sizes: BannerSize[]) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      g.sizes.forEach((s) => next.delete(sizeKey(s)));
+      sizes.forEach((s) => next.delete(sizeKey(s)));
       return next;
     });
   };
 
-  const launch = () => {
-    if (selectedCount === 0 || disabled) return;
-    // Preserve the order in which sizes appear in the catalog so the
-    // queue is predictable for the user.
+  // The two web-banner data groups are merged into one "Баннеры для сайта"
+  // category that splits into Горизонтальные / Вертикальные subsections.
+  type DisplaySubgroup = { title: string; sizes: BannerSize[] };
+  type DisplayGroup = {
+    id: string;
+    title: string;
+    subtitle?: string;
+    sizes: BannerSize[];
+    subgroups?: DisplaySubgroup[];
+  };
+  const displayGroups = useMemo<DisplayGroup[]>(() => {
+    const out: DisplayGroup[] = [];
+    let webDone = false;
+    for (const g of BANNER_SIZE_GROUPS) {
+      if (g.id === "web-horizontal" || g.id === "web-vertical") {
+        if (webDone) continue;
+        const h = BANNER_SIZE_GROUPS.find((x) => x.id === "web-horizontal");
+        const v = BANNER_SIZE_GROUPS.find((x) => x.id === "web-vertical");
+        const subgroups: DisplaySubgroup[] = [];
+        if (h) subgroups.push({ title: "Горизонтальные", sizes: h.sizes });
+        if (v) subgroups.push({ title: "Вертикальные", sizes: v.sizes });
+        out.push({
+          id: "web-banners",
+          title: "Баннеры для сайта",
+          subtitle: "Heroes, display-реклама, сайдбары",
+          sizes: subgroups.flatMap((s) => s.sizes),
+          subgroups,
+        });
+        webDone = true;
+      } else {
+        out.push({ id: g.id, title: g.title, subtitle: g.subtitle, sizes: g.sizes });
+      }
+    }
+    return out;
+  }, []);
+
+  const renderSize = (s: BannerSize) => {
+    const k = sizeKey(s);
+    const isOn = selected.has(k);
+    return (
+      <li key={k}>
+        <label
+          className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-0.5 transition hover:bg-white/5 max-sm:min-h-11 ${
+            isOn ? "bg-accent-green/10" : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={isOn}
+            onChange={() => toggleSize(s)}
+            className="h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent-green,#9bff58)] max-sm:h-5 max-sm:w-5"
+          />
+          {/* Named sizes: purpose = primary (foreground, lighter weight), pixels
+              = secondary (muted, right). Unnamed sizes: the pixels ARE the id. */}
+          {s.label ? (
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+              <span
+                title={s.label}
+                className="min-w-0 truncate text-[13px] font-normal text-foreground"
+              >
+                {s.label}
+              </span>
+              <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                {s.w}×{s.h}
+              </span>
+            </span>
+          ) : (
+            <span className="flex-1 font-mono text-[13px] tabular-nums text-foreground">
+              {s.w}×{s.h}
+            </span>
+          )}
+        </label>
+      </li>
+    );
+  };
+
+  // Selected sizes in catalog order — predictable queue for the user.
+  const orderedSelected = (): SelectedSize[] => {
     const ordered: SelectedSize[] = [];
-    BANNER_SIZE_GROUPS.forEach((g) => {
+    BANNER_SIZE_GROUPS.forEach((g) =>
       g.sizes.forEach((s) => {
-        const k = sizeKey(s);
-        if (selected.has(k)) ordered.push(s);
-      });
-    });
+        if (selected.has(sizeKey(s))) ordered.push(s);
+      }),
+    );
+    return ordered;
+  };
+
+  const startBatch = () => {
+    const ordered = orderedSelected();
+    if (ordered.length === 0 || disabled) return;
+    startRef.current = Date.now();
+    setPhase("generating");
     onLaunch(ordered);
   };
 
+  const regenerate = () => {
+    const ordered = orderedSelected();
+    if (ordered.length === 0) return;
+    startRef.current = Date.now();
+    setPhase("generating");
+    onLaunch(ordered);
+  };
+
+  // Re-run only the sizes that errored (cheaper than a full re-generate).
+  const retryFailed = () => {
+    const failed = tiles.filter((t) => t.status === "error").map((t) => t.size);
+    if (failed.length === 0) return;
+    startRef.current = Date.now();
+    setPhase("generating");
+    onLaunch(failed);
+  };
+
+  const backToSelect = () => {
+    // Keep the finished tiles in context (harmless — nothing renders them on
+    // the main screen); the next run replaces them. Just switch the step so
+    // the modal stays open and the current selection is preserved.
+    setPhase("select");
+  };
+
+  const downloadZip = async () => {
+    const ready = tiles.filter((t) => t.status === "done" && t.dataUrl);
+    if (ready.length === 0) return;
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      for (const t of ready) {
+        const m = (t.dataUrl as string).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (!m) continue;
+        const ext = m[1].toLowerCase() === "image/jpeg" ? "jpg" : m[1].split("/")[1] || "png";
+        const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+        zip.file(`banner-${t.size.w}x${t.size.h}.${ext}`, bin);
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const firstHash = (() => {
+        const d = ready[0]?.dataUrl ?? "";
+        let h = 0;
+        for (let i = 0; i < d.length; i += 257) h = ((h << 5) - h + d.charCodeAt(i)) | 0;
+        return Math.abs(h).toString(36);
+      })();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `banners-${ready.length}sz-${firstHash}-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 5000);
+      toast.success(`Скачали ZIP · ${ready.length} ${plural(ready.length, "формат", "формата", "форматов")}`);
+    } catch {
+      toast.error("Не удалось собрать ZIP. Попробуйте ещё раз.");
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  // Live progress + ETA. Count terminal tiles (done + error), not just done —
+  // otherwise an errored bucket never advances the bar, so it stalls (e.g. at
+  // 70%) and then the modal jumps straight to the result once everything is
+  // terminal, never visually reaching 100%.
+  const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  const remaining = total - processed;
+  const etaSecRounded =
+    processed > 0 && remaining > 0 && startRef.current
+      ? Math.max(1, Math.round((Date.now() - startRef.current) / processed / 1000 * remaining))
+      : null;
+  const canZip = doneCount >= 1 && !zipping;
+
   return (
-    <div className="mt-3 rounded-lg border border-border bg-background/40">
+    <div className="mt-3 flex justify-start max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
+      {/* Trigger — compact secondary button (primary is the green "Сгенерировать").
+          On mobile it becomes the full-width sticky CTA for this screen. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -190,108 +433,83 @@ export function ResizeBatchPanel({ disabled, masterRatio, onLaunch }: Props) {
                 </DialogTitle>
               </DialogHeader>
 
-      {open ? (
-        <div className="space-y-2 border-t border-border p-3">
-          {BANNER_SIZE_GROUPS.map((g) => {
-            const isExpanded = expandedGroups.has(g.id);
-            const selectedInGroup = g.sizes.filter((s) => selected.has(sizeKey(s))).length;
-            return (
-              <div key={g.id} className="rounded-md border border-border/60 bg-background/60">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g.id)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-white/5"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    {isExpanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span className="flex min-w-0 flex-col leading-tight">
-                      <span className="truncate font-medium">{g.title}</span>
-                      {g.subtitle ? (
-                        <span className="truncate text-[11px] text-muted-foreground">
-                          {g.subtitle}
-                        </span>
-                      ) : null}
-                    </span>
-                    {selectedInGroup > 0 ? (
-                      <span className="shrink-0 rounded-full bg-accent-green/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-green">
-                        {selectedInGroup}/{g.sizes.length}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (selectedInGroup === g.sizes.length) clearGroup(g.id);
-                      else selectAllInGroup(g.id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (selectedInGroup === g.sizes.length) clearGroup(g.id);
-                      else selectAllInGroup(g.id);
-                    }}
-                    className="shrink-0 rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-white/10"
-                  >
-                    {selectedInGroup === g.sizes.length ? "снять все" : "выбрать все"}
-                  </span>
-                </button>
-                {isExpanded ? (
-                  <ul className="grid gap-1 px-3 pb-3 pt-1 sm:grid-cols-2">
-                    {g.sizes.map((s) => {
-                      const k = sizeKey(s);
-                      const isOn = selected.has(k);
-                      return (
-                        <li key={k}>
-                          <label
-                            className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5 ${
-                              isOn ? "bg-accent-green/10" : ""
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isOn}
-                              onChange={() => toggleSize(s)}
-                              className="h-3.5 w-3.5 accent-[color:var(--color-accent-green,#9bff58)]"
-                            />
-                            <span className="font-mono text-xs tabular-nums">
-                              {s.w}×{s.h}
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+                {displayGroups.map((g) => {
+                  const isExpanded = expandedGroups.has(g.id);
+                  const selectedInGroup = g.sizes.filter((s) => selected.has(sizeKey(s))).length;
+                  const allSelected = selectedInGroup === g.sizes.length;
+                  return (
+                    <div key={g.id} className="rounded-md border border-border/60 bg-background/60">
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(g.id)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-white/5"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                          )}
+                          <span className="flex min-w-0 flex-col leading-tight">
+                            <span className="truncate font-medium">{g.title}</span>
+                            {g.subtitle ? <span className="ds-caption truncate">{g.subtitle}</span> : null}
+                          </span>
+                          {selectedInGroup > 0 ? (
+                            <span className="shrink-0 rounded-full bg-accent-green/20 px-1.5 py-0.5 ds-micro font-semibold text-accent-green">
+                              {selectedInGroup}/{g.sizes.length}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">{s.ratio}</span>
-                            {s.label ? (
-                              <span className="truncate text-xs text-muted-foreground">
-                                — {s.label}
-                              </span>
-                            ) : null}
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
+                          ) : null}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (allSelected) clearSizes(g.sizes);
+                            else selectAllSizes(g.sizes);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter" && e.key !== " ") return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (allSelected) clearSizes(g.sizes);
+                            else selectAllSizes(g.sizes);
+                          }}
+                          className="shrink-0 rounded px-2 py-0.5 text-sm text-muted-foreground hover:bg-white/10"
+                        >
+                          {allSelected ? "снять все" : "выбрать все"}
+                        </span>
+                      </button>
+                      {isExpanded ? (
+                        g.subgroups ? (
+                          <div className="space-y-2.5 px-3 pb-3 pt-3">
+                            {g.subgroups.map((sg) => (
+                              <div key={sg.title}>
+                                <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {sg.title}
+                                </p>
+                                <ul className="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                  {sg.sizes.map(renderSize)}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <ul className="grid grid-cols-1 gap-x-4 gap-y-0.5 px-3 pb-3 pt-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {g.sizes.map(renderSize)}
+                          </ul>
+                        )
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
 
-          <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-muted-foreground">
-              Выбрано <span className="text-foreground">{selectedCount}</span> размер(ов). Генераций
-              потребуется <span className="text-foreground">{billableAspects}</span>{" "}
-              {billableAspects === 1
-                ? "(одна i2i по новой пропорции)"
-                : "(по одной i2i на новую пропорцию)"}
-              {hasFreeMasterCrops ? (
-                <>
-                  {" "}
-                  · размеры в пропорции мастера ({masterRatio}) получаются бесплатно из текущей
-                  картинки.
-                </>
+              {selectedCount === 0 ? (
+                <p className="shrink-0 px-4 pt-2 text-center text-xs text-muted-foreground">
+                  Выберите хотя бы один формат, чтобы продолжить
+                </p>
               ) : null}
               <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
                 {selectedCount > 0 ? (

@@ -250,9 +250,7 @@ function CardBody() {
               <Heart
                 className={
                   "h-4 w-4 " +
-                  (detail.is_favorite
-                    ? "fill-accent-green text-accent-green"
-                    : "text-muted-foreground")
+                  (detail.is_favorite ? "fill-accent-green text-accent-green" : "text-muted-foreground")
                 }
               />
             </button>
@@ -265,7 +263,7 @@ function CardBody() {
                 router.push(`/banner?card=${cardId}`);
               }}
             >
-              <Wand2 className="mr-1 h-4 w-4" /> Использовать как мастер
+              <Wand2 className="mr-1 h-4 w-4" /> Использовать как основу
             </Button>
             <Button size="sm" variant="destructive" disabled={busy} onClick={remove}>
               <Trash2 className="h-4 w-4" />
@@ -277,7 +275,7 @@ function CardBody() {
       {/* Hero — master image at native aspect, capped at 70vh */}
       <section className="mb-6">
         <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
-          Мастер
+          Исходное изображение
           {detail.master?.width && detail.master?.height
             ? ` · ${detail.master.width}×${detail.master.height}`
             : ""}

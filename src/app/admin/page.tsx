@@ -1486,7 +1486,7 @@ function SystemLogsView() {
               >
                 <span
                   className={
-                    "mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase " +
+                    "mt-0.5 inline-block rounded px-1.5 py-0.5 ds-micro font-semibold uppercase " +
                     levelClass(row.level)
                   }
                 >
@@ -1598,7 +1598,7 @@ function AuditLogsView() {
                 className="flex w-full items-start gap-3 text-left"
                 onClick={() => setExpanded((p) => ({ ...p, [row.id]: !p[row.id] }))}
               >
-                <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono ds-micro">
                   {row.action}
                 </span>
                 <span className="flex-1 truncate text-xs text-muted-foreground">
@@ -1801,7 +1801,7 @@ function TokensLogsView() {
                   <td className="px-3 py-2">
                     <span
                       className={
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold " +
+                        "rounded px-1.5 py-0.5 ds-micro font-semibold " +
                         (typeColors[label] ?? "bg-white/10 text-white")
                       }
                     >
@@ -2121,19 +2121,19 @@ function AdminHistoryGrid({ userId, userEmail }: { userId: string; userEmail: st
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-muted-foreground">
+                <div className="flex h-full w-full items-center justify-center px-2 text-center ds-micro text-muted-foreground">
                   Файл недоступен
                 </div>
               )}
               {card.resize_count > 0 && (
-                <span className="absolute bottom-1 right-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] backdrop-blur">
+                <span className="absolute bottom-1 right-1 rounded bg-background/80 px-1.5 py-0.5 ds-micro backdrop-blur">
                   +{card.resize_count}
                 </span>
               )}
             </div>
             <div className="p-2">
               <p className="line-clamp-1 text-xs font-medium">{card.name}</p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="ds-micro text-muted-foreground">
                 {new Date(card.last_activity_at).toLocaleString()}
               </p>
             </div>
@@ -2257,7 +2257,7 @@ function AdminCardDetailDialog({
                       ) : (
                         <div className="aspect-square w-full bg-muted" />
                       )}
-                      <span className="absolute bottom-1 left-1 right-1 rounded bg-background/80 px-1 py-0.5 text-center text-[10px] backdrop-blur">
+                      <span className="absolute bottom-1 left-1 right-1 rounded bg-background/80 px-1 py-0.5 text-center ds-micro backdrop-blur">
                         {r.width}×{r.height}
                       </span>
                     </a>

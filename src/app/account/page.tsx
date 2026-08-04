@@ -1,10 +1,6 @@
 "use client";
 
-// /account — personal cabinet. Requires auth (redirects via Header's guard
-// at the root layout level; here we just assume isAuthenticated). Layout:
-//   left  : profile form (name, surname, nick, phone, contact)
-//   right : balance card, change-password card, sign-out
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,7 +19,6 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { getBrowserClient } from "@/lib/supabase/browser";
@@ -105,13 +100,7 @@ function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string })
 // Mobile-only tab bar — full-width segmented control, same look as the History
 // filters (bordered track, active segment on a subtle fill). Splits the account
 // into Кредиты / Подписка / Аккаунт; the name stays above as the section header.
-function AccountTabs({
-  active,
-  onChange,
-}: {
-  active: AccountTab;
-  onChange: (t: AccountTab) => void;
-}) {
+function AccountTabs({ active, onChange }: { active: AccountTab; onChange: (t: AccountTab) => void }) {
   const tabs: [AccountTab, string][] = [
     ["credits", "Кредиты"],
     ["subscription", "Подписка"],
@@ -352,19 +341,38 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      <EditProfileModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        profile={me.profile}
+        avatarUrl={avatar}
+        onSaved={(p) => setMe({ ...me, profile: p })}
+        onAvatarChange={saveAvatar}
+      />
     </div>
   );
 }
 
-function CenterMessage({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Profile) => void }) {
+// Edit-profile modal — writes real profile fields via PATCH /api/me (folds the
+// former standalone profile form into the redesigned modal). Email/password are
+// managed elsewhere (email via support, password in the security card). The
+// avatar is UI-only: the parent persists it to localStorage.
+function EditProfileModal({
+  open,
+  onOpenChange,
+  profile,
+  avatarUrl,
+  onSaved,
+  onAvatarChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  profile: Profile;
+  avatarUrl: string;
+  onSaved: (p: Profile) => void;
+  onAvatarChange: (dataUrl: string) => void;
+}) {
   const [form, setForm] = useState({
     first_name: profile.first_name || "",
     last_name: profile.last_name || "",
@@ -372,6 +380,7 @@ function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Prof
     phone: profile.phone || "",
     contact: profile.contact || "",
   });
+  const [avatar, setAvatar] = useState(avatarUrl);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -458,38 +467,48 @@ function ProfileCard({ profile, onSaved }: { profile: Profile; onSaved: (p: Prof
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              id="first_name"
-              label="Имя"
-              value={form.first_name}
-              onChange={(v) => setForm({ ...form, first_name: v })}
-            />
-            <Field
-              id="last_name"
-              label="Фамилия"
-              value={form.last_name}
-              onChange={(v) => setForm({ ...form, last_name: v })}
-            />
-            <Field
-              id="nickname"
-              label="Ник"
+            <div>
+              <label className={labelCls}>Имя</label>
+              <Input
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Фамилия</label>
+              <Input
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Ник</label>
+            <Input
               value={form.nickname}
-              onChange={(v) => setForm({ ...form, nickname: v })}
-            />
-            <Field
-              id="phone"
-              label="Телефон"
-              value={form.phone}
-              onChange={(v) => setForm({ ...form, phone: v })}
+              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+              placeholder="Имя пользователя"
             />
           </div>
-          <Field
-            id="contact"
-            label="Контакт (Telegram, Slack, ...)"
-            value={form.contact}
-            onChange={(v) => setForm({ ...form, contact: v })}
-            placeholder="@username или ссылка"
-          />
+
+          <div>
+            <label className={labelCls}>Телефон</label>
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Контакт (Telegram, Slack, ...)</label>
+            <Input
+              value={form.contact}
+              onChange={(e) => setForm({ ...form, contact: e.target.value })}
+              placeholder="@username или ссылка"
+            />
+          </div>
+
           {msg ? (
             <p
               className={
@@ -539,7 +558,9 @@ function SubscriptionCard() {
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="ds-h3">Бесплатный план</p>
-          <p className="mt-1 text-sm text-muted-foreground">Откройте все возможности с подпиской</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Откройте все возможности с подпиской
+          </p>
         </div>
         <Link
           href="/billing"
@@ -552,34 +573,12 @@ function SubscriptionCard() {
   );
 }
 
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-    </div>
-  );
-}
+// Read-only account info. Email is changed by an administrator on request.
+// The support button is a placeholder — swap the mailto for the real channel
+// (email / Telegram) once it exists.
+const SUPPORT_HREF = "mailto:support@clickable.agency";
 
-function BalanceCard({ balance }: { balance: number | string }) {
-  const n = typeof balance === "number" ? balance : Number(balance) || 0;
+function AccountInfoCard({ email }: { email: string }) {
   return (
     <div className="ds-card p-5 sm:p-6">
       <h2 className="ds-h4">Данные аккаунта</h2>
@@ -605,6 +604,9 @@ function BalanceCard({ balance }: { balance: number | string }) {
   );
 }
 
+// Security card — self-service password change. Preserved from the current
+// Next page: POSTs to /api/auth/change-password, then refreshes the Supabase
+// session so subsequent calls use a fresh token.
 function PasswordCard() {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");

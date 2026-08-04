@@ -855,14 +855,10 @@ select {
 /* Resting colour glow — a different hue per card gives the screen a
    multi-layered, "alive" feel instead of one uniform lime halo. */
 .ds-card-glow-lime {
-  box-shadow:
-    var(--shadow-card-val),
-    0 0 42px -18px rgba(198, 255, 61, 0.55);
+  box-shadow: var(--shadow-card-val), 0 0 42px -18px rgba(198, 255, 61, 0.55);
 }
 .ds-card-glow-violet {
-  box-shadow:
-    var(--shadow-card-val),
-    0 0 46px -16px rgba(123, 92, 255, 0.6);
+  box-shadow: var(--shadow-card-val), 0 0 46px -16px rgba(123, 92, 255, 0.6);
 }
 
 /* Interactive lift — hover raises the card, strengthens the border and blooms
@@ -879,14 +875,10 @@ select {
   border-color: var(--border-strong);
 }
 .ds-card-interactive.ds-card-glow-lime:hover {
-  box-shadow:
-    var(--shadow-pop-val),
-    0 0 58px -14px rgba(198, 255, 61, 0.7);
+  box-shadow: var(--shadow-pop-val), 0 0 58px -14px rgba(198, 255, 61, 0.7);
 }
 .ds-card-interactive.ds-card-glow-violet:hover {
-  box-shadow:
-    var(--shadow-pop-val),
-    0 0 62px -12px rgba(123, 92, 255, 0.78);
+  box-shadow: var(--shadow-pop-val), 0 0 62px -12px rgba(123, 92, 255, 0.78);
 }
 
 /* One accent per button: no lime→violet gradient fills or mixed rings. The

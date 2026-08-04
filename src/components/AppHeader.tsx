@@ -8,12 +8,13 @@
 //         projects → profile avatar.
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
   Briefcase,
   Check,
+  ChevronDown,
   Clock,
   Coins,
   Crown,
@@ -30,14 +31,10 @@ import {
   X,
 } from "lucide-react";
 
-import { useGeneration } from "@/lib/generation-context";
-
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -69,7 +66,6 @@ type MeResponse = {
 let cachedMe: MeResponse | null = null;
 const meListeners = new Set<(v: MeResponse | null) => void>();
 
-/** Cross-component cache so the header doesn't refetch on every nav. */
 function setMe(v: MeResponse | null) {
   cachedMe = v;
   meListeners.forEach((cb) => cb(v));
@@ -96,30 +92,10 @@ const NOTIF_META: { id: string; icon: typeof Sparkles; unread: boolean }[] = [
 ];
 
 const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] = [
-  {
-    id: "p1",
-    name: "Новогодний экспресс",
-    thumb: "https://picsum.photos/seed/dwp1/112/80",
-    updated: "9 июл",
-  },
-  {
-    id: "p2",
-    name: "Слот «Book of Sun»",
-    thumb: "https://picsum.photos/seed/dwp2/112/80",
-    updated: "8 июл",
-  },
-  {
-    id: "p3",
-    name: "Матч ЦСКА — Спартак",
-    thumb: "https://picsum.photos/seed/dwp3/112/80",
-    updated: "5 июл",
-  },
-  {
-    id: "p4",
-    name: "Проект без названия",
-    thumb: "https://picsum.photos/seed/dwp4/112/80",
-    updated: "3 июл",
-  },
+  { id: "p1", name: "Новогодний экспресс", thumb: "https://picsum.photos/seed/dwp1/112/80", updated: "9 июл" },
+  { id: "p2", name: "Слот «Book of Sun»", thumb: "https://picsum.photos/seed/dwp2/112/80", updated: "8 июл" },
+  { id: "p3", name: "Матч ЦСКА — Спартак", thumb: "https://picsum.photos/seed/dwp3/112/80", updated: "5 июл" },
+  { id: "p4", name: "Проект без названия", thumb: "https://picsum.photos/seed/dwp4/112/80", updated: "3 июл" },
 ];
 
 export function AppHeader() {
@@ -137,9 +113,6 @@ export function AppHeader() {
   const isBannerEditor = pathname === "/banner";
 
   const [me, setLocalMe] = useState<MeResponse | null>(cachedMe);
-  // Failed/pending upload counters drive the warning badge next to the
-  // History link. We poll once on mount and then every 60 s — cheap
-  // count-only query, mostly returns zeros.
   const [uploadStatus, setUploadStatus] = useState<{ failed: number; pending: number } | null>(
     null,
   );
@@ -166,11 +139,16 @@ export function AppHeader() {
   }, []);
 
   useEffect(() => {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem("dw:projectName") : null;
+    if (v) setProjectName(v);
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       setMe(null);
       return;
     }
-    if (cachedMe) return; // already loaded
+    if (cachedMe) return;
     refreshMe();
   }, [isAuthenticated]);
 
@@ -185,9 +163,7 @@ export function AppHeader() {
         .then((r) => {
           if (!cancelled) setUploadStatus(r);
         })
-        .catch(() => {
-          /* silent — header badge is non-critical */
-        });
+        .catch(() => {});
     };
     fetchStatus();
     const t = setInterval(fetchStatus, 60_000);
@@ -359,234 +335,231 @@ export function AppHeader() {
           {isGuest ? (
             <GuestAuthButtons />
           ) : (
-            <DropdownMenu
-              open={menuOpen}
-              onOpenChange={(o) => {
-                setMenuOpen(o);
-                if (!o) setNotifOpen(false);
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={t("header.profile.trigger")}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
-                >
-                  {/* Visual avatar is smaller than the 44px tap target on mobile. */}
-                  <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={10}
-                className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
+          <DropdownMenu
+            open={menuOpen}
+            onOpenChange={(o) => {
+              setMenuOpen(o);
+              if (!o) setNotifOpen(false);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("header.profile.trigger")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
               >
-                <div className="flex items-center gap-3 px-2 py-2">
-                  <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
-                    <UserAvatar src={avatar} className="h-full w-full" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate ds-h4">{display}</p>
-                    <p className="truncate ds-caption">{displayEmail}</p>
-                  </div>
+                {/* Visual avatar is smaller than the 44px tap target on mobile. */}
+                <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
+            >
+              <div className="flex items-center gap-3 px-2 py-2">
+                <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
+                  <UserAvatar src={avatar} className="h-full w-full" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate ds-h4">{display}</p>
+                  <p className="truncate ds-caption">{displayEmail}</p>
                 </div>
+              </div>
 
-                {/* No fixed-pool pip bar — there is no plan max in the model, so
+              {/* No fixed-pool pip bar — there is no plan max in the model, so
                   a 10-segment bar was meaningless. Show the balance; go amber +
                   add a top-up hint when it runs low. */}
-                {(() => {
-                  const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
-                  return (
-                    <Link
-                      href={low ? "/billing" : "/account"}
-                      className={`mt-1 block rounded-xl border p-3 transition ${
-                        low
-                          ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="ds-h4">{t("header.credits.title")}</span>
-                        <span
-                          className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
-                        >
-                          {creditsLabel}
-                        </span>
-                      </div>
-                      {low ? (
-                        <p className="mt-1 text-xs text-[color:var(--status-premium)]">
-                          {t("header.credits.low")}
-                        </p>
-                      ) : null}
-                    </Link>
-                  );
-                })()}
-
-                <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Crown className="h-4 w-4 text-accent-green" />
-                    {t("header.credits.more")}
-                  </span>
+              {(() => {
+                const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
+                return (
                   <Link
-                    href="/billing"
-                    className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+                    href={low ? "/billing" : "/account"}
+                    className={`mt-1 block rounded-xl border p-3 transition ${
+                      low
+                        ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
+                        : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
                   >
-                    {t("header.credits.topUpShort")}
+                    <div className="flex items-center justify-between">
+                      <span className="ds-h4">{t("header.credits.title")}</span>
+                      <span
+                        className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+                      >
+                        {creditsLabel}
+                      </span>
+                    </div>
+                    {low ? (
+                      <p className="mt-1 text-xs text-[color:var(--status-premium)]">
+                        {t("header.credits.low")}
+                      </p>
+                    ) : null}
                   </Link>
-                </div>
+                );
+              })()}
 
-                {/* Mobile-only: notifications live here since the header bell is
+              <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Crown className="h-4 w-4 text-accent-green" />
+                  {t("header.credits.more")}
+                </span>
+                <Link
+                  href="/billing"
+                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+                >
+                  {t("header.credits.topUpShort")}
+                </Link>
+              </div>
+
+              {/* Mobile-only: notifications live here since the header bell is
                   hidden on narrow screens. Collapsible accordion — tapping the
                   row expands the list inline, without leaving the menu. */}
-                <div className="sm:hidden">
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      // Keep the menu open; just toggle the inline section.
-                      e.preventDefault();
-                      setNotifOpen((o) => !o);
-                    }}
-                    aria-expanded={notifOpen}
-                    className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Bell className="h-4 w-4" />
-                      {t("header.notifications.title")}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      {NOTIF_META.length > 0 ? (
-                        <span className="ds-caption tabular-nums">{NOTIF_META.length}</span>
-                      ) : null}
-                      <ChevronDown
-                        className={`h-4 w-4 text-muted-foreground transition-transform ${
-                          notifOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </span>
-                  </DropdownMenuItem>
-                  {notifOpen ? (
-                    <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
-                      {NOTIF_META.length === 0 ? (
-                        <p className="px-2 py-3 text-sm text-muted-foreground">
-                          {t("header.notifications.empty")}
-                        </p>
-                      ) : (
-                        NOTIF_META.map((n, i) => {
-                          const Icon = n.icon;
-                          const item = m.header.notifications.items[i];
-                          return (
-                            <div
-                              key={n.id}
-                              className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
-                            >
-                              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
-                                <Icon className="h-3.5 w-3.5" />
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium">{item.title}</p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {item.desc}
-                                </p>
-                              </div>
-                              <span className="shrink-0 ds-micro text-muted-foreground">
-                                {item.time}
-                              </span>
+              <div className="sm:hidden">
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    // Keep the menu open; just toggle the inline section.
+                    e.preventDefault();
+                    setNotifOpen((o) => !o);
+                  }}
+                  aria-expanded={notifOpen}
+                  className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    {t("header.notifications.title")}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {NOTIF_META.length > 0 ? (
+                      <span className="ds-caption tabular-nums">{NOTIF_META.length}</span>
+                    ) : null}
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${
+                        notifOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </span>
+                </DropdownMenuItem>
+                {notifOpen ? (
+                  <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
+                    {NOTIF_META.length === 0 ? (
+                      <p className="px-2 py-3 text-sm text-muted-foreground">
+                        {t("header.notifications.empty")}
+                      </p>
+                    ) : (
+                      NOTIF_META.map((n, i) => {
+                        const Icon = n.icon;
+                        const item = m.header.notifications.items[i];
+                        return (
+                          <div
+                            key={n.id}
+                            className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
+                          >
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{item.title}</p>
+                              <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-
-                <DropdownMenuSeparator className="bg-border" />
-
-                <DropdownMenuItem
-                  asChild
-                  className="text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <Link href="/account">
-                    <UserIcon className="mr-2 h-4 w-4" />
-                    {t("header.profile.account")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <Link href="/workspace">
-                    <Briefcase className="mr-2 h-4 w-4" />
-                    {t("workspace.switch")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <Link href="/history">
-                    <Clock className="mr-2 h-4 w-4" />
-                    {t("header.profile.history")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <Link href="/help">
-                    <HelpCircle className="mr-2 h-4 w-4" />
-                    {t("header.profile.help")}
-                  </Link>
-                </DropdownMenuItem>
-                {isAdmin ? (
-                  <DropdownMenuItem
-                    asChild
-                    className="text-foreground focus:bg-white/10 focus:text-foreground"
-                  >
-                    <Link href="/admin">
-                      <ShieldCheck className="mr-2 h-4 w-4" />
-                      {t("header.profile.admin")}
-                    </Link>
-                  </DropdownMenuItem>
+                            <span className="shrink-0 ds-micro text-muted-foreground">{item.time}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 ) : null}
-                <DropdownMenuSeparator className="bg-border" />
-                {/* Interface language — moved here from the header to keep the
+              </div>
+
+              <DropdownMenuSeparator className="bg-border" />
+
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <Link href="/account">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  {t("header.profile.account")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <Link href="/workspace">
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  {t("workspace.switch")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <Link href="/history">
+                  <Clock className="mr-2 h-4 w-4" />
+                  {t("header.profile.history")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <Link href="/help">
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  {t("header.profile.help")}
+                </Link>
+              </DropdownMenuItem>
+              {isAdmin ? (
+                <DropdownMenuItem
+                  asChild
+                  className="text-foreground focus:bg-white/10 focus:text-foreground"
+                >
+                  <Link href="/admin">
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    {t("header.profile.admin")}
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator className="bg-border" />
+              {/* Interface language — moved here from the header to keep the
                   mobile bar light. Segmented RU / EN / UA; switching is instant
                   and keeps the menu open (plain buttons, not menu items). */}
-                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                  <span className="flex items-center gap-2 text-sm text-foreground">
-                    <Globe className="h-4 w-4 text-accent-green" />
-                    {t("header.language.title")}
-                  </span>
-                  <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
-                    {UI_LOCALES.map((l) => (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => setLocale(l.code)}
-                        aria-pressed={l.code === locale}
-                        className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
-                          l.code === locale
-                            ? "bg-accent-green text-on-accent"
-                            : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                        }`}
-                      >
-                        {l.short}
-                      </button>
-                    ))}
-                  </div>
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="flex items-center gap-2 text-sm text-foreground">
+                  <Globe className="h-4 w-4 text-accent-green" />
+                  {t("header.language.title")}
+                </span>
+                <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
+                  {UI_LOCALES.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => setLocale(l.code)}
+                      aria-pressed={l.code === locale}
+                      className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
+                        l.code === locale
+                          ? "bg-accent-green text-on-accent"
+                          : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                      }`}
+                    >
+                      {l.short}
+                    </button>
+                  ))}
                 </div>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await signOut();
-                    router.push("/login");
-                  }}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  {t("header.profile.signOut")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </div>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                onClick={async () => {
+                  await signOut();
+                  router.push("/login");
+                }}
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {t("header.profile.signOut")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           )}
         </div>
       </div>
@@ -775,7 +748,7 @@ function GenerationIndicator() {
 
   return (
     <div
-      className={"hidden items-center gap-1 rounded-md border px-2 py-1 text-xs sm:flex " + tone}
+      className={"flex items-center gap-1 rounded-md border px-2 py-1 text-xs " + tone}
     >
       <button
         type="button"
@@ -902,9 +875,7 @@ function SectionSwitcher({
               ) : (
                 <LayoutGrid className="h-4 w-4 shrink-0 text-accent-green" />
               )}
-              <span className="text-foreground">
-                {current ? current.title : t("header.sections.all")}
-              </span>
+              <span className="text-foreground">{current ? current.title : t("header.sections.all")}</span>
             </span>
             <span className="flex items-center sm:hidden">
               {CurrentIcon ? (
@@ -919,31 +890,31 @@ function SectionSwitcher({
             />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          sideOffset={8}
-          className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
-        >
-          {SECTIONS.map((s) => {
-            const Icon = s.icon;
-            const active = s.id === current?.id;
-            return (
-              <DropdownMenuItem
-                key={s.id}
-                onClick={() => go(s.route)}
-                className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
-                  active ? "bg-white/5" : ""
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 text-accent-green max-sm:h-5 max-sm:w-5" />
-                  {s.title}
-                </span>
-                {active ? <Check className="h-4 w-4 text-accent-green" /> : null}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
+      >
+        {SECTIONS.map((s) => {
+          const Icon = s.icon;
+          const active = s.id === current?.id;
+          return (
+            <DropdownMenuItem
+              key={s.id}
+              onClick={() => go(s.route)}
+              className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
+                active ? "bg-white/5" : ""
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Icon className="h-4 w-4 text-accent-green max-sm:h-5 max-sm:w-5" />
+                {s.title}
+              </span>
+              {active ? <Check className="h-4 w-4 text-accent-green" /> : null}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
       </DropdownMenu>
       {showHint ? (
         <div
@@ -951,7 +922,9 @@ function SectionSwitcher({
           className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-accent-green/40 bg-popover p-3 text-foreground shadow-xl max-sm:w-[calc(100vw-2rem)]"
         >
           <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-accent-green/40 bg-popover" />
-          <p className="text-xs leading-relaxed text-foreground">{t("header.sections.coach")}</p>
+          <p className="text-xs leading-relaxed text-foreground">
+            {t("header.sections.coach")}
+          </p>
           <button
             type="button"
             onClick={dismissHint}
@@ -1004,10 +977,7 @@ function NotificationsMenu() {
             const Icon = n.icon;
             const item = m.header.notifications.items[i];
             return (
-              <div
-                key={n.id}
-                className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
-              >
+              <div key={n.id} className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5">
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
                   <Icon className="h-3.5 w-3.5" />
                 </span>
@@ -1063,9 +1033,7 @@ function ProjectsMenu() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{p.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {t("header.projects.updated", { date: p.updated })}
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{t("header.projects.updated", { date: p.updated })}</p>
               </div>
             </button>
           ))}

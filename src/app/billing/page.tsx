@@ -1,0 +1,429 @@
+"use client";
+
+// /billing — тарифы / пополнение кредитов. Открывается из кнопки
+// «Пополнить» в личном кабинете. UI ONLY: оплата и логика начисления
+// кредитов не реализованы — кнопки CTA это заглушки (см. TODO в PlanCard).
+//
+// Раскладка по мотивам higgsfield.ai/pricing:
+//   • верхняя панель управления: слева переключатель «Индивидуальные /
+//     Бизнес», справа тумблер «Ежемесячно / Ежегодно» (годовой = −20%);
+//   • три тарифа карточками, средний выделен как «популярный»
+//     (лаймовый бордер + градиент + бейдж + лёгкое увеличение);
+//   • на годовой оплате под кнопкой — строка экономии за год.
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSmartBack } from "@/lib/use-back";
+import { Check, Sparkles, X } from "lucide-react";
+
+import { toast } from "sonner";
+
+import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
+import { useAuth } from "@/lib/auth-context";
+
+// Top-ups currently go through support (payment isn't wired yet) — the CTAs
+// route here so a click is never a dead no-op.
+const SUPPORT_MAILTO = "mailto:support@clickable.agency?subject=Оплата%20тарифа%20Dream%20Weaver";
+
+type Audience = "individual" | "business";
+
+type Plan = {
+  id: string;
+  name: string;
+  tagline: string;
+  // Цена в месяц при помесячной оплате. null = индивидуальная цена ("По запросу").
+  monthly: number | null;
+  credits: string;
+  creditNotes: string[];
+  features: { text: string; included: boolean }[];
+  popular?: boolean;
+  cta?: string;
+};
+
+// Плейсхолдер-каталог: суммы, объёмы кредитов и состав тарифов
+// иллюстративные, пока не подключена реальная тарификация. Годовая цена
+// считается как monthly × 0.8 (скидка 20%). Средний тариф — «популярный».
+const INDIVIDUAL_PLANS: Plan[] = [
+  {
+    id: "start",
+    name: "Старт",
+    tagline: "Для первых проектов и тестов",
+    monthly: 15,
+    credits: "300 кредитов/мес",
+    creditNotes: ["≈ 75 генераций баннеров", "≈ 150 ресайзов"],
+    features: [
+      { text: "Параллельные генерации: до 2", included: true },
+      { text: "Все форматы ресайзов", included: true },
+      { text: "Приоритетная очередь генерации", included: false },
+    ],
+  },
+  {
+    id: "pro",
+    name: "Профи",
+    tagline: "Для регулярной работы",
+    monthly: 50,
+    credits: "1 000 кредитов/мес",
+    creditNotes: ["≈ 250 генераций баннеров", "≈ 500 ресайзов"],
+    features: [
+      { text: "Параллельные генерации: до 6", included: true },
+      { text: "Приоритетная очередь генерации", included: true },
+      { text: "Ранний доступ к новым функциям", included: true },
+    ],
+    popular: true,
+  },
+  {
+    id: "studio",
+    name: "Студия",
+    tagline: "Максимум объёма для потока задач",
+    monthly: 125,
+    credits: "3 000 кредитов/мес",
+    creditNotes: ["≈ 750 генераций баннеров", "≈ 1 500 ресайзов"],
+    features: [
+      { text: "Параллельные генерации: до 12", included: true },
+      { text: "Приоритетная очередь генерации", included: true },
+      { text: "Самая низкая цена за кредит", included: true },
+    ],
+  },
+];
+
+const BUSINESS_PLANS: Plan[] = [
+  {
+    id: "team",
+    name: "Команда",
+    tagline: "Для небольшой команды дизайнеров",
+    monthly: 250,
+    credits: "8 000 кредитов/мес",
+    creditNotes: ["≈ 2 000 генераций баннеров", "до 5 пользователей"],
+    features: [
+      { text: "Общий баланс на команду", included: true },
+      { text: "Роли и права доступа", included: true },
+      { text: "Выделенный менеджер", included: false },
+    ],
+  },
+  {
+    id: "agency",
+    name: "Агентство",
+    tagline: "Для агентств и больших потоков",
+    monthly: 600,
+    credits: "20 000 кредитов/мес",
+    creditNotes: ["≈ 5 000 генераций баннеров", "до 15 пользователей"],
+    features: [
+      { text: "Общий баланс на команду", included: true },
+      { text: "Роли и права доступа", included: true },
+      { text: "Выделенный менеджер", included: true },
+    ],
+    popular: true,
+  },
+  {
+    id: "enterprise",
+    name: "Корпоративный",
+    tagline: "Индивидуальные условия под задачи",
+    monthly: null,
+    credits: "Кредиты по договору",
+    creditNotes: ["Объём под ваш поток", "Без лимита пользователей"],
+    features: [
+      { text: "Кастомный объём кредитов", included: true },
+      { text: "SSO и контроль доступа", included: true },
+      { text: "Приоритетная поддержка и SLA", included: true },
+    ],
+    cta: "Связаться с нами",
+  },
+];
+
+export default function BillingPage() {
+  const router = useRouter();
+  const goBack = useSmartBack("/account");
+  const { isAuthenticated, loading } = useAuth();
+  const [audience, setAudience] = useState<Audience>("individual");
+  const [annual, setAnnual] = useState(true);
+
+  useEffect(() => {
+    document.title = "Тарифы — Dream Weaver Studio";
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) router.push("/login");
+  }, [loading, isAuthenticated, router]);
+
+  const plans = audience === "individual" ? INDIVIDUAL_PLANS : BUSINESS_PLANS;
+
+  return (
+    <div className="min-h-screen">
+      <div className="ds-aurora" aria-hidden />
+      <AppHeader />
+      <div className="mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
+        <BackButton onClick={goBack} className="-ml-2 mb-4" />
+
+        <div className="mb-8 text-center">
+          <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Кредиты начисляются каждый месяц и тратятся на генерацию баннеров и ресайзов.
+            При оплате за год — скидка 20%.
+          </p>
+        </div>
+
+        {/* Панель управления. Desktop: аудитория слева, период справа. Mobile:
+            период сверху, табы аудитории под ним (flex-col-reverse). */}
+        <div className="mb-10 flex flex-col-reverse items-center justify-between gap-4 sm:flex-row">
+          <Segmented
+            value={audience}
+            onChange={(v) => setAudience(v as Audience)}
+            options={[
+              { value: "individual", label: "Индивидуальные" },
+              { value: "business", label: "Бизнес" },
+            ]}
+          />
+          <PeriodSwitch annual={annual} onChange={setAnnual} />
+        </div>
+
+        <div className="grid items-stretch gap-6 md:grid-cols-3">
+          {plans.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} annual={annual} />
+          ))}
+        </div>
+
+        <p className="mx-auto mt-8 max-w-md text-center text-xs text-muted-foreground">
+          Онлайн-оплата скоро будет доступна. Пока пополнение проводится через администратора —
+          напишите в поддержку из личного кабинета.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 max-sm:flex max-sm:w-full">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.value)}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition max-sm:min-h-11 max-sm:flex-1 ${
+              active ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boolean) => void }) {
+  // Все три зоны кликабельны (лейбл «Ежемесячно», сам тумблер, лейбл
+  // «Ежегодно»), чтобы переключение срабатывало по любому нажатию.
+  // Mobile: 3-column grid (1fr | toggle | 1fr) keeps the TOGGLE dead-centre on
+  // screen even though the right side carries the extra "−20%" badge. Desktop:
+  // plain inline-flex.
+  return (
+    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm sm:inline-flex sm:w-auto">
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`justify-self-end whitespace-nowrap ${annual ? "text-muted-foreground transition hover:text-foreground" : "font-medium text-foreground"}`}
+      >
+        Ежемесячно
+      </button>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={annual}
+        aria-label="Переключить период оплаты"
+        onClick={() => onChange(!annual)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
+          annual ? "bg-accent-green" : "bg-white/15"
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-sm transition-transform ${
+            annual ? "translate-x-5 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
+          }`}
+        />
+      </button>
+      <div className="flex items-center gap-2 justify-self-start whitespace-nowrap">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={annual ? "font-medium text-foreground" : "text-muted-foreground transition hover:text-foreground"}
+        >
+          Ежегодно
+        </button>
+        <span className="rounded-full bg-accent-green/15 px-2 py-0.5 text-xs font-semibold text-accent-green">
+          −20%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
+  const popular = plan.popular;
+  const custom = plan.monthly === null;
+  const annualPerMonth = custom ? null : Math.round((plan.monthly as number) * 0.8);
+  const current = annual ? annualPerMonth : plan.monthly;
+  const savings = custom ? 0 : ((plan.monthly as number) - (annualPerMonth as number)) * 12;
+  // Split "300 кредитов/мес" → amount + period so "/мес" always sits on its own
+  // line. Every card's credits block is then the same height (два ряда), and the
+  // CTA below never jumps between packages.
+  const slashIdx = plan.credits.indexOf("/");
+  const creditAmount = slashIdx >= 0 ? plan.credits.slice(0, slashIdx) : plan.credits;
+  const creditPeriod = slashIdx >= 0 ? plan.credits.slice(slashIdx + 1) : null;
+
+  return (
+    <div
+      className={`relative flex h-full flex-col gap-6 rounded-2xl p-6 transition sm:p-7 md:min-h-[640px] ${
+        popular
+          ? // Premium plan = the violet emphasis surface (system: violet carries
+            // emphasis). A clean 2px violet border that follows the rounding on
+            // all four corners (no separate top bar), plus a violet glow +
+            // violet-tinted fill; the lime CTA inside keeps the lime+violet pair.
+            "border-2 border-[color:var(--brand-violet)]/70 shadow-[0_0_60px_rgba(123,92,255,0.22)] md:scale-[1.04]"
+          : "border border-border bg-card hover:border-white/25 hover:bg-[color:var(--bg-surface-hover)]"
+      }`}
+      style={
+        popular
+          ? {
+              background:
+                "linear-gradient(180deg, rgba(123,92,255,0.20) 0%, rgba(123,92,255,0.06) 22%, rgba(18,20,26,0.92) 52%, var(--bg-surface) 100%)",
+            }
+          : undefined
+      }
+    >
+      {popular ? (
+        <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-[color:var(--violet-600)] px-3 py-1 text-xs font-semibold text-white shadow-glow-violet">
+          <Sparkles className="h-3.5 w-3.5" />
+          Популярный выбор
+        </span>
+      ) : null}
+
+      {/* Название + подзаголовок */}
+      <div>
+        <h2 className="text-xl font-semibold">{plan.name}</h2>
+        {/* Taglines run one or two lines depending on the plan, which knocked
+            everything below them out of alignment. Two lines are reserved from
+            md up — the breakpoint where the cards actually sit side by side.
+            Below it they stack, every tagline fits on one line, and reserving
+            would only add an empty row to each card. 2.5rem == 2 x 20px line. */}
+        <p className="mt-1 text-sm text-muted-foreground md:min-h-10">{plan.tagline}</p>
+      </div>
+
+      {/* Блок кредитов. "/мес" всегда на второй строке, а min-h резервирует две
+          строки — так блок кредитов у всех карточек одной высоты и кнопки ниже
+          не прыгают. */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex min-h-12 items-start gap-2">
+          <Sparkles className="mt-1 h-4 w-4 shrink-0 text-accent-green" />
+          <span className="text-lg font-semibold leading-snug">
+            {creditAmount}
+            {creditPeriod ? (
+              <span className="block text-sm font-medium text-muted-foreground">
+                /{creditPeriod}
+              </span>
+            ) : null}
+          </span>
+        </div>
+        <ul className="mt-2 space-y-1 pl-6 text-sm text-muted-foreground">
+          {plan.creditNotes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Цена — «в месяц» стоит рядом с суммой */}
+      <div className="flex items-baseline gap-2">
+        {annual && !custom ? (
+          <span className="text-xl font-medium text-muted-foreground line-through">
+            ${plan.monthly}
+          </span>
+        ) : null}
+        <span className="text-4xl font-semibold tracking-tight tabular-nums">
+          {custom ? "По запросу" : `$${current}`}
+        </span>
+        {!custom ? <span className="text-sm text-muted-foreground">в месяц</span> : null}
+      </div>
+
+      {/* CTA + экономия за год (только на годовой оплате) */}
+      <div className="space-y-3">
+        {/* Payment isn't wired yet. Rather than a dead click: the enterprise
+            plan opens a real support mailto; the rest acknowledge with a toast
+            that routes to support (where top-ups actually happen today). */}
+        {(() => {
+          const cls = `block w-full rounded-lg px-5 py-3 text-center text-sm font-semibold transition max-sm:min-h-12 ${
+            popular
+              ? "bg-accent-green text-on-accent hover:bg-[var(--accent-hover)]"
+              : "border border-border text-foreground hover:bg-white/5 max-sm:border-transparent max-sm:bg-white max-sm:text-on-accent max-sm:hover:bg-white/90"
+          }`;
+          if (custom) {
+            return (
+              <a href={SUPPORT_MAILTO} className={cls}>
+                {plan.cta ?? "Связаться с нами"}
+              </a>
+            );
+          }
+          return (
+            <button
+              type="button"
+              className={cls}
+              onClick={() =>
+                toast("Оплата скоро будет доступна", {
+                  description: "Сейчас пополнение — через поддержку, мы поможем подобрать тариф.",
+                  action: { label: "Написать", onClick: () => window.open(SUPPORT_MAILTO) },
+                })
+              }
+            >
+              {plan.cta ?? "Выбрать план"}
+            </button>
+          );
+        })()}
+        {!custom ? (
+          // Слот экономии держит место, чтобы карточки не прыгали по высоте при
+          // переключении периода — но только на десктопе, где они стоят в ряд и
+          // выравниваются друг по другу. На мобильном карточки идут одна под
+          // другой, выравнивать нечего, и пустой слот читался бы дырой между
+          // кнопкой и списком, поэтому там он схлопывается.
+          <div
+            aria-hidden={!annual}
+            className={`rounded-lg bg-white/[0.03] px-3 py-2 text-center text-xs ${
+              annual ? "" : "invisible max-sm:hidden"
+            }`}
+          >
+            <span className="font-semibold text-foreground">Экономия ${savings}</span>
+            <span className="text-muted-foreground"> в год</span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Состав тарифа */}
+      <ul className="space-y-3 border-t border-border/60 pt-6">
+        {plan.features.map((f) => (
+          <li key={f.text} className="flex items-start gap-2.5 text-sm">
+            {f.included ? (
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-foreground" strokeWidth={2.5} />
+            ) : (
+              <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.5} />
+            )}
+            {/* Not-included features stay dimmer than included ones via the
+                muted colour (not opacity) so the text still passes WCAG AA. */}
+            <span className={f.included ? "text-foreground" : "text-muted-foreground"}>
+              {f.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
