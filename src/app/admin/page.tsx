@@ -34,7 +34,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
+import { useAppRole } from "@/lib/roles";
 import { apiJson, ApiError } from "@/lib/api-client";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES, TIERS } from "@/lib/rbac";
 
@@ -133,33 +136,29 @@ const GROUP_TITLES: Record<SettingFieldSpec["group"], string> = {
   ai: "AI-имена",
 };
 
+// Tabs speak the product's language (lime underline, same as История) instead
+// of the default grey pills, sit on a 44px tap target, and the row scrolls
+// horizontally so no tab becomes unreachable on a narrow screen.
+const TAB_CLS =
+  "min-h-11 shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition hover:text-foreground data-[state=active]:border-accent-green data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+
 export default function AdminPage() {
   const router = useRouter();
   useEffect(() => { document.title = "Админ — Dream Weaver Studio"; }, []);
-  const { isAuthenticated, loading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { loading } = useAuth();
+  // Any staff role (support/moderator/admin/superadmin) opens the panel. This
+  // is only a client-side pre-check so non-admins don't see a broken page —
+  // the real wall is per-capability on the server (lib/rbac + auth-server).
+  const { isAdmin, loading: roleLoading } = useAppRole();
 
-  // Cheap pre-check: ask /api/me, look at is_super_admin. The real wall is
-  // server-side, this only avoids showing a broken page to non-admins.
-  useEffect(() => {
-    if (loading) return;
-    if (!isAuthenticated) {
-      router.push("/login");
-      return;
-    }
-    apiJson<{ is_super_admin: boolean }>("/api/me")
-      .then((r) => setIsAdmin(!!r.is_super_admin))
-      .catch(() => setIsAdmin(false));
-  }, [loading, isAuthenticated, router]);
-
-  if (loading || isAdmin === null) {
+  if (loading || roleLoading) {
     return <CenterMessage>Загрузка…</CenterMessage>;
   }
   if (!isAdmin) {
     return (
       <CenterMessage>
         <div className="space-y-3 text-center">
-          <p>Эта страница доступна только супер-админам.</p>
+          <p>Раздел доступен только сотрудникам.</p>
           <Button asChild variant="outline" size="sm">
             <Link href="/">На главную</Link>
           </Button>
@@ -170,16 +169,17 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen">
+      <div className="ds-aurora ds-aurora-soft" aria-hidden />
       <AppHeader />
       <div className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Админ-панель</h1>
-            <p className="text-sm text-muted-foreground">Управление пользователями и тарифами</p>
+            <h1 className="ds-h1">Админ-панель</h1>
+            <p className="ds-caption">Пользователи, шаблоны, тарифы и настройки продукта</p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/">К генерации</Link>
+              <Link href="/banner">К генерации</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/account">Кабинет</Link>
@@ -187,16 +187,38 @@ export default function AdminPage() {
           </div>
         </header>
 
-        <Tabs defaultValue="users">
-          <TabsList>
-            <TabsTrigger value="users">Пользователи</TabsTrigger>
-            <TabsTrigger value="histories">Истории</TabsTrigger>
-            <TabsTrigger value="pricing">Тарифы</TabsTrigger>
-            <TabsTrigger value="settings">Настройки</TabsTrigger>
-            <TabsTrigger value="logs">Логи</TabsTrigger>
+        <Tabs defaultValue="overview">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="overview" className={TAB_CLS}>
+              Обзор
+            </TabsTrigger>
+            <TabsTrigger value="users" className={TAB_CLS}>
+              Пользователи
+            </TabsTrigger>
+            <TabsTrigger value="templates" className={TAB_CLS}>
+              Шаблоны
+            </TabsTrigger>
+            <TabsTrigger value="histories" className={TAB_CLS}>
+              Истории
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className={TAB_CLS}>
+              Тарифы
+            </TabsTrigger>
+            <TabsTrigger value="settings" className={TAB_CLS}>
+              Настройки
+            </TabsTrigger>
+            <TabsTrigger value="logs" className={TAB_CLS}>
+              Логи
+            </TabsTrigger>
           </TabsList>
+          <TabsContent value="overview" className="mt-4">
+            <OverviewTab />
+          </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UsersTab />
+          </TabsContent>
+          <TabsContent value="templates" className="mt-4">
+            <TemplatesTab />
           </TabsContent>
           <TabsContent value="histories" className="mt-4">
             <UserHistoriesTab />
@@ -227,6 +249,381 @@ function CenterMessage({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------
 // Users tab
 // ---------------------------------------------------------------------
+type TemplateRow = {
+  id: string;
+  section: string;
+  category: string;
+  name: string;
+  description: string;
+  preview_url: string | null;
+  meta: Record<string, unknown>;
+  visible: boolean;
+  sort_order: number;
+};
+
+const SECTION_LABEL: Record<string, string> = {
+  banner: "Баннер",
+  landing: "Лендинг",
+  playable: "Плейбл",
+  video: "Видео",
+};
+const SECTION_ORDER = ["banner", "landing", "playable", "video"];
+
+const EMPTY_TEMPLATE: TemplateRow = {
+  id: "",
+  section: "banner",
+  category: "",
+  name: "",
+  description: "",
+  preview_url: null,
+  meta: {},
+  visible: false,
+  sort_order: 0,
+};
+
+// Шаблоны — the editable catalogue (migration 0005 + /api/admin/templates).
+// Adding a template used to require a developer; this tab is the whole point of
+// moving them out of frontend constants.
+function TemplatesTab() {
+  const confirm = useConfirm();
+  const [rows, setRows] = useState<TemplateRow[] | null>(null);
+  const [err, setErr] = useState("");
+  const [draft, setDraft] = useState<TemplateRow | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    setErr("");
+    apiJson<{ templates: TemplateRow[] }>("/api/admin/templates")
+      .then((r) => setRows(Array.isArray(r.templates) ? r.templates : []))
+      .catch((e) => {
+        setRows([]);
+        setErr(e instanceof ApiError ? e.message : "Не удалось загрузить шаблоны");
+      });
+  }, []);
+  useEffect(() => load(), [load]);
+
+  const grouped = useMemo(() => {
+    const by = new Map<string, TemplateRow[]>();
+    (rows ?? []).forEach((t) => {
+      const list = by.get(t.section) ?? [];
+      list.push(t);
+      by.set(t.section, list);
+    });
+    return SECTION_ORDER.filter((s) => by.has(s)).map((s) => [s, by.get(s)!] as const);
+  }, [rows]);
+
+  const mutate = async (fn: () => Promise<unknown>, okMsg: string) => {
+    setBusy(true);
+    setErr("");
+    try {
+      await fn();
+      toast.success(okMsg);
+      load();
+      setDraft(null);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Операция не удалась");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () => {
+    if (!draft) return;
+    const payload = {
+      section: draft.section,
+      category: draft.category,
+      name: draft.name,
+      description: draft.description,
+      preview_url: draft.preview_url,
+      meta: draft.meta,
+      visible: draft.visible,
+      sort_order: draft.sort_order,
+    };
+    return mutate(
+      () =>
+        draft.id
+          ? apiJson("/api/admin/templates", { method: "PATCH", json: { id: draft.id, ...payload } })
+          : apiJson("/api/admin/templates", { method: "POST", json: payload }),
+      draft.id ? "Шаблон сохранён" : "Шаблон создан",
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Шаблоны, доступные пользователям. Черновики (скрытые) видны только сотрудникам.
+        </p>
+        <Button size="sm" onClick={() => setDraft({ ...EMPTY_TEMPLATE })} className="max-lg:hidden">
+          Добавить шаблон
+        </Button>
+      </div>
+      {/* Editing is a desktop task (spec) — mobile is read-only. */}
+      <p className="text-sm text-muted-foreground lg:hidden">
+        Добавление и редактирование шаблонов доступно в десктопной версии.
+      </p>
+
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+
+      {rows === null ? (
+        <p className="text-sm text-muted-foreground">Загрузка…</p>
+      ) : rows.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Пока нет шаблонов</CardTitle>
+            <CardDescription>
+              Встроенный каталог продукта продолжает работать; здесь появятся шаблоны, добавленные
+              через админку.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        grouped.map(([section, list]) => (
+          <Card key={section}>
+            <CardHeader>
+              <CardTitle>{SECTION_LABEL[section] ?? section}</CardTitle>
+              <CardDescription>{list.length} шт.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {list.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {t.name}
+                      {t.category ? (
+                        <span className="ml-2 text-muted-foreground">· {t.category}</span>
+                      ) : null}
+                    </p>
+                    {t.description ? (
+                      <p className="truncate ds-caption">{t.description}</p>
+                    ) : null}
+                  </div>
+                  <span
+                    className={`rounded-md px-2 py-0.5 ds-micro ${
+                      t.visible
+                        ? "bg-accent-green/15 text-accent-green"
+                        : "bg-white/5 text-muted-foreground"
+                    }`}
+                  >
+                    {t.visible ? "На проде" : "Черновик"}
+                  </span>
+                  <div className="flex shrink-0 gap-2 max-lg:hidden">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        mutate(
+                          () =>
+                            apiJson("/api/admin/templates", {
+                              method: "PATCH",
+                              json: { id: t.id, visible: !t.visible },
+                            }),
+                          t.visible ? "Шаблон скрыт" : "Шаблон опубликован",
+                        )
+                      }
+                    >
+                      {t.visible ? "Скрыть" : "Опубликовать"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setDraft({ ...t })}>
+                      Изменить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={async () => {
+                        if (
+                          !(await confirm({
+                            title: `Удалить шаблон «${t.name}»?`,
+                            body: "Действие необратимо.",
+                            destructive: true,
+                            confirmLabel: "Удалить",
+                          }))
+                        )
+                          return;
+                        mutate(
+                          () =>
+                            apiJson(`/api/admin/templates?id=${encodeURIComponent(t.id)}`, {
+                              method: "DELETE",
+                            }),
+                          "Шаблон удалён",
+                        );
+                      }}
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ))
+      )}
+
+      <Dialog open={draft !== null} onOpenChange={(o) => (o ? null : setDraft(null))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{draft?.id ? "Изменить шаблон" : "Добавить шаблон"}</DialogTitle>
+            <DialogDescription>
+              Новый шаблон создаётся черновиком — опубликуйте его, когда будет готов.
+            </DialogDescription>
+          </DialogHeader>
+          {draft ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Раздел</Label>
+                <select
+                  value={draft.section}
+                  onChange={(e) => setDraft({ ...draft, section: e.target.value })}
+                  className="mt-1 h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm"
+                >
+                  {SECTION_ORDER.map((s) => (
+                    <option key={s} value={s}>
+                      {SECTION_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Название</Label>
+                <Input
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Категория</Label>
+                <Input
+                  value={draft.category}
+                  placeholder="Betting / Gambling / Sport…"
+                  onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Описание</Label>
+                <Input
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Ссылка на превью</Label>
+                <Input
+                  value={draft.preview_url ?? ""}
+                  placeholder="https://…"
+                  onChange={(e) => setDraft({ ...draft, preview_url: e.target.value || null })}
+                />
+              </div>
+              {draft.section === "playable" || draft.section === "video" ? (
+                <div>
+                  <Label>
+                    {draft.section === "playable" ? "Механика" : "Тип сцены"}
+                  </Label>
+                  <Input
+                    value={String(draft.meta?.kind ?? "")}
+                    placeholder={draft.section === "playable" ? "slot / wheel / quiz…" : "talkinghead / screencast…"}
+                    onChange={(e) => setDraft({ ...draft, meta: { ...draft.meta, kind: e.target.value } })}
+                  />
+                </div>
+              ) : null}
+              <div>
+                <Label>Порядок</Label>
+                <Input
+                  type="number"
+                  value={String(draft.sort_order)}
+                  onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDraft(null)}>
+              Отмена
+            </Button>
+            <Button onClick={save} disabled={busy || !draft?.name.trim()}>
+              {busy ? "Сохраняем…" : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Обзор — operational summary. Every number here is DERIVED FROM REAL DATA
+// (/api/admin/users); metrics that would need endpoints we don't have yet
+// (activity windows, per-section project counts) are shown as "—" with a note
+// rather than invented, so the panel never lies to whoever is on shift.
+function OverviewTab() {
+  const [rows, setRows] = useState<UserRow[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiJson<UsersResponse>("/api/admin/users?limit=500")
+      .then((r) => {
+        if (cancelled) return;
+        setRows(Array.isArray(r.users) ? r.users : []);
+        setTotal(typeof r.total === "number" ? r.total : null);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(e instanceof ApiError ? e.message : "Не удалось загрузить сводку");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    if (!rows) return null;
+    const credits = rows.reduce((s, u) => s + (Number(u.credits_balance) || 0), 0);
+    const staff = rows.filter((u) => u.role && u.role !== "user").length;
+    return {
+      users: total ?? rows.length,
+      staff,
+      credits,
+      avg: rows.length ? Math.round((credits / rows.length) * 10) / 10 : 0,
+    };
+  }, [rows, total]);
+
+  return (
+    <div className="space-y-4">
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Всего пользователей" value={stats ? String(stats.users) : "—"} />
+        <StatTile label="Из них сотрудников" value={stats ? String(stats.staff) : "—"} />
+        <StatTile label="Кредитов на балансах" value={stats ? String(stats.credits) : "—"} />
+        <StatTile label="Средний баланс" value={stats ? String(stats.avg) : "—"} />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Активность и проекты</CardTitle>
+          <CardDescription>
+            Активные за 7/30 дней и число проектов по разделам появятся здесь, когда добавим
+            соответствующие эндпоинты — сейчас этих данных в API нет, и придумывать их мы не будем.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    </div>
+  );
+}
+
+// KPI tile, per the design system: overline label on top, then the big
+// tabular figure beneath it.
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--border-subtle)] bg-card p-5">
+      <p className="ds-overline">{label}</p>
+      <p className="ds-stat mt-2 text-accent-green">{value}</p>
+    </div>
+  );
+}
+
 function UsersTab() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -328,7 +725,9 @@ function UsersTab() {
                         <Button size="sm" variant="outline" onClick={() => setRoleTarget(u)}>
                           Роль
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setTarget(u)}>
+                        {/* The main operational action — lime so it doesn't get
+                            lost among the secondary row buttons. */}
+                        <Button size="sm" onClick={() => setTarget(u)}>
                           Кредиты
                         </Button>
                       </div>
@@ -436,6 +835,12 @@ function CreditDialog({
                     note,
                   },
                 });
+                // Operational tool: never leave the admin guessing whether a
+                // balance change actually went through. Says who and how much.
+                const applied = Number(delta);
+                toast.success(
+                  `${applied > 0 ? "Начислено" : "Списано"} ${Math.abs(applied)} кр. — ${user.email}`,
+                );
                 onClose(true);
               } catch (e) {
                 setErr(e instanceof ApiError ? e.message : "Не удалось применить");
@@ -492,7 +897,7 @@ function RoleDialog({
             <Label htmlFor="role-sel">Роль (права)</Label>
             <select
               id="role-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
@@ -507,7 +912,7 @@ function RoleDialog({
             <Label htmlFor="tier-sel">Тариф (приоритет генерации)</Label>
             <select
               id="tier-sel"
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
               value={tier}
               onChange={(e) => setTier(e.target.value)}
             >
@@ -520,7 +925,7 @@ function RoleDialog({
           </div>
 
           {dirty && user ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+            <div className="rounded-md border border-[color:var(--warning)]/30 bg-[color:var(--warning-tint)] p-2 text-xs">
               <p className="mb-1 font-medium">Будет применено:</p>
               {roleChanged ? (
                 <p>
@@ -592,6 +997,9 @@ function PricingTab() {
       setRows(data.items);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
+      // Resolve rows on error so the "Загрузка…" text clears and the error
+      // shows alone (it was rendering underneath a stuck spinner).
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -656,7 +1064,7 @@ function PricingTab() {
                 </div>
               </div>
             ))}
-            {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+            {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
             <div>
               <Button
                 disabled={saving}
@@ -714,6 +1122,8 @@ function SettingsTab() {
       setDraft(d);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
+      // Resolve rows on error so "Загрузка…" clears and the error shows alone.
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -772,7 +1182,7 @@ function SettingsTab() {
       </CardHeader>
       <CardContent className="space-y-6">
         {err ? <p className="text-sm text-destructive">{err}</p> : null}
-        {ok ? <p className="text-sm text-emerald-500">{ok}</p> : null}
+        {ok ? <p className="text-sm text-[color:var(--success)]">{ok}</p> : null}
         {loading || !rows ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
@@ -853,7 +1263,7 @@ function SettingField({
   } else if (spec.kind === "enum") {
     input = (
       <select
-        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+        className="h-9 w-full rounded-md border bg-elevated px-3 text-sm"
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -1030,7 +1440,7 @@ function SystemLogsView() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={level}
           onChange={(e) => setLevel(e.target.value)}
         >
@@ -1041,7 +1451,7 @@ function SystemLogsView() {
           ))}
         </select>
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 rounded-md border bg-elevated px-3 text-sm"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
@@ -1307,7 +1717,7 @@ function TokensLogsView() {
         <select
           value={msgFilter}
           onChange={(e) => setMsgFilter(e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+          className="rounded-md border border-border bg-elevated px-2 py-1 text-sm"
         >
           <option value="">Все типы</option>
           {Object.entries(TOKEN_MSG_LABELS).map(([v, l]) => (
@@ -1379,9 +1789,9 @@ function TokensLogsView() {
               const charge = c.charge != null ? Number(c.charge) : null;
               const typeColors: Record<string, string> = {
                 Мастер: "bg-accent-green/20 text-accent-green",
-                Ресайз: "bg-sky-500/20 text-sky-400",
-                Vision: "bg-amber-500/20 text-amber-400",
-                "AI-нейминг": "bg-purple-500/20 text-purple-400",
+                Ресайз: "bg-[color:var(--info-tint)] text-[color:var(--info)]",
+                Vision: "bg-[color:var(--warning-tint)] text-[color:var(--warning)]",
+                "AI-нейминг": "bg-[color:var(--violet-tint)] text-brand-violet",
               };
               return (
                 <tr key={row.id} className="border-b border-border/50 hover:bg-white/3">
@@ -1463,11 +1873,11 @@ function formatTs(iso: string): string {
 function levelClass(level: string): string {
   switch (level) {
     case "error":
-      return "bg-red-500/20 text-red-400";
+      return "bg-[color:var(--danger-tint)] text-[color:var(--danger)]";
     case "warn":
-      return "bg-amber-500/20 text-amber-400";
+      return "bg-[color:var(--warning-tint)] text-[color:var(--warning)]";
     case "info":
-      return "bg-sky-500/20 text-sky-400";
+      return "bg-[color:var(--info-tint)] text-[color:var(--info)]";
     case "debug":
       return "bg-muted text-muted-foreground";
     default:

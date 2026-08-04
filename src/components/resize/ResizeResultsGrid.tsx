@@ -135,7 +135,7 @@ export function ResizeResultsGrid({ tiles, isRunning, onCancel, onClear }: Props
             type="button"
             onClick={downloadAll}
             disabled={!canZip}
-            className="inline-flex items-center gap-1 rounded-md bg-accent-green px-3 py-1.5 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md bg-accent-green px-3 py-1.5 text-xs font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FileArchive className="h-3.5 w-3.5" />
             {zipping ? "Архивируем…" : "Скачать все (.zip)"}

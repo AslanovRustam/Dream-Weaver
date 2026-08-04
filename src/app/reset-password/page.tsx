@@ -34,7 +34,8 @@ export default function ResetPasswordPage() {
   }, [loading, session, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="ds-aurora" aria-hidden />
       <div className="w-full max-w-sm space-y-5">
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Новый пароль</h1>
@@ -48,7 +49,7 @@ export default function ResetPasswordPage() {
         ) : null}
 
         {ok ? (
-          <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-500">
+          <div className="rounded-md border border-[color:var(--success)]/40 bg-[color:var(--success-tint)] p-3 text-sm text-[color:var(--success)]">
             Пароль обновлён. Можно пользоваться.
             <div className="mt-2">
               <Button size="sm" onClick={() => router.push("/")}>

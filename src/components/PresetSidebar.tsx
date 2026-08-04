@@ -1,4 +1,6 @@
-import { Check } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
+import { MobileScrim } from "@/components/MobileScrim";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
@@ -111,47 +113,290 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
 ];
 
+// Templates grouped into categories. Each category is an accordion: collapsed
+// shows just "Label (N)" + chevron; expanding reveals a grid of all its
+// templates so the user consciously picks one (no implicit default preview).
+type Category = {
+  id: string;
+  label: string;
+  presetIds: string[];
+};
+
+export const CATEGORIES: Category[] = [
+  { id: "betting", label: "Betting", presetIds: ["preset3"] },
+  { id: "gambling", label: "Gambling", presetIds: ["preset2", "preset1"] },
+  { id: "sport", label: "Sport", presetIds: ["preset4"] },
+];
+
+const PRESET_BY_ID = new Map(PRESETS.map((p) => [p.id, p]));
+
 type Props = {
   value: string;
   onChange: (id: string) => void;
 };
 
-export function PresetSidebar({ value, onChange }: Props) {
+// Grid tile: thumbnail on top, name below — reads clearly as one of several
+// options in the expanded category grid (vs a single full-width "default").
+function PresetTile({
+  preset,
+  selected,
+  onSelect,
+}: {
+  preset: Preset;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   return (
-    <aside className="flex h-[calc(100vh-2rem)] w-[220px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
-      <div className="border-b border-border px-3 py-2.5">
-        <h2 className="text-sm font-semibold">Шаблоны</h2>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+        selected
+          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+          : "border-border hover:bg-[var(--bg-surface-hover)]"
+      }`}
+    >
+      <div
+        className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+        style={
+          preset.preview
+            ? { backgroundImage: `url(${preset.preview})` }
+            : { background: preset.gradient }
+        }
+      />
+      <p className="truncate text-xs font-medium">{preset.name}</p>
+      {selected && (
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+          <Check size={10} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+const CATEGORY_OPTIONS = [
+  { id: "all", label: "Все категории" },
+  ...CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+];
+
+export function PresetSidebar({ value, onChange }: Props) {
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Filter dropdown (opened from the funnel icon in the search input).
+  // `categoryFilter` is the applied value; `draftCategory` is what the
+  // panel is editing until "Применить" commits it.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [draftCategory, setDraftCategory] = useState("all");
+
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const filterActive = categoryFilter !== "all";
+  const draftLabel =
+    CATEGORY_OPTIONS.find((o) => o.id === draftCategory)?.label ?? "Все категории";
+  const appliedLabel = CATEGORY_OPTIONS.find((o) => o.id === categoryFilter)?.label ?? "";
+
+  const clearFilter = () => {
+    setCategoryFilter("all");
+    setDraftCategory("all");
+    closeFilter();
+  };
+
+  const openFilter = () => {
+    setDraftCategory(categoryFilter);
+    setFilterOpen((o) => !o);
+    setCatMenuOpen(false);
+  };
+  const closeFilter = () => {
+    setFilterOpen(false);
+    setCatMenuOpen(false);
+  };
+
+  // Close the filter dropdown when clicking anywhere outside it.
+  const filterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        closeFilter();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [filterOpen]);
+
+  // For each category, resolve its presets (in defined order) and filter by the
+  // current search query + the applied category filter. Categories with no
+  // matches (or excluded by the filter) are hidden entirely.
+  const groups = useMemo(() => {
+    return CATEGORIES.filter((cat) => categoryFilter === "all" || cat.id === categoryFilter)
+      .map((cat) => {
+        const presets = cat.presetIds
+          .map((id) => PRESET_BY_ID.get(id))
+          .filter((p): p is Preset => Boolean(p))
+          .filter(
+            (p) =>
+              !q ||
+              p.name.toLowerCase().includes(q) ||
+              p.description.toLowerCase().includes(q),
+          );
+        return { ...cat, presets };
+      })
+      .filter((cat) => cat.presets.length > 0);
+  }, [q, categoryFilter]);
+
+  return (
+    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
+      <div className="border-b border-border px-4 py-2.5">
+        <h2 className="ds-h4">Шаблоны</h2>
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="flex flex-col gap-1.5">
-          {PRESETS.map((p) => {
-            const selected = value === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onChange(p.id)}
-                className={`group relative flex items-center gap-2.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
-                  selected
-                    ? "border-accent-green ring-1 ring-accent-green"
-                    : "border-border hover:border-white/30"
-                }`}
-              >
-                <div
-                  className="h-12 w-12 shrink-0 rounded-md bg-cover bg-center"
-                  style={
-                    p.preview
-                      ? { backgroundImage: `url(${p.preview})` }
-                      : { background: p.gradient }
-                  }
-                />
-                <p className="min-w-0 flex-1 truncate text-xs font-medium">{p.name}</p>
-                {selected && (
-                  <div className="shrink-0 rounded-full bg-accent-green p-0.5 text-black">
-                    <Check size={10} />
+      <div ref={filterRef} className="relative px-4 pb-2 pt-2">
+        <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
+          <Search size={16} className="shrink-0 text-foreground/70" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по шаблонам"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={openFilter}
+            aria-label="Фильтр"
+            aria-expanded={filterOpen}
+            className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${
+              filterActive || filterOpen
+                ? "text-accent-green"
+                : "text-foreground/70 hover:text-foreground"
+            }`}
+          >
+            <Filter size={16} />
+            {filterActive && (
+              <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent-green" />
+            )}
+          </button>
+        </div>
+
+        {filterActive && (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={clearFilter}
+              className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-xs text-foreground transition hover:bg-white/10"
+            >
+              {appliedLabel}
+              <X size={12} className="text-muted-foreground" />
+            </button>
+            <button
+              type="button"
+              onClick={clearFilter}
+              className="text-xs text-muted-foreground transition hover:text-foreground"
+            >
+              Очистить
+            </button>
+          </div>
+        )}
+
+        {/* Mobile overlay behind the category dropdown (same shared pattern as
+            the header menus). Desktop keeps the plain popover. */}
+        <MobileScrim open={filterOpen} onClose={closeFilter} />
+        {filterOpen && (
+          <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
+              <p className="mb-2 ds-h4">Категория</p>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCatMenuOpen((o) => !o)}
+                  className="flex w-full items-center justify-between rounded-lg border border-border bg-white/5 px-3 py-2 text-sm transition hover:bg-white/10"
+                >
+                  <span>{draftLabel}</span>
+                  <ChevronDown
+                    size={16}
+                    className={`text-muted-foreground transition ${catMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {catMenuOpen && (
+                  <div className="mt-1 overflow-hidden rounded-lg border border-border bg-card">
+                    {CATEGORY_OPTIONS.map((opt) => {
+                      const active = draftCategory === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            // Apply immediately on click (no separate "Применить"
+                            // step) — matches Canva/Abyssale-style instant filters.
+                            setDraftCategory(opt.id);
+                            setCategoryFilter(opt.id);
+                            closeFilter();
+                          }}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
+                            active
+                              ? "bg-accent-green/15 text-accent-green"
+                              : "text-foreground hover:bg-white/10"
+                          }`}
+                        >
+                          {opt.label}
+                          {active && <Check size={14} />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </button>
+            )}
+          </div>
+        )}
+        <div className="flex flex-col gap-3">
+          {groups.map((cat) => {
+            // The category HEADER is the accordion toggle: collapsed shows only
+            // "Label (N)" + chevron — no preview card, so nothing reads as a
+            // pre-selected default. Expanded reveals the full grid of templates,
+            // so the user consciously sees there are several options and picks
+            // one. Search force-opens matching categories.
+            const isExpanded = searching || expanded[cat.id];
+            return (
+              <div
+                key={cat.id}
+                className="overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)]"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
+                  }
+                  aria-expanded={Boolean(isExpanded)}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/5"
+                >
+                  <span className="flex-1 truncate text-sm font-semibold">
+                    {cat.label}
+                    <span className="ml-1.5 font-normal text-muted-foreground">
+                      ({cat.presets.length})
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {isExpanded ? (
+                  <div className="border-t border-border p-2.5">
+                    <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto">
+                      {cat.presets.map((p) => (
+                        <PresetTile
+                          key={p.id}
+                          preset={p}
+                          selected={value === p.id}
+                          onSelect={() => onChange(p.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </div>

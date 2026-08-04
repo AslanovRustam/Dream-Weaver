@@ -12,11 +12,13 @@
 //     via CSS columns) so a 9:16 tile looks tall and a 16:9 tile looks
 //     wide, no uniform square forcing.
 import { useEffect, useState } from "react";
-import { ArrowLeft, Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
+import { Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,7 +128,7 @@ function CardBody() {
       setDetail({ ...detail, name: next });
       setRenaming(false);
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось переименовать");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось переименовать");
     }
   };
 
@@ -144,13 +146,15 @@ function CardBody() {
   };
 
   const remove = async () => {
-    if (!confirm("Переместить карточку в корзину?")) return;
+    // Moving to trash is reversible (restore below), so no confirm — just act +
+    // toast, matching История's list. Irreversible actions use the confirm modal.
     setBusy(true);
     try {
       await apiJson(`/api/history/${cardId}`, { method: "DELETE" });
+      toast("Перемещено в корзину");
       router.push("/history");
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось удалить");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось удалить");
       setBusy(false);
     }
   };
@@ -164,21 +168,24 @@ function CardBody() {
       });
       router.push("/history");
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : "Не удалось восстановить");
+      toast.error(e instanceof ApiError ? e.message : "Не удалось восстановить");
       setBusy(false);
     }
   };
 
   if (err) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <Link
-          href="/history"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> К истории
-        </Link>
-        <p className="mt-6 text-sm text-destructive">{err}</p>
+      <div className="mx-auto max-w-4xl px-4 pt-4 pb-8 sm:py-8">
+        <BackButton href="/history" className="-ml-2 mb-4" />
+        <p className="text-sm text-destructive">{err}</p>
+        {/сесси|войдите/i.test(err) ? (
+          <Link
+            href="/login"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:w-auto"
+          >
+            Войти снова
+          </Link>
+        ) : null}
       </div>
     );
   }
@@ -194,13 +201,8 @@ function CardBody() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4">
       {/* Sticky top bar */}
-      <div className="sticky top-12 z-20 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <Link
-          href="/history"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> История
-        </Link>
+      <div className="sticky top-16 z-20 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <BackButton href="/history" />
 
         <div className="flex flex-1 items-center gap-2 min-w-[200px]">
           {renaming ? (
@@ -248,7 +250,9 @@ function CardBody() {
               <Heart
                 className={
                   "h-4 w-4 " +
-                  (detail.is_favorite ? "fill-rose-500 text-rose-500" : "text-muted-foreground")
+                  (detail.is_favorite
+                    ? "fill-accent-green text-accent-green"
+                    : "text-muted-foreground")
                 }
               />
             </button>
@@ -258,7 +262,7 @@ function CardBody() {
             <Button
               size="sm"
               onClick={() => {
-                router.push(`/?card=${cardId}`);
+                router.push(`/banner?card=${cardId}`);
               }}
             >
               <Wand2 className="mr-1 h-4 w-4" /> Использовать как мастер
@@ -388,6 +392,6 @@ async function downloadCardZip(cardId: string) {
     a.remove();
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert(e instanceof Error ? e.message : "Не удалось скачать архив");
+    toast.error(e instanceof Error ? e.message : "Не удалось скачать архив");
   }
 }

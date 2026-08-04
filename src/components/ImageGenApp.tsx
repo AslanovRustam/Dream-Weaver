@@ -1,17 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Upload, X } from "lucide-react";
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowUpRight,
+  ArrowLeft,
+  Download,
+  Image as ImageIcon,
+  LayoutGrid,
+  LayoutTemplate,
+  Loader2,
+  MoreHorizontal,
+  RefreshCw,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { PresetSidebar, PRESETS } from "./PresetSidebar";
 import { AspectRatioPicker } from "./AspectRatioPicker";
 import { ModelToggle, type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
 import { FullscreenImageModal } from "./FullscreenImageModal";
-import { QualityPicker, type Quality } from "./QualityPicker";
+import { GenerationErrorCard } from "./GenerationErrorCard";
+import { ToolCoachmark } from "./ToolCoachmark";
+import { type Quality } from "./QualityPicker";
+import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
 import { formatGenerationError } from "@/lib/generation-errors";
+import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
-import { ResizeResultsGrid } from "@/components/resize/ResizeResultsGrid";
-import { useGeneration } from "@/lib/generation-context";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useGeneration, type BatchTile } from "@/lib/generation-context";
+import { useWorkspace } from "@/lib/workspace-context";
+import { setUnsavedWork } from "@/lib/unsaved-work";
+import { useConfirm } from "@/components/ui/confirm";
+import { useAuthGate } from "@/components/AuthGate";
+import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
 
 // gpt-image-2 поддерживает расширенный набор соотношений
 const RATIOS_GPT = ["1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "4:5", "5:4"];
@@ -83,6 +116,8 @@ export function ImageGenApp() {
   // proxy through it here instead of holding local state for these
   // fields.
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
+  const router = useRouter();
   const imageUrl = gen.imageUrl;
   const lastUsage = gen.lastUsage;
   const lastPayload = gen.lastPayload;
@@ -98,6 +133,10 @@ export function ImageGenApp() {
   const [preset, setPreset] = useState<string>(() => {
     if (typeof window === "undefined") return "preset1";
     try {
+      // Deep-link from the Hub ("popular templates"): /banner?preset=preset2
+      // wins over the persisted choice so a clicked template opens selected.
+      const fromUrl = new URLSearchParams(window.location.search).get("preset");
+      if (fromUrl && /^preset[1-4]$/.test(fromUrl)) return fromUrl;
       const stored = window.localStorage.getItem("dw_preset");
       if (stored && /^preset[1-4]$/.test(stored)) return stored;
     } catch {
@@ -160,6 +199,39 @@ export function ImageGenApp() {
   // Re-pressing "Сгенерировать" (master gen) still creates a fresh card.
   const [loadedCardId, setLoadedCardId] = useState<string | null>(null);
   const [loadedCardName, setLoadedCardName] = useState<string | null>(null);
+
+  // Warn on tab close / navigation when a freshly generated banner isn't saved
+  // to a history card yet — Playable and Video already do this; Banner didn't,
+  // so closing the tab silently lost the result. A banner loaded from history
+  // (loadedCardId) is already persisted, so it doesn't count as unsaved.
+  useEffect(() => {
+    // Dirty = project-specific work not yet saved as a history card: a typed
+    // topic ("Тематика баннера") or a freshly generated, unsaved result. A
+    // banner loaded from history (loadedCardId) is already persisted.
+    const dirty = !loadedCardId && (prompt.trim() !== "" || imageUrl !== null);
+    setUnsavedWork(dirty ? "banner" : null);
+    return () => setUnsavedWork(null);
+  }, [imageUrl, loadedCardId, prompt]);
+
+  const confirm = useConfirm();
+
+  // Brand-kit prefill: a project created inside a workspace inherits that
+  // client's brand kit (brand name + language) as defaults. Fills BLANKS only —
+  // never clobbers a saved draft, user input, or a history-loaded card (skipped
+  // entirely when opened via ?card=). Other generators can adopt the same hook.
+  const { active: activeWorkspace } = useWorkspace();
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("card")) {
+      return;
+    }
+    const bk = activeWorkspace?.brandKit;
+    if (!bk) return;
+    if (bk.brandName) setBrandName((cur) => (cur.trim() === "" ? bk.brandName : cur));
+    if (bk.language && bk.language !== "auto") {
+      setLanguage((cur) => (cur === "auto" ? bk.language : cur));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspace?.id]);
   // Preset the loaded card was originally created with. If the user
   // switches the preset to anything different after loading, we treat
   // the next resize batch as a NEW card so the new tiles don't bleed
@@ -179,7 +251,10 @@ export function ImageGenApp() {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
-    setLanguage(b.language);
+    // Default the field from the global creative language unless the brand has
+    // an explicit (non-auto) language saved — a local override stays a local
+    // override and isn't clobbered by the global.
+    setLanguage(b.language || "auto");
     if (typeof window !== "undefined") {
       try {
         // History of generations is intentionally NOT persisted — proper
@@ -232,21 +307,27 @@ export function ImageGenApp() {
     const cardId = url.searchParams.get("card");
     if (!cardId) return;
 
+    type CardGeneration = {
+      image_url: string | null;
+      width: number | null;
+      height: number | null;
+    };
     type CardDetail = {
       id: string;
       name: string;
       preset_id: string;
       form_snapshot: Record<string, unknown>;
-      master: {
-        image_url: string | null;
-        width: number | null;
-        height: number | null;
-      } | null;
+      master: CardGeneration | null;
+      // Sibling resize generations (is_master=false) saved for this card. The
+      // detail API returns these; the restore flow rehydrates them as tiles so
+      // opening a project pulls the resizes too, not just the master.
+      resizes?: CardGeneration[];
     };
 
     apiJson<{ card: CardDetail }>(`/api/history/${cardId}`)
       .then(({ card }) => {
         if (!card.master?.image_url) {
+          setStatus("error");
           setErrorMsg("У карточки нет мастер-изображения");
           return;
         }
@@ -360,11 +441,31 @@ export function ImageGenApp() {
               : "low",
           card_id: card.id,
         };
+        // Rehydrate the resize grid: every saved resize becomes a "done" tile
+        // showing its stored image, so the project opens with master + resizes
+        // (deduped by w×h; the saved URL is the tile image directly).
+        const seenTiles = new Set<string>();
+        const restoredTiles: BatchTile[] = [];
+        for (const r of card.resizes ?? []) {
+          if (!r.image_url || !r.width || !r.height) continue;
+          const id = `${r.width}x${r.height}`;
+          if (seenTiles.has(id)) continue;
+          seenTiles.add(id);
+          restoredTiles.push({
+            id,
+            size: { w: r.width, h: r.height, ratio: aspectFromDims(r.width, r.height) },
+            status: "done",
+            kind: "scale_from_master",
+            dataUrl: r.image_url,
+          });
+        }
+
         gen.setMasterImage({
           image: card.master.image_url,
           payload: restoredPayload,
           ratio: derivedRatio,
           cardId: card.id,
+          tiles: restoredTiles,
         });
 
         // Clean the URL so reload doesn't re-trigger.
@@ -373,6 +474,7 @@ export function ImageGenApp() {
         window.history.replaceState({}, "", cleaned);
       })
       .catch((e) => {
+        setStatus("error");
         setErrorMsg(e instanceof ApiError ? e.message : "Не удалось загрузить карточку из истории");
       });
     // Empty deps: runs once on mount.
@@ -560,6 +662,31 @@ export function ImageGenApp() {
   };
 
   const onGenerate = async () => {
+    // Guests may browse and configure freely, but generating needs an account.
+    // Gated here (not on the buttons) so "Перегенерировать" is covered too.
+    if (isGuest) {
+      openGate();
+      return;
+    }
+    // Guard EVERY generation path against an empty required field. The two
+    // "Сгенерировать" buttons gate via `disabled`, but the "Перегенерировать"
+    // menu item calls this directly — without this check it would wipe a
+    // finished banner and start a new one from almost nothing.
+    const requiredEmpty =
+      (!isSlotPreset && prompt.trim().length === 0) ||
+      (isSlotPreset && slotName.trim().length === 0);
+    if (requiredEmpty) {
+      toast.error(
+        `Заполните «${
+          isSlotPreset
+            ? "Название слота"
+            : isSportPreset
+              ? "Опишите матч / событие"
+              : "Тематика баннера"
+        }», чтобы сгенерировать`,
+      );
+      return;
+    }
     setStatus("loading");
     setErrorMsg("");
     // A fresh master generation always starts a new card. The history
@@ -631,11 +758,55 @@ export function ImageGenApp() {
     gen.clear();
   };
 
+  // Abort a running master generation and return to the settings screen so the
+  // user can tweak and retry. gen.cancel() flips master_running → idle; the
+  // orphaned request (if it later resolves) is ignored via cancelRef, so it
+  // can't resurrect a result. Gives mobile a real exit from the loader.
+  const cancelMaster = () => {
+    gen.cancel();
+    setStatus("idle");
+    setMobileTab("settings");
+  };
+
+  // "Начать заново" — clears the generated result and returns the editor
+  // to its empty starting state (form inputs are kept so the user can tweak
+  // and regenerate). Does not touch generation logic beyond clearing.
+  // Because this discards a fresh, not-yet-saved master, confirm first so a
+  // stray click can't silently destroy the user's banner.
+  const backToStart = async () => {
+    if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
+      const ok = await confirm({ title: "Начать заново?", body: "Текущий баннер будет удалён.", destructive: true, confirmLabel: "Начать заново" });
+      if (!ok) return;
+    }
+    reset();
+    setLoadedCardId(null);
+    setLoadedCardName(null);
+    setLoadedFromPreset(null);
+  };
+
+  // Picking a different template invalidates a freshly-generated master —
+  // the [preset] effect above calls gen.clear() on the change. If such a
+  // result exists and isn't already safely saved in history, confirm before
+  // discarding it; otherwise the switch is free and silent.
+  const changePreset = async (p: string) => {
+    if (p !== preset && imageUrl !== null && !loadedCardId && !gen.isBusy) {
+      const ok = await confirm({ title: "Сменить шаблон?", body: "Текущий баннер будет удалён.", destructive: true, confirmLabel: "Сменить" });
+      if (!ok) return;
+    }
+    setPreset(p);
+    // On mobile, picking a template advances to the settings screen.
+    setMobileTab("settings");
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="bg-background text-foreground">
+      <ToolCoachmark section="banner" />
       {/* Settings icon hidden — настройки бренда доступны прямо в форме */}
 
-      <div className="flex gap-3 p-3">
+      {/* Fill exactly the viewport below the sticky 4rem header so the columns
+          never push the page into a scroll — the left templates column stays
+          fixed; only the middle settings + result columns scroll internally. */}
+      <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Image Generator</h1>
 
         <PresetSidebar value={preset} onChange={setPreset} />
@@ -688,81 +859,28 @@ export function ImageGenApp() {
                   )}
                 </div>
 
-                {status === "loading" && (
-                  <p className="mb-4 animate-pulse text-sm text-foreground/70">
-                    Генерация, это может занять немного времени…
-                  </p>
-                )}
-                {status === "error" && (
-                  <div className="mb-4 flex items-center gap-3 rounded-md border border-border bg-background/40 p-3">
-                    <p className="text-sm text-foreground/80">Что-то пошло не так.</p>
-                    {errorMsg && <p className="text-xs text-foreground/50">{errorMsg}</p>}
-                    <button
-                      type="button"
-                      onClick={reset}
-                      className="ml-auto rounded-md bg-accent-green px-3 py-1.5 text-xs font-semibold text-black hover:opacity-90"
-                    >
-                      Ок
-                    </button>
-                  </div>
-                )}
-
-                {gen.status === "master_running" && status !== "loading" && (
-                  <p className="mb-4 animate-pulse text-sm text-foreground/70">
-                    Мастер в работе… можно перейти в другое место, генерация продолжится в фоне.
-                  </p>
-                )}
-
-                {/*
-                  Compact preview thumbnail. Sourced primarily from
-                  gen.imageUrl (the canonical "current master" from the
-                  root context) — guaranteed to be visible the moment
-                  ImageGenApp mounts, no effect-then-render race.
-                */}
-                {status !== "loading" && previewItems.length > 0 && (
-                  <div className="flex items-start gap-3">
-                    {previewItems.slice(0, 1).map((src, idx) => (
-                      <div
-                        key={`${idx}-${src.slice(0, 32)}`}
-                        className="group relative w-56 shrink-0 overflow-hidden rounded-xl border border-border bg-card"
-                        title="Кликните для увеличения"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setZoomSrc(src);
-                            setZoomOpen(true);
-                          }}
-                          className="block w-full"
-                        >
-                          <img
-                            src={src}
-                            alt="Latest generation"
-                            className="aspect-square w-full cursor-zoom-in object-contain transition group-hover:opacity-90"
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => downloadAsJpg(src, `image-${Date.now()}-${idx}.jpg`)}
-                          aria-label="Скачать"
-                          className="absolute right-2 top-2 rounded-md bg-black/60 p-1.5 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"
-                        >
-                          <Download size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })()}
-
-          {/* BOTTOM — inputs */}
-          <section className="rounded-2xl border border-border bg-panel p-4">
-            <div className="flex flex-col gap-3">
+        {/* COLUMN 2 — settings panel. Every field stacked vertically. */}
+        <section
+          className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
+            mobileTab !== "settings" ? "max-lg:hidden" : ""
+          }`}
+        >
+          {/* Mobile-only screen header: back to templates. */}
+          <div className="px-2 pb-3 pt-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab("templates")}
+              className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Назад
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex flex-col gap-6">
               {!isSlotPreset && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground/70">
+                  <label className="mb-2 block ds-h4">
                     {isSportPreset ? "Опишите матч / событие" : "Тематика баннера"}{" "}
                     <span className="text-accent-green">*</span>
                   </label>
@@ -770,7 +888,7 @@ export function ImageGenApp() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={3}
-                    className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                    className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm outline-none focus:border-accent-green"
                     placeholder={
                       isSportPreset
                         ? "Например: финал Лиги Чемпионов между PSG и Liverpool…"
@@ -784,28 +902,30 @@ export function ImageGenApp() {
 
               {isEventPreset && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground/70">
-                    Событие / повод <span className="text-foreground/40">(опционально)</span>
+                  <label className="mb-2 block ds-h4">
+                    Событие / повод <span className="text-muted-foreground">(опционально)</span>
                   </label>
                   <input
                     type="text"
                     value={eventText}
                     onChange={(e) => setEventText(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     placeholder="Новый год, Пасха, День независимости, Black Friday…"
                   />
                 </div>
               )}
 
               {isSlotPreset && (
-                <div className="rounded-md border border-border bg-background/40 p-3">
-                  <p className="mb-2 text-xs font-medium text-foreground/80">Слот</p>
+                <div className="rounded-xl border border-border bg-background/40 p-3">
+                  <p className="mb-2 ds-h4">
+                    Слот <span className="text-[color:var(--status-error)]">*</span>
+                  </p>
                   <input
                     type="text"
                     value={slotName}
                     onChange={(e) => setSlotName(e.target.value)}
                     placeholder="Название слота (например, Sweet Bonanza)"
-                    className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                    className="mb-3 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
                   <div className="flex flex-wrap gap-3">
                     <div className="w-24">
@@ -838,9 +958,9 @@ export function ImageGenApp() {
               )}
 
               {isSportPreset && (
-                <div className="space-y-3 rounded-md border border-border bg-background/40 p-3">
-                  <p className="text-xs font-medium text-foreground/80">Параметры матча</p>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-3 rounded-xl border border-border bg-background/40 p-3">
+                  <p className="ds-h4">Параметры матча</p>
+                  <div className="flex flex-col gap-4">
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-foreground/70">
                         Тип спорта
@@ -848,7 +968,7 @@ export function ImageGenApp() {
                       <select
                         value={sportType}
                         onChange={(e) => setSportType(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       >
                         <option value="">Авто (определить из брифа)</option>
                         <option value="football">Футбол</option>
@@ -875,7 +995,7 @@ export function ImageGenApp() {
                       <select
                         value={matchType}
                         onChange={(e) => setMatchType(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       >
                         <option value="auto">Определить автоматически</option>
                         <option value="national">Сборные / Национальные</option>
@@ -895,7 +1015,7 @@ export function ImageGenApp() {
                         value={sideAName}
                         onChange={(e) => setSideAName(e.target.value)}
                         placeholder="Команда / игрок"
-                        className="mb-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <div className="w-24">
                         <SlotUpload
@@ -919,7 +1039,7 @@ export function ImageGenApp() {
                         value={sideBName}
                         onChange={(e) => setSideBName(e.target.value)}
                         placeholder="Команда / игрок"
-                        className="mb-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="mb-2 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                       <div className="w-24">
                         <SlotUpload
@@ -945,7 +1065,7 @@ export function ImageGenApp() {
                         value={eventName}
                         onChange={(e) => setEventName(e.target.value)}
                         placeholder="UFC 312, Champions League Final…"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                     <div>
@@ -957,7 +1077,7 @@ export function ImageGenApp() {
                         value={matchDatetime}
                         onChange={(e) => setMatchDatetime(e.target.value)}
                         placeholder="SAT OCT 17, 9:24 PM"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                     <div>
@@ -969,7 +1089,7 @@ export function ImageGenApp() {
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
                         placeholder="Wembley, MSG, Camp Nou…"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                       />
                     </div>
                   </div>
@@ -986,9 +1106,9 @@ export function ImageGenApp() {
                   <div className="rounded-md border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-medium text-foreground/80">Игроки на баннере</p>
-                        <p className="mt-0.5 text-[11px] text-foreground/50">
-                          Выкл — только символика (эмблемы, флаги, инвентарь, трофеи)
+                        <p className="ds-h4">Игроки на баннере</p>
+                        <p className="mt-1 ds-caption leading-relaxed">
+                          Выключено — только символика: эмблемы, флаги, трофеи
                         </p>
                       </div>
                       <ToggleSwitch enabled={playersEnabled} onToggle={setPlayersEnabled} />
@@ -1004,8 +1124,8 @@ export function ImageGenApp() {
                               type="text"
                               value={sideAPlayers}
                               onChange={(e) => setSideAPlayers(e.target.value)}
-                              placeholder="Например: Мбаппе / Дембеле, или оставьте пустым для авто"
-                              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                              placeholder="Например: Мбаппе, Дембеле"
+                              className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
                             <p className="mt-1 text-[11px] text-foreground/50">
                               Если пусто — нейросеть подберёт топового игрока автоматически
@@ -1019,8 +1139,8 @@ export function ImageGenApp() {
                               type="text"
                               value={sideBPlayers}
                               onChange={(e) => setSideBPlayers(e.target.value)}
-                              placeholder="Например: Салах, или оставьте пустым для авто"
-                              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                              placeholder="Например: Салах"
+                              className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                             />
                             <p className="mt-1 text-[11px] text-foreground/50">
                               Если пусто — нейросеть подберёт топового игрока автоматически
@@ -1038,9 +1158,9 @@ export function ImageGenApp() {
                 </div>
               )}
 
-              <div className="rounded-md border border-border bg-background/40 p-3">
-                <p className="mb-2 text-xs font-medium text-foreground/80">Бренд</p>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto]">
+              <div className="rounded-xl border border-border bg-background/40 p-3">
+                <p className="mb-2 ds-h4">Бренд</p>
+                <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     {brandLogo ? (
                       <div className="relative">
@@ -1081,23 +1201,32 @@ export function ImageGenApp() {
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     placeholder="Название бренда / проекта"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
+                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green"
-                    aria-label="Язык текстов на креативе"
-                  >
-                    {LANGUAGES.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-                <p className="mt-2 text-[11px] text-foreground/50">
-                  Логотип/название и язык текстов будут учтены при генерации.
+                <p className="mt-2 ds-caption">
+                  Логотип и название будут учтены при генерации.
+                </p>
+              </div>
+
+              {/* Языки — язык ТЕКСТА в креативе. Локальная настройка раздела,
+                  не связана с языком интерфейса (тот переключается в шапке). */}
+              <div className="rounded-xl border border-border bg-background/40 p-3">
+                <p className="mb-2 ds-h4">Языки</p>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                  aria-label="Язык текстов на креативе"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 ds-caption">
+                  Язык текста на самом креативе — не связан с языком интерфейса.
                 </p>
               </div>
 
@@ -1136,12 +1265,8 @@ export function ImageGenApp() {
                   <div className="rounded-md border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-medium text-foreground/80">
-                          Рекламные тексты в промпте
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-foreground/50">
-                          Заголовок, фичи, цифры из шаблона
-                        </p>
+                        <p className="ds-h4">Рекламные тексты в промпте</p>
+                        <p className="mt-0.5 ds-caption">Заголовок, фичи, цифры из шаблона</p>
                       </div>
                       <ToggleSwitch enabled={adTextsEnabled} onToggle={setAdTextsEnabled} />
                     </div>
@@ -1150,10 +1275,8 @@ export function ImageGenApp() {
                   <div className="rounded-md border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-xs font-medium text-foreground/80">Человек в кадре</p>
-                        <p className="mt-0.5 text-[11px] text-foreground/50">
-                          Модель как центральный субъект
-                        </p>
+                        <p className="ds-h4">Человек в кадре</p>
+                        <p className="mt-0.5 ds-caption">Модель как центральный субъект</p>
                       </div>
                       <ToggleSwitch enabled={personEnabled} onToggle={setPersonEnabled} />
                     </div>
@@ -1178,73 +1301,425 @@ export function ImageGenApp() {
                   </div>
                 </div>
               )}
+              {/* Соотношение сторон. Качество и модель (Артистизм/Реализм) скрыты
+                  из UI — модель всегда "Артистизм" (дефолт из useState), а
+                  качество остаётся на своём значении по умолчанию ("low"). */}
+              <div className="mt-2 flex flex-col gap-4">
+                <div className="min-w-0">
+                  <p className="mb-2 ds-h4">Соотношение сторон</p>
+                  <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="mb-1.5 text-xs font-medium text-foreground/70">Соотношение сторон</p>
-                <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <p className="text-[11px] font-medium text-foreground/70">Качество</p>
-                <QualityPicker value={quality} onChange={setQuality} />
-              </div>
-              <ModelToggle value={model} onChange={onModelChange} />
-            </div>
-
-            {loadedCardId && loadedCardName ? (
-              <div className="mt-3 flex items-center justify-between rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-xs">
-                <span>
-                  Загружено из истории: <span className="font-medium">{loadedCardName}</span>.
-                  Ресайзы добавятся в эту карточку.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoadedCardId(null);
-                    setLoadedCardName(null);
-                    setLoadedFromPreset(null);
-                    setLastPayload((prev) => (prev ? { ...prev, card_id: undefined } : prev));
-                  }}
-                  className="ml-2 text-muted-foreground hover:text-foreground"
-                  aria-label="Отвязать"
-                  title="Создать новую карточку при следующем ресайзе"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : null}
-
+          {/* Mobile-only pinned primary: generate straight from settings. */}
+          <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
               onClick={onGenerate}
               disabled={
-                status === "loading" ||
+                !isGuest &&
+                (status === "loading" ||
+                  gen.isBusy ||
+                  (!isSlotPreset && prompt.trim().length === 0) ||
+                  (isSlotPreset && slotName.trim().length === 0))
+              }
+              className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
+            </button>
+            {((!isSlotPreset && prompt.trim().length === 0) ||
+              (isSlotPreset && slotName.trim().length === 0)) &&
+            status !== "loading" &&
+            !gen.isBusy ? (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Заполните «
+                {isSlotPreset
+                  ? "Название слота"
+                  : isSportPreset
+                    ? "Опишите матч / событие"
+                    : "Тематика баннера"}
+                », чтобы сгенерировать
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        {/* COLUMN 3 — generation area. Button on top, result below. */}
+        <div
+          className={`flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
+            mobileTab !== "result" ? "max-lg:hidden" : ""
+          }`}
+        >
+          {/* Mobile-only screen header: back to settings. Hidden while the
+              master is actively generating (can't leave the loader). */}
+          {status !== "loading" && gen.status !== "master_running" ? (
+            <button
+              type="button"
+              onClick={() => setMobileTab("settings")}
+              className="-mx-2 inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:hidden"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Назад
+            </button>
+          ) : null}
+
+          {/* "Начать заново" — discards the current result and returns the
+              editor to its empty starting state. Desktop only (both columns are
+              visible side by side here, so this is a reset, not navigation);
+              mobile uses the screen-header back above, which only switches tab.
+              Hidden while the master is actively generating: the loader's own
+              "Отменить" is the correct action then (mirrors the mobile back,
+              which is also hidden during generation). */}
+          {(hasBanner ||
+            status !== "idle" ||
+            gen.status === "master_running" ||
+            gen.status === "batch_running") &&
+          !(status === "loading" || gen.status === "master_running") ? (
+            <button
+              type="button"
+              onClick={backToStart}
+              className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground max-lg:hidden"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Начать заново
+            </button>
+          ) : null}
+
+          {/* Flow steps — step 2 lights up once a banner exists. Kept compact
+              (12px) so the two labels stay on one line; it's a progress
+              indicator, not body content. */}
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  hasBanner ? "bg-muted text-muted-foreground" : "bg-accent-green text-on-accent"
+                }`}
+              >
+                1
+              </span>
+              <span className={hasBanner ? "text-muted-foreground" : "font-medium text-foreground"}>
+                Генерация баннера
+              </span>
+            </div>
+            <span className="h-px w-6 bg-border" />
+            <div className="flex items-center gap-2">
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  hasBanner
+                    ? "bg-accent-green text-on-accent"
+                    : "border border-border text-muted-foreground"
+                }`}
+              >
+                2
+              </span>
+              <span className={hasBanner ? "font-medium text-foreground" : "text-muted-foreground"}>
+                Выбор ресайзов
+              </span>
+            </div>
+          </div>
+
+          {/* Master-generate button. On mobile it lives only on the settings
+              screen (single sticky CTA); here it's desktop-only to avoid a
+              duplicate. */}
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={
+              !isGuest &&
+              (status === "loading" ||
                 gen.isBusy ||
                 (!isSlotPreset && prompt.trim().length === 0) ||
-                (isSlotPreset && slotName.trim().length === 0)
-              }
-              className="mt-3 w-full rounded-full bg-accent-green px-8 py-2.5 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {status === "loading" ? "Генерация…" : "Сгенерировать"}
-            </button>
+                (isSlotPreset && slotName.trim().length === 0))
+            }
+            className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
+          >
+            {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
+          </button>
+          {((!isSlotPreset && prompt.trim().length === 0) ||
+            (isSlotPreset && slotName.trim().length === 0)) &&
+          status !== "loading" &&
+          !gen.isBusy ? (
+            <p className="-mt-1 text-center text-xs text-muted-foreground max-lg:hidden">
+              Заполните «
+              {isSlotPreset
+                ? "Название слота"
+                : isSportPreset
+                  ? "Опишите матч / событие"
+                  : "Тематика баннера"}
+              », чтобы сгенерировать
+            </p>
+          ) : null}
 
-            {imageUrl && status !== "loading" && lastPayload ? (
-              <ResizeBatchPanel
-                disabled={gen.isBusy}
-                masterRatio={lastMasterRatio}
-                onLaunch={onLaunchBatch}
-              />
-            ) : null}
+          {loadedCardId && loadedCardName ? (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-xs">
+              <span className="min-w-0">
+                Загружено из истории: <span className="font-medium">{loadedCardName}</span>. Ресайзы
+                добавятся в эту карточку.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoadedCardId(null);
+                  setLoadedCardName(null);
+                  setLoadedFromPreset(null);
+                  setLastPayload((prev) => (prev ? { ...prev, card_id: undefined } : prev));
+                }}
+                className="relative ml-2 shrink-0 text-muted-foreground transition after:absolute after:-inset-3 after:content-[''] hover:text-foreground"
+                aria-label="Отвязать"
+                title="Создать новую карточку при следующем ресайзе"
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
 
-            <ResizeResultsGrid
-              tiles={gen.tiles}
-              isRunning={gen.status === "batch_running"}
-              onCancel={gen.cancel}
-              onClear={gen.clear}
-            />
-          </section>
-        </main>
+          {/* Staged flow: idle → loading → result (approve) → resize (after approve) */}
+          {(() => {
+            // DEV preview: force the result screen with a placeholder banner.
+            const imageUrl = DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : gen.imageUrl;
+            const lastPayload = DEV_PREVIEW_RESULT
+              ? ({ preset_id: preset } as unknown as GeneratePayload)
+              : gen.lastPayload;
+            const isLoading =
+              !DEV_PREVIEW_RESULT && (status === "loading" || gen.status === "master_running");
+            const [rw, rh] = ratio.split(":").map(Number);
+            const frameAspect = rw && rh ? `${rw} / ${rh}` : "1 / 1";
+            // Placeholders (empty / loading) must fit the column so they never
+            // trigger a scrollbar. Wrap them in a flex-1 box and drive the
+            // aspect card by its limiting dimension (height for portrait, width
+            // otherwise) so it scales down to "contain". The real result below
+            // is left free to overflow → scroll when it's genuinely tall.
+            const portrait = rh > rw;
+            const fitStyle = { aspectRatio: frameAspect, ...(portrait ? { height: "100%" } : { width: "100%" }) };
+
+            // 2. Loading — skeleton in the chosen aspect ratio
+            if (isLoading) {
+              return (
+                <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+                <div
+                  className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted"
+                  style={fitStyle}
+                >
+                  <div className="absolute inset-0 animate-pulse bg-muted" />
+                  <div className="relative flex flex-col items-center gap-3 px-6 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-accent-green" />
+                    <p className="text-sm font-medium text-foreground">Генерируем баннер…</p>
+                    <p className="text-xs text-muted-foreground">
+                      {genSeconds >= 40
+                        ? `Занимает дольше обычного… ${genSeconds} с`
+                        : `Обычно занимает 10–30 секунд · ${genSeconds} с`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={cancelMaster}
+                      className="mt-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground max-sm:w-full"
+                    >
+                      <X className="h-4 w-4" />
+                      Отменить
+                    </button>
+                  </div>
+                </div>
+                </div>
+              );
+            }
+
+            // Error — classified message with retry (or top-up) action.
+            // gen.runMaster reports failures via gen.status/gen.errorMsg (fresh
+            // at render), so check both the local status and the context status.
+            if (status === "error" || gen.status === "error") {
+              return (
+                <GenerationErrorCard
+                  message={errorMsg || gen.errorMsg}
+                  onRetry={onGenerate}
+                  onDismiss={reset}
+                />
+              );
+            }
+
+            // 3 & 4. Result — banner + approve/regenerate, resize appears after approve
+            if (imageUrl) {
+              return (
+                <div className="flex flex-col gap-6">
+                  <div
+                    className="group relative w-full overflow-hidden rounded-2xl border border-border bg-card"
+                    title="Кликните для увеличения"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setZoomSrc(imageUrl);
+                        setZoomOpen(true);
+                      }}
+                      className="flex w-full justify-center"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt="Сгенерированный баннер"
+                        className="max-h-[360px] w-auto max-w-full cursor-zoom-in object-contain transition group-hover:opacity-90"
+                      />
+                    </button>
+                    {/* Overlay controls, top-right over the image: round dark
+                        translucent Download + "⋯" menu (reference-styled). */}
+                    <div className="absolute right-2 top-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
+                          toast.success("Баннер скачан");
+                        }}
+                        aria-label="Скачать"
+                        title="Скачать"
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70 max-sm:h-11 max-sm:w-11"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Ещё"
+                            title="Ещё"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70 max-sm:h-11 max-sm:w-11"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={8}
+                          className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setZoomSrc(imageUrl);
+                              setZoomOpen(true);
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                            Открыть
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              if (!(await confirm({ title: "Перегенерировать?", body: "Текущий баннер будет заменён.", confirmLabel: "Перегенерировать" }))) return;
+                              void onGenerate();
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                            Перегенерировать
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              // Hand off the shared brand data to the landing
+                              // generator so the user doesn't re-enter it.
+                              try {
+                                window.localStorage.setItem(
+                                  "dw:landingSeed",
+                                  JSON.stringify({
+                                    brand_name: brandName,
+                                    brand_logo: brandLogo,
+                                    subject: isSlotPreset ? slotName : prompt,
+                                    language,
+                                    banner_text: bannerTextEnabled ? bannerText : "",
+                                    // From-banner flow: inherit the vertical and flag the
+                                    // handoff. The banner image itself is read live from the
+                                    // generation context on the landing side (avoids the
+                                    // localStorage quota risk of storing a full image here).
+                                    vertical: bannerPresetToVertical(preset),
+                                    from_banner: true,
+                                  }),
+                                );
+                              } catch {
+                                /* quota — landing just opens empty */
+                              }
+                              router.push("/landing");
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                            Создать лендинг на основе этого
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              downloadAsJpg(imageUrl, `banner-${Date.now()}.jpg`);
+                              toast.success("Баннер скачан");
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <Download className="h-4 w-4 text-muted-foreground" />
+                            Скачать
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              if (!(await confirm({ title: "Удалить баннер?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
+                              gen.clear();
+                              setStatus("idle");
+                              // Also drop the history link so the "Загружено из
+                              // истории" banner doesn't linger over an empty
+                              // editor, pointing at a banner that's gone.
+                              setLoadedCardId(null);
+                              setLoadedCardName(null);
+                              setLoadedFromPreset(null);
+                              toast("Баннер удалён");
+                            }}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[color:var(--status-error)] focus:bg-[color:var(--status-error)]/10 focus:text-[color:var(--status-error)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Удалить
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Direct step: the resize picker's own secondary button
+                      opens the modal in one click — no intermediate screen.
+                      Keep it mounted across a master regeneration (when
+                      lastPayload/imageUrl briefly go null but gen.isBusy is
+                      true) so the user's format selection isn't discarded. */}
+                  {lastPayload || hasBanner || gen.isBusy ? (
+                    <ResizeBatchPanel
+                      disabled={gen.isBusy}
+                      masterRatio={lastMasterRatio}
+                      onLaunch={onLaunchBatch}
+                      tiles={gen.tiles}
+                      batchStatus={gen.status}
+                      onRegenerateTile={gen.regenerateTile}
+                      onRemoveTile={gen.removeTile}
+                      onCancel={gen.cancel}
+                    />
+                  ) : null}
+                </div>
+              );
+            }
+
+            // 1. Empty state (idle) — a banner-shaped skeleton (in the chosen
+            // aspect ratio) so the user sees where the result will appear.
+            return (
+              <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+                <div
+                  className="flex max-h-full max-w-full items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6"
+                  style={fitStyle}
+                >
+                <div className="flex max-w-xs flex-col items-center gap-6 text-center">
+                  <ImageIcon className="h-20 w-20 text-brand-violet/35" strokeWidth={1.5} />
+                  <div className="space-y-1">
+                    <h2 className="ds-h4">Здесь появится ваш баннер</h2>
+                    <p className="ds-caption">
+                      Заполните настройки, чтобы сгенерировать баннер.
+                    </p>
+                  </div>
+                </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       {zoomOpen && zoomSrc && (
@@ -1272,19 +1747,19 @@ function OptionalField({
   return (
     <div className="rounded-md border border-border bg-background/40 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground/80">{label}</span>
+        <span className="ds-h4">{label}</span>
         <button
           type="button"
           role="switch"
           aria-checked={enabled}
           onClick={() => onToggle(!enabled)}
-          className={`relative h-5 w-9 rounded-full transition-colors ${
+          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-[''] ${
             enabled ? "bg-accent-green" : "bg-white/15"
           }`}
         >
           <span
-            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
+            className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+              enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
             }`}
           />
         </button>
@@ -1293,7 +1768,8 @@ function OptionalField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={!enabled}
-        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent-green disabled:opacity-40"
+        maxLength={maxLength}
+        className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green disabled:opacity-40"
         placeholder={placeholder}
       />
     </div>
@@ -1312,8 +1788,8 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: (v: b
       }`}
     >
       <span
-        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-4" : "translate-x-0"
+        className={`absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition-transform ${
+          enabled ? "translate-x-4 bg-[color:var(--text-on-accent)]" : "translate-x-0 bg-white"
         }`}
       />
     </button>

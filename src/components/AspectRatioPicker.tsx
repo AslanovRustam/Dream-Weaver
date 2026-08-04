@@ -24,14 +24,14 @@ export function AspectRatioPicker({ ratios, value, onChange }: Props) {
             key={r}
             type="button"
             onClick={() => onChange(r)}
-            className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all max-sm:min-h-11 ${
               selected
-                ? "border-foreground bg-foreground text-background"
+                ? "border-accent-green bg-accent-green/10 text-accent-green"
                 : "border-border bg-card text-foreground hover:border-foreground/40"
             }`}
           >
             <span
-              className={`block border ${selected ? "border-background" : "border-foreground/60"}`}
+              className={`block border ${selected ? "border-current" : "border-foreground/60"}`}
               style={{ width: `${boxW}px`, height: `${boxH}px` }}
             />
             {r}

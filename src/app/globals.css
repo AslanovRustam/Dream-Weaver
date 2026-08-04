@@ -4,33 +4,45 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
+ * ADSPIRE DESIGN SYSTEM — product theme.
  *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
+ * Dark is the only theme; there is no light mode. Every value below comes
+ * from the Adspire token set (tokens.css / DESIGN-SYSTEM.md): blue-tinted
+ * near-blacks, lime as accent #1, violet #2, cyan #3.
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
+ * Layering:
+ *   :root            — the raw Adspire palette (named tokens).
+ *   :root (semantic) — product tokens mapped onto the palette. Reskinning
+ *                      means editing the palette, never the components.
+ *   @theme inline    — exposes tokens as Tailwind utilities (bg-card,
+ *                      text-hint, shadow-glow-lime, rounded-2xl, ...).
  *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Rule from the system: never hard-code a hex in a component.
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Radius ladder — Adspire levels (chips 6 / buttons+inputs 8 /
+     thumbnails+menus 12 / cards+panels 16 / hero 24). The product's existing
+     class ladder already lines up with it, so changing these values re-rounds
+     every surface at once without touching a single component. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+
+  /* Surfaces + text */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-panel: var(--panel);
-  --color-accent-green: var(--accent-green);
+  --color-elevated: var(--bg-elevated);
+  --color-elevated-2: var(--bg-elevated-2);
+  --color-void: var(--bg-void);
+  --color-hint: var(--text-tertiary);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -44,9 +56,53 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+
+  /* Brand accents */
+  --color-accent-green: var(--accent-primary); /* legacy name, now lime */
+  /* Text that sits ON an accent fill. The system uses its near-black, never
+     pure #000 — so `text-on-accent` replaces every hard-coded `text-black`. */
+  --color-on-accent: var(--text-on-accent);
+  --color-brand-lime: var(--brand-lime);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-cyan: var(--brand-cyan);
+
+  /* Semantic status */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  /* Typography */
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+
+  /* Two Tailwind defaults fall off the system's type scale: lg is 18px and
+     3xl is 30px, neither of which exists in Adspire. Pulled onto the nearest
+     real steps (h3 20px, h1 32px) so no screen can render an off-scale size. */
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.25;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.15;
+
+  /* Elevation + brand glow. The system has three levels (sm / card / pop);
+     Tailwind ships five. Mapping the extras onto the real levels means every
+     existing shadow-* class lands on a system value without editing markup. */
+  --shadow-sm: var(--shadow-sm-val);
+  --shadow-md: var(--shadow-card-val);
+  --shadow-lg: var(--shadow-card-val);
+  --shadow-xl: var(--shadow-pop-val);
+  --shadow-2xl: var(--shadow-pop-val);
+  --shadow-card: var(--shadow-card-val);
+  --shadow-pop: var(--shadow-pop-val);
+  --shadow-glow-lime: var(--glow-lime);
+  --shadow-glow-lime-lg: var(--glow-lime-lg);
+  --shadow-glow-violet: var(--glow-violet);
+  --shadow-glow-cyan: var(--glow-cyan);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -63,76 +119,184 @@
 }
 
 :root {
-  --radius: 0.875rem;
-  --background: oklch(0.16 0.005 260);
-  --foreground: oklch(0.97 0.005 260);
-  --card: oklch(0.21 0.006 260);
-  --card-foreground: oklch(0.97 0.005 260);
-  --panel: oklch(0.19 0.006 260);
-  --accent-green: oklch(0.78 0.18 150);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.78 0.18 150);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
+  /* ===================================================================
+     1. BRAND ACCENTS — lime primary, violet secondary, cyan tertiary
+     =================================================================== */
+  --brand-lime: #c6ff3d;
+  --brand-violet: #7b5cff;
+  --brand-cyan: #00e0ff;
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --lime-300: #daff7c; /* hover / highlight — BRIGHTER than base */
+  --lime-400: #c6ff3d; /* base */
+  --lime-500: #abe62b; /* pressed */
+  --lime-tint: rgba(198, 255, 61, 0.12); /* active nav, chips, "Active" pill */
+  --lime-tint-strong: rgba(198, 255, 61, 0.2);
+
+  --violet-400: #9b85ff; /* hover */
+  --violet-500: #7b5cff;
+  --violet-600: #5e3ef0; /* pressed / gradient end */
+  --violet-tint: rgba(123, 92, 255, 0.14);
+
+  --cyan-500: #00e0ff;
+  --cyan-tint: rgba(0, 224, 255, 0.12);
+
+  /* ===================================================================
+     2. NEUTRALS — blue-tinted near-blacks. Never pure #000.
+     =================================================================== */
+  --bg-void: #06070b; /* behind hero, page voids */
+  --bg-base: #0b0d12; /* app canvas / body */
+  --bg-surface: #12141a; /* cards, panels */
+  --bg-elevated: #1e2128; /* inputs, popovers, hover rows */
+  --bg-elevated-2: #262a33; /* raised chips */
+  /* legacy alias — hover surfaces resolve to the elevated step */
+  --bg-surface-hover: var(--bg-elevated);
+
+  --border-subtle: rgba(255, 255, 255, 0.06); /* card outlines */
+  --border-default: rgba(255, 255, 255, 0.1); /* inputs, dividers */
+  --border-strong: rgba(255, 255, 255, 0.16); /* hover, focus rest */
+  --overlay-hover: rgba(255, 255, 255, 0.04);
+  --overlay-press: rgba(255, 255, 255, 0.08);
+
+  /* ===================================================================
+     3. TEXT
+     --text-tertiary is deliberately NOT wired to the product's helper
+     text: at 3.4:1 on a card it fails WCAG AA for body copy. The system
+     scopes it to hints, disabled state and 11px table headers, which is
+     exactly where it is used here. Helper text keeps --text-secondary
+     (7.4:1), preserving the contrast fix made earlier in this project.
+     =================================================================== */
+  --text-primary: #f4f6f8;
+  --text-secondary: #9aa3b2;
+  --text-tertiary: #626a78;
+  --text-on-accent: #0b0d12; /* dark text on lime / cyan fills */
+  /* legacy alias kept so existing utilities keep resolving */
+  --text-muted: var(--text-secondary);
+
+  /* ===================================================================
+     4. SEMANTIC / STATUS — colour is never the only signal; pair with a
+        dot indicator and a text label (system rule).
+     =================================================================== */
+  --success: #c6ff3d;
+  --success-tint: var(--lime-tint);
+  --warning: #ffb020;
+  --warning-tint: rgba(255, 176, 32, 0.14);
+  --danger: #ff5c5c;
+  --danger-tint: rgba(255, 92, 92, 0.14);
+  --info: #00e0ff;
+  --info-tint: var(--cyan-tint);
+
+  /* legacy status aliases (used across generators / upload indicators) */
+  --status-success: var(--success);
+  --status-error: var(--danger);
+  --status-premium: var(--warning);
+
+  /* ===================================================================
+     5. ACCENT — semantic accent slots.
+        Note the inverted hover: the system brightens on hover and adds a
+        glow, where the old theme darkened. Both live here so every
+        `var(--accent-hover)` call site flips at once.
+     =================================================================== */
+  --accent-primary: var(--brand-lime);
+  --accent-hover: var(--lime-300);
+  --accent-press: var(--lime-500);
+  --accent-glow: var(--lime-300);
+
+  /* ===================================================================
+     6. GRADIENTS
+     =================================================================== */
+  --grad-brand: linear-gradient(118deg, #c6ff3d 0%, #7b5cff 100%);
+  --grad-lime: linear-gradient(150deg, #daff7c 0%, #c6ff3d 55%, #abe62b 100%);
+  --grad-violet: linear-gradient(160deg, #9b85ff 0%, #5e3ef0 100%);
+  --grad-cyan-violet: linear-gradient(130deg, #00e0ff 0%, #7b5cff 100%);
+  --grad-surface: linear-gradient(180deg, #16181f 0%, #101218 100%);
+  --grad-hero:
+    radial-gradient(120% 90% at 78% 18%, rgba(123, 92, 255, 0.28) 0%, rgba(11, 13, 18, 0) 55%),
+    radial-gradient(90% 70% at 62% 30%, rgba(198, 255, 61, 0.16) 0%, rgba(11, 13, 18, 0) 50%),
+    #0b0d12;
+  /* Same aurora without the solid base, so it can be layered over a surface
+     that already has a background (page hero backdrops). */
+  --grad-hero-glow:
+    radial-gradient(120% 90% at 78% 18%, rgba(123, 92, 255, 0.28) 0%, rgba(11, 13, 18, 0) 55%),
+    radial-gradient(90% 70% at 62% 30%, rgba(198, 255, 61, 0.16) 0%, rgba(11, 13, 18, 0) 50%);
+
+  /* ===================================================================
+     7. GLOW + ELEVATION
+     =================================================================== */
+  --glow-lime: 0 0 24px rgba(198, 255, 61, 0.45);
+  --glow-lime-lg: 0 0 40px rgba(198, 255, 61, 0.55);
+  --glow-violet: 0 0 32px rgba(123, 92, 255, 0.5);
+  --glow-cyan: 0 0 28px rgba(0, 224, 255, 0.45);
+  --shadow-sm-val: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-card-val: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-pop-val: 0 16px 40px rgba(0, 0, 0, 0.55); /* dropdowns, modals */
+
+  /* ===================================================================
+     8. TYPOGRAPHY
+        Aeonik is licensed and ships with no font files, so the system's
+        own sanctioned substitute is used and Aeonik stays first in the
+        stack — drop the licensed files in and it takes over by itself.
+     =================================================================== */
+  --font-sans-stack:
+    "Aeonik", var(--font-inter), "General Sans", "Inter", system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono-stack:
+    "JetBrains Mono", var(--font-jetbrains-mono), "SFMono-Regular", ui-monospace, Menlo, Consolas,
+    monospace;
+
+  /* ===================================================================
+     9. MOTION
+     =================================================================== */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasis: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --brand-slant: -20deg; /* signature parallelogram angle */
+
+  /* ===================================================================
+     10. SEMANTIC TOKENS consumed by Tailwind utilities
+     =================================================================== */
+  --radius: 8px; /* button / input level — the system's default radius */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --panel: var(--bg-surface);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--text-on-accent);
+  --secondary: var(--bg-elevated);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-elevated);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-elevated);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--text-primary);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--brand-lime);
+
+  /* Chart series follow the brand order: lime, violet, cyan. */
+  --chart-1: var(--brand-lime);
+  --chart-2: var(--brand-violet);
+  --chart-3: var(--brand-cyan);
+  --chart-4: var(--warning);
+  --chart-5: var(--danger);
+
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--brand-lime);
+  --sidebar-primary-foreground: var(--text-on-accent);
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--brand-lime);
+
+  /* Custom scrollbar — muted pill, soft lime on hover, full lime on drag. */
+  --sb-thumb: color-mix(in srgb, var(--text-tertiary) 85%, transparent);
+  --sb-thumb-hover: color-mix(in srgb, var(--brand-lime) 60%, transparent);
 }
 
 @layer base {
@@ -141,7 +305,637 @@
   }
 
   body {
-    background-color: var(--color-background);
+    background-color: var(--bg-base);
+    /* Product-wide premium ambience: a whisper of violet (top-right) and lime
+       (bottom-left), fixed so it never scrolls. Deliberately faint — dense
+       screens stay clean; hero screens layer a stronger .ds-aurora on top. */
+    background-image:
+      radial-gradient(60% 45% at 100% 0%, rgba(123, 92, 255, 0.1), transparent 60%),
+      radial-gradient(50% 40% at 0% 100%, rgba(198, 255, 61, 0.05), transparent 55%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--color-foreground);
+    font-family: var(--font-sans-stack);
+    font-size: 0.875rem; /* 14px — the system's default body size */
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  /* A11y: one consistent keyboard focus ring — the system's two-tone look
+     (a dark gap, then lime). Deliberately an outline rather than the token's
+     stacked box-shadow: controls that render their own focus treatment turn
+     the shared ring off with `outline-none`, which cannot suppress a
+     box-shadow. Using box-shadow here drew a second ring inside wrappers
+     that already highlight themselves (e.g. the Hub search field).
+     :where() keeps specificity 0 so components can still override. */
+  :where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--brand-lime);
+    outline-offset: 2px;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Metrics, tables and counters line up column-wise. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* =========================================================================
+   Custom scrollbars — desktop (fine-pointer) only. A thin pill thumb over a
+   transparent track, stepper arrows removed. Kept unlayered + global so it
+   covers every scroll container: panels, forms, modals, portaled menus.
+   ========================================================================= */
+@media (pointer: fine) {
+  /* Firefox only — scoped away from WebKit/Blink, where setting the standard
+     scrollbar-width makes them ignore the ::-webkit-scrollbar rules below. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--sb-thumb) transparent;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--sb-thumb-hover);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: var(--brand-lime);
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* =========================================================================
+   COMPONENT LAYER — the system's specs as classes.
+
+   Spacing (4px grid): 4 8 12 16 20 24 32 40 48 64 80.
+     • label → field:      8px  (mb-2)
+     • field → helper:     6px  (mt-1.5)
+     • between sections:  16px  (gap-4)
+     • card / panel pad:  20px  (p-5)  · compact sub-panels 12px (p-3)
+
+   Radius (see the ladder in @theme inline):
+     • rounded-md  (6px)  — chips, tags, badges
+     • rounded-lg  (8px)  — buttons, inputs, menu rows
+     • rounded-xl  (12px) — thumbnails, dropdown popovers
+     • rounded-2xl (16px) — cards, panels, modals
+     • rounded-3xl (24px) — hero / large surfaces
+     • rounded-full       — pills, avatars, toggles
+
+   Typography — apply .ds-* instead of ad-hoc text-* utilities.
+   ========================================================================= */
+@layer components {
+  .ds-display {
+    font-size: 3.25rem; /* 52px hero */
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+  }
+  .ds-h1 {
+    font-size: 2rem; /* 32px page title */
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--foreground);
+  }
+  .ds-h2 {
+    font-size: 1.5rem; /* 24px section title */
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+  .ds-h3 {
+    font-size: 1.25rem; /* 20px */
+    line-height: 1.25;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .ds-h4 {
+    font-size: 1rem; /* 16px card heading */
+    line-height: 1.35;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .ds-stat {
+    font-size: 2.25rem; /* 36px KPI number */
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .ds-body-lg {
+    font-size: 1rem; /* 16px */
+    line-height: 1.55;
+    font-weight: 400;
+    color: var(--foreground);
+  }
+  .ds-body {
+    font-size: 0.875rem; /* 14px body — the default */
+    line-height: 1.55;
+    font-weight: 400;
+    color: var(--foreground);
+  }
+  .ds-label {
+    font-size: 0.8125rem; /* 13px field label */
+    line-height: 1.45;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .ds-caption {
+    font-size: 0.75rem; /* 12px helper / subtitle */
+    line-height: 1.4;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+  .ds-micro {
+    font-size: 0.6875rem; /* 11px — smallest allowed (badges, meta) */
+    line-height: 1.3;
+    font-weight: 500;
+  }
+  /* Signature section label: 11px, uppercase, wide tracking. */
+  .ds-overline {
+    font-size: 0.6875rem;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .ds-overline-accent {
+    color: var(--brand-lime);
+  }
+
+  /* Canonical text field: elevated fill, 8px radius, lime focus border with
+     a soft lime ring. Use on every input / textarea / select. */
+  .ds-input {
+    width: 100%;
+    border-radius: var(--radius-lg); /* 8px */
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    padding: 0.625rem 0.8125rem; /* 10px / 13px */
+    font-size: 0.875rem; /* 14px */
+    color: var(--foreground);
+    transition:
+      border-color var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-fast) var(--ease-standard);
+  }
+  .ds-input::placeholder {
+    color: var(--text-tertiary);
+  }
+  .ds-input:focus {
+    outline: none;
+    border-color: var(--brand-lime);
+    box-shadow: 0 0 0 3px rgba(198, 255, 61, 0.14);
+  }
+  .ds-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Button hierarchy. Padding (px / py) comes from utilities on top.
+     primary = lime CTA, one per screen · secondary = outline · ghost =
+     tertiary. Primary brightens AND glows on hover (system spec). */
+  .ds-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    border-radius: var(--radius-lg); /* 8px */
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition:
+      background-color var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard),
+      opacity var(--dur-base) var(--ease-standard);
+  }
+  .ds-btn:not(:disabled):active {
+    transform: translateY(1px);
+  }
+  .ds-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .ds-btn-primary {
+    /* Solid lime fill, dark text. Brightens AND picks up a LIME glow on hover
+       (single accent per button — no lime/violet mixing). */
+    background: var(--brand-lime);
+    color: var(--text-on-accent);
+  }
+  .ds-btn-primary:not(:disabled):hover {
+    background: var(--lime-300);
+    box-shadow: var(--glow-lime);
+  }
+  .ds-btn-secondary {
+    border-color: var(--border-strong);
+    color: var(--foreground);
+    background: transparent;
+  }
+  .ds-btn-secondary:not(:disabled):hover {
+    background: var(--overlay-hover);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+  .ds-btn-ghost {
+    color: var(--text-secondary);
+    background: transparent;
+  }
+  .ds-btn-ghost:not(:disabled):hover {
+    background: var(--overlay-hover);
+    color: var(--foreground);
+  }
+
+  /* Status pill: tint fill + leading dot + label — colour alone never
+     carries the meaning. Compose with .ds-dot on a leading span. */
+  .ds-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4375rem;
+    border-radius: 999px;
+    padding: 0.3125rem 0.6875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .ds-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .ds-pill-success {
+    color: var(--success);
+    background: var(--success-tint);
+  }
+  .ds-pill-warning {
+    color: var(--warning);
+    background: var(--warning-tint);
+  }
+  .ds-pill-danger {
+    color: var(--danger);
+    background: var(--danger-tint);
+  }
+  .ds-pill-info {
+    color: var(--info);
+    background: var(--info-tint);
+  }
+  .ds-pill-neutral {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Feature icon tile: lime line icon in a tinted rounded square. */
+  .ds-feature-icon {
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-xl); /* 12px */
+    background: var(--lime-tint);
+    border: 1px solid rgba(198, 255, 61, 0.22);
+    color: var(--brand-lime);
+  }
+  /* Violet twin — pair with .ds-feature-icon to alternate accent colour across
+     a set of tiles/features so lime and violet stay balanced. */
+  .ds-feature-icon-violet {
+    background: var(--violet-tint);
+    border-color: rgba(123, 92, 255, 0.28);
+    color: var(--violet-400);
+  }
+}
+
+/* Brand surfaces, available as plain utilities. */
+.ds-grad-brand {
+  background-image: var(--grad-brand);
+}
+.ds-grad-violet {
+  background-image: var(--grad-violet);
+}
+.ds-grad-cyan-violet {
+  background-image: var(--grad-cyan-violet);
+}
+.ds-hero-aurora {
+  background-image: var(--grad-hero);
+}
+/* Layerable version — aurora only, no base fill. */
+.ds-hero-glow {
+  background-image: var(--grad-hero-glow);
+}
+/* Dot-grid brand motif — a low-contrast backdrop, never foreground noise. */
+.ds-dotgrid {
+  background-image: radial-gradient(rgba(198, 255, 61, 0.5) 1.2px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+/* Dot-grid that fades out towards the edges, per the system's "matrix of dots
+   decaying at the edge". Keeps the motif from ending on a hard line. */
+.ds-dotgrid-fade {
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
+}
+
+/* Consistent dropdown chevron on every native <select>: the arrow sits the
+   same 0.75rem (12px) from the right edge as the text sits from the left
+   (px-3). Unlayered so it wins over Tailwind's px-* right padding. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%239AA3B2'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 16px;
+  padding-right: 2.25rem;
+}
+
+/* --- Resize-batch animations (interactive loader / preview reveal) -------- */
+@keyframes dw-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dw-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
+  }
+}
+@keyframes dw-shine {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(240%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+@keyframes dw-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(198, 255, 61, 0);
+  }
+  50% {
+    box-shadow: 0 0 26px 2px rgba(198, 255, 61, 0.55);
+  }
+}
+@keyframes dw-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(0.5);
+  }
+}
+
+.dw-pop {
+  animation: dw-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.dw-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.11) 50%,
+    rgba(255, 255, 255, 0.05) 55%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: dw-shimmer 1.4s ease-in-out infinite;
+}
+.dw-shine {
+  animation: dw-shine 0.9s ease-out 1;
+}
+.dw-glow {
+  animation: dw-glow 1.6s ease-in-out 2;
+}
+.dw-confetti-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: dw-confetti 0.95s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-pop,
+  .dw-shimmer,
+  .dw-shine,
+  .dw-glow,
+  .dw-confetti-piece {
+    animation: none;
+  }
+}
+
+/* Mobile input ergonomics. Below the lg breakpoint every text control gets a
+   >=16px font (prevents iOS Safari's focus auto-zoom) and a >=44px tap target.
+   Applies to the design-system class and to raw controls the same way. */
+@media (max-width: 1023px) {
+  .ds-input,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  textarea {
+    min-height: 88px;
+  }
+}
+
+/* =========================================================================
+   PREMIUM SURFACES — visual-direction TRIAL (Account screen only).
+
+   Additive & opt-in: every class below is applied ONLY on /account for the
+   restyle trial, so no other screen changes until the direction is approved
+   and rolled out deliberately. Built entirely on existing brand tokens.
+
+   Balance goal: lime (#c6ff3d) and violet (#7b5cff / #5e3ef0) as CO-EQUAL
+   accents — soft gradients, dual-colour glow, glass depth, and a clear
+   primary / secondary button split.
+   ========================================================================= */
+
+/* Page aurora — soft violet (top-right) + lime (lower-left) blobs behind the
+   content. Decorative, low-opacity, heavily blurred; never interactive. */
+.ds-aurora {
+  /* Drop-in background layer: fixed, sits behind page content (z:-1) and above
+     the body canvas, so a page only needs <div class="ds-aurora"/> as its first
+     child — no content-wrapping required (transparent page roots only). */
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Softer variant for utility screens (admin, forms) — same blobs, dialled down. */
+.ds-aurora-soft::before {
+  opacity: 0.5;
+}
+.ds-aurora-soft::after {
+  opacity: 0.5;
+}
+.ds-aurora::before,
+.ds-aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+}
+.ds-aurora::before {
+  width: 44rem;
+  height: 44rem;
+  top: -15rem;
+  right: -10rem;
+  background: radial-gradient(circle, rgba(123, 92, 255, 0.28), transparent 70%);
+}
+.ds-aurora::after {
+  width: 40rem;
+  height: 40rem;
+  bottom: -18rem;
+  left: -12rem;
+  background: radial-gradient(circle, rgba(198, 255, 61, 0.14), transparent 70%);
+}
+
+/* Premium glass card — translucent surface, top sheen, depth shadow. */
+.ds-card {
+  position: relative;
+  border-radius: var(--radius-2xl);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(22, 24, 31, 0.72), rgba(16, 18, 24, 0.72));
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card-val);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Opaque depth surface for generic cards (shared <Card>, dialogs): the same top
+   sheen over the system's vertical surface gradient — premium depth with no
+   translucency, so it's safe on any background. Replaces a flat bg-card. */
+.ds-card-surface {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 38%),
+    var(--grad-surface);
+}
+
+/* Resting colour glow — a different hue per card gives the screen a
+   multi-layered, "alive" feel instead of one uniform lime halo. */
+.ds-card-glow-lime {
+  box-shadow:
+    var(--shadow-card-val),
+    0 0 42px -18px rgba(198, 255, 61, 0.55);
+}
+.ds-card-glow-violet {
+  box-shadow:
+    var(--shadow-card-val),
+    0 0 46px -16px rgba(123, 92, 255, 0.6);
+}
+
+/* Interactive lift — hover raises the card, strengthens the border and blooms
+   the glow. Pair with a glow class above for the coloured bloom. */
+.ds-card-interactive {
+  transition:
+    transform var(--dur-base) var(--ease-emphasis),
+    box-shadow var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard);
+  will-change: transform;
+}
+.ds-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+}
+.ds-card-interactive.ds-card-glow-lime:hover {
+  box-shadow:
+    var(--shadow-pop-val),
+    0 0 58px -14px rgba(198, 255, 61, 0.7);
+}
+.ds-card-interactive.ds-card-glow-violet:hover {
+  box-shadow:
+    var(--shadow-pop-val),
+    0 0 62px -12px rgba(123, 92, 255, 0.78);
+}
+
+/* One accent per button: no lime→violet gradient fills or mixed rings. The
+   primary stays solid lime (.ds-btn-primary); .ds-btn-violet is the solid
+   violet alternative. Each carries a glow in its OWN colour. */
+
+/* PRIMARY (violet) — solid deep-violet fill + violet glow, light text. */
+.ds-btn-violet {
+  background-image: linear-gradient(160deg, #7b5cff 0%, #5e3ef0 100%);
+  color: #f4f6f8;
+  border-color: transparent;
+  box-shadow: 0 8px 22px -10px rgba(94, 62, 240, 0.6);
+  transition:
+    transform var(--dur-base) var(--ease-emphasis),
+    filter var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
+}
+.ds-btn-violet:not(:disabled):hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: var(--glow-violet);
+}
+
+/* SECONDARY — accent outline on transparent, no fill. Visibly lighter than a
+   primary while staying legible + clickable. Lime and violet variants. */
+.ds-btn-outline-lime {
+  background: transparent;
+  color: var(--brand-lime);
+  border-color: rgba(198, 255, 61, 0.45);
+}
+.ds-btn-outline-lime:not(:disabled):hover {
+  background: var(--lime-tint);
+  border-color: var(--brand-lime);
+}
+.ds-btn-outline-violet {
+  background: transparent;
+  color: var(--violet-400);
+  border-color: rgba(123, 92, 255, 0.5);
+}
+.ds-btn-outline-violet:not(:disabled):hover {
+  background: var(--violet-tint);
+  border-color: var(--violet-500);
+}
+
+/* Gradient number — the hero KPI reads as "data" in lime. Large text only
+   (gradient text on small sizes hurts legibility). */
+.ds-text-grad-lime {
+  background: var(--grad-lime);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

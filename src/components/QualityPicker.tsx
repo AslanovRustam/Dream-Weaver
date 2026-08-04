@@ -22,8 +22,8 @@ export function QualityPicker({
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
-            className={`rounded-[5px] px-2.5 py-1 text-[11px] font-medium transition ${
-              active ? "bg-accent-green text-black" : "text-foreground/70 hover:text-foreground"
+            className={`rounded-md px-2.5 py-1 text-sm font-medium transition ${
+              active ? "bg-accent-green text-on-accent" : "text-foreground/70 hover:text-foreground"
             }`}
             title={
               o.value === "high"

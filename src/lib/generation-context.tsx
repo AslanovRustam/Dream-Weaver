@@ -90,13 +90,17 @@ interface GenerationContextValue extends GenerationStateSnapshot {
   cancel: () => void;
   /** Wipe master + tiles. Used when starting fresh from a different brief. */
   clear: () => void;
-  /** Imperatively patch payload (e.g. when loaded from history). */
+  /** Imperatively patch payload (e.g. when loaded from history). Pass `tiles`
+   *  to rehydrate the resize grid from a saved card — the history restore flow
+   *  supplies the previously-generated resizes here so opening a project pulls
+   *  the master AND its resizes (omit → the grid resets to empty as before). */
   setMasterImage: (args: {
     image: string;
     payload: GeneratePayload;
     ratio: string;
     cardId: string | null;
     usage?: UsageInfo | null;
+    tiles?: BatchTile[];
   }) => void;
   /** Hard-set a single field that ImageGenApp owns externally (history flow). */
   setLastPayload: (
@@ -279,7 +283,7 @@ export function GenerationProvider({ children }: ProviderProps) {
   }, []);
 
   const setMasterImage = useCallback<GenerationContextValue["setMasterImage"]>(
-    ({ image, payload, ratio, cardId, usage }) => {
+    ({ image, payload, ratio, cardId, usage, tiles }) => {
       patch({
         status: "done",
         imageUrl: image,
@@ -288,7 +292,9 @@ export function GenerationProvider({ children }: ProviderProps) {
         cardId,
         lastUsage: usage ?? null,
         errorMsg: "",
-        tiles: [],
+        // History restore passes the saved resizes here; a fresh master omits
+        // it and the grid clears (previous behaviour).
+        tiles: tiles ?? [],
       });
     },
     [patch],
