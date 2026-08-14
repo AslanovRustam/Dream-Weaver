@@ -100,6 +100,8 @@ type Body = {
   side_a_players?: string;
   side_b_players?: string;
   quality?: "low" | "medium" | "high";
+  /** Compiled per-template custom-field selections (CUSTOMISATION block). */
+  template_options?: string;
   // legacy
   prompt?: string;
 };
@@ -977,6 +979,14 @@ export async function POST(request: Request) {
             },
             { status: 502 },
           );
+        }
+
+        // Per-template custom-field selections (compiled client-side from the
+        // preset's declarative `fields`). Appended as a strict CUSTOMISATION
+        // block so it steers the visual without touching the preset builders.
+        const templateOptions = (body.template_options || "").trim().slice(0, 600);
+        if (templateOptions && !hasSourceImage) {
+          finalPrompt += `\n\nCUSTOMISATION (apply strictly): ${templateOptions}`;
         }
 
         // Belt-and-suspenders TEXT FIDELITY block — applied to EVERY

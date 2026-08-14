@@ -6,6 +6,20 @@ import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
 import presetSport from "@/assets/preset-sport.jpg";
 
+// Declarative per-template custom fields — a flexible dropdown/checkbox system.
+// A preset lists the fields it wants; the UI renders them generically and the
+// chosen values are compiled into a CUSTOMISATION prompt block (see
+// compileTemplateOptions). Adding/editing options is pure data, no new UI code.
+export type TemplateField =
+  | {
+      id: string;
+      type: "select";
+      label: string;
+      options: { value: string; label: string; prompt?: string }[];
+      default?: string;
+    }
+  | { id: string; type: "checkbox"; label: string; prompt: string; default?: boolean };
+
 export type Preset = {
   id: string;
   name: string;
@@ -17,7 +31,56 @@ export type Preset = {
   /** Shows a lime "Новое" badge on the tile and floats the preset to the top
    *  under the "Сначала новые" sort. */
   isNew?: boolean;
+  /** Optional custom fields (dropdowns / checkboxes) shown for this template. */
+  fields?: TemplateField[];
 };
+
+// ---- Reusable field library (shared across templates) ----------------------
+const FIELD_SHOW_ODDS: TemplateField = {
+  id: "showOdds",
+  type: "checkbox",
+  label: "Показать коэффициент",
+  prompt: "Include a prominent sample betting odds accent.",
+};
+const FIELD_BONUS_BADGE: TemplateField = {
+  id: "bonusBadge",
+  type: "checkbox",
+  label: "Бейдж-оффер",
+  prompt: "Add a bold bonus/offer badge inside the central safe zone.",
+};
+const FIELD_SPORT: TemplateField = {
+  id: "sport",
+  type: "select",
+  label: "Вид спорта",
+  default: "football",
+  options: [
+    { value: "football", label: "Футбол", prompt: "Sport context: football (soccer)." },
+    { value: "basketball", label: "Баскетбол", prompt: "Sport context: basketball." },
+    { value: "tennis", label: "Теннис", prompt: "Sport context: tennis." },
+    { value: "esports", label: "Киберспорт", prompt: "Sport context: esports." },
+  ],
+};
+
+/** Compile the user's field selections into a single CUSTOMISATION instruction
+ *  string appended to the generation prompt. Empty when nothing meaningful. */
+export function compileTemplateOptions(
+  fields: TemplateField[] | undefined,
+  values: Record<string, string | boolean>,
+): string {
+  if (!fields?.length) return "";
+  const parts: string[] = [];
+  for (const f of fields) {
+    if (f.type === "select") {
+      const v = (values[f.id] as string) ?? f.default;
+      const opt = f.options.find((o) => o.value === v);
+      if (opt?.prompt) parts.push(opt.prompt);
+    } else {
+      const on = (values[f.id] as boolean) ?? f.default ?? false;
+      if (on) parts.push(f.prompt);
+    }
+  }
+  return parts.join(" ");
+}
 
 export const PRESETS: Preset[] = [
   {
@@ -340,6 +403,33 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "TYPOGRAPHY & LAYOUT: ornate fantasy display headline, gilded CTA, all within the central safe zone. " +
       "COLOR: deep purple/navy base with gold and arcane accents. " +
       "AVOID: modern flat UI, unreadable ornate text, more than 3 dominant colors.",
+    fields: [
+      {
+        id: "creature",
+        type: "select",
+        label: "Существо",
+        default: "dragon",
+        options: [
+          { value: "dragon", label: "Дракон", prompt: "Feature a mighty dragon as the central creature." },
+          { value: "phoenix", label: "Феникс", prompt: "Feature a blazing phoenix as the central creature." },
+          { value: "griffin", label: "Грифон", prompt: "Feature a majestic griffin as the central creature." },
+          { value: "kraken", label: "Кракен", prompt: "Feature a monstrous kraken as the central creature." },
+        ],
+      },
+      {
+        id: "setting",
+        type: "select",
+        label: "Локация",
+        default: "vault",
+        options: [
+          { value: "vault", label: "Сокровищница", prompt: "Setting: a glowing treasure vault." },
+          { value: "dungeon", label: "Подземелье", prompt: "Setting: a dark dungeon." },
+          { value: "forest", label: "Зачарованный лес", prompt: "Setting: an enchanted forest." },
+          { value: "lair", label: "Логово в лаве", prompt: "Setting: a volcanic lair." },
+        ],
+      },
+      FIELD_BONUS_BADGE,
+    ],
   },
   // ── Betting-native templates (sportsbook domain) — plain `template` strings
   //    routed through adaptPrompt like the others. ──
@@ -426,6 +516,32 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "TYPOGRAPHY & LAYOUT: huge bold odds numeral accent, short headline + CTA inside the central safe zone. " +
       "COLOR: near-black base + electric blue/cyan accents. " +
       "AVOID: fake garbled numbers, cluttered corners, weak contrast.",
+    fields: [
+      {
+        id: "boostTo",
+        type: "select",
+        label: "Множитель буста",
+        default: "x5",
+        options: [
+          { value: "x2", label: "×2", prompt: "Show a boosted odds multiplier of x2." },
+          { value: "x5", label: "×5", prompt: "Show a boosted odds multiplier of x5." },
+          { value: "x10", label: "×10", prompt: "Show a boosted odds multiplier of x10." },
+          { value: "x50", label: "×50", prompt: "Show a boosted odds multiplier of x50." },
+        ],
+      },
+      FIELD_SPORT,
+      {
+        id: "promoDay",
+        type: "select",
+        label: "Повод промо",
+        default: "friday",
+        options: [
+          { value: "friday", label: "Boost Friday", prompt: "Promo occasion: Boost Friday." },
+          { value: "weekend", label: "Weekend Special", prompt: "Promo occasion: Weekend Special." },
+          { value: "daily", label: "Daily Boost", prompt: "Promo occasion: Daily Boost." },
+        ],
+      },
+    ],
   },
   {
     id: "preset20",
@@ -447,48 +563,32 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "TYPOGRAPHY & LAYOUT: large bonus figure as accent, welcome headline + CTA in the central safe zone. " +
       "COLOR: violet base + gold accent. " +
       "AVOID: cluttered promo callouts, unreadable text, more than 3 dominant colors.",
-  },
-  {
-    id: "preset21",
-    name: "Киберспорт-ставки",
-    description: "Esports-арена, неон-RGB, беттинг-оверлей",
-    gradient: "linear-gradient(135deg,#0f0524,#a855f7,#22d3ee)",
-    examples: [
-      "linear-gradient(135deg,#0f0524,#a855f7)",
-      "linear-gradient(160deg,#020617,#22d3ee)",
-      "linear-gradient(120deg,#3b0764,#06b6d4)",
-      "linear-gradient(140deg,#0f0524,#7c3aed)",
+    fields: [
+      {
+        id: "bonusPercent",
+        type: "select",
+        label: "Бонус %",
+        default: "100",
+        options: [
+          { value: "100", label: "100%", prompt: "The headline welcome bonus is 100%." },
+          { value: "150", label: "150%", prompt: "The headline welcome bonus is 150%." },
+          { value: "200", label: "200%", prompt: "The headline welcome bonus is 200%." },
+          { value: "500", label: "500%", prompt: "The headline welcome bonus is 500%." },
+        ],
+      },
+      { id: "freeBet", type: "checkbox", label: "Фрибет", prompt: "Also mention a free bet offer." },
+      {
+        id: "offerType",
+        type: "select",
+        label: "Тип оффера",
+        default: "welcome",
+        options: [
+          { value: "welcome", label: "Приветственный", prompt: "Frame it as a welcome bonus offer." },
+          { value: "deposit", label: "На депозит", prompt: "Frame it as a deposit-match offer." },
+          { value: "cashback", label: "Кэшбэк", prompt: "Frame it as a cashback offer." },
+        ],
+      },
     ],
-    isNew: true,
-    template:
-      "Create an esports-betting advertisement banner for {SUBJECT}. " +
-      "STYLE: competitive gaming arena — massive LED screens, neon RGB stage lighting, holographic match UI, gaming gear, a betting odds overlay, high-tech esports finals vibe. " +
-      "COMPOSITION: hero esports subject centered with a floating odds/match panel in the central zone. " +
-      "LIGHTING: RGB neon key lights, stage haze, glowing rim. " +
-      "TYPOGRAPHY & LAYOUT: bold gamer-style headline, odds and CTA within the central safe zone. " +
-      "COLOR: dark base + 2 neon accents (violet + cyan). " +
-      "AVOID: dated clip-art gaming look, unreadable neon text, cluttered corners.",
-  },
-  {
-    id: "preset22",
-    name: "Финиш / гонка",
-    description: "Скачки/гонка, motion-blur, финишная черта",
-    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f97316)",
-    examples: [
-      "linear-gradient(135deg,#0b0b0f,#dc2626)",
-      "linear-gradient(160deg,#111827,#f97316)",
-      "linear-gradient(120deg,#450a0a,#fb923c)",
-      "linear-gradient(140deg,#0b0b0f,#ef4444)",
-    ],
-    isNew: true,
-    template:
-      "Create a racing-betting advertisement banner for {SUBJECT}. " +
-      "STYLE: speed and finish-line drama — horses or race cars charging toward a finish line, heavy motion blur, dust/spray, checkered-flag motif, adrenaline, low dynamic angle. " +
-      "COMPOSITION: the racing subject centered mid-charge, finish line and odds accent in the central zone. " +
-      "LIGHTING: dramatic side light, warm dust glow, strong contrast. " +
-      "TYPOGRAPHY & LAYOUT: bold dynamic headline and CTA within the central safe zone. " +
-      "COLOR: dark base + red/orange speed accents. " +
-      "AVOID: static poses, unreadable text, cluttered corners, more than 3 dominant colors.",
   },
   {
     id: "preset23",
@@ -724,27 +824,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "AVOID: photorealistic real named athletes or logos, unreadable text, cluttered corners, more than 3 dominant colors.",
   },
   {
-    id: "preset34",
-    name: "Бокс / ММА",
-    description: "Беттинг-баннер под единоборства: ринг/октагон, файт-кард",
-    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#facc15)",
-    examples: [
-      "linear-gradient(135deg,#0b0b0f,#dc2626)",
-      "linear-gradient(160deg,#111827,#facc15)",
-      "linear-gradient(120deg,#7f1d1d,#fbbf24)",
-      "linear-gradient(140deg,#0b0b0f,#ef4444)",
-    ],
-    isNew: true,
-    template:
-      "Create a premium combat-sports (boxing / MMA) betting advertisement banner for {SUBJECT}. " +
-      "ENVIRONMENT: a dark arena with a boxing-ring ropes or MMA octagon-cage silhouette, single hard spotlight, smoke haze, sparks. " +
-      "HERO: a dynamic stylized non-identifiable fighter in a fighting stance with gloves raised, sweat and rim light, no real named athlete. " +
-      "STYLE: cinematic fight-poster — dramatic chiaroscuro, haze, sparks, gritty, high contrast. " +
-      "TYPOGRAPHY & LAYOUT: bold fight-card headline, odds accent and CTA button in the central safe zone. " +
-      "COLOR: dark base + red and gold accents. " +
-      "AVOID: photorealistic real named athletes or promotion logos, unreadable text, cluttered corners, more than 3 dominant colors.",
-  },
-  {
     id: "preset35",
     name: "Киберспорт",
     description: "Беттинг-баннер под esports: арена, LED, про-игрок",
@@ -764,6 +843,33 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "TYPOGRAPHY & LAYOUT: bold gamer-style headline, odds accent and CTA button in the central safe zone. " +
       "COLOR: dark base + two neon accents (violet + cyan). " +
       "AVOID: photorealistic real named players or real team logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+    fields: [
+      {
+        id: "game",
+        type: "select",
+        label: "Игра",
+        default: "cs2",
+        options: [
+          { value: "cs2", label: "CS2", prompt: "Esports title: Counter-Strike 2 — tactical FPS aesthetic." },
+          { value: "dota", label: "Dota 2", prompt: "Esports title: Dota 2 — fantasy MOBA aesthetic." },
+          { value: "lol", label: "LoL", prompt: "Esports title: League of Legends — fantasy MOBA aesthetic." },
+          { value: "valorant", label: "Valorant", prompt: "Esports title: Valorant — tactical FPS aesthetic." },
+        ],
+      },
+      {
+        id: "stage",
+        type: "select",
+        label: "Стадия турнира",
+        default: "final",
+        options: [
+          { value: "group", label: "Групповой этап", prompt: "Tournament stage: group stage." },
+          { value: "quarter", label: "Четвертьфинал", prompt: "Tournament stage: quarterfinal." },
+          { value: "semi", label: "Полуфинал", prompt: "Tournament stage: semifinal." },
+          { value: "final", label: "Гранд-финал", prompt: "Tournament stage: grand final." },
+        ],
+      },
+      FIELD_SHOW_ODDS,
+      FIELD_BONUS_BADGE,    ],
   },
 ];
 
@@ -783,11 +889,14 @@ type Category = {
   presetIds: string[];
 };
 
+// Mutually exclusive — every preset lives in exactly one category (no cross-listing).
 export const CATEGORIES: Category[] = [
   {
-    id: "style",
-    label: "Стиль / Эффекты",
+    id: "gambling",
+    label: "Gambling",
     presetIds: [
+      "preset1",
+      "preset2",
       "preset6",
       "preset7",
       "preset8",
@@ -795,8 +904,6 @@ export const CATEGORIES: Category[] = [
       "preset10",
       "preset11",
       "preset12",
-      "preset13",
-      "preset14",
       "preset15",
     ],
   },
@@ -805,31 +912,15 @@ export const CATEGORIES: Category[] = [
     label: "Betting",
     presetIds: [
       "preset3",
+      "preset14",
       "preset16",
       "preset17",
       "preset18",
       "preset19",
       "preset20",
-      "preset21",
-      "preset22",
       "preset23",
       "preset24",
       "preset25",
-    ],
-  },
-  {
-    id: "gambling",
-    label: "Gambling",
-    presetIds: [
-      "preset2",
-      "preset1",
-      "preset6",
-      "preset7",
-      "preset8",
-      "preset9",
-      "preset10",
-      "preset12",
-      "preset15",
     ],
   },
   {
@@ -847,7 +938,6 @@ export const CATEGORIES: Category[] = [
       "preset31",
       "preset32",
       "preset33",
-      "preset34",
       "preset35",
     ],
   },

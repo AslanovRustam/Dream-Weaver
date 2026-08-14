@@ -39,6 +39,8 @@ export type GeneratePayload = {
   side_a_players?: string;
   side_b_players?: string;
   quality?: "low" | "medium" | "high";
+  /** Compiled per-template custom-field selections (CUSTOMISATION block). */
+  template_options?: string;
   // ---- Resize-batch fields (optional) -------------------------------
   // When source_image is set, the server takes the master and produces
   // a re-rendered banner adapted to aspect_ratio. target_w/target_h let
@@ -182,6 +184,7 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
         side_a_players: payload.side_a_players || "",
         side_b_players: payload.side_b_players || "",
         quality: payload.quality || "medium",
+        template_options: payload.template_options || "",
         // Resize batch — only sent when present.
         source_image: payload.source_image,
         target_w: payload.target_w,

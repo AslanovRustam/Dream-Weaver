@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { apiJson, ApiError } from "@/lib/api-client";
-import { PresetSidebar, PRESETS } from "./PresetSidebar";
+import { PresetSidebar, PRESETS, compileTemplateOptions } from "./PresetSidebar";
 import { AspectRatioPicker } from "./AspectRatioPicker";
 import { type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
@@ -199,6 +199,34 @@ export function ImageGenApp() {
   const [eventText, setEventText] = useState("");
   const [subheadline, setSubheadline] = useState("");
   const [subheadlineEnabled, setSubheadlineEnabled] = useState(false);
+  // Per-template custom fields (declarative dropdowns/checkboxes on the preset).
+  const [fieldValues, setFieldValues] = useState<Record<string, string | boolean>>({});
+  // Brand color roles — primary / secondary / accent, each independently toggled.
+  // Only enabled roles with a valid hex influence the banner palette; disabled or
+  // empty roles do nothing. Colors are entered by hex or the native RGB picker.
+  const [colorRoles, setColorRoles] = useState<
+    { id: "primary" | "secondary" | "accent"; label: string; enabled: boolean; hex: string }[]
+  >([
+    { id: "primary", label: "Основной", enabled: false, hex: "#C6FF3D" },
+    { id: "secondary", label: "Дополнительный", enabled: false, hex: "#7B5CFF" },
+    { id: "accent", label: "Акцентный", enabled: false, hex: "#00E0FF" },
+  ]);
+  const patchRole = (i: number, patch: Partial<{ enabled: boolean; hex: string }>) =>
+    setColorRoles((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  // Simple vs advanced mode. Simple = only the template + the "Описание" field;
+  // everything else uses defaults. Persisted; defaults to simple.
+  const [uiMode, setUiMode] = useState<"simple" | "advanced">(() => {
+    if (typeof window === "undefined") return "simple";
+    return window.localStorage.getItem("dw_ui_mode") === "advanced" ? "advanced" : "simple";
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("dw_ui_mode", uiMode);
+    } catch {
+      /* ignore */
+    }
+  }, [uiMode]);
+  const advanced = uiMode === "advanced";
   // sport preset state
   const [sportType, setSportType] = useState("");
   const [matchType, setMatchType] = useState("auto");
@@ -226,7 +254,7 @@ export function ImageGenApp() {
   // (loadedCardId) is already persisted, so it doesn't count as unsaved.
   useEffect(() => {
     // Dirty = project-specific work not yet saved as a history card: a typed
-    // topic ("Тематика баннера") or a freshly generated, unsaved result. A
+    // topic ("Описание") or a freshly generated, unsaved result. A
     // banner loaded from history (loadedCardId) is already persisted.
     const dirty = !loadedCardId && (prompt.trim() !== "" || imageUrl !== null);
     setUnsavedWork(dirty ? "banner" : null);
@@ -778,6 +806,20 @@ export function ImageGenApp() {
   const estCredits = useMemo(() => estimateBannerCredits({ model, quality }), [model, quality]);
   const currentPreset = PRESETS.find((p) => p.id === preset);
 
+  // Reset custom-field values to the preset's defaults whenever the template
+  // changes, so switching templates never carries stale option values.
+  useEffect(() => {
+    const fields = PRESETS.find((p) => p.id === preset)?.fields;
+    const init: Record<string, string | boolean> = {};
+    if (fields) {
+      for (const f of fields) {
+        init[f.id] =
+          f.type === "select" ? (f.default ?? f.options[0]?.value ?? "") : (f.default ?? false);
+      }
+    }
+    setFieldValues(init);
+  }, [preset]);
+
   // Switching the preset or model invalidates a FRESHLY-generated
   // master — its image was made for the old brief and is misleading
   // under a new one. But:
@@ -864,7 +906,7 @@ export function ImageGenApp() {
             ? "Название слота"
             : isSportPreset
               ? "Опишите матч / событие"
-              : "Тематика баннера"
+              : "Описание"
         }», чтобы сгенерировать`,
       );
       return;
@@ -878,6 +920,24 @@ export function ImageGenApp() {
     setLoadedCardId(null);
     setLoadedCardName(null);
     setLoadedFromPreset(null);
+    // Enabled color roles with a valid hex + per-template field selections are
+    // both folded into the one CUSTOMISATION channel (template_options).
+    const activeColors = colorRoles.filter(
+      (r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
+    );
+    const brandColorsText = activeColors.length
+      ? `Brand palette — ${activeColors
+          .map((r) => `${r.id} ${r.hex}`)
+          .join(
+            ", ",
+          )}. Use exactly these colors as the banner's dominant palette (primary = dominant, secondary = support, accent = highlights/CTA); keep strong contrast and readability.`
+      : "";
+    const templateOptions = [
+      brandColorsText,
+      compileTemplateOptions(currentPreset?.fields, fieldValues),
+    ]
+      .filter(Boolean)
+      .join(" ");
     // Build the payload ONCE so we can both send it and remember it.
     const payload: GeneratePayload = {
       preset_id: preset,
@@ -917,6 +977,7 @@ export function ImageGenApp() {
       side_a_players: isSportPreset && playersEnabled ? sideAPlayers : "",
       side_b_players: isSportPreset && playersEnabled ? sideBPlayers : "",
       quality,
+      template_options: templateOptions,
     };
     try {
       // runMaster pushes imageUrl + lastPayload + lastMasterRatio into
@@ -1024,10 +1085,34 @@ export function ImageGenApp() {
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
+              {/* Simple / Advanced mode. Simple shows only the template's main
+                  field; advanced reveals brand, colors, texts, person, etc. */}
+              <div className="flex w-full rounded-lg border border-border p-0.5">
+                {(
+                  [
+                    ["simple", "Простой"],
+                    ["advanced", "Расширенный"],
+                  ] as const
+                ).map(([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setUiMode(m)}
+                    className={`min-h-9 flex-1 rounded-md px-3 text-sm font-medium transition ${
+                      uiMode === m
+                        ? "bg-white/10 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               {!isSlotPreset && (
                 <div>
                   <label className="mb-2 block ds-h4">
-                    {isSportPreset ? "Опишите матч / событие" : "Тематика баннера"}{" "}
+                    {isSportPreset ? "Опишите матч / событие" : "Описание"}{" "}
                     <span className="text-[color:var(--status-error)]">*</span>
                   </label>
                   <textarea
@@ -1048,7 +1133,7 @@ export function ImageGenApp() {
                 </div>
               )}
 
-              {isEventLikePreset && (
+              {advanced && isEventLikePreset && (
                 <div>
                   <label className="mb-2 block ds-h4">
                     Событие / повод <span className="text-muted-foreground">(опционально)</span>
@@ -1105,7 +1190,7 @@ export function ImageGenApp() {
                 </div>
               )}
 
-              {isSportPreset && (
+              {advanced && isSportPreset && (
                 <div className="space-y-3 rounded-xl border border-border bg-background/40 p-3">
                   <p className="ds-h4">Параметры матча</p>
                   <div className="flex flex-col gap-4">
@@ -1286,16 +1371,19 @@ export function ImageGenApp() {
                 </div>
               )}
 
+              {advanced && (
+                <>
               <div className="rounded-xl border border-border bg-background/40 p-3">
                 <p className="mb-2 ds-h4">Бренд</p>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-start gap-3">
+                  {/* Small square optional logo uploader on the side */}
+                  <div className="shrink-0">
                     {brandLogo ? (
-                      <div className="relative w-full">
+                      <div className="relative h-16 w-16">
                         <img
                           src={brandLogo}
                           alt="brand logo"
-                          className="h-24 w-full rounded-md border border-border bg-white object-contain p-1"
+                          className="h-16 w-16 rounded-md border border-border bg-white object-contain p-1"
                         />
                         <button
                           type="button"
@@ -1310,7 +1398,8 @@ export function ImageGenApp() {
                       <button
                         type="button"
                         onClick={() => logoInputRef.current?.click()}
-                        className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border ds-caption hover:border-foreground/40 hover:text-foreground/80"
+                        aria-label="Загрузить логотип (опционально)"
+                        className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-border ds-caption hover:border-foreground/40 hover:text-foreground/80"
                       >
                         <Upload size={16} />
                         Лого
@@ -1323,18 +1412,67 @@ export function ImageGenApp() {
                       className="hidden"
                       onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
                     />
+                    <p className="mt-1 text-center ds-caption">опц.</p>
                   </div>
-                  <input
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="Название бренда / проекта"
-                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
-                  />
+                  {/* Brand name */}
+                  <div className="min-w-0 flex-1">
+                    <input
+                      type="text"
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      placeholder="Название бренда / проекта"
+                      className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                    />
+                    <p className="mt-2 ds-caption">
+                      Логотип и название — опционально, учтутся при генерации.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-2 ds-caption">
-                  Логотип и название будут учтены при генерации.
+              </div>
+
+              {/* Brand color roles — primary / secondary / accent, each toggled.
+                  Sits with Бренд near the top; only enabled roles with a valid
+                  hex influence the palette (disabled = no effect). */}
+              <div className="rounded-xl border border-border bg-background/40 p-3">
+                <p className="mb-1 ds-h4">Цвета бренда</p>
+                <p className="mb-3 ds-caption">
+                  Включите роль — её цвет войдёт в палитру баннера. Выключено — не влияет.
                 </p>
+                <div className="flex flex-col gap-2.5">
+                  {colorRoles.map((r, i) => {
+                    const valid = /^#[0-9a-fA-F]{6}$/.test(r.hex);
+                    return (
+                      <div key={r.id} className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">{r.label}</span>
+                          <ToggleSwitch
+                            enabled={r.enabled}
+                            onToggle={(v) => patchRole(i, { enabled: v })}
+                          />
+                        </div>
+                        {r.enabled ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={valid ? r.hex : "#000000"}
+                              onChange={(e) => patchRole(i, { hex: e.target.value })}
+                              aria-label={`${r.label} — выбрать на палитре`}
+                              className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated"
+                            />
+                            <input
+                              type="text"
+                              value={r.hex}
+                              onChange={(e) => patchRole(i, { hex: e.target.value })}
+                              placeholder="#RRGGBB"
+                              maxLength={7}
+                              className="h-11 flex-1 rounded-lg border border-border bg-elevated px-3 text-sm uppercase outline-none focus:border-accent-green"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Языки — язык ТЕКСТА в креативе. Локальная настройка раздела,
@@ -1378,8 +1516,10 @@ export function ImageGenApp() {
                   maxLength={24}
                 />
               </div>
+                </>
+              )}
 
-              {(isEventLikePreset || isSportPreset) && (
+              {advanced && (isEventLikePreset || isSportPreset) && (
                 <OptionalField
                   label="Подзаголовок / преимущества"
                   enabled={subheadlineEnabled}
@@ -1391,7 +1531,7 @@ export function ImageGenApp() {
                 />
               )}
 
-              {!isSlotPreset && !isSportPreset && (
+              {advanced && !isSlotPreset && !isSportPreset && (
                 <div className="flex flex-col gap-4">
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -1432,15 +1572,55 @@ export function ImageGenApp() {
                   </div>
                 </div>
               )}
+              {/* Per-template custom fields — declarative dropdowns/checkboxes
+                  rendered generically from currentPreset.fields. */}
+              {advanced && currentPreset?.fields?.length ? (
+                <div className="flex flex-col gap-4">
+                  {currentPreset.fields.map((f) =>
+                    f.type === "select" ? (
+                      <div key={f.id}>
+                        <label className="mb-2 block ds-h4">{f.label}</label>
+                        <select
+                          value={(fieldValues[f.id] as string) ?? f.default ?? f.options[0]?.value}
+                          onChange={(e) =>
+                            setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
+                          }
+                          className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                        >
+                          {f.options.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div
+                        key={f.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3"
+                      >
+                        <p className="ds-h4">{f.label}</p>
+                        <ToggleSwitch
+                          enabled={Boolean(fieldValues[f.id] ?? f.default)}
+                          onToggle={(val) => setFieldValues((v) => ({ ...v, [f.id]: val }))}
+                        />
+                      </div>
+                    ),
+                  )}
+                </div>
+              ) : null}
+
               {/* Соотношение сторон. Качество и модель (Артистизм/Реализм) скрыты
                   из UI — модель всегда "Артистизм" (дефолт из useState), а
                   качество остаётся на своём значении по умолчанию ("low"). */}
-              <div className="mt-2 flex flex-col gap-4">
-                <div className="min-w-0">
-                  <p className="mb-2 ds-h4">Соотношение сторон</p>
-                  <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
+              {advanced && (
+                <div className="mt-2 flex flex-col gap-4">
+                  <div className="min-w-0">
+                    <p className="mb-2 ds-h4">Соотношение сторон</p>
+                    <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1472,7 +1652,7 @@ export function ImageGenApp() {
                   ? "Название слота"
                   : isSportPreset
                     ? "Опишите матч / событие"
-                    : "Тематика баннера"}
+                    : "Описание"}
                 », чтобы сгенерировать
               </p>
             ) : null}
@@ -1580,7 +1760,7 @@ export function ImageGenApp() {
                 ? "Название слота"
                 : isSportPreset
                   ? "Опишите матч / событие"
-                  : "Тематика баннера"}
+                  : "Описание"}
               », чтобы сгенерировать
             </p>
           ) : null}
