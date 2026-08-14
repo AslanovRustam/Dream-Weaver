@@ -181,6 +181,11 @@ function eventPrompt(args: {
   ctaText: string;
   subheadlineEnabled: boolean;
   subheadlineText: string;
+  /** Visual skin over the shared Event pipeline. "gambling" is the default
+   *  casino/betting look; "martial_arts" swaps the key-visual style and the
+   *  human-subject description for a cinematic fighter portrait while keeping
+   *  the exact same layout / text / brand / person on-off logic. */
+  styleVariant?: "gambling" | "martial_arts";
 }): string {
   const {
     subject,
@@ -198,7 +203,9 @@ function eventPrompt(args: {
     ctaText,
     subheadlineEnabled,
     subheadlineText,
+    styleVariant = "gambling",
   } = args;
+  const isMartial = styleVariant === "martial_arts";
   const [w, h] = aspectRatio.split(":").map(Number);
   const isHorizontal = w && h && w > h;
   const langLabel = LANG_LABELS[language] || "the most natural language for the brand";
@@ -209,7 +216,11 @@ function eventPrompt(args: {
     : "Centered vertical composition. Order top to bottom: 1) logo at top center, 2) key visual as dominant central focus (large, detailed, premium), 3) headline centered and bold, 4) supporting text centered and smaller, 5) CTA button centered with accent glow. Consistent vertical spacing, no long text lines, do not overcrowd the top area. Keep content within 5–8% safe margins.";
 
   const lines: string[] = [];
-  lines.push(`Create a premium gambling/betting advertisement banner in ${aspectRatio} format.`);
+  lines.push(
+    isMartial
+      ? `Create a premium martial-arts / combat-sports betting advertisement banner in ${aspectRatio} format.`
+      : `Create a premium gambling/betting advertisement banner in ${aspectRatio} format.`,
+  );
   lines.push(`CORE BRIEF: ${subject}`);
 
   if (brandName || hasLogo) {
@@ -224,9 +235,15 @@ function eventPrompt(args: {
     );
   }
 
-  lines.push(
-    "CONTENT THEME: Determine the specific gambling sub-vertical (poker, slots, roulette, sportsbook, esports, lottery, casino general) from the core brief above and build the key visual around it. Use iconic premium props of that vertical (golden cards and chips for poker; glowing slot reels and jackpot symbols for slots; spinning roulette wheel for roulette; stadium lights and balls for sportsbook; arena and gaming gear for esports; lottery tickets and bouncing balls for lottery).",
-  );
+  if (isMartial) {
+    lines.push(
+      "CONTENT THEME: Combat sports / martial arts (boxing, MMA/UFC, kickboxing, muay thai). Determine the specific discipline from the core brief above and build the key visual around it using iconic premium props — laced boxing gloves, hand wraps, an MMA octagon cage silhouette, a championship title belt, a mouthguard, ring ropes — as dramatic hero elements. Dark arena with a single hard spotlight, smoke haze, sparks, sweat particles suspended in the light.",
+    );
+  } else {
+    lines.push(
+      "CONTENT THEME: Determine the specific gambling sub-vertical (poker, slots, roulette, sportsbook, esports, lottery, casino general) from the core brief above and build the key visual around it. Use iconic premium props of that vertical (golden cards and chips for poker; glowing slot reels and jackpot symbols for slots; spinning roulette wheel for roulette; stadium lights and balls for sportsbook; arena and gaming gear for esports; lottery tickets and bouncing balls for lottery).",
+    );
+  }
 
   if (eventText) {
     lines.push(
@@ -235,16 +252,38 @@ function eventPrompt(args: {
   }
 
   if (personEnabled) {
-    const who =
-      personGender === "male" ? "confident stylish young man" : "confident attractive young woman";
+    if (isMartial) {
+      const fighter =
+        personGender === "male"
+          ? "powerful male martial artist / fighter"
+          : "powerful female martial artist / fighter";
+      lines.push(
+        `HUMAN SUBJECT: Place a ${fighter} as the central subject — a cinematic close-up hero portrait (50mm lens, ARRI Alexa look), centered, near head-on. Wet slicked-back hair, skin glistening with sweat, dewy no-makeup look, laced boxing/MMA gloves or taped fists raised in a fighting stance in front of the face. Intense, concentrated, purposeful gaze straight into the camera. Bright directional key light from the front that highlights the beads of sweat and skin texture; one side of the face lit, the other falling into shadow. Signature effect: orange-red glowing light and abstract luminous energy lines wrapping around the head and passing across the face and neck, creating a dynamic high-tech, futuristic feel. Strong, austere, glamorous-athletic mood, sharp focus, highly detailed.`,
+      );
+    } else {
+      const who =
+        personGender === "male"
+          ? "confident stylish young man"
+          : "confident attractive young woman";
+      lines.push(
+        `HUMAN SUBJECT: Place a ${who} as the central subject. Premium gambling-ad aesthetic, expressive, cinematic lighting, glossy skin, sharp focus.`,
+      );
+    }
+  } else if (isMartial) {
     lines.push(
-      `HUMAN SUBJECT: Place a ${who} as the central subject. Premium gambling-ad aesthetic, expressive, cinematic lighting, glossy skin, sharp focus.`,
+      "NO HUMAN SUBJECT: Do NOT include any person, model, or face. Build the key visual entirely around martial-arts symbolism — raised laced gloves or taped fists, a championship title belt, an octagon cage or ring ropes silhouette — as the dramatic hero object, wrapped in the same orange-red glowing energy lines, sweat particles and hard spotlight. The combat energy is carried by objects and light, not by a face.",
     );
   }
 
-  lines.push(
-    "STYLE: vibrant, cinematic, highly detailed, glossy, high-contrast, depth, glow effects, atmospheric lighting, soft smoke, particles, reflections, dynamic energy. Clean, modern, highly readable composition.",
-  );
+  if (isMartial) {
+    lines.push(
+      "STYLE: cinematic combat-sports poster aesthetic — dramatic, gritty, high-contrast, deep shadows, hard rim light, atmospheric smoke haze, sparks, sweat particles, orange-red energy light streaks, high-tech glow. Saturated colors, dimensional depth, sharp focus. Clean, modern, highly readable composition.",
+    );
+  } else {
+    lines.push(
+      "STYLE: vibrant, cinematic, highly detailed, glossy, high-contrast, depth, glow effects, atmospheric lighting, soft smoke, particles, reflections, dynamic energy. Clean, modern, highly readable composition.",
+    );
+  }
   lines.push(`LAYOUT: ${layout}`);
 
   // TEXT ON BANNER
@@ -802,7 +841,12 @@ export async function POST(request: Request) {
         const presetId = (body.preset_id || "").trim();
         const quality: "low" | "medium" | "high" =
           body.quality === "high" ? "high" : body.quality === "medium" ? "medium" : "low";
+        // Martial-arts preset rides the Event pipeline with a different visual
+        // skin (styleVariant). It counts as "event-like" for every shared
+        // field (event text, subheadline, person on/off + gender, fidelity).
+        const isMartialPreset = presetId === "preset5" || template === "MARTIAL_ARTS_PRESET";
         const isEventPreset = presetId === "preset3" || template === "EVENT_PRESET";
+        const isEventLikePreset = isEventPreset || isMartialPreset;
         const eventText = (body.event_text || "").trim().slice(0, 200);
         const subheadlineText = (body.subheadline_text || "").trim().slice(0, 300);
         const subheadlineEnabled = !!body.subheadline_enabled;
@@ -864,7 +908,7 @@ export async function POST(request: Request) {
               sideAPlayers: (body.side_a_players || "").trim().slice(0, 200),
               sideBPlayers: (body.side_b_players || "").trim().slice(0, 200),
             });
-          } else if (isEventPreset) {
+          } else if (isEventLikePreset) {
             finalPrompt = eventPrompt({
               subject: effectiveSubject,
               aspectRatio: body.aspect_ratio || "1:1",
@@ -881,6 +925,7 @@ export async function POST(request: Request) {
               ctaText: buttonText,
               subheadlineEnabled,
               subheadlineText,
+              styleVariant: isMartialPreset ? "martial_arts" : "gambling",
             });
           } else if (hasSlotScreenshot || hasSlotLogo || slotName) {
             finalPrompt = slotPrompt(
@@ -973,7 +1018,7 @@ export async function POST(request: Request) {
         if (isSlotPresetEffective) {
           pushFidelity("SLOT NAME", slotName);
         }
-        if (isEventPreset) {
+        if (isEventLikePreset) {
           pushFidelity("EVENT TEXT", eventText);
         }
         if (isSportPreset) {

@@ -9,7 +9,7 @@
 
 // ---- Scene types (left column) ---------------------------------------------
 
-export type VideoSceneType = "screencast" | "talkinghead" | "overlay" | "voiceover";
+export type VideoSceneType = "ugc" | "screencast" | "talkinghead" | "overlay" | "voiceover";
 
 export const VIDEO_SCENE_TYPES: {
   id: VideoSceneType;
@@ -19,13 +19,28 @@ export const VIDEO_SCENE_TYPES: {
   needsAvatar: boolean;
   /** Whether the "Сцена/фон" section asks for a screen recording upload. */
   needsScreencast: boolean;
+  /** UGC scenes ask for a product photo + a UGC style (avatar reviews/tests
+   *  the product). Mirrors Sibrik's "аватар + продукт" flow. */
+  needsProduct: boolean;
+  /** Marks a freshly-added scene type with a "Новое" badge in the picker. */
+  isNew?: boolean;
 }[] = [
+  {
+    id: "ugc",
+    label: "UGC: аватар + продукт",
+    description: "Аватар-актёр обозревает/тестирует ваш продукт",
+    needsAvatar: true,
+    needsScreencast: false,
+    needsProduct: true,
+    isNew: true,
+  },
   {
     id: "screencast",
     label: "Скринкаст с озвучкой",
     description: "Запись/загрузка экрана + голос поверх",
     needsAvatar: false,
     needsScreencast: true,
+    needsProduct: false,
   },
   {
     id: "talkinghead",
@@ -33,6 +48,7 @@ export const VIDEO_SCENE_TYPES: {
     description: "AI-аватар говорит на камеру",
     needsAvatar: true,
     needsScreencast: false,
+    needsProduct: false,
   },
   {
     id: "overlay",
@@ -40,6 +56,7 @@ export const VIDEO_SCENE_TYPES: {
     description: "Аватар в углу поверх демо/скринкаста",
     needsAvatar: true,
     needsScreencast: true,
+    needsProduct: false,
   },
   {
     id: "voiceover",
@@ -47,7 +64,25 @@ export const VIDEO_SCENE_TYPES: {
     description: "Закадровый голос поверх сцены / B-roll",
     needsAvatar: false,
     needsScreencast: false,
+    needsProduct: false,
   },
+];
+
+// ---- UGC styles (Sibrik-style presets for the "аватар + продукт" scene) -----
+
+export type UgcStyle = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+export const VIDEO_UGC_STYLES: UgcStyle[] = [
+  { id: "beauty", label: "UGC Beauty", description: "Обзор и реалистичный тест бьюти-продукта" },
+  { id: "clothing", label: "UGC Clothing", description: "Примерка одежды / try-on обзор" },
+  { id: "unboxing", label: "UGC Unboxing", description: "Распаковка и первое впечатление" },
+  { id: "promo", label: "Promo UGC", description: "Энергичное промо с призывом к действию" },
+  { id: "live", label: "UGC Live", description: "Живой отзыв «на камеру», как у блогера" },
+  { id: "space", label: "Обзор пространства", description: "Продукт в интерьере / lifestyle-сцене" },
 ];
 
 export const VIDEO_SCENE_BY_ID = new Map(VIDEO_SCENE_TYPES.map((s) => [s.id, s]));
@@ -206,6 +241,9 @@ export type VideoInput = {
   topic: string;
   avatarId: string;
   customAvatar: string;
+  /** UGC scene: uploaded product photo (data URL) + chosen UGC style id. */
+  product: string;
+  ugcStyle: string;
   voiceId: string;
   backgroundId: string;
   customBackground: string;

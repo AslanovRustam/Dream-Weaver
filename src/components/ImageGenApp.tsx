@@ -29,6 +29,7 @@ import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
+import { estimateBannerCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -264,6 +265,11 @@ export function ImageGenApp() {
   const isSlotPreset = preset === "preset2";
   const isEventPreset = preset === "preset3";
   const isSportPreset = preset === "preset4";
+  // Martial-arts preset reuses the whole Event pipeline (same fields, same
+  // person on/off + gender selector) and only swaps the visual style on the
+  // server. Anywhere Event-specific fields are shown/sent, treat it like Event.
+  const isMartialPreset = preset === "preset5";
+  const isEventLikePreset = isEventPreset || isMartialPreset;
 
   // ---- Undo/Redo wiring -----------------------------------------------------
   // The header's Undo/Redo buttons drive the global editor history. We keep a
@@ -768,6 +774,8 @@ export function ImageGenApp() {
   const onLogoFile = (file: File | null) => compressImageFile(file, setBrandLogo, 256);
 
   const ratios = useMemo(() => (model === "gpt" ? RATIOS_GPT : RATIOS_NANO), [model]);
+  // PRELIMINARY credit estimate for the generate button (see lib/credit-estimate).
+  const estCredits = useMemo(() => estimateBannerCredits({ model, quality }), [model, quality]);
   const currentPreset = PRESETS.find((p) => p.id === preset);
 
   // Switching the preset or model invalidates a FRESHLY-generated
@@ -888,11 +896,12 @@ export function ImageGenApp() {
       slot_name: isSlotPreset ? slotName : "",
       slot_screenshot: isSlotPreset ? slotScreenshot : "",
       slot_logo: isSlotPreset ? slotLogo : "",
-      event_text: isEventPreset ? eventText : "",
-      subheadline_text: (isEventPreset || isSportPreset) && subheadlineEnabled ? subheadline : "",
+      event_text: isEventLikePreset ? eventText : "",
+      subheadline_text:
+        (isEventLikePreset || isSportPreset) && subheadlineEnabled ? subheadline : "",
       banner_text_enabled: bannerTextEnabled,
       button_text_enabled: buttonTextEnabled,
-      subheadline_enabled: (isEventPreset || isSportPreset) && subheadlineEnabled,
+      subheadline_enabled: (isEventLikePreset || isSportPreset) && subheadlineEnabled,
       sport_type: isSportPreset ? sportType : "",
       match_type: isSportPreset ? matchType : "",
       side_a_name: isSportPreset ? sideAName : "",
@@ -1029,15 +1038,17 @@ export function ImageGenApp() {
                     placeholder={
                       isSportPreset
                         ? "Например: финал Лиги Чемпионов между PSG и Liverpool…"
-                        : isEventPreset
-                          ? "Например: турнир по покеру на новогодние праздники, призовой фонд $100k…"
-                          : "Новинка, акция, скидка, ключевые преимущества, спецпредложение…"
+                        : isMartialPreset
+                          ? "Например: бонус на бой по ММА, титульный поединок, промо к турниру UFC…"
+                          : isEventPreset
+                            ? "Например: турнир по покеру на новогодние праздники, призовой фонд $100k…"
+                            : "Новинка, акция, скидка, ключевые преимущества, спецпредложение…"
                     }
                   />
                 </div>
               )}
 
-              {isEventPreset && (
+              {isEventLikePreset && (
                 <div>
                   <label className="mb-2 block ds-h4">
                     Событие / повод <span className="text-muted-foreground">(опционально)</span>
@@ -1354,7 +1365,7 @@ export function ImageGenApp() {
                   onToggle={setBannerTextEnabled}
                   value={bannerText}
                   onChange={setBannerText}
-                  placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Летняя акция"}
+                  placeholder={isEventLikePreset ? "Пусто = ИИ сгенерирует" : "Летняя акция"}
                   maxLength={50}
                 />
                 <OptionalField
@@ -1363,12 +1374,12 @@ export function ImageGenApp() {
                   onToggle={setButtonTextEnabled}
                   value={buttonText}
                   onChange={setButtonText}
-                  placeholder={isEventPreset ? "Пусто = ИИ сгенерирует" : "Купить"}
+                  placeholder={isEventLikePreset ? "Пусто = ИИ сгенерирует" : "Купить"}
                   maxLength={24}
                 />
               </div>
 
-              {(isEventPreset || isSportPreset) && (
+              {(isEventLikePreset || isSportPreset) && (
                 <OptionalField
                   label="Подзаголовок / преимущества"
                   enabled={subheadlineEnabled}
@@ -1447,7 +1458,9 @@ export function ImageGenApp() {
               }
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : imageUrl ? "Сгенерировать заново" : "Сгенерировать"}
+              {status === "loading"
+                ? "Генерация…"
+                : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${formatCreditsEstimate(estCredits)}`}
             </button>
             {((!isSlotPreset && prompt.trim().length === 0) ||
               (isSlotPreset && slotName.trim().length === 0)) &&

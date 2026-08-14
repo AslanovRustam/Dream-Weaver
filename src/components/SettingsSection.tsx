@@ -12,6 +12,7 @@ export function SettingsSection({
   icon,
   required,
   done,
+  step,
   open,
   onToggle,
   children,
@@ -20,6 +21,9 @@ export function SettingsSection({
   icon?: ReactNode;
   required?: boolean;
   done?: boolean;
+  /** 1-based step number for the guided-flow badge. When set, a leading
+   *  numbered circle shows the step and flips to a green check once `done`. */
+  step?: number;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
@@ -32,12 +36,23 @@ export function SettingsSection({
         aria-expanded={open}
         className="flex w-full items-center gap-2.5 p-3 text-left transition hover:bg-white/5"
       >
+        {step != null ? (
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition ${
+              done
+                ? "bg-accent-green text-on-accent"
+                : "border border-border bg-white/5 text-muted-foreground"
+            }`}
+          >
+            {done ? <Check className="h-3 w-3" /> : step}
+          </span>
+        ) : null}
         {icon ? <span className="shrink-0">{icon}</span> : null}
         <span className="flex-1 ds-h4">
           {title}
           {required ? <span className="text-[color:var(--status-error)]"> *</span> : null}
         </span>
-        {done ? (
+        {done && step == null ? (
           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent-green/20 text-accent-green">
             <Check className="h-3 w-3" />
           </span>

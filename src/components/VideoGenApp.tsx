@@ -55,6 +55,7 @@ import {
   CREATIVE_LANGUAGES,
   creativeLangShort,
 } from "@/lib/creative-language";
+import { estimateVideoCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
 import {
   VIDEO_SCENE_TYPES,
   VIDEO_SCENE_BY_ID,
@@ -63,6 +64,7 @@ import {
   VIDEO_VOICES,
   VIDEO_MUSIC,
   VIDEO_MOODS,
+  VIDEO_UGC_STYLES,
   VIDEO_BACKGROUNDS,
   VIDEO_RATIOS,
   VIDEO_STAGES,
@@ -120,8 +122,12 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 
 export function VideoGenApp() {
   const { isGuest, openGate } = useAuthGate();
-  const [sceneType, setSceneType] = useState<VideoSceneType>("talkinghead");
+  const [sceneType, setSceneType] = useState<VideoSceneType>("ugc");
   const scene = VIDEO_SCENE_BY_ID.get(sceneType)!;
+
+  // UGC scene: uploaded product photo + chosen UGC style (Sibrik-style flow).
+  const [product, setProduct] = useState("");
+  const [ugcStyle, setUgcStyle] = useState(VIDEO_UGC_STYLES[0].id);
 
   // Сценарий
   const [script, setScript] = useState("");
@@ -185,6 +191,7 @@ export function VideoGenApp() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
+  const productInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initedRef = useRef(false);
 
@@ -225,6 +232,8 @@ export function VideoGenApp() {
   // Guests keep the button enabled so pressing it opens the register modal.
   const canGenerate = isGuest || (script.trim().length > 0 && status !== "loading");
   const durationSec = estimateDurationSec(script || " ");
+  // PRELIMINARY credit estimate for the generate button (see lib/credit-estimate).
+  const estCredits = estimateVideoCredits({ durationSec });
 
   const persistBrand = () => {
     if (typeof window === "undefined") return;
@@ -357,12 +366,24 @@ export function VideoGenApp() {
     { id: "script", title: "Сценарий", show: true, done: script.trim().length > 0 },
     { id: "avatar", title: "Персонаж / аватар", show: scene.needsAvatar, done: !!avatarId || !!customAvatar },
     { id: "voice", title: "Голос", show: true, done: !!voiceId },
-    { id: "scene", title: "Сцена / фон", show: true, done: scene.needsScreencast ? !!screencast : !!backgroundId },
+    {
+      id: "scene",
+      title: scene.needsProduct ? "Продукт и стиль" : "Сцена / фон",
+      show: true,
+      done: scene.needsScreencast ? !!screencast : scene.needsProduct ? !!product : !!backgroundId,
+    },
     { id: "music", title: "Музыка и доп. элементы", show: true, done: true },
     { id: "lang", title: "Язык", show: true, done: true },
     { id: "brand", title: "Бренд и формат", show: true, done: true },
   ];
   const visibleSections = sectionList.filter((s) => s.show);
+  // 1-based step number for the guided flow — derived from the VISIBLE order so
+  // numbering stays contiguous when a section is hidden (e.g. avatar for scenes
+  // that don't need one).
+  const stepOf = (id: SectionId) => {
+    const i = visibleSections.findIndex((s) => s.id === id);
+    return i >= 0 ? i + 1 : undefined;
+  };
 
   const frame = () => {
     const [rw, rh] = ratio.split(":").map(Number);
@@ -417,7 +438,7 @@ export function VideoGenApp() {
                 icon={<Wand2 className="h-4 w-4 text-accent-green" />}
                 required
                 done={script.trim().length > 0}
-                open={open.script}
+                step={stepOf("script")} open={open.script}
                 onToggle={() => toggle("script")}
               >
                 <div className="flex flex-col gap-3">
@@ -477,7 +498,7 @@ export function VideoGenApp() {
                   title="Персонаж / аватар"
                   icon={<UserPlus className="h-4 w-4 text-accent-green" />}
                   done={!!avatarId || !!customAvatar}
-                  open={open.avatar}
+                  step={stepOf("avatar")} open={open.avatar}
                   onToggle={() => toggle("avatar")}
                 >
                   <div className="flex flex-col gap-3">
@@ -603,7 +624,7 @@ export function VideoGenApp() {
                 title="Голос"
                 icon={<Mic className="h-4 w-4 text-accent-green" />}
                 done={!!voiceId || !!customVoice}
-                open={open.voice}
+                step={stepOf("voice")} open={open.voice}
                 onToggle={() => toggle("voice")}
               >
                 <div className="flex flex-col gap-2">
@@ -660,15 +681,98 @@ export function VideoGenApp() {
                 </div>
               </SettingsSection>
 
-              {/* ── Сцена / фон ──────────────────────────────────────────── */}
+              {/* ── Сцена / фон · или · Продукт и стиль (UGC) ────────────── */}
               <SettingsSection
-                title="Сцена / фон"
+                title={scene.needsProduct ? "Продукт и стиль" : "Сцена / фон"}
                 icon={<Clapperboard className="h-4 w-4 text-accent-green" />}
-                done={scene.needsScreencast ? !!screencast : !!backgroundId}
-                open={open.scene}
+                done={
+                  scene.needsScreencast
+                    ? !!screencast
+                    : scene.needsProduct
+                      ? !!product
+                      : !!backgroundId
+                }
+                step={stepOf("scene")} open={open.scene}
                 onToggle={() => toggle("scene")}
               >
-                {scene.needsScreencast ? (
+                {scene.needsProduct ? (
+                  <div className="flex flex-col gap-4">
+                    {/* Product photo upload */}
+                    <div>
+                      <p className="mb-2 ds-label">Фото продукта</p>
+                      <button
+                        type="button"
+                        onClick={() => productInputRef.current?.click()}
+                        className={`relative flex h-32 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed transition ${
+                          product
+                            ? "border-accent-green"
+                            : "border-border bg-background/40 hover:border-foreground/40"
+                        }`}
+                      >
+                        {product ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product}
+                            alt="Продукт"
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="flex flex-col items-center gap-1.5 text-center">
+                            <Upload className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-sm font-medium">Загрузить фото продукта</span>
+                            <span className="ds-caption">PNG/JPG · чёткое фото товара</span>
+                          </span>
+                        )}
+                      </button>
+                      {product ? (
+                        <button
+                          type="button"
+                          onClick={() => setProduct("")}
+                          className="mt-2 text-xs text-muted-foreground transition hover:text-foreground"
+                        >
+                          Удалить фото
+                        </button>
+                      ) : null}
+                      <input
+                        ref={productInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => compressImageFile(e.target.files?.[0] ?? null, setProduct, 768)}
+                      />
+                    </div>
+
+                    {/* UGC style picker */}
+                    <div>
+                      <p className="mb-2 ds-label">Стиль UGC</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {VIDEO_UGC_STYLES.map((s) => {
+                          const active = ugcStyle === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setUgcStyle(s.id)}
+                              title={s.description}
+                              className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition ${
+                                active
+                                  ? "border-accent-green bg-accent-green/10"
+                                  : "border-border hover:border-foreground/40"
+                              }`}
+                            >
+                              <span
+                                className={`truncate text-sm font-medium ${active ? "text-accent-green" : ""}`}
+                              >
+                                {s.label}
+                              </span>
+                              <span className="truncate ds-caption">{s.description}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : scene.needsScreencast ? (
                   <div className="flex flex-col gap-3">
                     <label className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-background/40 px-4 py-6 text-center transition hover:border-foreground/40">
                       <Upload className="h-5 w-5 text-muted-foreground" />
@@ -752,7 +856,7 @@ export function VideoGenApp() {
                 title="Музыка и доп. элементы"
                 icon={<Music className="h-4 w-4 text-accent-green" />}
                 done
-                open={open.music}
+                step={stepOf("music")} open={open.music}
                 onToggle={() => toggle("music")}
               >
                 <div className="flex flex-col gap-3">
@@ -875,7 +979,7 @@ export function VideoGenApp() {
                 title="Язык"
                 icon={<Globe className="h-4 w-4 text-accent-green" />}
                 done
-                open={open.lang}
+                step={stepOf("lang")} open={open.lang}
                 onToggle={() => toggle("lang")}
               >
                 <div className="flex flex-col gap-3">
@@ -930,7 +1034,7 @@ export function VideoGenApp() {
                 title="Бренд и формат"
                 icon={<Sparkles className="h-4 w-4 text-accent-green" />}
                 done
-                open={open.brand}
+                step={stepOf("brand")} open={open.brand}
                 onToggle={() => toggle("brand")}
               >
                 <div className="flex flex-col gap-3">
@@ -1008,7 +1112,9 @@ export function VideoGenApp() {
               disabled={!canGenerate}
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Генерация…" : result ? "Сгенерировать заново" : "Сгенерировать"}
+              {status === "loading"
+                ? "Генерация…"
+                : `${result ? "Сгенерировать заново" : "Сгенерировать"} · ${formatCreditsEstimate(estCredits)}`}
             </button>
             {script.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">

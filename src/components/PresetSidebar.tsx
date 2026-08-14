@@ -14,6 +14,9 @@ export type Preset = {
   preview?: string;
   examples: string[];
   template?: string;
+  /** Shows a lime "Новое" badge on the tile and floats the preset to the top
+   *  under the "Сначала новые" sort. */
+  isNew?: boolean;
 };
 
 export const PRESETS: Preset[] = [
@@ -111,7 +114,665 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
     ],
     template: "SPORT_PRESET",
   },
+  {
+    id: "preset5",
+    name: "Боевые искусства",
+    description: "Кинематографичный fighter-портрет: бокс/ММА, пот, энергетический свет",
+    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#dc2626)",
+      "linear-gradient(160deg,#111827,#f59e0b)",
+      "linear-gradient(120deg,#7f1d1d,#f97316)",
+      "linear-gradient(140deg,#0b0b0f,#ef4444)",
+    ],
+    template: "MARTIAL_ARTS_PRESET",
+    isNew: true,
+  },
+  // ── Style/effect templates (Higgsfield-inspired) — plain `template` strings
+  //    that flow through the generic adaptPrompt rewrite. Each swaps only the
+  //    visual STYLE; {SUBJECT} is filled with the banner topic at generation. ──
+  {
+    id: "preset6",
+    name: "Джекпот-взрыв",
+    description: "Взрыв монет и фишек, big-win энергия, объёмный свет",
+    gradient: "linear-gradient(135deg,#0b0b0f,#f59e0b,#fde047)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#f59e0b)",
+      "linear-gradient(160deg,#1e1b4b,#fde047)",
+      "linear-gradient(120deg,#7c2d12,#fbbf24)",
+      "linear-gradient(140deg,#0b0b0f,#f97316)",
+    ],
+    isNew: true,
+    template:
+      "Create a high-energy casino/gambling advertisement banner for {SUBJECT}. " +
+      "STYLE: explosive big-win moment — a burst of gold coins, casino chips and confetti flying toward the camera, volumetric light rays, sparks, glowing particles, dramatic depth of field. " +
+      "COMPOSITION: the hero subject sits in the CENTER emerging from the explosion; coins and chips radiate outward; strong central focal point. " +
+      "LIGHTING: warm golden key light, rim light on the subject, glints on metallic coins. " +
+      "TYPOGRAPHY & LAYOUT: bold headline area kept in the central safe zone; leave room for a CTA button below; do not clutter the corners. " +
+      "COLOR: black/deep-navy base with gold and lime accents. " +
+      "AVOID: muddy contrast, unreadable text, more than 3 dominant colors, generic stock-photo look.",
+  },
+  {
+    id: "preset7",
+    name: "Ультрафиолет / Неон",
+    description: "Киберпанк-неон, фиолет-циан свечение, голо-UI",
+    gradient: "linear-gradient(135deg,#0f0524,#7c3aed,#22d3ee)",
+    examples: [
+      "linear-gradient(135deg,#0f0524,#7c3aed)",
+      "linear-gradient(160deg,#1e1b4b,#22d3ee)",
+      "linear-gradient(120deg,#3b0764,#06b6d4)",
+      "linear-gradient(140deg,#020617,#a855f7)",
+    ],
+    isNew: true,
+    template:
+      "Create a cyberpunk neon advertisement banner for {SUBJECT}. " +
+      "STYLE: ultraviolet neon aesthetic — glowing purple and cyan light, holographic UI panels, laser grid, wet reflective floor, volumetric haze, glassmorphism, high-tech energy. " +
+      "COMPOSITION: hero subject centered with a strong neon rim light separating it from a dark futuristic background. " +
+      "LIGHTING: neon key lights (magenta + cyan), glowing edges, reflections and lens flares. " +
+      "TYPOGRAPHY & LAYOUT: crisp modern sans-serif with subtle glow; headline and CTA inside the central safe zone. " +
+      "COLOR: near-black base, 2 neon accents (violet + cyan) only. " +
+      "AVOID: washed-out contrast, cluttered corners, unreadable glowing text, more than 3 dominant colors.",
+  },
+  {
+    id: "preset8",
+    name: "Рулетка в движении",
+    description: "Крутящаяся рулетка и шарик, motion-blur, стол казино",
+    gradient: "linear-gradient(135deg,#0b0b0f,#166534,#f59e0b)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#166534)",
+      "linear-gradient(160deg,#14532d,#f59e0b)",
+      "linear-gradient(120deg,#052e16,#fbbf24)",
+      "linear-gradient(140deg,#0b0b0f,#15803d)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium casino roulette advertisement banner for {SUBJECT}. " +
+      "STYLE: dynamic spinning roulette wheel — glossy red/black pockets, a bright ball caught mid-spin with motion blur, green felt table, chips and a gold rim, dramatic depth of field, cinematic casino energy. " +
+      "COMPOSITION: the roulette wheel as the hero element (angled 3/4 view) in the central focal area; hero subject or brand accent alongside. " +
+      "LIGHTING: warm spotlight on the wheel, glossy specular highlights, soft rim light. " +
+      "TYPOGRAPHY & LAYOUT: bold headline and CTA inside the central safe zone; leave the corners for atmosphere. " +
+      "COLOR: casino green felt + red/black + gold accent (max 3 dominant colors). " +
+      "AVOID: flat lifeless wheel, unreadable text, cluttered corners, generic stock-photo look.",
+  },
+  {
+    id: "preset9",
+    name: "Ретро-Вегас / Vaporwave",
+    description: "80–90-е Вегас: хром-текст, неон-закат, VHS-зерно",
+    gradient: "linear-gradient(135deg,#2b1055,#ff2d95,#ffd36e)",
+    examples: [
+      "linear-gradient(135deg,#2b1055,#ff2d95)",
+      "linear-gradient(160deg,#1a103d,#ffd36e)",
+      "linear-gradient(120deg,#3b0764,#f472b6)",
+      "linear-gradient(140deg,#0f172a,#fb7185)",
+    ],
+    isNew: true,
+    template:
+      "Create a retro 80s–90s Las Vegas / vaporwave advertisement banner for {SUBJECT}. " +
+      "STYLE: nostalgic vaporwave — chrome 3D lettering, sunset gradient (magenta→purple→orange), palm-tree silhouettes, retro marquee light bulbs, subtle VHS grain and scanlines, grid horizon. " +
+      "COMPOSITION: hero subject centered against the sunset grid; retro sun behind. " +
+      "LIGHTING: warm neon glow, chrome reflections. " +
+      "TYPOGRAPHY & LAYOUT: bold chrome/neon headline, retro CTA, all within the central safe zone. " +
+      "COLOR: magenta, purple and warm orange accents. " +
+      "AVOID: modern flat minimalism, unreadable text, overly busy grain.",
+  },
+  {
+    id: "preset10",
+    name: "Luxury Noir (VIP)",
+    description: "Чёрное с золотом, драматичный свет, премиум hi-roller",
+    gradient: "linear-gradient(135deg,#000000,#1c1917,#d4af37)",
+    examples: [
+      "linear-gradient(135deg,#000000,#d4af37)",
+      "linear-gradient(160deg,#0b0b0f,#b8860b)",
+      "linear-gradient(120deg,#1c1917,#eab308)",
+      "linear-gradient(140deg,#000000,#facc15)",
+    ],
+    isNew: true,
+    template:
+      "Create a luxury black-and-gold VIP casino advertisement banner for {SUBJECT}. " +
+      "STYLE: cinematic noir premium — deep blacks, gold accents, dramatic single-source lighting, soft smoke, elegant high-roller mood, gold-foil details, film-noir shadows. " +
+      "COMPOSITION: hero subject centered, dramatic chiaroscuro, lots of dark negative space. " +
+      "LIGHTING: one hard key light, deep falloff into shadow, gold specular highlights. " +
+      "TYPOGRAPHY & LAYOUT: elegant serif or refined sans headline in gold, understated CTA, central safe zone. " +
+      "COLOR: black base + gold accent only (2 colors). " +
+      "AVOID: bright cheerful palettes, clutter, weak contrast, more than 2 dominant colors.",
+  },
+  {
+    id: "preset11",
+    name: "Комикс поп-арт",
+    description: "Полутон Бен-Дэй, чернильный контур, «WIN!» в облаке",
+    gradient: "linear-gradient(135deg,#1d4ed8,#facc15,#ef4444)",
+    examples: [
+      "linear-gradient(135deg,#1d4ed8,#facc15)",
+      "linear-gradient(160deg,#2563eb,#ef4444)",
+      "linear-gradient(120deg,#f59e0b,#dc2626)",
+      "linear-gradient(140deg,#1e3a8a,#fbbf24)",
+    ],
+    isNew: true,
+    template:
+      "Create a comic-book pop-art advertisement banner for {SUBJECT}. " +
+      "STYLE: bold comic pop-art — thick black ink outlines, Ben-Day halftone dots, vivid primary colors, dynamic action lines, a burst/star callout, optional speech bubble. " +
+      "COMPOSITION: energetic centered hero with radial action lines; comic-panel feel. " +
+      "LIGHTING: flat cel-shaded comic lighting, hard highlights. " +
+      "TYPOGRAPHY & LAYOUT: bold comic display font, headline inside a burst or bubble, CTA as a comic button — all in the central safe zone. " +
+      "COLOR: 2–3 vivid primaries (blue, red, yellow). " +
+      "AVOID: photorealism, muddy gradients, tiny unreadable text.",
+  },
+  {
+    id: "preset12",
+    name: "Покер-нуар",
+    description: "Роял-флеш и стопки фишек макро, драматичный стол",
+    gradient: "linear-gradient(135deg,#0b0b0f,#7f1d1d,#d4af37)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#7f1d1d)",
+      "linear-gradient(160deg,#1c1917,#d4af37)",
+      "linear-gradient(120deg,#450a0a,#eab308)",
+      "linear-gradient(140deg,#0b0b0f,#b91c1c)",
+    ],
+    isNew: true,
+    template:
+      "Create a cinematic poker advertisement banner for {SUBJECT}. " +
+      "STYLE: dramatic poker-noir — a winning hand of cards (e.g. a royal flush) and tall stacks of casino chips shot macro on a dark felt table, moody low-key lighting, cigar smoke haze, gold accents, high-stakes cinematic mood. " +
+      "COMPOSITION: hero cards and chip stacks as the central focal point; optional confident player hand or subject alongside. " +
+      "LIGHTING: single warm overhead table light, deep shadow falloff, gold specular glints on chips. " +
+      "TYPOGRAPHY & LAYOUT: bold headline and CTA inside the central safe zone; keep corners dark and atmospheric. " +
+      "COLOR: dark felt (green or deep red) base + gold accent (max 3 dominant colors). " +
+      "AVOID: bright flat lighting, unreadable text, cluttered corners, generic stock-photo look.",
+  },
+  {
+    id: "preset13",
+    name: "Голо-статборд",
+    description: "Голографические коэффициенты, HUD, стат-графы",
+    gradient: "linear-gradient(135deg,#020617,#1d4ed8,#22d3ee)",
+    examples: [
+      "linear-gradient(135deg,#020617,#1d4ed8)",
+      "linear-gradient(160deg,#0b1220,#22d3ee)",
+      "linear-gradient(120deg,#0f172a,#38bdf8)",
+      "linear-gradient(140deg,#020617,#3b82f6)",
+    ],
+    isNew: true,
+    template:
+      "Create a sports-betting holographic data-board advertisement banner for {SUBJECT}. " +
+      "STYLE: futuristic HUD / data-viz — glowing holographic odds, stat bars and line graphs, translucent UI panels, tracking reticles, a stadium/arena backdrop with floodlights and haze. " +
+      "COMPOSITION: hero subject (athlete or team symbol) centered with data overlays floating around; a clear odds/number highlight. " +
+      "LIGHTING: cool blue key light, glowing HUD accents, rim light on the subject. " +
+      "TYPOGRAPHY & LAYOUT: tabular futuristic numerals for odds, bold headline and CTA in the central safe zone. " +
+      "COLOR: dark navy base with electric blue + cyan accents. " +
+      "AVOID: fake scrambled numbers, cluttered edges, unreadable tiny stats, more than 3 dominant colors.",
+  },
+  {
+    id: "preset14",
+    name: "Стрит / граффити",
+    description: "Спрей-текстуры, граффити-теги, стритвир-энергия",
+    gradient: "linear-gradient(135deg,#111827,#22c55e,#f43f5e)",
+    examples: [
+      "linear-gradient(135deg,#111827,#22c55e)",
+      "linear-gradient(160deg,#0b0f17,#f43f5e)",
+      "linear-gradient(120deg,#1f2937,#a3e635)",
+      "linear-gradient(140deg,#0f172a,#fb7185)",
+    ],
+    isNew: true,
+    template:
+      "Create an urban street-graffiti advertisement banner for {SUBJECT}. " +
+      "STYLE: raw streetwear energy — spray-paint textures, graffiti tags and throw-ups on a concrete wall, dripping paint, stencil marks, torn poster layers, gritty grain, bold hype aesthetic. " +
+      "COMPOSITION: hero subject centered against the painted wall; graffiti frames the headline. " +
+      "LIGHTING: natural street lighting with strong contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold graffiti/stencil display headline, spray-style CTA, kept within the central safe zone. " +
+      "COLOR: gritty base + 1–2 vivid spray accents. " +
+      "AVOID: clean corporate minimalism, unreadable overlapping tags, weak contrast.",
+  },
+  {
+    id: "preset15",
+    name: "Мистик-фэнтези",
+    description: "Эпик-фэнтези: руны, сокровища, магические частицы",
+    gradient: "linear-gradient(135deg,#1e1b4b,#7c3aed,#d4af37)",
+    examples: [
+      "linear-gradient(135deg,#1e1b4b,#7c3aed)",
+      "linear-gradient(160deg,#0b0b2b,#d4af37)",
+      "linear-gradient(120deg,#312e81,#a855f7)",
+      "linear-gradient(140deg,#0f172a,#eab308)",
+    ],
+    isNew: true,
+    template:
+      "Create an epic fantasy slot advertisement banner for {SUBJECT}. " +
+      "STYLE: mythic fantasy realm — glowing magical runes, treasure hoards, dragons or mystical creatures, enchanted particles and embers, ornate carved gold frame, dramatic sword-and-sorcery mood. " +
+      "COMPOSITION: hero subject centered as the fantasy focal point, magical light emanating outward, ornate framing. " +
+      "LIGHTING: magical volumetric glow, warm gold + arcane purple light. " +
+      "TYPOGRAPHY & LAYOUT: ornate fantasy display headline, gilded CTA, all within the central safe zone. " +
+      "COLOR: deep purple/navy base with gold and arcane accents. " +
+      "AVOID: modern flat UI, unreadable ornate text, more than 3 dominant colors.",
+  },
+  // ── Betting-native templates (sportsbook domain) — plain `template` strings
+  //    routed through adaptPrompt like the others. ──
+  {
+    id: "preset16",
+    name: "Победный купон",
+    description: "Выигрышный бет-слип, денежный дождь, зелёный тикет",
+    gradient: "linear-gradient(135deg,#0b0b0f,#15803d,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#15803d)",
+      "linear-gradient(160deg,#052e16,#facc15)",
+      "linear-gradient(120deg,#14532d,#fbbf24)",
+      "linear-gradient(140deg,#0b0b0f,#22c55e)",
+    ],
+    isNew: true,
+    template:
+      "Create a sports-betting WIN advertisement banner for {SUBJECT}. " +
+      "STYLE: winning-moment energy — a glowing bet slip / ticket marked as WON, cash and coins raining, green confirmation glow, celebration sparks, stadium bokeh. " +
+      "COMPOSITION: the winning bet slip as the hero element in the central focal area, money and a big payout number around it. " +
+      "LIGHTING: bright green success glow, warm highlights on coins. " +
+      "TYPOGRAPHY & LAYOUT: bold headline and CTA in the central safe zone; a large payout figure allowed as an accent. " +
+      "COLOR: dark base + betting green + gold accent. " +
+      "AVOID: fake scrambled numbers on the slip, unreadable text, cluttered corners.",
+  },
+  {
+    id: "preset17",
+    name: "Live-ставки",
+    description: "Красный LIVE, in-play тикер, динамичный стадион",
+    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#dc2626)",
+      "linear-gradient(160deg,#111827,#f59e0b)",
+      "linear-gradient(120deg,#450a0a,#ef4444)",
+      "linear-gradient(140deg,#0b0b0f,#f97316)",
+    ],
+    isNew: true,
+    template:
+      "Create a LIVE in-play sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: real-time broadcast energy — a pulsing red LIVE badge, an in-play odds ticker, motion-blurred action, floodlit stadium, dynamic camera feel, HUD score strip. " +
+      "COMPOSITION: hero action moment centered with a LIVE badge and a live odds panel in the central zone. " +
+      "LIGHTING: stadium floodlights, punchy contrast, red accent glow. " +
+      "TYPOGRAPHY & LAYOUT: broadcast-style headline, live odds numerals and CTA inside the central safe zone. " +
+      "COLOR: dark base + broadcast red + one accent. " +
+      "AVOID: static lifeless composition, unreadable ticker text, cluttered corners.",
+  },
+  {
+    id: "preset18",
+    name: "Экспресс x50",
+    description: "Аккумулятор: цепочка исходов, крупный множитель",
+    gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#1d4ed8)",
+      "linear-gradient(160deg,#020617,#a3e635)",
+      "linear-gradient(120deg,#1e3a8a,#22d3ee)",
+      "linear-gradient(140deg,#0b1220,#3b82f6)",
+    ],
+    isNew: true,
+    template:
+      "Create an accumulator (parlay) sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: combo-bet energy — a chain of linked selections building up to one huge total-odds multiplier, glowing connectors, ticket stack, ascending arrow, electric momentum. " +
+      "COMPOSITION: the chained selections lead the eye to a big central multiplier number (the hero), CTA below. " +
+      "LIGHTING: cool blue base with a lime energy accent, glowing links. " +
+      "TYPOGRAPHY & LAYOUT: bold multiplier figure as the accent, headline + CTA in the central safe zone. " +
+      "COLOR: navy base + blue + lime accent. " +
+      "AVOID: unreadable odds text, cluttered chain, more than 3 dominant colors.",
+  },
+  {
+    id: "preset19",
+    name: "Коэффициент-буст",
+    description: "Усиленные коэффициенты, молния, электрический акцент",
+    gradient: "linear-gradient(135deg,#020617,#2563eb,#22d3ee)",
+    examples: [
+      "linear-gradient(135deg,#020617,#2563eb)",
+      "linear-gradient(160deg,#0b1220,#22d3ee)",
+      "linear-gradient(120deg,#1e3a8a,#38bdf8)",
+      "linear-gradient(140deg,#020617,#3b82f6)",
+    ],
+    isNew: true,
+    template:
+      "Create an ODDS BOOST sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: high-voltage boost — a boosted odds figure with lightning bolts, electric sparks, an upward 'boosted from → to' motif, energetic glow, charged atmosphere. " +
+      "COMPOSITION: one large boosted-odds number as the hero in the central zone, lightning framing it. " +
+      "LIGHTING: electric blue + cyan glow, bright rim on the number. " +
+      "TYPOGRAPHY & LAYOUT: huge bold odds numeral accent, short headline + CTA inside the central safe zone. " +
+      "COLOR: near-black base + electric blue/cyan accents. " +
+      "AVOID: fake garbled numbers, cluttered corners, weak contrast.",
+  },
+  {
+    id: "preset20",
+    name: "Приветственный бонус",
+    description: "Фрибет/бонус, подарок, «100%», монеты",
+    gradient: "linear-gradient(135deg,#1e1b4b,#7c3aed,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#1e1b4b,#7c3aed)",
+      "linear-gradient(160deg,#0f172a,#facc15)",
+      "linear-gradient(120deg,#3b0764,#fbbf24)",
+      "linear-gradient(140deg,#1e1b4b,#a855f7)",
+    ],
+    isNew: true,
+    template:
+      "Create a welcome-bonus / free-bet sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: gift-and-reward energy — a glowing gift box or free-bet token spilling coins, a bold bonus percentage callout, ribbons, sparkles, premium promo mood. " +
+      "COMPOSITION: the bonus offer (gift + big percentage) centered as the hero, CTA directly below. " +
+      "LIGHTING: warm celebratory glow, gold highlights on coins. " +
+      "TYPOGRAPHY & LAYOUT: large bonus figure as accent, welcome headline + CTA in the central safe zone. " +
+      "COLOR: violet base + gold accent. " +
+      "AVOID: cluttered promo callouts, unreadable text, more than 3 dominant colors.",
+  },
+  {
+    id: "preset21",
+    name: "Киберспорт-ставки",
+    description: "Esports-арена, неон-RGB, беттинг-оверлей",
+    gradient: "linear-gradient(135deg,#0f0524,#a855f7,#22d3ee)",
+    examples: [
+      "linear-gradient(135deg,#0f0524,#a855f7)",
+      "linear-gradient(160deg,#020617,#22d3ee)",
+      "linear-gradient(120deg,#3b0764,#06b6d4)",
+      "linear-gradient(140deg,#0f0524,#7c3aed)",
+    ],
+    isNew: true,
+    template:
+      "Create an esports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: competitive gaming arena — massive LED screens, neon RGB stage lighting, holographic match UI, gaming gear, a betting odds overlay, high-tech esports finals vibe. " +
+      "COMPOSITION: hero esports subject centered with a floating odds/match panel in the central zone. " +
+      "LIGHTING: RGB neon key lights, stage haze, glowing rim. " +
+      "TYPOGRAPHY & LAYOUT: bold gamer-style headline, odds and CTA within the central safe zone. " +
+      "COLOR: dark base + 2 neon accents (violet + cyan). " +
+      "AVOID: dated clip-art gaming look, unreadable neon text, cluttered corners.",
+  },
+  {
+    id: "preset22",
+    name: "Финиш / гонка",
+    description: "Скачки/гонка, motion-blur, финишная черта",
+    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f97316)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#dc2626)",
+      "linear-gradient(160deg,#111827,#f97316)",
+      "linear-gradient(120deg,#450a0a,#fb923c)",
+      "linear-gradient(140deg,#0b0b0f,#ef4444)",
+    ],
+    isNew: true,
+    template:
+      "Create a racing-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: speed and finish-line drama — horses or race cars charging toward a finish line, heavy motion blur, dust/spray, checkered-flag motif, adrenaline, low dynamic angle. " +
+      "COMPOSITION: the racing subject centered mid-charge, finish line and odds accent in the central zone. " +
+      "LIGHTING: dramatic side light, warm dust glow, strong contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold dynamic headline and CTA within the central safe zone. " +
+      "COLOR: dark base + red/orange speed accents. " +
+      "AVOID: static poses, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset23",
+    name: "Тото / лотерея",
+    description: "Лото-шары, счастливые числа, призовой пул",
+    gradient: "linear-gradient(135deg,#042f2e,#0d9488,#fbbf24)",
+    examples: [
+      "linear-gradient(135deg,#042f2e,#0d9488)",
+      "linear-gradient(160deg,#022c22,#fbbf24)",
+      "linear-gradient(120deg,#134e4a,#facc15)",
+      "linear-gradient(140deg,#042f2e,#14b8a6)",
+    ],
+    isNew: true,
+    template:
+      "Create a toto / lottery betting advertisement banner for {SUBJECT}. " +
+      "STYLE: jackpot-draw energy — bouncing numbered lottery balls, lucky numbers, a glowing prize-pool figure, sparkles and confetti, hopeful bright mood. " +
+      "COMPOSITION: lottery balls and a big prize-pool number centered as the hero, CTA below. " +
+      "LIGHTING: bright playful glow, glossy highlights on the balls. " +
+      "TYPOGRAPHY & LAYOUT: large prize figure accent, short headline + CTA in the central safe zone. " +
+      "COLOR: teal base + gold accent. " +
+      "AVOID: fake scrambled numbers, cluttered balls, unreadable text.",
+  },
+  {
+    id: "preset24",
+    name: "Дерби эмблем",
+    description: "Столкновение эмблем/флагов, VS, без лиц",
+    gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#1d4ed8)",
+      "linear-gradient(160deg,#0b0b0f,#dc2626)",
+      "linear-gradient(120deg,#1e3a8a,#ef4444)",
+      "linear-gradient(140deg,#020617,#2563eb)",
+    ],
+    isNew: true,
+    template:
+      "Create a rivalry / derby sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: emblem clash — two large stylized team crests or national flags facing off across a central VS divider, sparks at the clash point, dramatic split warm-vs-cool sides, arena atmosphere. NO human faces — symbolism only. " +
+      "COMPOSITION: symmetrical left-vs-right emblems with a bold VS in the center; odds and CTA in the central zone. " +
+      "LIGHTING: dramatic rim light on each crest, sparks and haze at the divider. " +
+      "TYPOGRAPHY & LAYOUT: bold matchup headline, VS mark and CTA within the central safe zone. " +
+      "COLOR: split palette — cool side vs warm side + neutral base. " +
+      "AVOID: photorealistic named athletes, unreadable text, cluttered corners.",
+  },
+  {
+    id: "preset25",
+    name: "Кэшаут",
+    description: "Момент кэшаута, зафиксированный выигрыш, зелёная кнопка",
+    gradient: "linear-gradient(135deg,#0b0b0f,#16a34a,#a3e635)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#16a34a)",
+      "linear-gradient(160deg,#052e16,#a3e635)",
+      "linear-gradient(120deg,#14532d,#22c55e)",
+      "linear-gradient(140deg,#0b0b0f,#4ade80)",
+    ],
+    isNew: true,
+    template:
+      "Create a CASH OUT sports-betting advertisement banner for {SUBJECT}. " +
+      "STYLE: secure-your-winnings energy — a glowing green CASH OUT button being pressed, a bet slip converting to guaranteed cash, upward secured-profit motif, coins, reassuring premium feel. " +
+      "COMPOSITION: the cash-out button and secured payout figure centered as the hero, CTA aligned with it. " +
+      "LIGHTING: confident green success glow, gold highlights on cash. " +
+      "TYPOGRAPHY & LAYOUT: bold payout figure accent, short headline + CTA in the central safe zone. " +
+      "COLOR: dark base + betting green + lime accent. " +
+      "AVOID: fake garbled numbers, cluttered corners, unreadable text.",
+  },
+  // ── Top-10 most-bet-on sports — sport-specific betting banner templates.
+  //    Environments mirror the server SPORT_BG map for authenticity. ──
+  {
+    id: "preset26",
+    name: "Футбол",
+    description: "Беттинг-баннер под футбол: стадион, экшн, командные цвета",
+    gradient: "linear-gradient(135deg,#052e16,#16a34a,#f1f5f9)",
+    examples: [
+      "linear-gradient(135deg,#052e16,#16a34a)",
+      "linear-gradient(160deg,#0b1220,#22c55e)",
+      "linear-gradient(120deg,#14532d,#f1f5f9)",
+      "linear-gradient(140deg,#052e16,#4ade80)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium football (soccer) sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a stadium with floodlights, packed stands blurred in the background, green pitch tint, atmospheric smoke. " +
+      "HERO: a dynamic stylized non-identifiable footballer striking or celebrating with a soccer ball, generic team kit, motion energy — no real named player, no real club logos. " +
+      "STYLE: cinematic sports-poster — dramatic rim light, haze, sparks, high contrast, intense energy. " +
+      "TYPOGRAPHY & LAYOUT: bold sports headline, an odds/matchup accent and a CTA button, all inside the central safe zone. " +
+      "COLOR: pitch green + white with one bright accent. " +
+      "AVOID: photorealistic real named athletes or real club crests, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset27",
+    name: "Баскетбол",
+    description: "Беттинг-баннер под баскетбол: арена, паркет, данк",
+    gradient: "linear-gradient(135deg,#0b0b0f,#ea580c,#f59e0b)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#ea580c)",
+      "linear-gradient(160deg,#111827,#f59e0b)",
+      "linear-gradient(120deg,#7c2d12,#fb923c)",
+      "linear-gradient(140deg,#0b0b0f,#f97316)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium basketball sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: an indoor arena with reflective hardwood court, dramatic spotlight beams, blurred crowd silhouette. " +
+      "HERO: a dynamic stylized non-identifiable basketball player dunking or shooting, generic jersey, motion trail, no real named player or team logos. " +
+      "STYLE: cinematic sports-poster — hard rim light, haze, sparks, high contrast, explosive energy. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: deep base + basketball orange accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset28",
+    name: "Американский футбол",
+    description: "Беттинг-баннер под NFL: стадион, экшн, спред",
+    gradient: "linear-gradient(135deg,#0b1220,#1e3a8a,#94a3b8)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#1e3a8a)",
+      "linear-gradient(160deg,#020617,#94a3b8)",
+      "linear-gradient(120deg,#1e3a8a,#e2e8f0)",
+      "linear-gradient(140deg,#0b1220,#3b82f6)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium American football (NFL-style) sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: an NFL-style stadium with end-zone lights and atmospheric haze. " +
+      "HERO: a dynamic stylized non-identifiable American-football player in helmet and pads charging with the ball, generic uniform, no real named player or team logos. " +
+      "STYLE: cinematic sports-poster — dramatic lighting, dust, sparks, gritty texture, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, a spread/odds accent and CTA button in the central safe zone. " +
+      "COLOR: navy/steel base + one bright accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset29",
+    name: "Теннис",
+    description: "Беттинг-баннер под теннис: корт, подача, матч",
+    gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#1d4ed8)",
+      "linear-gradient(160deg,#020617,#a3e635)",
+      "linear-gradient(120deg,#1e3a8a,#22d3ee)",
+      "linear-gradient(140deg,#0b1220,#84cc16)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium tennis sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a tennis court (hard/clay/grass) with stadium stands and atmospheric depth. " +
+      "HERO: a dynamic stylized non-identifiable tennis player mid-serve or forehand with a racket and ball, generic sportswear, motion, no real named player. " +
+      "STYLE: cinematic sports-poster — crisp rim light, haze, high contrast, athletic energy. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: court blue + lime accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset30",
+    name: "Крикет",
+    description: "Беттинг-баннер под крикет: поле, бэтсмен, T20",
+    gradient: "linear-gradient(135deg,#052e16,#0d9488,#f59e0b)",
+    examples: [
+      "linear-gradient(135deg,#052e16,#0d9488)",
+      "linear-gradient(160deg,#022c22,#f59e0b)",
+      "linear-gradient(120deg,#134e4a,#fbbf24)",
+      "linear-gradient(140deg,#052e16,#14b8a6)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium cricket sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a cricket field with stadium floodlights and atmospheric depth. " +
+      "HERO: a dynamic stylized non-identifiable batsman mid-shot with bat and ball, generic kit and pads, motion, no real named player or team logos. " +
+      "STYLE: cinematic sports-poster — dramatic floodlight rim, haze, sparks, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: field green/teal + gold accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset31",
+    name: "Бейсбол",
+    description: "Беттинг-баннер под бейсбол: даймонд, свинг, MLB",
+    gradient: "linear-gradient(135deg,#0b1220,#b91c1c,#e2e8f0)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#b91c1c)",
+      "linear-gradient(160deg,#020617,#e2e8f0)",
+      "linear-gradient(120deg,#7f1d1d,#f1f5f9)",
+      "linear-gradient(140deg,#0b1220,#ef4444)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium baseball (MLB-style) sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a baseball diamond with stadium lights at dusk. " +
+      "HERO: a dynamic stylized non-identifiable batter mid-swing with bat and ball, generic uniform and cap, motion, no real named player or team logos. " +
+      "STYLE: cinematic sports-poster — dramatic dusk lighting, dust, sparks, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: navy/red + off-white accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset32",
+    name: "Хоккей",
+    description: "Беттинг-баннер под хоккей: лёд, буллит, NHL",
+    gradient: "linear-gradient(135deg,#0b1220,#0284c7,#e0f2fe)",
+    examples: [
+      "linear-gradient(135deg,#0b1220,#0284c7)",
+      "linear-gradient(160deg,#020617,#e0f2fe)",
+      "linear-gradient(120deg,#075985,#bae6fd)",
+      "linear-gradient(140deg,#0b1220,#38bdf8)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium ice hockey (NHL-style) sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: an ice rink with frost particles, arena boards, cold blue ice glow and atmospheric mist. " +
+      "HERO: a dynamic stylized non-identifiable hockey player skating and shooting with stick and puck, generic jersey, ice spray, no real named player or team logos. " +
+      "STYLE: cinematic sports-poster — cold rim light, frost, sparks, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: ice blue + white with one accent. " +
+      "AVOID: photorealistic real named athletes or real logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset33",
+    name: "Скачки",
+    description: "Беттинг-баннер под скачки: ипподром, финиш, фаворит",
+    gradient: "linear-gradient(135deg,#052e16,#15803d,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#052e16,#15803d)",
+      "linear-gradient(160deg,#0b0b0f,#facc15)",
+      "linear-gradient(120deg,#14532d,#fbbf24)",
+      "linear-gradient(140deg,#052e16,#22c55e)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium horse-racing sports-betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a racetrack with turf, rails and grandstand, dramatic finish-line atmosphere, dust and motion. " +
+      "HERO: dynamic stylized racehorses with jockeys charging toward the finish line, heavy motion blur, no real named horses or silks. " +
+      "STYLE: cinematic sports-poster — warm dust glow, speed streaks, high contrast, adrenaline. " +
+      "TYPOGRAPHY & LAYOUT: bold headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: turf green + gold accent. " +
+      "AVOID: photorealistic real named athletes or logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset34",
+    name: "Бокс / ММА",
+    description: "Беттинг-баннер под единоборства: ринг/октагон, файт-кард",
+    gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#dc2626)",
+      "linear-gradient(160deg,#111827,#facc15)",
+      "linear-gradient(120deg,#7f1d1d,#fbbf24)",
+      "linear-gradient(140deg,#0b0b0f,#ef4444)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium combat-sports (boxing / MMA) betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a dark arena with a boxing-ring ropes or MMA octagon-cage silhouette, single hard spotlight, smoke haze, sparks. " +
+      "HERO: a dynamic stylized non-identifiable fighter in a fighting stance with gloves raised, sweat and rim light, no real named athlete. " +
+      "STYLE: cinematic fight-poster — dramatic chiaroscuro, haze, sparks, gritty, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold fight-card headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: dark base + red and gold accents. " +
+      "AVOID: photorealistic real named athletes or promotion logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset35",
+    name: "Киберспорт",
+    description: "Беттинг-баннер под esports: арена, LED, про-игрок",
+    gradient: "linear-gradient(135deg,#0f0524,#a855f7,#22d3ee)",
+    examples: [
+      "linear-gradient(135deg,#0f0524,#a855f7)",
+      "linear-gradient(160deg,#020617,#22d3ee)",
+      "linear-gradient(120deg,#3b0764,#06b6d4)",
+      "linear-gradient(140deg,#0f0524,#7c3aed)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium esports betting advertisement banner for {SUBJECT}. " +
+      "ENVIRONMENT: a dark esports arena with massive LED screens, neon RGB stage lighting, stage smoke and holographic UI. " +
+      "HERO: a dynamic stylized non-identifiable pro gamer at a gaming setup with a headset, focused, neon rim light, no real named player or team logos. " +
+      "STYLE: cinematic esports-finals — RGB neon lighting, haze, glowing accents, high contrast. " +
+      "TYPOGRAPHY & LAYOUT: bold gamer-style headline, odds accent and CTA button in the central safe zone. " +
+      "COLOR: dark base + two neon accents (violet + cyan). " +
+      "AVOID: photorealistic real named players or real team logos, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
 ];
+
+// Generated 3:2 preview banners live in public/previews/<id>.png
+// (see scripts/gen-previews.mjs). Attach each as its tile preview; presets
+// without a generated file keep their gradient fallback.
+for (const p of PRESETS) {
+  if (!p.preview) p.preview = `/previews/${p.id}.webp`;
+}
 
 // Templates grouped into categories. Each category is an accordion: collapsed
 // shows just "Label (N)" + chevron; expanding reveals a grid of all its
@@ -123,9 +784,73 @@ type Category = {
 };
 
 export const CATEGORIES: Category[] = [
-  { id: "betting", label: "Betting", presetIds: ["preset3"] },
-  { id: "gambling", label: "Gambling", presetIds: ["preset2", "preset1"] },
-  { id: "sport", label: "Sport", presetIds: ["preset4"] },
+  {
+    id: "style",
+    label: "Стиль / Эффекты",
+    presetIds: [
+      "preset6",
+      "preset7",
+      "preset8",
+      "preset9",
+      "preset10",
+      "preset11",
+      "preset12",
+      "preset13",
+      "preset14",
+      "preset15",
+    ],
+  },
+  {
+    id: "betting",
+    label: "Betting",
+    presetIds: [
+      "preset3",
+      "preset16",
+      "preset17",
+      "preset18",
+      "preset19",
+      "preset20",
+      "preset21",
+      "preset22",
+      "preset23",
+      "preset24",
+      "preset25",
+    ],
+  },
+  {
+    id: "gambling",
+    label: "Gambling",
+    presetIds: [
+      "preset2",
+      "preset1",
+      "preset6",
+      "preset7",
+      "preset8",
+      "preset9",
+      "preset10",
+      "preset12",
+      "preset15",
+    ],
+  },
+  {
+    id: "sport",
+    label: "Sport",
+    presetIds: [
+      "preset4",
+      "preset5",
+      "preset13",
+      "preset26",
+      "preset27",
+      "preset28",
+      "preset29",
+      "preset30",
+      "preset31",
+      "preset32",
+      "preset33",
+      "preset34",
+      "preset35",
+    ],
+  },
 ];
 
 const PRESET_BY_ID = new Map(PRESETS.map((p) => [p.id, p]));
@@ -165,6 +890,11 @@ function PresetTile({
         }
       />
       <p className="truncate text-xs font-medium">{preset.name}</p>
+      {preset.isNew && !selected && (
+        <span className="absolute left-1.5 top-1.5 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
+          Новое
+        </span>
+      )}
       {selected && (
         <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
           <Check size={10} />
@@ -189,6 +919,10 @@ export function PresetSidebar({ value, onChange }: Props) {
   const [catMenuOpen, setCatMenuOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [draftCategory, setDraftCategory] = useState("all");
+  // Sort order for the tiles inside each category. "popular" keeps the authored
+  // order; "new" floats presets flagged isNew to the top. Mirrors Sibrik's
+  // "Популярне / Найновіші" gallery sort.
+  const [sortBy, setSortBy] = useState<"popular" | "new">("popular");
 
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
@@ -241,10 +975,14 @@ export function PresetSidebar({ value, onChange }: Props) {
               p.name.toLowerCase().includes(q) ||
               p.description.toLowerCase().includes(q),
           );
-        return { ...cat, presets };
+        const sorted =
+          sortBy === "new"
+            ? [...presets].sort((a, b) => Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)))
+            : presets;
+        return { ...cat, presets: sorted };
       })
       .filter((cat) => cat.presets.length > 0);
-  }, [q, categoryFilter]);
+  }, [q, categoryFilter, sortBy]);
 
   return (
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
@@ -348,6 +1086,30 @@ export function PresetSidebar({ value, onChange }: Props) {
               </div>
           </div>
         )}
+      </div>
+      <div className="flex items-center gap-1.5 px-4 pb-1 pt-0.5">
+        <span className="ds-caption shrink-0">Сортировка</span>
+        <div className="ml-auto flex rounded-lg border border-border p-0.5">
+          {(
+            [
+              ["popular", "Популярные"],
+              ["new", "Новые"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSortBy(id)}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                sortBy === id
+                  ? "bg-white/10 text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-2">
         {groups.length === 0 && (
