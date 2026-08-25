@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ImagePlus, Megaphone } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, ImagePlus, Megaphone } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { downloadCsv, num2 } from "@/lib/csv";
 import {
   AD_PLATFORMS,
   PLATFORM_BY_ID,
@@ -63,6 +64,34 @@ export function StatsApp() {
       /* ignore */
     }
     router.push("/banner");
+  };
+
+  const exportCsv = () => {
+    const header = [
+      "Кампания",
+      "Площадка",
+      "Статус",
+      "Расход",
+      "Показы",
+      "Клики",
+      "CTR %",
+      "CPC",
+      "Конверсии",
+      "CPA",
+    ];
+    const rows = campaigns.map((c) => [
+      c.name,
+      PLATFORM_BY_ID.get(c.platform)?.name ?? c.platform,
+      c.status === "active" ? "активна" : "пауза",
+      num2(c.spend),
+      c.impressions,
+      c.clicks,
+      num2(c.ctr),
+      num2(c.cpc),
+      c.conversions,
+      num2(c.cpa),
+    ]);
+    downloadCsv(`gengo-campaigns-${days}d`, [header, ...rows]);
   };
 
   useEffect(() => {
@@ -262,7 +291,17 @@ export function StatsApp() {
       <section className="ds-card mt-4 overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between gap-3 p-5 pb-3">
           <p className="ds-h4">Кампании</p>
-          <span className="ds-caption">{campaigns.length} шт.</span>
+          <div className="flex items-center gap-3">
+            <span className="ds-caption">{campaigns.length} шт.</span>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-white/5 px-3 text-sm font-medium transition hover:border-accent-green/50 hover:text-accent-green"
+            >
+              <Download className="h-4 w-4 text-accent-green" />
+              Экспорт CSV
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-sm">

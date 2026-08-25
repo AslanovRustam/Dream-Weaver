@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Mail, Send, Users } from "lucide-react";
+import { CalendarClock, Download, Mail, Send, Users } from "lucide-react";
+
+import { downloadCsv, num2 } from "@/lib/csv";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import {
@@ -66,6 +68,43 @@ export function MailingApp() {
       setJustSent(`Отправлено: «${c.name}»`);
     }
     setTimeout(() => setJustSent(null), 4000);
+  };
+
+  const exportCsv = () => {
+    const header = [
+      "Кампания",
+      "Тема",
+      "Аудитория",
+      "Статус",
+      "Получатели",
+      "Доставлено",
+      "Открытия",
+      "Open Rate %",
+      "Клики",
+      "CTR %",
+      "Дата",
+    ];
+    const statusLabel = (s: MailCampaign["status"]) =>
+      s === "sent" ? "Отправлена" : s === "scheduled" ? "Запланирована" : "Черновик";
+    const rows = campaigns.map((c) => {
+      const openRate = c.delivered ? (c.opens / c.delivered) * 100 : 0;
+      const ctr = c.delivered ? (c.clicks / c.delivered) * 100 : 0;
+      const date = c.status === "scheduled" ? (c.scheduledAt ?? "") : (c.sentAt ?? "");
+      return [
+        c.name,
+        c.subject,
+        AUDIENCE_BY_ID.get(c.audienceId)?.name ?? "",
+        statusLabel(c.status),
+        c.recipients,
+        c.delivered,
+        c.opens,
+        num2(openRate),
+        c.clicks,
+        num2(ctr),
+        date,
+      ];
+    });
+    downloadCsv("gengo-mailings", [header, ...rows]);
   };
 
   // Minimum selectable datetime = now (local), for the schedule input.
@@ -289,7 +328,17 @@ export function MailingApp() {
       <section className="ds-card mt-4 overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between gap-3 p-5 pb-3">
           <p className="ds-h4">Кампании</p>
-          <span className="ds-caption">{campaigns.length} шт.</span>
+          <div className="flex items-center gap-3">
+            <span className="ds-caption">{campaigns.length} шт.</span>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-white/5 px-3 text-sm font-medium transition hover:border-accent-green/50 hover:text-accent-green"
+            >
+              <Download className="h-4 w-4 text-accent-green" />
+              Экспорт CSV
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse text-sm">
