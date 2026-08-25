@@ -33,15 +33,45 @@ export interface EmailDraft {
   ctaUrl: string;
   bonusCtaText: string; // secondary CTA (e.g. GET BONUS)
   footer: string;
+  unsubscribeUrl: string; // link for the unsubscribe button
   updatedAt: string; // ISO
 }
 
 const DRAFTS_KEY = "dw_email_drafts";
 
+// Empty draft — the constructor starts blank; "Заполнить автоматически" loads a
+// sample. A sensible theme/accent is kept so the empty preview isn't broken.
 export function newDraft(): EmailDraft {
   return {
     id: "draft_" + Math.random().toString(36).slice(2, 9),
-    name: "Новое письмо",
+    name: "",
+    subject: "",
+    preheader: "",
+    brand: "",
+    style: "promo",
+    accent: "#22c55e",
+    dark: true,
+    heroImage: "",
+    logo: "",
+    logoMode: "reference",
+    heroTitle: "",
+    heroSubtitle: "",
+    body: "",
+    steps: ["", "", ""],
+    ctaText: "",
+    ctaUrl: "",
+    bonusCtaText: "",
+    footer: "",
+    unsubscribeUrl: "",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// Sample iGaming promo content for the "Заполнить автоматически" button.
+export function sampleDraft(id: string): EmailDraft {
+  return {
+    id,
+    name: "Промо — 50 фриспинов",
     subject: "50 фриспинов + бонус 100% на депозит",
     preheader: "Только до конца недели — заряжайте удочки!",
     brand: "20BET",
@@ -62,7 +92,8 @@ export function newDraft(): EmailDraft {
     ctaText: "PLAY NOW",
     ctaUrl: "https://example.com/play",
     bonusCtaText: "GET BONUS",
-    footer: "Это автоматическое сообщение, отвечать не нужно. Отписаться.",
+    footer: "Это автоматическое сообщение, отвечать не нужно.",
+    unsubscribeUrl: "https://example.com/unsubscribe",
     updatedAt: new Date().toISOString(),
   };
 }

@@ -17,6 +17,9 @@ type Body = {
   logoBase64?: string;
   logoMode?: "reference" | "overlay";
   model?: string;
+  // Optional: one of our banner-preset templates (with {SUBJECT} already filled).
+  // When present, its visual style drives the image instead of the free agent.
+  presetTemplate?: string;
 };
 
 const NO_TEXT =
@@ -122,8 +125,13 @@ export async function POST(request: Request) {
     .trim();
   if (!brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
 
-  const composed = await composePrompt(brief);
-  const prompt = `${composed || `Cinematic iGaming promotional hero banner for: ${brief}`}\n\n${NO_TEXT}`;
+  // A chosen preset drives the visual style directly; otherwise the agent
+  // composes a prompt from the brief.
+  const preset = (body.presetTemplate || "").trim();
+  const base = preset
+    ? preset
+    : (await composePrompt(brief)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
+  const prompt = `${base}\n\n${NO_TEXT}`;
 
   // Build the image request. A logo (reference mode) is added as an input image
   // with an explicit instruction not to reproduce it.

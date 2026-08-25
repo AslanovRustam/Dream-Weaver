@@ -5,11 +5,13 @@ import Link from "next/link";
 import { Check, Loader2, Mail, Save, Send, Sparkles, Upload } from "lucide-react";
 
 import { BriefUploader } from "@/components/BriefUploader";
+import { PRESETS } from "@/components/PresetSidebar";
 import {
   EMAIL_STYLES,
   type EmailDraft,
   type EmailStyle,
   newDraft,
+  sampleDraft,
   saveDraft,
 } from "@/lib/mailing";
 
@@ -29,6 +31,13 @@ export function EmailGenApp() {
 
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+  const [heroPreset, setHeroPreset] = useState(""); // "" = агент подберёт сам
+
+  // Load sample content into the (empty) form.
+  const autofill = () => {
+    setDraft((d) => sampleDraft(d.id));
+    setSaved(false);
+  };
 
   const readAsDataUrl = (file: File, key: "heroImage" | "logo") => {
     const reader = new FileReader();
@@ -75,6 +84,19 @@ export function EmailGenApp() {
     setGenning(true);
     setGenError("");
     try {
+      // A chosen banner preset drives the visual style; fill its {SUBJECT} from
+      // the email fields. Empty → the agent composes freely.
+      let presetTemplate = "";
+      if (heroPreset) {
+        const p = PRESETS.find((x) => x.id === heroPreset);
+        if (p?.template) {
+          const subject = [draft.brand, draft.heroTitle, draft.body]
+            .filter(Boolean)
+            .join(". ")
+            .replace(/\*\*/g, "");
+          presetTemplate = p.template.replace(/\{SUBJECT\}/g, subject || draft.brand || "the offer");
+        }
+      }
       const res = await fetch("/api/generate-email-hero", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,6 +104,7 @@ export function EmailGenApp() {
           brand: draft.brand,
           heroTitle: draft.heroTitle,
           body: draft.body,
+          presetTemplate: presetTemplate || undefined,
           logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
           logoMode: draft.logoMode,
         }),
@@ -142,6 +165,15 @@ export function EmailGenApp() {
             Соберите письмо для рассылки — сохраните и отправьте из кабинета.
           </p>
         </header>
+
+        <button
+          type="button"
+          onClick={autofill}
+          className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg border border-border bg-white/5 px-4 text-sm font-medium transition hover:border-accent-green/50 hover:text-accent-green"
+        >
+          <Sparkles className="h-4 w-4 text-accent-green" />
+          Заполнить автоматически
+        </button>
 
         <BriefUploader
           product="email"
@@ -254,6 +286,19 @@ export function EmailGenApp() {
 
         {/* AI hero generation + logo */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+          <label className="mb-1.5 block ds-label">Шаблон баннера</label>
+          <select
+            className="mb-2 h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+            value={heroPreset}
+            onChange={(e) => setHeroPreset(e.target.value)}
+          >
+            <option value="">Авто (ИИ подберёт стиль)</option>
+            {PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={generateHero}
@@ -261,11 +306,16 @@ export function EmailGenApp() {
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
           >
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {genning ? "Генерирую баннер…" : "Сгенерировать баннер (ИИ)"}
+            {genning
+              ? "Генерирую баннер…"
+              : draft.heroImage
+                ? "Перегенерировать баннер"
+                : "Сгенерировать баннер (ИИ)"}
           </button>
           <p className="mt-2 ds-caption">
-            Агент составит промпт по ТЗ. На картинке не будет текста — только цифры, чтобы письмо
-            легко переводилось.
+            Баннер заполняется автоматически по полям письма. На картинке не будет текста — только
+            цифры, чтобы письмо легко переводилось. Не понравился — смените шаблон или поля и
+            перегенерируйте.
           </p>
 
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
@@ -383,6 +433,14 @@ export function EmailGenApp() {
             rows={2}
             value={draft.footer}
             onChange={(e) => set("footer", e.target.value)}
+          />
+        </Field>
+        <Field label="Ссылка отписки">
+          <input
+            className={inputCls}
+            value={draft.unsubscribeUrl}
+            onChange={(e) => set("unsubscribeUrl", e.target.value)}
+            placeholder="https://…/unsubscribe"
           />
         </Field>
 
@@ -561,9 +619,13 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
           <p className="text-[11px] leading-relaxed" style={{ color: textMuted }}>
             {draft.footer}
           </p>
-          <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: accent }}>
+          <a
+            href={draft.unsubscribeUrl || undefined}
+            className="mt-2 inline-block text-[11px] font-semibold uppercase tracking-wide underline-offset-2 hover:underline"
+            style={{ color: accent }}
+          >
             Unsubscribe
-          </p>
+          </a>
         </div>
       </div>
     </div>
