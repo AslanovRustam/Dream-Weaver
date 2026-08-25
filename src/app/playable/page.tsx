@@ -1,6 +1,7 @@
 "use client";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { PlayableGenApp } from "@/components/PlayableGenApp";
 import { useAuth } from "@/lib/auth-context";
 
@@ -19,7 +20,9 @@ export default function PlayablePage() {
   return (
     <>
       <AppHeader />
-      <PlayableGenApp />
+      <AppShell>
+        <PlayableGenApp />
+      </AppShell>
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { LandingGenApp } from "@/components/LandingGenApp";
 import { useAuth } from "@/lib/auth-context";
 
@@ -19,7 +20,9 @@ export default function LandingPage() {
   return (
     <>
       <AppHeader />
-      <LandingGenApp />
+      <AppShell>
+        <LandingGenApp />
+      </AppShell>
     </>
   );
 }

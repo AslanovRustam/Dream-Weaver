@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { ImageGenApp } from "@/components/ImageGenApp";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function BannerPage() {
@@ -26,7 +27,9 @@ export default function BannerPage() {
   return (
     <>
       <AppHeader />
-      <ImageGenApp />
+      <AppShell>
+        <ImageGenApp />
+      </AppShell>
     </>
   );
 }
