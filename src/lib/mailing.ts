@@ -113,6 +113,7 @@ export interface MailCampaign {
   status: CampaignStatus;
   recipients: number;
   sentAt?: string; // ISO date
+  scheduledAt?: string; // local datetime string when status === "scheduled"
   // Delivery stats (meaningful once sent).
   delivered: number;
   opens: number;
@@ -221,6 +222,51 @@ export function sendCampaign(opts: { draft: EmailDraft; audienceId: string }): M
   };
   saveUserCampaigns([campaign, ...getUserCampaigns()]);
   return campaign;
+}
+
+/**
+ * Schedule a campaign for a future datetime. It sits as "scheduled" until its
+ * time passes, then `processDueCampaigns` flips it to "sent" with delivery stats.
+ */
+export function scheduleCampaign(opts: {
+  draft: EmailDraft;
+  audienceId: string;
+  scheduledAt: string;
+}): MailCampaign {
+  const aud = AUDIENCE_BY_ID.get(opts.audienceId) ?? AUDIENCES[0];
+  const id = "c_" + Math.random().toString(36).slice(2, 9);
+  const campaign: MailCampaign = {
+    id,
+    name: opts.draft.name,
+    subject: opts.draft.subject,
+    audienceId: aud.id,
+    status: "scheduled",
+    recipients: aud.count,
+    scheduledAt: opts.scheduledAt,
+    delivered: 0,
+    opens: 0,
+    clicks: 0,
+    unsub: 0,
+    bounce: 0,
+  };
+  saveUserCampaigns([campaign, ...getUserCampaigns()]);
+  return campaign;
+}
+
+/** Flip any scheduled campaign whose time has passed to "sent" with stats. */
+export function processDueCampaigns(): void {
+  const now = Date.now();
+  const list = getUserCampaigns();
+  let changed = false;
+  for (const c of list) {
+    if (c.status === "scheduled" && c.scheduledAt && new Date(c.scheduledAt).getTime() <= now) {
+      Object.assign(c, seedSentStats(c.id, c.recipients));
+      c.status = "sent";
+      c.sentAt = c.scheduledAt.slice(0, 10);
+      changed = true;
+    }
+  }
+  if (changed) saveUserCampaigns(list);
 }
 
 // --- Overview stats --------------------------------------------------------

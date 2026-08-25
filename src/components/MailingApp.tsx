@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Mail, Send, Users } from "lucide-react";
+import { CalendarClock, Mail, Send, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import {
@@ -15,6 +15,8 @@ import {
   getCampaigns,
   getDrafts,
   getMailOverview,
+  processDueCampaigns,
+  scheduleCampaign,
   sendCampaign,
 } from "@/lib/mailing";
 
@@ -30,6 +32,8 @@ export function MailingApp() {
   const [days, setDays] = useState(30);
   const [draftId, setDraftId] = useState("");
   const [audienceId, setAudienceId] = useState(AUDIENCES[0].id);
+  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [justSent, setJustSent] = useState<string | null>(null);
 
   const refresh = () => {
@@ -37,6 +41,8 @@ export function MailingApp() {
     setCampaigns(getCampaigns());
   };
   useEffect(() => {
+    // Flip any past-due scheduled campaigns to "sent" before listing.
+    processDueCampaigns();
     refresh();
   }, []);
   useEffect(() => {
@@ -49,11 +55,26 @@ export function MailingApp() {
   const send = () => {
     const draft = drafts.find((d) => d.id === draftId);
     if (!draft) return;
-    const c = sendCampaign({ draft, audienceId });
-    setCampaigns(getCampaigns());
-    setJustSent(c.name);
+    if (sendMode === "schedule") {
+      if (!scheduledAt) return;
+      const c = scheduleCampaign({ draft, audienceId, scheduledAt });
+      setCampaigns(getCampaigns());
+      setJustSent(`Запланировано: «${c.name}»`);
+    } else {
+      const c = sendCampaign({ draft, audienceId });
+      setCampaigns(getCampaigns());
+      setJustSent(`Отправлено: «${c.name}»`);
+    }
     setTimeout(() => setJustSent(null), 4000);
   };
+
+  // Minimum selectable datetime = now (local), for the schedule input.
+  const minDateTime = (() => {
+    const d = new Date();
+    d.setSeconds(0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
 
   const audience = AUDIENCE_BY_ID.get(audienceId);
 
@@ -208,15 +229,56 @@ export function MailingApp() {
               <p className="ds-caption inline-flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5" /> Получателей: {fmtInt(audience?.count ?? 0)}
               </p>
+
+              {/* When to send: now or scheduled */}
+              <div className="flex rounded-lg border border-border p-0.5 text-xs">
+                {(
+                  [
+                    ["now", "Сейчас"],
+                    ["schedule", "Запланировать"],
+                  ] as const
+                ).map(([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSendMode(m)}
+                    className={`min-h-8 flex-1 rounded-md px-3 font-medium transition ${
+                      sendMode === m ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {sendMode === "schedule" ? (
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  min={minDateTime}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  aria-label="Дата и время отправки"
+                  className="h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                />
+              ) : null}
+
               <button
                 type="button"
                 onClick={send}
-                className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
+                disabled={sendMode === "schedule" && !scheduledAt}
+                className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime disabled:opacity-50"
               >
-                <Send className="h-4 w-4" /> Отправить рассылку
+                {sendMode === "schedule" ? (
+                  <>
+                    <CalendarClock className="h-4 w-4" /> Запланировать
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" /> Отправить рассылку
+                  </>
+                )}
               </button>
               {justSent ? (
-                <p className="ds-caption text-accent-green">Отправлено: «{justSent}» — появилось в списке ниже.</p>
+                <p className="ds-caption text-accent-green">{justSent} — в списке ниже.</p>
               ) : null}
             </>
           )}
@@ -247,8 +309,10 @@ export function MailingApp() {
             <tbody>
               {campaigns.map((c) => {
                 const aud = AUDIENCE_BY_ID.get(c.audienceId);
+                const scheduled = c.status === "scheduled";
                 const openRate = c.delivered ? (c.opens / c.delivered) * 100 : 0;
                 const ctr = c.delivered ? (c.clicks / c.delivered) * 100 : 0;
+                const dash = "—";
                 return (
                   <tr key={c.id} className="border-b border-border/60 last:border-0 hover:bg-white/[0.02]">
                     <td className="px-5 py-3">
@@ -258,11 +322,13 @@ export function MailingApp() {
                     <td className="px-5 py-3">{aud?.name ?? "—"}</td>
                     <td className="px-5 py-3"><StatusPill status={c.status} /></td>
                     <td className="px-5 py-3 text-right tabular-nums">{fmtInt(c.recipients)}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{fmtInt(c.opens)}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{fmtPct(openRate)}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{fmtInt(c.clicks)}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{fmtPct(ctr)}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{c.sentAt ?? "—"}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{scheduled ? dash : fmtInt(c.opens)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{scheduled ? dash : fmtPct(openRate)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{scheduled ? dash : fmtInt(c.clicks)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{scheduled ? dash : fmtPct(ctr)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {scheduled ? (c.scheduledAt ?? "").replace("T", " ") : (c.sentAt ?? dash)}
+                    </td>
                   </tr>
                 );
               })}
