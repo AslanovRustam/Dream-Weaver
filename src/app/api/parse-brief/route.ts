@@ -26,15 +26,33 @@ async function extractDocx(buf: Buffer): Promise<string> {
 async function extractPdf(buf: Buffer): Promise<string> {
   // Legacy build runs on the main thread in Node (no worker needed).
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const path = await import("node:path");
+  const { pathToFileURL } = await import("node:url");
+  // Point pdf.js at its bundled standard fonts; without this many real-world
+  // PDFs throw "Ensure that the standardFontDataUrl API parameter is provided".
+  const fontsDir =
+    path.join(process.cwd(), "node_modules", "pdfjs-dist", "standard_fonts") + path.sep;
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buf),
+    standardFontDataUrl: pathToFileURL(fontsDir).href,
+    disableFontFace: true, // no DOM font rendering in Node
+    useSystemFonts: false,
+  }).promise;
   let text = "";
   for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    text +=
-      content.items
-        .map((it: unknown) => (it && typeof it === "object" && "str" in it ? String((it as { str: string }).str) : ""))
-        .join(" ") + "\n";
+    // Skip a page that fails rather than failing the whole document.
+    try {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      text +=
+        content.items
+          .map((it: unknown) =>
+            it && typeof it === "object" && "str" in it ? String((it as { str: string }).str) : "",
+          )
+          .join(" ") + "\n";
+    } catch {
+      /* unreadable page — skip */
+    }
   }
   return text;
 }

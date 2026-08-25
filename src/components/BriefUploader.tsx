@@ -87,7 +87,11 @@ export function BriefUploader({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || "Не удалось разобрать ТЗ");
+        setError(
+          [data?.error || "Не удалось разобрать ТЗ", data?.detail]
+            .filter(Boolean)
+            .join(" — "),
+        );
         return;
       }
       const parsed = data as BriefResult;
