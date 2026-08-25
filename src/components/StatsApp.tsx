@@ -294,7 +294,13 @@ export function StatsApp() {
                           {p.glyph}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{c.name}</p>
+                          <Link
+                            href={`/stats/${encodeURIComponent(c.id)}`}
+                            className="truncate font-medium transition hover:text-accent-green"
+                            title="Открыть кампанию"
+                          >
+                            {c.name}
+                          </Link>
                           <p className="ds-caption">{p.short} · {c.status === "active" ? "активна" : "пауза"}</p>
                         </div>
                       </div>

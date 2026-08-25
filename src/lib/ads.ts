@@ -315,6 +315,66 @@ export function getStats(opts: { accounts: AdAccount[]; days: number }): StatsRe
   return { totals, deltas, series, campaigns };
 }
 
+/**
+ * Rebuild a single campaign (by its id) plus its daily series, for the drill-down
+ * page. Campaign ids are `${accountId}|c${index}`; the account must be connected
+ * so we know its platform.
+ */
+export function getCampaignDetail(
+  campaignId: string,
+  days: number,
+): { campaign: Campaign; series: DayPoint[]; account: AdAccount } | null {
+  const marker = campaignId.lastIndexOf("|c");
+  if (marker < 0) return null;
+  const accountId = campaignId.slice(0, marker);
+  const idx = Number.parseInt(campaignId.slice(marker + 2), 10);
+  const account = getConnectedAccounts().find((a) => a.id === accountId);
+  if (!account || Number.isNaN(idx)) return null;
+  const pool = CAMPAIGN_POOL[account.platform];
+  const name = pool[idx];
+  if (!name) return null;
+
+  const series: DayPoint[] = [];
+  const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
+  for (let i = days - 1; i >= 0; i--) {
+    const date = isoDay(i);
+    const m = dayMetrics(`${accountId}|${name}|${date}`, account.platform);
+    const day = {
+      date,
+      spend: Math.round((m.spend / pool.length) * 100) / 100,
+      impressions: Math.round(m.impressions / pool.length),
+      clicks: Math.round(m.clicks / pool.length),
+      conversions: Math.round(m.conversions / pool.length),
+    };
+    series.push(day);
+    acc.spend += day.spend;
+    acc.impressions += day.impressions;
+    acc.clicks += day.clicks;
+    acc.conversions += day.conversions;
+  }
+  const d = derive({
+    spend: Math.round(acc.spend * 100) / 100,
+    impressions: acc.impressions,
+    clicks: acc.clicks,
+    conversions: acc.conversions,
+  });
+  const campaign: Campaign = {
+    id: campaignId,
+    name,
+    platform: account.platform,
+    accountId,
+    status: idx === pool.length - 1 ? "paused" : "active",
+    spend: d.spend,
+    impressions: d.impressions,
+    clicks: d.clicks,
+    ctr: d.ctr,
+    cpc: d.cpc,
+    conversions: d.conversions,
+    cpa: d.cpa,
+  };
+  return { campaign, series, account };
+}
+
 // --- Formatting helpers -----------------------------------------------------
 
 export function fmtInt(n: number): string {
