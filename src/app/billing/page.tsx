@@ -19,6 +19,7 @@ import { Check, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/lib/auth-context";
 
@@ -152,6 +153,7 @@ export default function BillingPage() {
     <div className="min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
+      <AppShell>
       <div className="mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
         <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
@@ -188,6 +190,7 @@ export default function BillingPage() {
           напишите в поддержку из личного кабинета.
         </p>
       </div>
+      </AppShell>
     </div>
   );
 }

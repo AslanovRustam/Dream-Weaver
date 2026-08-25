@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
 import {
   Accordion,
@@ -253,6 +254,7 @@ export default function HelpPage() {
     <div className="min-h-screen">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
+      <AppShell>
 
       {/* Decorative aurora + fading dot-grid, same brand backdrop as the Hub.
           aria-hidden, no pointer events, sits behind content by DOM order. */}
@@ -390,6 +392,7 @@ export default function HelpPage() {
           <SupportForm />
         </section>
       </div>
+      </AppShell>
     </div>
   );
 }

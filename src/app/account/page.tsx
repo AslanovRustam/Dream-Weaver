@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth-context";
 import { apiJson, ApiError } from "@/lib/api-client";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
 import { useSmartBack } from "@/lib/use-back";
 import { GuestWall } from "@/components/AuthGate";
@@ -262,6 +263,7 @@ export default function AccountPage() {
     <div className="relative min-h-screen">
       <Aurora />
       <AppHeader />
+      <AppShell>
       <div className="relative z-10 mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
         {/* Unified back control (see BackButton) — same thin "← Назад" everywhere.
             Unified top rhythm on mobile: 16px header→back (container pt-4) and
@@ -350,6 +352,7 @@ export default function AccountPage() {
         onSaved={(p) => setMe({ ...me, profile: p })}
         onAvatarChange={saveAvatar}
       />
+      </AppShell>
     </div>
   );
 }
