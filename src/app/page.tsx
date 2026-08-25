@@ -20,6 +20,7 @@ import { AppShell } from "@/components/AppShell";
 import { HubAdsPanel } from "@/components/HubAdsPanel";
 import { HubMailingPanel } from "@/components/HubMailingPanel";
 import { MobileScrim } from "@/components/MobileScrim";
+import { CATEGORIES } from "@/components/PresetSidebar";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
@@ -72,6 +73,10 @@ const HUB_ANIM = `
 .hub-in { animation: hubRise .55s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); }
 @media (prefers-reduced-motion: reduce) { .hub-in { animation: none; } }
 `;
+
+// Preset → category lookup for the showcase filter chips.
+const PRESET_CAT: Record<string, string> = {};
+for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
 
 // Shared dark base for the three illustrated mocks so they read as one family
 // (the banner is a real image, tied in by the shared grade overlay in SectionTile).
@@ -332,6 +337,7 @@ export default function HubPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [hubPrompt, setHubPrompt] = useState("");
+  const [showcaseCat, setShowcaseCat] = useState<string>("all");
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -469,8 +475,14 @@ export default function HubPage() {
   const TOOL_CHIPS = ["banner", "video", "landing", "playable", "email"]
     .map((id) => SECTION_BY_ID.get(id as Section["id"]))
     .filter((x): x is Section => Boolean(x));
-  // Media showcase — real preset-banner previews, each opens that preset.
-  const SHOWCASE = ALL_TEMPLATES.filter((t) => t.sectionId === "banner" && t.preview).slice(0, 16);
+  // Media showcase — real preset-banner previews, each opens that preset,
+  // filterable by category chips.
+  const BANNER_TEMPLATES = ALL_TEMPLATES.filter((t) => t.sectionId === "banner" && t.preview);
+  const SHOWCASE = (
+    showcaseCat === "all"
+      ? BANNER_TEMPLATES
+      : BANNER_TEMPLATES.filter((t) => PRESET_CAT[t.id] === showcaseCat)
+  ).slice(0, 16);
 
   if (loading) {
     return (
@@ -771,6 +783,24 @@ export default function HubPage() {
               Все шаблоны
               <ArrowRight className="h-4 w-4" />
             </Link>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {[{ id: "all", label: "Все" }, ...CATEGORIES.map((c) => ({ id: c.id, label: c.label }))].map(
+              (c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setShowcaseCat(c.id)}
+                  className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium transition ${
+                    showcaseCat === c.id
+                      ? "border-accent-green/40 bg-[var(--lime-tint)] text-accent-green"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ),
+            )}
           </div>
           <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:mx-0 sm:px-0">
             {SHOWCASE.map((t) => (
