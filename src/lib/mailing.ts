@@ -20,12 +20,16 @@ export interface EmailDraft {
   preheader: string;
   brand: string;
   style: EmailStyle;
-  accent: string; // hex
+  accent: string; // hex — drives CTA gradient + **highlights**
+  dark: boolean; // dark iGaming promo look vs light
+  heroImage: string; // data URL (optional hero banner)
   heroTitle: string;
   heroSubtitle: string;
-  body: string;
-  ctaText: string;
+  body: string; // supports **bold accent** markers
+  steps: string[]; // "how to claim the bonus" steps
+  ctaText: string; // primary CTA (e.g. PLAY NOW)
   ctaUrl: string;
+  bonusCtaText: string; // secondary CTA (e.g. GET BONUS)
   footer: string;
   updatedAt: string; // ISO
 }
@@ -36,17 +40,25 @@ export function newDraft(): EmailDraft {
   return {
     id: "draft_" + Math.random().toString(36).slice(2, 9),
     name: "Новое письмо",
-    subject: "🎁 Заберите приветственный бонус 100%",
-    preheader: "Только сегодня — удвоим ваш первый депозит",
-    brand: "Adspire",
+    subject: "50 фриспинов + бонус 100% на депозит",
+    preheader: "Только до конца недели — заряжайте удочки!",
+    brand: "20BET",
     style: "promo",
-    accent: "#7B5CFF",
-    heroTitle: "Бонус 100% на первый депозит",
-    heroSubtitle: "Плюс 50 фриспинов в любимых слотах",
-    body: "Пополните счёт сегодня и получите удвоение суммы, а также фриспины на топовые игры. Предложение ограничено — не упустите момент.",
-    ctaText: "Забрать бонус",
-    ctaUrl: "https://example.com/bonus",
-    footer: "Вы получили письмо, потому что подписаны на рассылку Adspire. Отписаться.",
+    accent: "#22c55e",
+    dark: true,
+    heroImage: "",
+    heroTitle: "50 ФРИСПИНОВ BIG BASS BLAST + БОНУС **100% ДО 50 EUR**",
+    heroSubtitle: "",
+    body: "Лучшие слоты нашей коллекции ещё интереснее с бонусом! На этой неделе — **100% буст** и 50 фриспинов в слоте **Big Bass Blast** от **Pragmatic Play**. Внесите депозит от **20 EUR** до конца недели и активируйте бонус.",
+    steps: [
+      "Выберите карточку бонуса при пополнении счёта",
+      "Сделайте депозит от **20 EUR**",
+      "Получите 50 фриспинов + бонус **100% до 50 EUR**",
+    ],
+    ctaText: "PLAY NOW",
+    ctaUrl: "https://example.com/play",
+    bonusCtaText: "GET BONUS",
+    footer: "Это автоматическое сообщение, отвечать не нужно. Отписаться.",
     updatedAt: new Date().toISOString(),
   };
 }
