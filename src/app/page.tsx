@@ -16,13 +16,21 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppSidebar } from "@/components/AppSidebar";
+import { HubAdsPanel } from "@/components/HubAdsPanel";
+import { HubMailingPanel } from "@/components/HubMailingPanel";
 import { MobileScrim } from "@/components/MobileScrim";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
 import { getMockProjects } from "@/lib/historyMock";
-import { POPULAR_TEMPLATES, searchTemplates, type HubTemplate } from "@/lib/hubTemplates";
+import {
+  ALL_TEMPLATES,
+  POPULAR_TEMPLATES,
+  searchTemplates,
+  type HubTemplate,
+} from "@/lib/hubTemplates";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 
 type RecentCard = {
@@ -127,6 +135,29 @@ function TilePreview({ sectionId }: { sectionId: string }) {
             <Play className="ml-0.5 h-6 w-6 fill-current" />
           </span>
         </span>
+      </div>
+    );
+  }
+  if (sectionId === "email") {
+    // A mini email envelope mock: white card with a brand bar, hero and CTA.
+    return (
+      <div className={`flex h-full w-full items-center justify-center ${PREVIEW_BASE} p-5`}>
+        <div className="w-full max-w-[220px] overflow-hidden rounded-lg bg-white shadow-lg">
+          <div className="px-3 py-2" style={{ borderBottom: "1px solid #eef1f4" }}>
+            <span className="text-xs font-extrabold" style={{ color: "#7B5CFF" }}>
+              Adspire
+            </span>
+          </div>
+          <div className="px-3 py-3" style={{ background: "linear-gradient(160deg,#7B5CFF14,#fff)" }}>
+            <div className="h-2 w-4/5 rounded bg-[#0f172a]/85" />
+            <div className="mt-1.5 h-1.5 w-3/5 rounded bg-[#475569]/45" />
+          </div>
+          <div className="px-3 pb-3 pt-2">
+            <div className="h-1.5 w-full rounded bg-[#334155]/20" />
+            <div className="mt-1 h-1.5 w-11/12 rounded bg-[#334155]/20" />
+            <div className="mt-3 h-5 w-24 rounded-md" style={{ backgroundColor: "#7B5CFF" }} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -300,11 +331,12 @@ export default function HubPage() {
   const [projectCount, setProjectCount] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [query, setQuery] = useState("");
+  const [hubPrompt, setHubPrompt] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = "Dream Weaver Studio";
+    document.title = "Gen Go";
   }, []);
 
   // Public for guests: the Hub is the shop window. Data-loading effects below
@@ -421,6 +453,24 @@ export default function HubPage() {
     setSearchFocused(false);
     router.push(`/banner?card=${id}`);
   };
+  // Prompt-first hero → hand the idea to the banner generator (read on its mount).
+  const submitHubPrompt = () => {
+    const v = hubPrompt.trim();
+    if (v) {
+      try {
+        window.localStorage.setItem("dw_hub_prompt", v);
+      } catch {
+        /* ignore */
+      }
+    }
+    router.push("/banner");
+  };
+  // Quick tool chips under the prompt bar.
+  const TOOL_CHIPS = ["banner", "video", "landing", "playable", "email"]
+    .map((id) => SECTION_BY_ID.get(id as Section["id"]))
+    .filter((x): x is Section => Boolean(x));
+  // Media showcase — real preset-banner previews, each opens that preset.
+  const SHOWCASE = ALL_TEMPLATES.filter((t) => t.sectionId === "banner" && t.preview).slice(0, 16);
 
   if (loading) {
     return (
@@ -431,7 +481,10 @@ export default function HubPage() {
   }
 
   const bannerSection = SECTION_BY_ID.get("banner")!;
-  const otherSections = SECTIONS.filter((s) => s.id !== "banner");
+  // The quick-start grid is for the generative tools only. Ads/stats/mailing are
+  // management surfaces and live in their own bands below.
+  const CREATE_IDS = new Set(["landing", "playable", "video", "email"]);
+  const otherSections = SECTIONS.filter((s) => CREATE_IDS.has(s.id));
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
   // Gate onboarding on the same count as the stat so the two are mutually
   // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
@@ -442,6 +495,10 @@ export default function HubPage() {
     <div className="relative min-h-screen bg-background text-foreground">
       <style>{HUB_ANIM}</style>
       <AppHeader />
+
+      <div className="flex">
+        <AppSidebar />
+        <div className="relative min-w-0 flex-1">
 
       {/* Brand hero backdrop — the system's aurora (violet + lime radials) with
           a fading dot-grid over it. Purely decorative: it is aria-hidden, takes
@@ -467,11 +524,59 @@ export default function HubPage() {
             searchOpen ? "z-50" : ""
           }`}
         >
-          <h1 className="ds-h1 sm:text-3xl">{greeting}</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Выберите инструмент или найдите готовый шаблон — каждый проведёт вас по шагам до
-            результата.
+          <p className="ds-overline ds-overline-accent">Gen Go Studio</p>
+          <h1 className="ds-h1 mt-2 sm:text-4xl">{greeting}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
+            Опишите идею — соберём рекламный креатив. Баннеры, лендинги, видео и письма в одном
+            месте.
           </p>
+
+          {/* Prompt-first: type an idea → the banner generator opens prefilled. */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitHubPrompt();
+            }}
+            className="mx-auto mt-6 max-w-2xl"
+          >
+            <div className="flex items-center gap-2 rounded-2xl border border-border bg-[var(--bg-surface)] p-2 pl-4 shadow-[0_10px_40px_-16px_rgba(0,0,0,0.85)] transition focus-within:border-accent-green focus-within:shadow-[0_0_0_4px_rgba(198,255,61,0.10)]">
+              <Sparkles className="h-5 w-5 shrink-0 text-accent-green" />
+              <input
+                type="text"
+                value={hubPrompt}
+                onChange={(e) => setHubPrompt(e.target.value)}
+                placeholder="Например: приветственный бонус 100% для онлайн-казино…"
+                aria-label="Опишите креатив"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint sm:text-base"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
+              >
+                Создать
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
+
+          {/* Tool quick chips */}
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {TOOL_CHIPS.map((sc) => {
+              const Icon = sc.icon;
+              return (
+                <Link
+                  key={sc.id}
+                  href={sc.route}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-white/[0.03] px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/40 hover:text-foreground"
+                >
+                  <Icon className="h-3.5 w-3.5 text-accent-green" />
+                  {sc.title}
+                </Link>
+              );
+            })}
+          </div>
+
+          <p className="mx-auto mt-7 max-w-md ds-caption">Или найдите готовый шаблон</p>
 
           {/* Same shared scrim every other dropdown in the product uses — here
               on desktop too, so the results separate from the tiles behind. */}
@@ -632,12 +737,15 @@ export default function HubPage() {
                 key={s.id}
                 style={{ "--d": `${170 + i * 55}ms` } as React.CSSProperties}
                 className={`hub-in ${
-                  // landing → col2/row1, playable → col3/row1, video → wide col2-3/row2
+                  // 2×2 grid of generative tools beside the featured banner:
+                  // landing c2r1, playable c3r1, video c2r2, email c3r2.
                   i === 0
                     ? "lg:col-start-2 lg:row-start-1"
                     : i === 1
                       ? "lg:col-start-3 lg:row-start-1"
-                      : "lg:col-start-2 lg:col-span-2 lg:row-start-2"
+                      : i === 2
+                        ? "lg:col-start-2 lg:row-start-2"
+                        : "lg:col-start-3 lg:row-start-2"
                 }`}
               >
                 <SectionTile section={s} onOpen={() => router.push(s.route)} />
@@ -645,6 +753,56 @@ export default function HubPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Витрина примеров: real preset previews → open in the generator ─ */}
+        <section className="hub-in mt-14" style={{ "--d": "220ms" } as React.CSSProperties}>
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="ds-feature-icon h-9 w-9 shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="ds-overline ds-overline-accent">Витрина</p>
+                <h2 className="mt-0.5 text-lg font-semibold">Примеры креативов</h2>
+              </div>
+            </div>
+            <Link
+              href="/banner"
+              className="hidden shrink-0 items-center gap-1 text-sm font-medium text-accent-green transition hover:text-[var(--accent-hover)] sm:inline-flex"
+            >
+              Все шаблоны
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:mx-0 sm:px-0">
+            {SHOWCASE.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => router.push(t.href)}
+                title={t.name}
+                className="group relative aspect-[3/2] w-60 shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] transition-all hover:-translate-y-1 hover:border-accent-green/60 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.35)]"
+              >
+                <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105">
+                  <Thumb preview={t.preview} gradient={t.gradient} fallbackIcon={null} />
+                </div>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 p-3">
+                  <span className="truncate text-sm font-semibold text-white">{t.name}</span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-green text-on-accent opacity-0 transition group-hover:opacity-100">
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Реклама и аналитика (new): live snapshot or connect CTA ────── */}
+        <HubAdsPanel />
+
+        {/* ── Email-рассылки (new): opens/clicks snapshot + compose entry ── */}
+        <HubMailingPanel />
 
         {/* ── Recent projects (only when the user has some) ─────────────── */}
         {recent.length > 0 ? (
@@ -779,6 +937,8 @@ export default function HubPage() {
             </div>
           </div>
         </section>
+      </div>
+        </div>
       </div>
     </div>
   );

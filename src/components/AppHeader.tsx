@@ -610,7 +610,7 @@ function LogoArt() {
     <>
       <BrandLogo
         className="hidden h-7 sm:block"
-        fallback={<span className="text-base font-bold tracking-tight">Dream Weaver Studio</span>}
+        fallback={<span className="text-base font-bold tracking-tight">Gen Go</span>}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/logo-mark.svg" alt="" className="h-7 w-auto sm:hidden" draggable={false} />

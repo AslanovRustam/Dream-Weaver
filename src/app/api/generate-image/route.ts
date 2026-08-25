@@ -1501,7 +1501,7 @@ export async function POST(request: Request) {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${orKey}`,
                 "HTTP-Referer": "https://dream-weaver-studio.local",
-                "X-Title": "Dream Weaver Studio",
+                "X-Title": "Gen Go",
               },
               body: JSON.stringify({
                 model: orModel,

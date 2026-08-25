@@ -144,7 +144,7 @@ const TAB_CLS =
 
 export default function AdminPage() {
   const router = useRouter();
-  useEffect(() => { document.title = "Админ — Dream Weaver Studio"; }, []);
+  useEffect(() => { document.title = "Админ — Gen Go"; }, []);
   const { loading } = useAuth();
   // Any staff role (support/moderator/admin/superadmin) opens the panel. This
   // is only a client-side pre-check so non-admins don't see a broken page —

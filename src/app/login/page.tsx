@@ -78,7 +78,7 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
-  useEffect(() => { document.title = "Войти — Dream Weaver Studio"; }, []);
+  useEffect(() => { document.title = "Войти — Gen Go"; }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
@@ -103,8 +103,8 @@ function LoginPageInner() {
               public/brand/logo.svg exists, then the image. */}
           <BrandLogo
             className="mx-auto h-9"
-            alt="Dream Weaver Studio"
-            fallback={<h1 className="text-2xl font-semibold tracking-tight">Dream Weaver Studio</h1>}
+            alt="Gen Go"
+            fallback={<h1 className="text-2xl font-semibold tracking-tight">Gen Go</h1>}
           />
           <p className="mt-2 text-sm text-muted-foreground">Войдите чтобы продолжить</p>
         </div>

@@ -16,7 +16,7 @@ import { getBrowserClient } from "@/lib/supabase/browser";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  useEffect(() => { document.title = "Новый пароль — Dream Weaver Studio"; }, []);
+  useEffect(() => { document.title = "Новый пароль — Gen Go"; }, []);
   const { session, loading } = useAuth();
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");

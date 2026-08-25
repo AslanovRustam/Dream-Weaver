@@ -8,6 +8,8 @@
 // client-side today (see src/lib/playableGen.ts); the shape matches the other
 // generators so a real API can be slotted in later.
 import { useEffect, useRef, useState } from "react";
+
+import { BriefUploader } from "@/components/BriefUploader";
 import {
   ArrowUpRight,
   Check,
@@ -122,6 +124,12 @@ export function PlayableGenApp() {
   const [language, setLanguage] = useState("auto");
   const [alwaysWin, setAlwaysWin] = useState(true);
   const [ctaText, setCtaText] = useState("");
+  // Map brief-extracted fields into the playable form.
+  const applyBrief = (f: Record<string, string>) => {
+    if (f.subject) setOffer(f.subject);
+    if (f.brand) setBrandName(f.brand);
+    if (f.ctaText) setCtaText(f.ctaText);
+  };
   const [duration, setDuration] = useState<"short" | "medium">("short");
   const [ratio, setRatio] = useState("9:16");
 
@@ -166,7 +174,7 @@ export function PlayableGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Плейбл-реклама — Dream Weaver Studio";
+    document.title = "Плейбл-реклама — Gen Go";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
@@ -433,6 +441,14 @@ export function PlayableGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              <BriefUploader
+                product="playable"
+                onApply={applyBrief}
+                onGenerate={(r) => {
+                  applyBrief(r.fields);
+                  if (r.generationPrompt && !r.fields.subject) setOffer(r.generationPrompt);
+                }}
+              />
               <SettingsSection
                 title="Тематика / оффер"
                 required

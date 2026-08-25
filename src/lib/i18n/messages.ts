@@ -11,7 +11,7 @@ import type { Locale } from "./config";
 const ru = {
   header: {
     home: "На главную",
-    homeAria: "Dream Weaver Studio — на главную",
+    homeAria: "Gen Go — на главную",
     uploadFailed: "{n} файлов не сохранены в облаке. Откройте историю.",
     credits: {
       title: "Кредиты",
@@ -148,7 +148,7 @@ export type Messages = {
 const en: Messages = {
   header: {
     home: "Home",
-    homeAria: "Dream Weaver Studio — home",
+    homeAria: "Gen Go — home",
     uploadFailed: "{n} files were not saved to the cloud. Open History.",
     credits: {
       title: "Credits",
@@ -233,7 +233,7 @@ const en: Messages = {
 const uk: Messages = {
   header: {
     home: "На головну",
-    homeAria: "Dream Weaver Studio — на головну",
+    homeAria: "Gen Go — на головну",
     uploadFailed: "{n} файлів не збережено в хмарі. Відкрийте Історію.",
     credits: {
       title: "Кредити",

@@ -69,7 +69,7 @@ export default function WorkspaceDetailPage() {
   const active = ws?.id === activeId;
 
   useEffect(() => {
-    document.title = ws ? `${ws.name} — Мой Workspace` : "Мой Workspace — Dream Weaver Studio";
+    document.title = ws ? `${ws.name} — Мой Workspace` : "Мой Workspace — Gen Go";
   }, [ws?.name]);
 
   if (isGuest) {

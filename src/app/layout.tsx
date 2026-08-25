@@ -31,18 +31,18 @@ const DESCRIPTION =
   "Генерация рекламных креативов для iGaming: баннеры, лендинги, плейблы и видео — на базе ИИ.";
 
 export const metadata: Metadata = {
-  title: "Dream Weaver Studio",
+  title: "Gen Go",
   description: DESCRIPTION,
-  applicationName: "Dream Weaver Studio",
+  applicationName: "Gen Go",
   openGraph: {
-    title: "Dream Weaver Studio",
+    title: "Gen Go",
     description: DESCRIPTION,
     type: "website",
-    siteName: "Dream Weaver Studio",
+    siteName: "Gen Go",
   },
   twitter: {
     card: "summary",
-    title: "Dream Weaver Studio",
+    title: "Gen Go",
     description: DESCRIPTION,
   },
 };

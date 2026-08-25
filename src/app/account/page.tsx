@@ -136,7 +136,7 @@ export default function AccountPage() {
   const router = useRouter();
   const goBack = useSmartBack("/banner");
   useEffect(() => {
-    document.title = "Аккаунт — Dream Weaver Studio";
+    document.title = "Аккаунт — Gen Go";
   }, []);
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { isGuest } = useAppRole();

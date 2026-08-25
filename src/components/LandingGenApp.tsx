@@ -6,6 +6,8 @@
 // client-side today (see src/lib/landingGen.ts) but the shape matches the
 // banner so a real API can be slotted in later.
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { BriefUploader } from "@/components/BriefUploader";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -177,6 +179,14 @@ export function LandingGenApp() {
   const [sections, setSections] = useState<Record<LandingSectionId, boolean>>(ALL_ON);
   const [ctaText, setCtaText] = useState("");
   const [offerDetails, setOfferDetails] = useState("");
+  // Map brief-extracted fields into the landing form.
+  const applyBrief = (f: Record<string, string>) => {
+    if (f.subject) setSubject(f.subject);
+    if (f.occasion) setOccasion(f.occasion);
+    if (f.brandName) setBrandName(f.brandName);
+    if (f.ctaText) setCtaText(f.ctaText);
+    if (f.offerDetails) setOfferDetails(f.offerDetails);
+  };
 
   const [status, setStatus] = useState<Status>("idle");
   const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
@@ -214,7 +224,7 @@ export function LandingGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Лендинг-генератор — Dream Weaver Studio";
+    document.title = "Лендинг-генератор — Gen Go";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
@@ -394,6 +404,14 @@ export function LandingGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              <BriefUploader
+                product="landing"
+                onApply={applyBrief}
+                onGenerate={(r) => {
+                  applyBrief(r.fields);
+                  if (r.generationPrompt && !r.fields.subject) setSubject(r.generationPrompt);
+                }}
+              />
               {fromBanner ? (
                 <>
                   {/* Collapsed "brought from banner" summary — expand to edit. */}

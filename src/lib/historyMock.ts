@@ -10,14 +10,16 @@
 //
 // Replace getMockProjects()/getMockCredits() with real endpoints when ready —
 // the HistoryApp UI only depends on the Project / CreditTx shapes below.
-import type { SectionId } from "@/lib/sections";
 
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
 import presetSport from "@/assets/preset-sport.jpg";
 
-export type ProjectType = SectionId; // "banner" | "landing" | "playable" | "video"
+// History exists only for the generative sections — not ads/stats. Keep this an
+// explicit subset of SectionId so adding non-generative sections never forces
+// history maps to cover them.
+export type ProjectType = "banner" | "landing" | "playable" | "video";
 
 export type Project = {
   id: string;

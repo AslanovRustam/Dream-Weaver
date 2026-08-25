@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { apiJson, ApiError } from "@/lib/api-client";
+import { BriefUploader } from "@/components/BriefUploader";
 import { PresetSidebar, PRESETS, compileTemplateOptions } from "./PresetSidebar";
 import { AspectRatioPicker } from "./AspectRatioPicker";
 import { type ModelKey } from "./ModelToggle";
@@ -158,7 +159,20 @@ export function ImageGenApp() {
   const [adTextsEnabled, setAdTextsEnabled] = useState(true);
   const [personEnabled, setPersonEnabled] = useState(true);
   const [personGender, setPersonGender] = useState<"female" | "male">("female");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    // Prompt-first Hub hero hands the typed idea over via localStorage.
+    if (typeof window === "undefined") return "";
+    try {
+      const seed = window.localStorage.getItem("dw_hub_prompt");
+      if (seed) {
+        window.localStorage.removeItem("dw_hub_prompt");
+        return seed;
+      }
+    } catch {
+      /* ignore */
+    }
+    return "";
+  });
   const [model, setModel] = useState<ModelKey>(() => {
     if (typeof window === "undefined") return "gpt";
     try {
@@ -227,6 +241,22 @@ export function ImageGenApp() {
     }
   }, [uiMode]);
   const advanced = uiMode === "advanced";
+  // Deferred generation after a brief ("Сгенерировать продукт"): applying fields
+  // is async state, so we flag intent and fire once the prompt has landed.
+  const [pendingBriefGen, setPendingBriefGen] = useState(false);
+  // Map brief-extracted fields into the banner form.
+  const applyBrief = (f: Record<string, string>) => {
+    if (f.prompt) setPrompt(f.prompt);
+    if (f.brand) setBrandName(f.brand);
+    if (f.bannerText) {
+      setBannerText(f.bannerText);
+      setBannerTextEnabled(true);
+    }
+    if (f.buttonText) {
+      setButtonText(f.buttonText);
+      setButtonTextEnabled(true);
+    }
+  };
   // sport preset state
   const [sportType, setSportType] = useState("");
   const [matchType, setMatchType] = useState("auto");
@@ -1023,6 +1053,15 @@ export function ImageGenApp() {
   // and regenerate). Does not touch generation logic beyond clearing.
   // Because this discards a fresh, not-yet-saved master, confirm first so a
   // stray click can't silently destroy the user's banner.
+  // Fire the deferred brief-generation once the prompt state has updated.
+  useEffect(() => {
+    if (pendingBriefGen && prompt.trim() && status !== "loading") {
+      setPendingBriefGen(false);
+      void onGenerate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBriefGen, prompt, status]);
+
   const backToStart = async () => {
     if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
       const ok = await confirm({ title: "Начать заново?", body: "Текущий баннер будет удалён.", destructive: true, confirmLabel: "Начать заново" });
@@ -1085,6 +1124,16 @@ export function ImageGenApp() {
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
+              <BriefUploader
+                product="banner"
+                onApply={applyBrief}
+                onGenerate={(r) => {
+                  applyBrief(r.fields);
+                  if (r.generationPrompt && !r.fields.prompt) setPrompt(r.generationPrompt);
+                  setPendingBriefGen(true);
+                }}
+              />
+
               {/* Simple / Advanced mode. Simple shows only the template's main
                   field; advanced reveals brand, colors, texts, person, etc. */}
               <div className="flex w-full rounded-lg border border-border p-0.5">

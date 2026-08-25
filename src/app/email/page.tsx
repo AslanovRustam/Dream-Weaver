@@ -2,17 +2,15 @@
 
 import { useEffect } from "react";
 
-import { ImageGenApp } from "@/components/ImageGenApp";
+import { EmailGenApp } from "@/components/EmailGenApp";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/lib/auth-context";
 
-export default function BannerPage() {
+export default function EmailPage() {
   useEffect(() => {
-    document.title = "Баннер-генератор — Gen Go";
+    document.title = "Генератор писем — Gen Go";
   }, []);
 
-  // Public for guests — the whole configuration UI is browsable without an
-  // account; the gate fires only on "Сгенерировать" (see components/AuthGate).
   const { loading } = useAuth();
 
   if (loading) {
@@ -26,7 +24,7 @@ export default function BannerPage() {
   return (
     <>
       <AppHeader />
-      <ImageGenApp />
+      <EmailGenApp />
     </>
   );
 }

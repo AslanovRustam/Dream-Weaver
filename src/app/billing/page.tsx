@@ -139,7 +139,7 @@ export default function BillingPage() {
   const [annual, setAnnual] = useState(true);
 
   useEffect(() => {
-    document.title = "Тарифы — Dream Weaver Studio";
+    document.title = "Тарифы — Gen Go";
   }, []);
 
   useEffect(() => {

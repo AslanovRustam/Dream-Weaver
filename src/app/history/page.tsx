@@ -13,7 +13,7 @@ import { useAppRole } from "@/lib/roles";
 
 export default function HistoryPage() {
   useEffect(() => {
-    document.title = "История — Dream Weaver Studio";
+    document.title = "История — Gen Go";
   }, []);
 
   const { loading } = useAuth();

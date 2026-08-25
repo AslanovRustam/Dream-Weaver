@@ -39,7 +39,7 @@ export function SectionScaffold({ section }: { section: Section }) {
   // setting now (no longer tied to the header). Landing also accepts the
   // "create from banner" handoff, which may carry its own language.
   useEffect(() => {
-    document.title = `${section.title} — Dream Weaver Studio`;
+    document.title = `${section.title} — Gen Go`;
     let lang = "auto";
     if (section.id === "landing" && typeof window !== "undefined") {
       try {

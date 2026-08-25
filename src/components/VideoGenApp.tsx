@@ -8,6 +8,8 @@
 // bar. Generation is a client-side mock today (see src/lib/videoGen.ts); the
 // shape matches the other generators so a real video API can be slotted in later.
 import { useEffect, useRef, useState } from "react";
+
+import { BriefUploader } from "@/components/BriefUploader";
 import {
   Captions,
   Check,
@@ -160,6 +162,11 @@ export function VideoGenApp() {
   // Бренд / язык / формат
   const [brandName, setBrandName] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
+  // Map brief-extracted fields into the video form.
+  const applyBrief = (f: Record<string, string>) => {
+    if (f.subject) setScript(f.subject);
+    if (f.brand) setBrandName(f.brand);
+  };
   const [language, setLanguage] = useState("auto");
   const [extraLangs, setExtraLangs] = useState<string[]>([]);
   const [ratio, setRatio] = useState("9:16");
@@ -198,7 +205,7 @@ export function VideoGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Конструктор видео — Dream Weaver Studio";
+    document.title = "Конструктор видео — Gen Go";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
@@ -432,6 +439,14 @@ export function VideoGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              <BriefUploader
+                product="video"
+                onApply={applyBrief}
+                onGenerate={(r) => {
+                  applyBrief(r.fields);
+                  if (r.generationPrompt && !r.fields.subject) setScript(r.generationPrompt);
+                }}
+              />
               {/* ── Сценарий ─────────────────────────────────────────────── */}
               <SettingsSection
                 title="Сценарий"

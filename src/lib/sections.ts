@@ -2,9 +2,27 @@
 // the Hub start screen, the header section-switcher, and each section's route.
 // All four have working UI now (banner / landing / playable / video); the AI
 // backends behind them are still mocked to varying degrees.
-import { Image, LayoutTemplate, Gamepad2, Film, type LucideIcon } from "lucide-react";
+import {
+  Image,
+  LayoutTemplate,
+  Gamepad2,
+  Film,
+  Megaphone,
+  BarChart3,
+  Mail,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 
-export type SectionId = "banner" | "landing" | "playable" | "video";
+export type SectionId =
+  | "banner"
+  | "landing"
+  | "playable"
+  | "video"
+  | "email"
+  | "ads"
+  | "stats"
+  | "mailing";
 
 export type Section = {
   id: SectionId;
@@ -62,6 +80,46 @@ export const SECTIONS: Section[] = [
     icon: Film,
     scaffoldHint:
       "Здесь появятся настройки скринкаста, персонажа, липсинка, музыки и доп. элементов",
+    ready: true,
+  },
+  {
+    id: "email",
+    route: "/email",
+    title: "Генератор писем",
+    description: "Письма для email-рассылок с живым предпросмотром",
+    cta: "Создать письмо",
+    icon: Mail,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    id: "ads",
+    route: "/ads",
+    title: "Рекламные кабинеты",
+    description: "Подключение площадок: Meta, Google, TikTok",
+    cta: "Подключить кабинет",
+    icon: Megaphone,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    id: "stats",
+    route: "/stats",
+    title: "Статистика",
+    description: "Расход, показы, клики, CTR и конверсии по кабинетам",
+    cta: "Открыть статистику",
+    icon: BarChart3,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    id: "mailing",
+    route: "/mailing",
+    title: "Кабинет рассылок",
+    description: "Отправка писем по аудиториям, открытия и клики",
+    cta: "Открыть рассылки",
+    icon: Send,
+    scaffoldHint: "",
     ready: true,
   },
 ];
