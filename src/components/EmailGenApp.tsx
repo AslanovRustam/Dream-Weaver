@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Mail, Save, Send, Upload } from "lucide-react";
+import { Check, Loader2, Mail, Save, Send, Sparkles, Upload } from "lucide-react";
 
 import { BriefUploader } from "@/components/BriefUploader";
 import {
@@ -27,11 +27,80 @@ export function EmailGenApp() {
     setSaved(true);
   };
 
-  const onHeroFile = (file: File | null) => {
-    if (!file) return;
+  const [genning, setGenning] = useState(false);
+  const [genError, setGenError] = useState("");
+
+  const readAsDataUrl = (file: File, key: "heroImage" | "logo") => {
     const reader = new FileReader();
-    reader.onload = () => set("heroImage", String(reader.result));
+    reader.onload = () => set(key, String(reader.result));
     reader.readAsDataURL(file);
+  };
+  const onHeroFile = (file: File | null) => file && readAsDataUrl(file, "heroImage");
+  const onLogoFile = (file: File | null) => file && readAsDataUrl(file, "logo");
+
+  // Composite the logo PNG on top of a generated image (client-side canvas).
+  const overlayLogo = (baseUrl: string, logoUrl: string) =>
+    new Promise<string>((resolve) => {
+      const base = new Image();
+      base.crossOrigin = "anonymous";
+      base.onload = () => {
+        const logo = new Image();
+        logo.crossOrigin = "anonymous";
+        logo.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = base.naturalWidth;
+          canvas.height = base.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(baseUrl);
+          ctx.drawImage(base, 0, 0);
+          const lw = canvas.width * 0.24;
+          const lh = lw * (logo.naturalHeight / Math.max(1, logo.naturalWidth));
+          ctx.drawImage(logo, (canvas.width - lw) / 2, canvas.height * 0.06, lw, lh);
+          try {
+            resolve(canvas.toDataURL("image/png"));
+          } catch {
+            resolve(baseUrl);
+          }
+        };
+        logo.onerror = () => resolve(baseUrl);
+        logo.src = logoUrl;
+      };
+      base.onerror = () => resolve(baseUrl);
+      base.src = baseUrl;
+    });
+
+  // Generate the hero banner: an agent composes a no-text prompt from the brief,
+  // an image model renders it; a logo is a reference or a PNG overlay.
+  const generateHero = async () => {
+    setGenning(true);
+    setGenError("");
+    try {
+      const res = await fetch("/api/generate-email-hero", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: draft.brand,
+          heroTitle: draft.heroTitle,
+          body: draft.body,
+          logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
+          logoMode: draft.logoMode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageUrl) {
+        setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
+        return;
+      }
+      const finalUrl =
+        draft.logo && draft.logoMode === "overlay"
+          ? await overlayLogo(data.imageUrl, draft.logo)
+          : data.imageUrl;
+      set("heroImage", finalUrl);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+    } finally {
+      setGenning(false);
+    }
   };
   const setStep = (i: number, v: string) => {
     const s = [...(draft.steps ?? [])];
@@ -181,6 +250,82 @@ export function EmailGenApp() {
               {draft.dark ? "Вкл" : "Выкл"}
             </button>
           </div>
+        </div>
+
+        {/* AI hero generation + logo */}
+        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+          <button
+            type="button"
+            onClick={generateHero}
+            disabled={genning}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+          >
+            {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {genning ? "Генерирую баннер…" : "Сгенерировать баннер (ИИ)"}
+          </button>
+          <p className="mt-2 ds-caption">
+            Агент составит промпт по ТЗ. На картинке не будет текста — только цифры, чтобы письмо
+            легко переводилось.
+          </p>
+
+          <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
+            <div>
+              <label className="mb-1.5 block ds-label">Логотип</label>
+              {draft.logo ? (
+                <div className="flex items-center gap-2">
+                  <img
+                    src={draft.logo}
+                    alt=""
+                    className="h-10 w-16 rounded-md border border-border bg-white object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set("logo", "")}
+                    className="text-xs text-muted-foreground transition hover:text-foreground"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-elevated px-3 text-sm text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground">
+                  <Upload className="h-4 w-4" /> Загрузить лого
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    className="hidden"
+                    onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              )}
+            </div>
+            <div>
+              <label className="mb-1.5 block ds-label">Лого как</label>
+              <div className="flex rounded-lg border border-border p-0.5 text-xs">
+                {(
+                  [
+                    ["reference", "Референс"],
+                    ["overlay", "Поверх"],
+                  ] as const
+                ).map(([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => set("logoMode", m)}
+                    className={`min-h-8 rounded-md px-2.5 font-medium transition ${
+                      draft.logoMode === m
+                        ? "bg-white/10 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {genError ? (
+            <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p>
+          ) : null}
         </div>
 
         <Field label="Заголовок (hero)">

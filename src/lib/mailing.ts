@@ -23,6 +23,8 @@ export interface EmailDraft {
   accent: string; // hex — drives CTA gradient + **highlights**
   dark: boolean; // dark iGaming promo look vs light
   heroImage: string; // data URL (optional hero banner)
+  logo: string; // data URL (brand logo)
+  logoMode: "reference" | "overlay"; // logo as generation reference or PNG overlay
   heroTitle: string;
   heroSubtitle: string;
   body: string; // supports **bold accent** markers
@@ -47,6 +49,8 @@ export function newDraft(): EmailDraft {
     accent: "#22c55e",
     dark: true,
     heroImage: "",
+    logo: "",
+    logoMode: "reference",
     heroTitle: "50 ФРИСПИНОВ BIG BASS BLAST + БОНУС **100% ДО 50 EUR**",
     heroSubtitle: "",
     body: "Лучшие слоты нашей коллекции ещё интереснее с бонусом! На этой неделе — **100% буст** и 50 фриспинов в слоте **Big Bass Blast** от **Pragmatic Play**. Внесите депозит от **20 EUR** до конца недели и активируйте бонус.",
