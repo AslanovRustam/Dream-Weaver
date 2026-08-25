@@ -60,6 +60,80 @@ const FIELD_SPORT: TemplateField = {
     { value: "esports", label: "Киберспорт", prompt: "Sport context: esports." },
   ],
 };
+// Reusable field library shared across presets. "Авто" options carry no prompt,
+// so they leave the template's own look untouched.
+const FIELD_MATCH_MOMENT: TemplateField = {
+  id: "moment",
+  type: "select",
+  label: "Момент",
+  default: "action",
+  options: [
+    { value: "action", label: "Экшн", prompt: "Capture a dynamic mid-action moment." },
+    { value: "start", label: "Старт", prompt: "Depict the start / kickoff moment." },
+    { value: "win", label: "Победный момент", prompt: "Depict a triumphant victory moment." },
+  ],
+};
+const FIELD_TIME_OF_DAY: TemplateField = {
+  id: "timeOfDay",
+  type: "select",
+  label: "Время суток",
+  default: "auto",
+  options: [
+    { value: "auto", label: "Авто" },
+    { value: "day", label: "День", prompt: "Daytime setting." },
+    { value: "night", label: "Ночь (софиты)", prompt: "Night setting under bright floodlights." },
+    { value: "dusk", label: "Закат", prompt: "Dusk / golden-hour setting." },
+  ],
+};
+const FIELD_CASINO_PROP: TemplateField = {
+  id: "prop",
+  type: "select",
+  label: "Реквизит",
+  default: "auto",
+  options: [
+    { value: "auto", label: "Авто" },
+    { value: "coins", label: "Монеты", prompt: "Feature flying gold coins." },
+    { value: "chips", label: "Фишки", prompt: "Feature casino chips." },
+    { value: "cards", label: "Карты", prompt: "Feature playing cards." },
+    { value: "diamonds", label: "Бриллианты", prompt: "Feature sparkling diamonds and gems." },
+  ],
+};
+const FIELD_WIN_CALLOUT: TemplateField = {
+  id: "callout",
+  type: "select",
+  label: "Плашка выигрыша",
+  default: "auto",
+  options: [
+    { value: "auto", label: "Авто" },
+    { value: "win", label: "WIN!", prompt: "Include a bold WIN! callout." },
+    { value: "big", label: "BIG WIN", prompt: "Include a BIG WIN callout." },
+    { value: "jackpot", label: "JACKPOT", prompt: "Include a JACKPOT callout." },
+    { value: "mega", label: "MEGA WIN", prompt: "Include a MEGA WIN callout." },
+  ],
+};
+const FIELD_JACKPOT_TIER: TemplateField = {
+  id: "jackpotTier",
+  type: "select",
+  label: "Тир джекпота",
+  default: "mega",
+  options: [
+    { value: "mega", label: "Mega", prompt: "Headline a Mega jackpot tier." },
+    { value: "grand", label: "Grand", prompt: "Headline a Grand jackpot tier." },
+    { value: "daily", label: "Daily", prompt: "Headline a Daily jackpot tier." },
+  ],
+};
+const FIELD_ODDS_MULT: TemplateField = {
+  id: "oddsMult",
+  type: "select",
+  label: "Множитель",
+  default: "x50",
+  options: [
+    { value: "x10", label: "×10", prompt: "Headline a ×10 odds multiplier." },
+    { value: "x25", label: "×25", prompt: "Headline a ×25 odds multiplier." },
+    { value: "x50", label: "×50", prompt: "Headline a ×50 odds multiplier." },
+    { value: "x100", label: "×100", prompt: "Headline a ×100 odds multiplier." },
+  ],
+};
 
 /** Compile the user's field selections into a single CUSTOMISATION instruction
  *  string appended to the generation prompt. Empty when nothing meaningful. */
@@ -85,6 +159,7 @@ export function compileTemplateOptions(
 export const PRESETS: Preset[] = [
   {
     id: "preset1",
+    fields: [FIELD_BONUS_BADGE],
     name: "Широкий угол",
     description: "Яркая инфографика для товара с крупными цифрами и характеристиками",
     gradient: "linear-gradient(135deg,#a3e635,#22d3ee,#f0abfc)",
@@ -99,6 +174,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "preset2",
+    fields: [FIELD_WIN_CALLOUT, FIELD_CASINO_PROP],
     name: "Баннер по слоту",
     description: "Премиум gaming-баннер для конкретного слота",
     gradient: "linear-gradient(135deg,#0f172a,#7c3aed,#22d3ee)",
@@ -151,6 +227,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset3",
+    fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
     name: "Событие",
     description: "Гемблинг/беттинг баннер под событие или повод",
     gradient: "linear-gradient(135deg,#1e1b4b,#dc2626,#f59e0b)",
@@ -165,6 +242,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset4",
+    fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
     name: "Спорт / Ставки",
     description: "Беттинг-баннер под спортивное событие (face-off, fight poster, esports)",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
@@ -179,6 +257,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset5",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
     name: "Боевые искусства",
     description: "Кинематографичный fighter-портрет: бокс/ММА, пот, энергетический свет",
     gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
@@ -196,6 +275,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   //    visual STYLE; {SUBJECT} is filled with the banner topic at generation. ──
   {
     id: "preset6",
+    fields: [FIELD_JACKPOT_TIER, FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Джекпот-взрыв",
     description: "Взрыв монет и фишек, big-win энергия, объёмный свет",
     gradient: "linear-gradient(135deg,#0b0b0f,#f59e0b,#fde047)",
@@ -217,6 +297,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset7",
+    fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Ультрафиолет / Неон",
     description: "Киберпанк-неон, фиолет-циан свечение, голо-UI",
     gradient: "linear-gradient(135deg,#0f0524,#7c3aed,#22d3ee)",
@@ -238,6 +319,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset8",
+    fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Рулетка в движении",
     description: "Крутящаяся рулетка и шарик, motion-blur, стол казино",
     gradient: "linear-gradient(135deg,#0b0b0f,#166534,#f59e0b)",
@@ -259,6 +341,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset9",
+    fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Ретро-Вегас / Vaporwave",
     description: "80–90-е Вегас: хром-текст, неон-закат, VHS-зерно",
     gradient: "linear-gradient(135deg,#2b1055,#ff2d95,#ffd36e)",
@@ -280,6 +363,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset10",
+    fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Luxury Noir (VIP)",
     description: "Чёрное с золотом, драматичный свет, премиум hi-roller",
     gradient: "linear-gradient(135deg,#000000,#1c1917,#d4af37)",
@@ -301,6 +385,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset11",
+    fields: [FIELD_WIN_CALLOUT, FIELD_CASINO_PROP],
     name: "Комикс поп-арт",
     description: "Полутон Бен-Дэй, чернильный контур, «WIN!» в облаке",
     gradient: "linear-gradient(135deg,#1d4ed8,#facc15,#ef4444)",
@@ -322,6 +407,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset12",
+    fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
     name: "Покер-нуар",
     description: "Роял-флеш и стопки фишек макро, драматичный стол",
     gradient: "linear-gradient(135deg,#0b0b0f,#7f1d1d,#d4af37)",
@@ -343,6 +429,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset13",
+    fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
     name: "Голо-статборд",
     description: "Голографические коэффициенты, HUD, стат-графы",
     gradient: "linear-gradient(135deg,#020617,#1d4ed8,#22d3ee)",
@@ -364,6 +451,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset14",
+    fields: [FIELD_WIN_CALLOUT],
     name: "Стрит / граффити",
     description: "Спрей-текстуры, граффити-теги, стритвир-энергия",
     gradient: "linear-gradient(135deg,#111827,#22c55e,#f43f5e)",
@@ -435,6 +523,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   //    routed through adaptPrompt like the others. ──
   {
     id: "preset16",
+    fields: [FIELD_WIN_CALLOUT, FIELD_SHOW_ODDS],
     name: "Победный купон",
     description: "Выигрышный бет-слип, денежный дождь, зелёный тикет",
     gradient: "linear-gradient(135deg,#0b0b0f,#15803d,#facc15)",
@@ -456,6 +545,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset17",
+    fields: [FIELD_SPORT, FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
     name: "Live-ставки",
     description: "Красный LIVE, in-play тикер, динамичный стадион",
     gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
@@ -477,6 +567,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset18",
+    fields: [FIELD_ODDS_MULT, FIELD_SHOW_ODDS],
     name: "Экспресс x50",
     description: "Аккумулятор: цепочка исходов, крупный множитель",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
@@ -592,6 +683,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset23",
+    fields: [FIELD_JACKPOT_TIER, FIELD_WIN_CALLOUT],
     name: "Тото / лотерея",
     description: "Лото-шары, счастливые числа, призовой пул",
     gradient: "linear-gradient(135deg,#042f2e,#0d9488,#fbbf24)",
@@ -613,6 +705,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset24",
+    fields: [FIELD_SPORT],
     name: "Дерби эмблем",
     description: "Столкновение эмблем/флагов, VS, без лиц",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
@@ -634,6 +727,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset25",
+    fields: [FIELD_SHOW_ODDS, FIELD_WIN_CALLOUT],
     name: "Кэшаут",
     description: "Момент кэшаута, зафиксированный выигрыш, зелёная кнопка",
     gradient: "linear-gradient(135deg,#0b0b0f,#16a34a,#a3e635)",
@@ -657,6 +751,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   //    Environments mirror the server SPORT_BG map for authenticity. ──
   {
     id: "preset26",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Футбол",
     description: "Беттинг-баннер под футбол: стадион, экшн, командные цвета",
     gradient: "linear-gradient(135deg,#052e16,#16a34a,#f1f5f9)",
@@ -678,6 +773,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset27",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Баскетбол",
     description: "Беттинг-баннер под баскетбол: арена, паркет, данк",
     gradient: "linear-gradient(135deg,#0b0b0f,#ea580c,#f59e0b)",
@@ -699,6 +795,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset28",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Американский футбол",
     description: "Беттинг-баннер под NFL: стадион, экшн, спред",
     gradient: "linear-gradient(135deg,#0b1220,#1e3a8a,#94a3b8)",
@@ -720,6 +817,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset29",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Теннис",
     description: "Беттинг-баннер под теннис: корт, подача, матч",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
@@ -741,6 +839,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset30",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
     name: "Крикет",
     description: "Беттинг-баннер под крикет: поле, бэтсмен, T20",
     gradient: "linear-gradient(135deg,#052e16,#0d9488,#f59e0b)",
@@ -762,6 +861,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset31",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Бейсбол",
     description: "Беттинг-баннер под бейсбол: даймонд, свинг, MLB",
     gradient: "linear-gradient(135deg,#0b1220,#b91c1c,#e2e8f0)",
@@ -783,6 +883,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset32",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Хоккей",
     description: "Беттинг-баннер под хоккей: лёд, буллит, NHL",
     gradient: "linear-gradient(135deg,#0b1220,#0284c7,#e0f2fe)",
@@ -804,6 +905,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset33",
+    fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
     name: "Скачки",
     description: "Беттинг-баннер под скачки: ипподром, финиш, фаворит",
     gradient: "linear-gradient(135deg,#052e16,#15803d,#facc15)",
