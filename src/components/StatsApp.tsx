@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ImagePlus, Megaphone } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -50,6 +51,19 @@ export function StatsApp() {
   const [metric, setMetric] = useState<MetricKey>("spend");
   const [sortKey, setSortKey] = useState<keyof Campaign>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const router = useRouter();
+
+  // Close the loop: open the banner generator prefilled for a campaign.
+  const createBannerFor = (c: Campaign) => {
+    const platform = PLATFORM_BY_ID.get(c.platform)?.name ?? c.platform;
+    const brief = `Рекламный баннер для кампании «${c.name}» (${platform}).`;
+    try {
+      window.localStorage.setItem("dw_hub_prompt", brief);
+    } catch {
+      /* ignore */
+    }
+    router.push("/banner");
+  };
 
   useEffect(() => {
     const list = getConnectedAccounts();
@@ -293,13 +307,15 @@ export function StatsApp() {
                     <td className="px-5 py-3 text-right tabular-nums">{fmtInt(c.conversions)}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{fmtMoney(c.cpa)}</td>
                     <td className="px-5 py-3 text-right">
-                      <Link
-                        href="/banner"
+                      <button
+                        type="button"
+                        onClick={() => createBannerFor(c)}
                         title="Создать баннер для кампании"
+                        aria-label={`Создать баннер для кампании ${c.name}`}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:border-accent-green/50 hover:text-accent-green"
                       >
                         <ImagePlus className="h-4 w-4" />
-                      </Link>
+                      </button>
                     </td>
                   </tr>
                 );
