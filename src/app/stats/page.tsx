@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { StatsApp } from "@/components/StatsApp";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function StatsPage() {
@@ -24,7 +25,9 @@ export default function StatsPage() {
   return (
     <>
       <AppHeader />
-      <StatsApp />
+      <AppShell>
+        <StatsApp />
+      </AppShell>
     </>
   );
 }

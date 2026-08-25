@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { EmailGenApp } from "@/components/EmailGenApp";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function EmailPage() {
@@ -24,7 +25,9 @@ export default function EmailPage() {
   return (
     <>
       <AppHeader />
-      <EmailGenApp />
+      <AppShell>
+        <EmailGenApp />
+      </AppShell>
     </>
   );
 }

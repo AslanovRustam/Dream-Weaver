@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { AdsApp } from "@/components/AdsApp";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function AdsPage() {
@@ -24,7 +25,9 @@ export default function AdsPage() {
   return (
     <>
       <AppHeader />
-      <AdsApp />
+      <AppShell>
+        <AdsApp />
+      </AppShell>
     </>
   );
 }

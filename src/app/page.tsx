@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
-import { AppSidebar } from "@/components/AppSidebar";
+import { AppShell } from "@/components/AppShell";
 import { HubAdsPanel } from "@/components/HubAdsPanel";
 import { HubMailingPanel } from "@/components/HubMailingPanel";
 import { MobileScrim } from "@/components/MobileScrim";
@@ -496,9 +496,7 @@ export default function HubPage() {
       <style>{HUB_ANIM}</style>
       <AppHeader />
 
-      <div className="flex">
-        <AppSidebar />
-        <div className="relative min-w-0 flex-1">
+      <AppShell>
 
       {/* Brand hero backdrop — the system's aurora (violet + lime radials) with
           a fading dot-grid over it. Purely decorative: it is aria-hidden, takes
@@ -938,8 +936,7 @@ export default function HubPage() {
           </div>
         </section>
       </div>
-        </div>
-      </div>
+      </AppShell>
     </div>
   );
 }

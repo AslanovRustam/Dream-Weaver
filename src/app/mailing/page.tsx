@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { MailingApp } from "@/components/MailingApp";
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 
 export default function MailingPage() {
@@ -24,7 +25,9 @@ export default function MailingPage() {
   return (
     <>
       <AppHeader />
-      <MailingApp />
+      <AppShell>
+        <MailingApp />
+      </AppShell>
     </>
   );
 }

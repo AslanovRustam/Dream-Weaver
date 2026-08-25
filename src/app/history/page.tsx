@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
 import { GuestWall } from "@/components/AuthGate";
 import { HistoryApp } from "@/components/HistoryApp";
 import { useAuth } from "@/lib/auth-context";
@@ -34,14 +35,16 @@ export default function HistoryPage() {
     <div className="min-h-screen text-foreground">
       <div className="ds-aurora" aria-hidden />
       <AppHeader />
-      {isGuest ? (
-        <GuestWall
-          title="История доступна после регистрации"
-          description="Здесь будут ваши проекты и лог использования кредитов."
-        />
-      ) : (
-        <HistoryApp />
-      )}
+      <AppShell>
+        {isGuest ? (
+          <GuestWall
+            title="История доступна после регистрации"
+            description="Здесь будут ваши проекты и лог использования кредитов."
+          />
+        ) : (
+          <HistoryApp />
+        )}
+      </AppShell>
     </div>
   );
 }
