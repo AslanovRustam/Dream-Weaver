@@ -8,26 +8,35 @@ import {
   AD_PLATFORMS,
   type AdAccount,
   type AdPlatformId,
-  connectPlatform,
+  connectUserAccount,
   disconnectAccount,
   getConnectedAccounts,
 } from "@/lib/ads";
+import { getCredentials } from "@/lib/credentials";
 
 export function AdsApp() {
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
   const [busy, setBusy] = useState<AdPlatformId | null>(null);
+  const [needCreds, setNeedCreds] = useState<AdPlatformId | null>(null);
 
   useEffect(() => {
     setAccounts(getConnectedAccounts());
   }, []);
 
   const connect = (id: AdPlatformId) => {
-    // Simulated OAuth round-trip so the button shows a brief connecting state.
+    // BYO: connect the user's OWN cabinet using the token + account id they
+    // entered in Интеграции. Without them, point the user there.
+    const c = getCredentials()[id];
+    if (!c.token.trim() || !c.accountId.trim()) {
+      setNeedCreds(id);
+      return;
+    }
+    setNeedCreds(null);
     setBusy(id);
     setTimeout(() => {
-      setAccounts(connectPlatform(id));
+      setAccounts(connectUserAccount(id, c.accountId));
       setBusy(null);
-    }, 550);
+    }, 400);
   };
 
   const disconnect = (accountId: string) => setAccounts(disconnectAccount(accountId));
@@ -101,6 +110,15 @@ export function AdsApp() {
                   </>
                 )}
               </button>
+              {needCreds === p.id ? (
+                <p className="ds-caption">
+                  Добавьте токен и ID кабинета в{" "}
+                  <Link href="/settings" className="text-accent-green underline-offset-2 hover:underline">
+                    Интеграциях
+                  </Link>
+                  .
+                </p>
+              ) : null}
             </div>
           );
         })}
@@ -153,8 +171,8 @@ export function AdsApp() {
       </section>
 
       <p className="ds-caption mt-6">
-        Демо-режим: подключение и данные симулируются. Реальная авторизация площадок добавляется
-        подключением их OAuth и API-ключей.
+        Подключите свой кабинет: укажите токен и ID кабинета в «Интеграциях». Статистика пока
+        демонстрационная — реальная выгрузка добавляется через API площадок по вашему токену.
       </p>
     </div>
   );

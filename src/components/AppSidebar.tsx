@@ -8,6 +8,7 @@ import {
   Coins,
   HelpCircle,
   Home,
+  KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
   type LucideIcon,
@@ -42,6 +43,7 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
 ];
 
 const FOOTER: NavItem[] = [
+  { href: "/settings", label: "Интеграции", icon: KeyRound },
   { href: "/help", label: "Помощь", icon: HelpCircle },
   { href: "/billing", label: "Тарифы", icon: Coins },
 ];

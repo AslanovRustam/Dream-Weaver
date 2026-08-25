@@ -63,21 +63,22 @@ export function BriefUploader({
     setResult(null);
     setApplied(false);
     try {
-      let payload: Record<string, unknown> = { product };
+      const base: Record<string, unknown> = { product };
+      let payload: Record<string, unknown> = base;
       if (mode === "file") {
         if (!file) {
           setError("Выберите файл");
           setLoading(false);
           return;
         }
-        payload = { product, fileBase64: await fileToBase64(file), fileName: file.name };
+        payload = { ...base, fileBase64: await fileToBase64(file), fileName: file.name };
       } else {
         if (!text.trim()) {
           setError("Вставьте текст ТЗ");
           setLoading(false);
           return;
         }
-        payload = { product, text };
+        payload = { ...base, text };
       }
       const res = await fetch("/api/parse-brief", {
         method: "POST",

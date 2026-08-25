@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   const briefChars = brief.length;
   if (brief.length > MAX_BRIEF_CHARS) brief = brief.slice(0, MAX_BRIEF_CHARS);
 
-  // Try OpenAI first, then fall back to OpenRouter (which hosts the same model).
+  // LLM keys are system-side. Try OpenAI first, then OpenRouter (same model).
   const providers = [
     process.env.OPENAI_API_KEY && {
       url: "https://api.openai.com/v1/chat/completions",

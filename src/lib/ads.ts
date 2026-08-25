@@ -78,6 +78,29 @@ export function connectPlatform(id: AdPlatformId): AdAccount[] {
   return list;
 }
 
+/**
+ * Connect the user's OWN cabinet using the account id they entered in Settings.
+ * (The access token is stored in credentials and will authorize real reporting
+ * calls once the platform APIs are wired; the connection itself is real per-user.)
+ */
+export function connectUserAccount(id: AdPlatformId, accountId: string): AdAccount[] {
+  const list = getConnectedAccounts();
+  const key = `${id}:${accountId}`;
+  if (!list.some((a) => a.id === key)) {
+    list.push({
+      id: key,
+      platform: id,
+      name: `Кабинет ${accountId}`,
+      externalId: accountId,
+      currency: "USD",
+      status: "active",
+      connectedAt: new Date().toISOString(),
+    });
+    save(list);
+  }
+  return list;
+}
+
 export function disconnectAccount(accountId: string): AdAccount[] {
   const list = getConnectedAccounts().filter((a) => a.id !== accountId);
   save(list);
