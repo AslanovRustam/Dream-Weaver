@@ -25,11 +25,26 @@ export function BriefUploader({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<BriefResult | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const toggleField = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  // Only the fields the user kept ticked.
+  const pickSelected = () =>
+    Object.fromEntries(
+      Object.entries(result?.fields ?? {}).filter(([k]) => selected.has(k)),
+    ) as Record<string, string>;
+
   const reset = () => {
     setResult(null);
+    setSelected(new Set());
     setError("");
     setApplied(false);
   };
@@ -74,7 +89,9 @@ export function BriefUploader({
         setError(data?.error || "Не удалось разобрать ТЗ");
         return;
       }
-      setResult(data as BriefResult);
+      const parsed = data as BriefResult;
+      setResult(parsed);
+      setSelected(new Set(Object.keys(parsed.fields || {})));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -184,17 +201,50 @@ export function BriefUploader({
       {/* Result + two outcomes */}
       {result ? (
         <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
-          <p className="ds-caption">
-            Извлечено полей: <span className="font-semibold text-foreground">{fieldCount}</span>
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="ds-caption">
+              Извлечено полей:{" "}
+              <span className="font-semibold text-foreground">{selected.size}</span>
+              {fieldCount > 0 ? <span className="text-hint"> / {fieldCount}</span> : null}
+            </p>
+            {fieldCount > 0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelected((prev) =>
+                    prev.size === fieldCount ? new Set() : new Set(Object.keys(result.fields)),
+                  )
+                }
+                className="text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
+              >
+                {selected.size === fieldCount ? "Снять все" : "Выбрать все"}
+              </button>
+            ) : null}
+          </div>
           {fieldCount > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {Object.keys(result.fields).map((k) => (
-                <span key={k} className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted-foreground">
-                  {labelFor(k)}
-                </span>
-              ))}
-            </div>
+            <ul className="mt-2 flex flex-col gap-1">
+              {Object.entries(result.fields).map(([k, v]) => {
+                const on = selected.has(k);
+                return (
+                  <li key={k}>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 transition hover:bg-white/5">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggleField(k)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[color:var(--brand-lime)]"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium text-foreground">{labelFor(k)}</span>
+                        <span className="block truncate text-xs text-muted-foreground" title={v}>
+                          {v}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <p className="mt-1 text-xs text-muted-foreground">
               Явных полей не найдено — можно сгенерировать по общему смыслу ТЗ.
@@ -204,18 +254,18 @@ export function BriefUploader({
             <button
               type="button"
               onClick={() => {
-                onApply(result.fields);
+                onApply(pickSelected());
                 setApplied(true);
               }}
-              disabled={fieldCount === 0}
+              disabled={selected.size === 0}
               className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-accent-green/50 hover:bg-white/5 disabled:opacity-50"
             >
               <Wand2 className="h-4 w-4 text-accent-green" />
-              {applied ? "Поля заполнены" : "Заполнить поля"}
+              {applied ? "Поля заполнены" : "Заполнить выбранные"}
             </button>
             <button
               type="button"
-              onClick={() => onGenerate(result)}
+              onClick={() => onGenerate({ ...result, fields: pickSelected() })}
               className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
             >
               <Sparkles className="h-4 w-4" />
