@@ -24,6 +24,12 @@ export function WheelLandingApp() {
     "мультяшный кролик-персонаж с бейсбольной битой на зелёных холмах, монеты и морковь, яркий casino-promo фон",
   );
   const [bgImage, setBgImage] = useState("");
+  const [character, setCharacter] = useState("");
+  const [charPrompt, setCharPrompt] = useState(
+    "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
+  );
+  const [charSide, setCharSide] = useState<"left" | "right">("right");
+  const [charGenning, setCharGenning] = useState(false);
   const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
   const [won, setWon] = useState<number | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
@@ -36,25 +42,44 @@ export function WheelLandingApp() {
   const removePrize = (i: number) =>
     setPrizes((p) => (p.length > 2 ? p.filter((_, idx) => idx !== i) : p));
 
+  const genImage = async (payload: Record<string, unknown>): Promise<string> => {
+    const res = await fetch("/api/generate-email-hero", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.imageUrl) {
+      throw new Error([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
+    }
+    return data.imageUrl as string;
+  };
+
   const generateBg = async () => {
     setGenning(true);
     setGenError("");
     try {
-      const res = await fetch("/api/generate-email-hero", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brand, heroTitle: headline, body: theme }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.imageUrl) {
-        setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
-        return;
-      }
-      setBgImage(data.imageUrl);
+      setBgImage(await genImage({ brand, heroTitle: headline, body: theme }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
       setGenning(false);
+    }
+  };
+
+  const generateCharacter = async () => {
+    setCharGenning(true);
+    setGenError("");
+    try {
+      setCharacter(
+        await genImage({
+          presetTemplate: `${charPrompt}. A SINGLE full-body mascot character, centered, isolated on a plain flat solid-colour studio background, full body visible, dynamic pose, high detail, sharp cutout silhouette.`,
+        }),
+      );
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+    } finally {
+      setCharGenning(false);
     }
   };
 
@@ -144,6 +169,68 @@ export function WheelLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
+        {/* Character (optional) — generated separately, placed beside the wheel */}
+        <div className="rounded-xl border border-border bg-background/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="ds-h4">
+              Персонаж <span className="ds-caption font-normal normal-case tracking-normal">(опционально)</span>
+            </label>
+            {character ? (
+              <button
+                type="button"
+                onClick={() => setCharacter("")}
+                className="text-xs text-muted-foreground transition hover:text-foreground"
+              >
+                Убрать
+              </button>
+            ) : null}
+          </div>
+          <textarea
+            className={`${inputCls} min-h-[60px] resize-y py-2`}
+            rows={2}
+            value={charPrompt}
+            onChange={(e) => setCharPrompt(e.target.value)}
+            placeholder="Опишите персонажа / маскота"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={generateCharacter}
+              disabled={charGenning}
+              className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+            >
+              {charGenning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {charGenning ? "Генерирую…" : character ? "Перегенерировать" : "Сгенерировать персонажа"}
+            </button>
+            <div className="flex rounded-lg border border-border p-0.5 text-xs">
+              {(
+                [
+                  ["left", "Слева"],
+                  ["right", "Справа"],
+                ] as const
+              ).map(([m, l]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setCharSide(m)}
+                  className={`min-h-8 rounded-md px-2.5 font-medium transition ${
+                    charSide === m ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+          {character ? (
+            <img
+              src={character}
+              alt=""
+              className="mt-2 h-16 w-16 rounded-md border border-border object-cover"
+            />
+          ) : null}
+        </div>
+
         {/* Prizes */}
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -220,8 +307,18 @@ export function WheelLandingApp() {
               {headline || "TRY YOUR LUCK!"}
             </h2>
 
-            <div className="mt-3 flex w-full flex-1 items-center justify-center">
-              <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
+            <div className="relative mt-3 flex w-full flex-1 items-center justify-center">
+              {character ? (
+                <img
+                  src={character}
+                  alt=""
+                  className="pointer-events-none absolute bottom-0 z-0 h-[92%] max-w-[46%] object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.5)]"
+                  style={charSide === "left" ? { left: "-4%" } : { right: "-4%" }}
+                />
+              ) : null}
+              <div className="relative z-10 w-full max-w-[300px]">
+                <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
+              </div>
             </div>
 
             <button

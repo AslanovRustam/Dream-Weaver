@@ -123,11 +123,11 @@ export async function POST(request: Request) {
     .join("\n")
     .replace(/\*\*/g, "")
     .trim();
-  if (!brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
 
   // A chosen preset drives the visual style directly; otherwise the agent
-  // composes a prompt from the brief.
+  // composes a prompt from the brief (which must then be non-empty).
   const preset = (body.presetTemplate || "").trim();
+  if (!preset && !brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
   const base = preset
     ? preset
     : (await composePrompt(brief)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
