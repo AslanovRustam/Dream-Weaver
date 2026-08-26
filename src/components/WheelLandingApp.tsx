@@ -156,12 +156,13 @@ export function WheelLandingApp() {
     "мультяшный кролик-персонаж с бейсбольной битой на зелёных холмах, монеты и морковь, яркий casino-promo фон",
   );
   const [bgImage, setBgImage] = useState("");
-  const [character, setCharacter] = useState("");
-  const [charPrompt, setCharPrompt] = useState(
-    "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
-  );
-  const [charSide, setCharSide] = useState<"left" | "right">("right");
-  const [charGenning, setCharGenning] = useState(false);
+  // Two independent, optional character slots — one on each side of the wheel.
+  const [chars, setChars] = useState<{ left: string; right: string }>({ left: "", right: "" });
+  const [charPrompts, setCharPrompts] = useState<{ left: string; right: string }>({
+    left: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
+    right: "",
+  });
+  const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
   const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
   const [won, setWon] = useState<number | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
@@ -184,9 +185,33 @@ export function WheelLandingApp() {
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
-        if (typeof d.character === "string") setCharacter(d.character);
-        if (typeof d.charPrompt === "string") setCharPrompt(d.charPrompt);
-        if (d.charSide === "left" || d.charSide === "right") setCharSide(d.charSide);
+        // Characters: new two-slot shape, with backward-compat for the old single slot.
+        const cl = typeof d.charLeft === "string" ? d.charLeft : "";
+        const cr = typeof d.charRight === "string" ? d.charRight : "";
+        if (cl || cr) {
+          setChars({ left: cl, right: cr });
+        } else if (typeof d.character === "string" && d.character) {
+          const side = d.charSide === "left" ? "left" : "right";
+          setChars({
+            left: side === "left" ? d.character : "",
+            right: side === "right" ? d.character : "",
+          });
+        }
+        const oldPrompt = typeof d.charPrompt === "string" ? d.charPrompt : "";
+        setCharPrompts((p) => ({
+          left:
+            typeof d.charPromptLeft === "string"
+              ? d.charPromptLeft
+              : d.charSide === "left" && oldPrompt
+                ? oldPrompt
+                : p.left,
+          right:
+            typeof d.charPromptRight === "string"
+              ? d.charPromptRight
+              : d.charSide === "right" && oldPrompt
+                ? oldPrompt
+                : p.right,
+        }));
         if (Array.isArray(d.prizes)) setPrizes(d.prizes as WheelSegment[]);
       }
     } catch {
@@ -197,7 +222,20 @@ export function WheelLandingApp() {
   useEffect(() => {
     if (!restored) return;
     const id = window.setTimeout(() => {
-      const data = { brand, headline, accent, dark, ctaText, theme, bgImage, character, charPrompt, charSide, prizes };
+      const data = {
+        brand,
+        headline,
+        accent,
+        dark,
+        ctaText,
+        theme,
+        bgImage,
+        charLeft: chars.left,
+        charRight: chars.right,
+        charPromptLeft: charPrompts.left,
+        charPromptRight: charPrompts.right,
+        prizes,
+      };
       try {
         window.localStorage.setItem("dw_wheel_draft", JSON.stringify(data));
       } catch {
@@ -205,7 +243,7 @@ export function WheelLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_wheel_draft",
-            JSON.stringify({ ...data, bgImage: "", character: "" }),
+            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "" }),
           );
         } catch {
           /* ignore */
@@ -213,13 +251,13 @@ export function WheelLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, character, charPrompt, charSide, prizes]);
+  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, chars, charPrompts, prizes]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
     setHeadline(t.headline);
     setTheme(t.bg);
-    setCharPrompt(t.char);
+    setCharPrompts((p) => ({ ...p, left: t.char }));
   };
 
   const setPrize = (i: number, patch: Partial<WheelSegment>) =>
@@ -259,24 +297,78 @@ export function WheelLandingApp() {
     }
   };
 
-  const generateCharacter = async () => {
-    setCharGenning(true);
+  const generateCharacter = async (side: "left" | "right") => {
+    const prompt = charPrompts[side].trim();
+    if (!prompt) return;
+    setCharGenning(side);
     setGenError("");
     try {
       const raw = await genImage({
-        presetTemplate: `${charPrompt}. A SINGLE full-body mascot character, centered, dynamic pose, high detail, clean sharp silhouette. Isolated on a PLAIN UNIFORM FLAT SINGLE-COLOUR background (studio backdrop), no scenery, no props behind, character fully inside the frame with clear empty margins on every side.`,
+        // Rendering STYLE is fixed (3D Pixar-quality); the character + details come
+        // from the user's prompt. Framed as a big head-to-thigh crop (like a promo
+        // mascot beside a wheel), NOT a small full-body figure. Plain uniform
+        // backdrop on top+sides so it cuts out cleanly (bottom is the crop).
+        presetTemplate: `Half-body 3D stylized character portrait: ${prompt}. MEDIUM SHOT — framed from just above the head down to about mid-thigh; the character is BIG and fills most of the frame and is CROPPED by the bottom edge (do NOT show the full body, do NOT show feet). Keep only a small uniform margin of background above the head and on the left and right. Facing the camera, confident expressive pose. Soft studio lighting, smooth shadows, high detail textures, Pixar-quality 3D render, ultra-clean composition, 8K resolution. CRITICAL — BACKGROUND: a PLAIN UNIFORM FLAT SINGLE SOLID COLOUR studio backdrop, and that colour MUST strongly CONTRAST with every colour on the character (pick a saturated backdrop hue far from any colour the character wears, e.g. a solid magenta/orange behind a blue-green character). The exact background colour must NOT appear anywhere on the character, its outfit or accessories, so the silhouette stays crisp and easy to cut out. No scenery, no props, no gradient, no shadows cast on the backdrop.`,
+        aspectRatio: "3:4",
       });
       // Cut out the plain background → transparent PNG that blends into the landing.
-      setCharacter(await removeBackground(raw));
+      const cut = await removeBackground(raw);
+      setChars((c) => ({ ...c, [side]: cut }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
-      setCharGenning(false);
+      setCharGenning(null);
     }
   };
 
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
+
+  const renderCharSlot = (side: "left" | "right", title: string) => (
+    <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground">{title}</span>
+        {chars[side] ? (
+          <button
+            type="button"
+            onClick={() => setChars((c) => ({ ...c, [side]: "" }))}
+            className="text-[11px] text-muted-foreground transition hover:text-foreground"
+          >
+            Убрать
+          </button>
+        ) : null}
+      </div>
+      <textarea
+        className={`${inputCls} min-h-[52px] resize-y py-2 text-xs`}
+        rows={2}
+        value={charPrompts[side]}
+        onChange={(e) => setCharPrompts((p) => ({ ...p, [side]: e.target.value }))}
+        placeholder="Опишите персонажа / маскота"
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => generateCharacter(side)}
+          disabled={charGenning !== null || !charPrompts[side].trim()}
+          className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-3 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+        >
+          {charGenning === side ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          {charGenning === side ? "Генерирую…" : chars[side] ? "Перегенерировать" : "Сгенерировать"}
+        </button>
+        {chars[side] ? (
+          <img
+            src={chars[side]}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-md border border-border bg-white/5 object-contain"
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,400px)_1fr]">
@@ -381,66 +473,18 @@ export function WheelLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
-        {/* Character (optional) — generated separately, placed beside the wheel */}
+        {/* Characters (optional) — up to two, one flanking each side of the wheel */}
         <div className="rounded-xl border border-border bg-background/40 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <label className="ds-h4">
-              Персонаж <span className="ds-caption font-normal normal-case tracking-normal">(опционально)</span>
-            </label>
-            {character ? (
-              <button
-                type="button"
-                onClick={() => setCharacter("")}
-                className="text-xs text-muted-foreground transition hover:text-foreground"
-              >
-                Убрать
-              </button>
-            ) : null}
+          <label className="ds-h4">
+            Персонажи{" "}
+            <span className="ds-caption font-normal normal-case tracking-normal">
+              (опционально, по бокам колеса)
+            </span>
+          </label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {renderCharSlot("left", "Слева")}
+            {renderCharSlot("right", "Справа")}
           </div>
-          <textarea
-            className={`${inputCls} min-h-[60px] resize-y py-2`}
-            rows={2}
-            value={charPrompt}
-            onChange={(e) => setCharPrompt(e.target.value)}
-            placeholder="Опишите персонажа / маскота"
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={generateCharacter}
-              disabled={charGenning}
-              className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-            >
-              {charGenning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {charGenning ? "Генерирую…" : character ? "Перегенерировать" : "Сгенерировать персонажа"}
-            </button>
-            <div className="flex rounded-lg border border-border p-0.5 text-xs">
-              {(
-                [
-                  ["left", "Слева"],
-                  ["right", "Справа"],
-                ] as const
-              ).map(([m, l]) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setCharSide(m)}
-                  className={`min-h-8 rounded-md px-2.5 font-medium transition ${
-                    charSide === m ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-          {character ? (
-            <img
-              src={character}
-              alt=""
-              className="mt-2 h-16 w-16 rounded-md border border-border bg-white/5 object-contain"
-            />
-          ) : null}
         </div>
 
         {/* Prizes */}
@@ -536,7 +580,23 @@ export function WheelLandingApp() {
           {/* Darkening for legibility */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
 
-          <div className="relative flex h-full flex-col items-center px-4 py-4">
+          {/* Characters — anchored to the VIEWPORT bottom so the crop bleeds off the
+              edge (no floating, no visible cut line). Behind the wheel/SPIN column. */}
+          {(["left", "right"] as const).map((side) =>
+            chars[side] ? (
+              <img
+                key={side}
+                src={chars[side]}
+                alt=""
+                className={`pointer-events-none absolute bottom-0 z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
+                  viewport === "portrait" ? "h-[62%] max-w-[48%]" : "h-full max-w-[42%]"
+                }`}
+                style={{ [side]: viewport === "portrait" ? "0%" : "-2%" }}
+              />
+            ) : null,
+          )}
+
+          <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
             <div className="flex w-full items-center justify-between">
               <span className="text-sm font-extrabold text-white drop-shadow">{brand || "BRAND"}</span>
               <span className="rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-medium text-white/80">EN</span>
@@ -549,16 +609,16 @@ export function WheelLandingApp() {
               {headline || "TRY YOUR LUCK!"}
             </h2>
 
-            <div className="relative mt-3 flex w-full flex-1 items-center justify-center">
-              {character ? (
-                <img
-                  src={character}
-                  alt=""
-                  className="pointer-events-none absolute bottom-0 z-0 h-[92%] max-w-[46%] object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.5)]"
-                  style={charSide === "left" ? { left: "-4%" } : { right: "-4%" }}
-                />
-              ) : null}
-              <div className="relative z-10 w-full max-w-[300px]">
+            <div
+              className={`relative mt-3 flex w-full flex-1 justify-center ${
+                viewport === "portrait" ? "items-start pt-1" : "items-center"
+              }`}
+            >
+              <div
+                className={`relative z-10 w-full ${
+                  viewport === "portrait" ? "max-w-[185px]" : "max-w-[300px]"
+                }`}
+              >
                 <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
               </div>
             </div>
@@ -566,7 +626,7 @@ export function WheelLandingApp() {
             <button
               type="button"
               onClick={() => setSpinSignal((s) => s + 1)}
-              className="mb-1 mt-2 w-full max-w-[280px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
+              className="relative z-30 mb-1 mt-2 w-full max-w-[280px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
               {ctaText || "SPIN"}

@@ -20,6 +20,9 @@ type Body = {
   // Optional: one of our banner-preset templates (with {SUBJECT} already filled).
   // When present, its visual style drives the image instead of the free agent.
   presetTemplate?: string;
+  // Optional image aspect ratio (default "3:2"). Use e.g. "3:4" for a vertical
+  // character portrait.
+  aspectRatio?: string;
 };
 
 const NO_TEXT =
@@ -142,6 +145,7 @@ export async function POST(request: Request) {
   }
 
   const model = (body.model || "").trim() || "google/gemini-3.1-flash-image-preview";
+  const aspectRatio = (body.aspectRatio || "").trim() || "3:2";
   let raw: string | null = null;
   let detail = "";
   try {
@@ -157,8 +161,8 @@ export async function POST(request: Request) {
         model,
         messages: [{ role: "user", content: userContent }],
         modalities: ["image", "text"],
-        image_config: { aspect_ratio: "3:2" },
-        aspect_ratio: "3:2",
+        image_config: { aspect_ratio: aspectRatio },
+        aspect_ratio: aspectRatio,
       }),
     });
     if (!res.ok) {
