@@ -496,36 +496,64 @@ export function WheelLandingApp() {
             </button>
           </div>
 
-          {/* Win modal */}
-          {won !== null ? (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6">
-              <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                <p className="text-lg font-extrabold text-[#0f172a]">🎉 Поздравляем!</p>
-                <p className="mt-1 text-sm text-[#475569]">
-                  Вы выиграли{" "}
-                  <span className="font-bold" style={{ color: accent }}>
-                    {prizes[won]?.label} {prizes[won]?.sub}
-                  </span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setWon(null)}
-                  className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                  style={{ backgroundColor: accent }}
-                >
-                  Забрать бонус
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWon(null)}
-                  aria-label="Закрыть"
-                  className="absolute right-3 top-3 text-white/80 hover:text-white"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ) : null}
+          {/* Win / try-again modal */}
+          {won !== null
+            ? (() => {
+                const seg = prizes[won];
+                const lose = !seg || /try\s*again|снова|ещё раз|заново|again|empty|пусто/i.test(seg.label);
+                return (
+                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6">
+                    <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
+                      {lose ? (
+                        <>
+                          <p className="text-lg font-extrabold text-[#0f172a]">😅 Почти!</p>
+                          <p className="mt-1 text-sm text-[#475569]">
+                            В этот раз не повезло — крутите ещё раз, приз ждёт!
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWon(null);
+                              setSpinSignal((n) => n + 1);
+                            }}
+                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                            style={{ backgroundColor: accent }}
+                          >
+                            Крутить ещё раз
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-extrabold text-[#0f172a]">🎉 Поздравляем!</p>
+                          <p className="mt-1 text-sm text-[#475569]">
+                            Вы выиграли{" "}
+                            <span className="font-bold" style={{ color: accent }}>
+                              {seg.label} {seg.sub}
+                            </span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setWon(null)}
+                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                            style={{ backgroundColor: accent }}
+                          >
+                            Забрать бонус
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setWon(null)}
+                        aria-label="Закрыть"
+                        className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
+            : null}
         </div>
       </div>
     </div>
