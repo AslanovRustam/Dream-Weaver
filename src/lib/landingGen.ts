@@ -52,6 +52,8 @@ export type LandingTemplate = {
   accent: string;
   /** Card preview background. */
   gradient: string;
+  /** Interactive templates open a dedicated builder instead of the block flow. */
+  interactive?: "wheel";
 };
 
 export type LandingTemplateCategory = {
@@ -105,6 +107,15 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
         description: "Продвижение конкретного слота",
         accent: "#818cf8",
         gradient: "linear-gradient(135deg,#020617,#4338ca,#818cf8)",
+      },
+      {
+        id: "gambling-wheel",
+        vertical: "gambling",
+        name: "Колесо фортуны",
+        description: "Геймифицированный лендинг: крути колесо — выиграй бонус",
+        accent: "#f97316",
+        gradient: "linear-gradient(135deg,#7c2d12,#f97316,#fbbf24)",
+        interactive: "wheel",
       },
     ],
   },

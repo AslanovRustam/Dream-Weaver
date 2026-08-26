@@ -68,8 +68,7 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
       { key: "ctaText", label: "Текст кнопки" },
     ],
   },
-  // Wheel + management sections have no brief-fillable form yet.
-  wheel: { genHint: "", fields: [] },
+  // Management sections have no brief-fillable form yet.
   ads: { genHint: "", fields: [] },
   stats: { genHint: "", fields: [] },
   mailing: { genHint: "", fields: [] },

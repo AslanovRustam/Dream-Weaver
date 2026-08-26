@@ -264,6 +264,11 @@ export function LandingGenApp() {
   }, []);
 
   const selectTemplate = (t: LandingTemplate) => {
+    // Interactive templates (e.g. the fortune wheel) open their own builder.
+    if (t.interactive === "wheel") {
+      router.push("/wheel");
+      return;
+    }
     setTemplateId(t.id);
     setMobileTab("settings");
   };
