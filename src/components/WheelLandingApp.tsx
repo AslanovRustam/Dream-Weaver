@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 
@@ -165,6 +165,7 @@ export function WheelLandingApp() {
   const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
   const [won, setWon] = useState<number | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
+  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
 
@@ -489,9 +490,39 @@ export function WheelLandingApp() {
 
       {/* ── Live landing preview ───────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:h-fit">
-        <p className="mb-2 ds-caption">Предпросмотр лендинга</p>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="ds-caption">Предпросмотр лендинга</p>
+          <div className="flex rounded-lg border border-border p-0.5">
+            {(
+              [
+                ["desktop", Monitor, "Десктоп", ""],
+                ["landscape", Smartphone, "Моб. горизонталь", "rotate-90"],
+                ["portrait", Smartphone, "Моб. вертикаль", ""],
+              ] as const
+            ).map(([v, Icon, title, rot]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setViewport(v)}
+                title={title}
+                aria-label={title}
+                className={`flex h-8 w-8 items-center justify-center rounded-md transition ${
+                  viewport === v ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${rot}`} />
+              </button>
+            ))}
+          </div>
+        </div>
         <div
-          className="relative aspect-[16/11] w-full overflow-hidden rounded-2xl border border-border"
+          className={`relative w-full overflow-hidden rounded-2xl border border-border ${
+            viewport === "portrait"
+              ? "mx-auto aspect-[9/16] max-w-[300px]"
+              : viewport === "landscape"
+                ? "aspect-[16/9]"
+                : "aspect-[16/11]"
+          }`}
           style={{ background: dark ? "#1a1030" : "#fde8b0" }}
         >
           {bgImage ? (
