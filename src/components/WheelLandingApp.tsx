@@ -73,6 +73,19 @@ function removeBackground(dataUrl: string): Promise<string> {
         if (y > 0) seed(x, y - 1);
         if (y < h - 1) seed(x, y + 1);
       }
+      // Second pass: remove ENCLOSED background pockets the border flood can't
+      // reach — e.g. the gaps between an arm and the torso. A plain colour-key on
+      // the backdrop colour; safe because generation enforces a backdrop colour
+      // that contrasts with (and never appears on) the character.
+      const total = w * h;
+      for (let p = 0; p < total; p++) {
+        const i = p * 4;
+        if (d[i + 3] === 0) continue;
+        const dr = d[i] - br,
+          dg = d[i + 1] - bg,
+          db = d[i + 2] - bb;
+        if (dr * dr + dg * dg + db * db <= thr) d[i + 3] = 0;
+      }
       ctx.putImageData(imgData, 0, 0);
       try {
         resolve(canvas.toDataURL("image/png"));
@@ -589,7 +602,7 @@ export function WheelLandingApp() {
                 src={chars[side]}
                 alt=""
                 className={`pointer-events-none absolute bottom-0 z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
-                  viewport === "portrait" ? "h-[62%] max-w-[48%]" : "h-full max-w-[42%]"
+                  viewport === "portrait" ? "h-[74%] max-w-[54%]" : "h-full max-w-[42%]"
                 }`}
                 style={{ [side]: viewport === "portrait" ? "0%" : "-2%" }}
               />
@@ -616,7 +629,7 @@ export function WheelLandingApp() {
             >
               <div
                 className={`relative z-10 w-full ${
-                  viewport === "portrait" ? "max-w-[185px]" : "max-w-[300px]"
+                  viewport === "portrait" ? "max-w-[250px]" : "max-w-[300px]"
                 }`}
               >
                 <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
