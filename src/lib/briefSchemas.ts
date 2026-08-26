@@ -68,7 +68,8 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
       { key: "ctaText", label: "Текст кнопки" },
     ],
   },
-  // Management sections have no generative form to fill.
+  // Wheel + management sections have no brief-fillable form yet.
+  wheel: { genHint: "", fields: [] },
   ads: { genHint: "", fields: [] },
   stats: { genHint: "", fields: [] },
   mailing: { genHint: "", fields: [] },

@@ -11,6 +11,7 @@ import {
   BarChart3,
   Mail,
   Send,
+  Disc3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export type SectionId =
   | "playable"
   | "video"
   | "email"
+  | "wheel"
   | "ads"
   | "stats"
   | "mailing";
@@ -89,6 +91,16 @@ export const SECTIONS: Section[] = [
     description: "Письма для email-рассылок с живым предпросмотром",
     cta: "Создать письмо",
     icon: Mail,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    id: "wheel",
+    route: "/wheel",
+    title: "Колесо фортуны",
+    description: "Геймифицированный лендинг: крути колесо — выиграй бонус",
+    cta: "Создать лендинг",
+    icon: Disc3,
     scaffoldHint: "",
     ready: true,
   },

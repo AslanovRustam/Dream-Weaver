@@ -30,7 +30,7 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
   { items: [{ href: "/", label: "Главная", icon: Home, exact: true }] },
   {
     title: "Инструменты",
-    items: [s("banner"), s("landing"), s("playable"), s("video"), s("email")],
+    items: [s("banner"), s("landing"), s("playable"), s("video"), s("email"), s("wheel")],
   },
   {
     title: "Реклама",
