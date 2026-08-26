@@ -94,6 +94,58 @@ const DEFAULT_PRIZES: WheelSegment[] = [
   { label: "TRY AGAIN" },
 ];
 
+// One-click themes: set background scene, character, accent and headline together
+// so the whole landing matches a single тематика.
+const THEMES: {
+  id: string;
+  label: string;
+  accent: string;
+  headline: string;
+  bg: string;
+  char: string;
+}[] = [
+  {
+    id: "cartoon",
+    label: "Мультяшный",
+    accent: "#f97316",
+    headline: "TRY YOUR LUCK!",
+    bg: "яркий мультяшный лес: зелёные холмы, деревья, голубое небо с облаками, парящие золотые монеты",
+    char: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
+  },
+  {
+    id: "beach",
+    label: "Пляж",
+    accent: "#06b6d4",
+    headline: "SPIN & WIN",
+    bg: "тропический пляж: золотой песок, пальмы, бирюзовое море, воздушные шары, яркое летнее солнце",
+    char: "мультяшный король-спасатель на пляже, корона, весёлый, шорты",
+  },
+  {
+    id: "paris",
+    label: "Париж",
+    accent: "#a855f7",
+    headline: "TENTEZ VOTRE CHANCE",
+    bg: "романтический Париж на закате: Эйфелева башня, античные колонны, виноградные лозы, тёплый золотой свет",
+    char: "мультяшный лис в парижском стиле, шарф-триколор, обаятельная поза",
+  },
+  {
+    id: "cyber",
+    label: "Киберпанк",
+    accent: "#8b5cf6",
+    headline: "WIN IN CRYPT",
+    bg: "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
+    char: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
+  },
+  {
+    id: "egypt",
+    label: "Египет",
+    accent: "#eab308",
+    headline: "BOOK OF RICHES",
+    bg: "древний Египет: золотые саркофаги, иероглифы на стенах, пирамиды вдали, тёплый песочный свет, богатство",
+    char: "мультяшный фараон-маскот, золотые украшения, уверенная поза",
+  },
+];
+
 export function WheelLandingApp() {
   const [brand, setBrand] = useState("Fairspin");
   const [headline, setHeadline] = useState("TRY YOUR LUCK!");
@@ -115,6 +167,13 @@ export function WheelLandingApp() {
   const [spinSignal, setSpinSignal] = useState(0);
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+
+  const applyTheme = (t: (typeof THEMES)[number]) => {
+    setAccent(t.accent);
+    setHeadline(t.headline);
+    setTheme(t.bg);
+    setCharPrompt(t.char);
+  };
 
   const setPrize = (i: number, patch: Partial<WheelSegment>) =>
     setPrizes((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -139,7 +198,13 @@ export function WheelLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      setBgImage(await genImage({ brand, heroTitle: headline, body: theme }));
+      // A themed ENVIRONMENT/backdrop (not a hero banner): immersive scene with a
+      // clear central area for the wheel and no characters or central subject.
+      setBgImage(
+        await genImage({
+          presetTemplate: `${theme}. A wide vertical promotional landing BACKGROUND SCENE / environment in this theme, immersive, vibrant, rich depth and lighting, with a clean empty area in the centre for a spinning wheel. NO characters, NO people, NO central subject, NO UI.`,
+        }),
+      );
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -177,6 +242,26 @@ export function WheelLandingApp() {
             Геймифицированный лендинг: крутите колесо, выигрывайте бонус, ведите на регистрацию.
           </p>
         </header>
+
+        <div>
+          <label className="mb-2 block ds-h4">Тематика</label>
+          <div className="flex flex-wrap gap-2">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => applyTheme(t)}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.accent }} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 ds-caption">
+            Задаёт фон, персонажа, цвет и заголовок под тему — затем сгенерируйте фон и персонажа.
+          </p>
+        </div>
 
         <Field label="Заголовок">
           <input className={inputCls} value={headline} onChange={(e) => setHeadline(e.target.value)} />
