@@ -11,7 +11,6 @@ import {
   type EmailDraft,
   type EmailStyle,
   newDraft,
-  sampleDraft,
   saveDraft,
 } from "@/lib/mailing";
 
@@ -32,11 +31,46 @@ export function EmailGenApp() {
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [heroPreset, setHeroPreset] = useState(""); // "" = агент подберёт сам
+  const [autofilling, setAutofilling] = useState(false);
 
-  // Load sample content into the (empty) form.
-  const autofill = () => {
-    setDraft((d) => sampleDraft(d.id));
-    setSaved(false);
+  // AI-fill the copy fields (via ChatGPT) — brand is left for the user to set.
+  const autofill = async () => {
+    setAutofilling(true);
+    setGenError("");
+    try {
+      const res = await fetch("/api/generate-email-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: draft.subject || draft.heroTitle || draft.body || "" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.fields) {
+        setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
+        return;
+      }
+      const f = data.fields as Record<string, string | string[]>;
+      const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+      const steps = Array.isArray(f.steps) ? f.steps.map(String) : undefined;
+      setDraft((d) => ({
+        ...d,
+        // brand intentionally NOT filled — the user sets their own brand
+        subject: str(f.subject) ?? d.subject,
+        preheader: str(f.preheader) ?? d.preheader,
+        heroTitle: str(f.heroTitle) ?? d.heroTitle,
+        heroSubtitle: str(f.heroSubtitle) ?? d.heroSubtitle,
+        body: str(f.body) ?? d.body,
+        steps: steps && steps.length ? [steps[0] ?? "", steps[1] ?? "", steps[2] ?? ""] : d.steps,
+        ctaText: str(f.ctaText) ?? d.ctaText,
+        bonusCtaText: str(f.bonusCtaText) ?? d.bonusCtaText,
+        footer: str(f.footer) ?? d.footer,
+        name: d.name || (str(f.subject) ? String(f.subject).slice(0, 40) : d.name),
+      }));
+      setSaved(false);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+    } finally {
+      setAutofilling(false);
+    }
   };
 
   const readAsDataUrl = (file: File, key: "heroImage" | "logo") => {
@@ -169,10 +203,15 @@ export function EmailGenApp() {
         <button
           type="button"
           onClick={autofill}
-          className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg border border-border bg-white/5 px-4 text-sm font-medium transition hover:border-accent-green/50 hover:text-accent-green"
+          disabled={autofilling}
+          className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg border border-border bg-white/5 px-4 text-sm font-medium transition hover:border-accent-green/50 hover:text-accent-green disabled:opacity-60"
         >
-          <Sparkles className="h-4 w-4 text-accent-green" />
-          Заполнить автоматически
+          {autofilling ? (
+            <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
+          ) : (
+            <Sparkles className="h-4 w-4 text-accent-green" />
+          )}
+          {autofilling ? "Генерирую…" : "Заполнить автоматически с помощью ИИ"}
         </button>
 
         <BriefUploader
@@ -221,7 +260,12 @@ export function EmailGenApp() {
 
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field label="Бренд">
-            <input className={inputCls} value={draft.brand} onChange={(e) => set("brand", e.target.value)} />
+            <input
+              className={inputCls}
+              value={draft.brand}
+              onChange={(e) => set("brand", e.target.value)}
+              placeholder="Ваш бренд"
+            />
           </Field>
           <div>
             <label className="mb-2 block ds-h4">Акцент</label>
@@ -532,7 +576,7 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
             style={{ background: `linear-gradient(160deg, ${accent}44, ${dark ? "#0b1226" : "#eef2ff"})` }}
           >
             <span className="text-2xl font-extrabold tracking-tight" style={{ color: dark ? "#fff" : accent }}>
-              {draft.brand || "BRAND"}
+              {draft.brand || "ВАШ БРЕНД"}
             </span>
           </div>
         )}
