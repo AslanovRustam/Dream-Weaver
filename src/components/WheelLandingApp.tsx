@@ -5,6 +5,86 @@ import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
 
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 
+// Remove a plain background by flood-filling transparency from the borders.
+// The character is generated on a uniform backdrop, so the connected background
+// (sampled from the corners) is keyed out while the character's interior stays.
+function removeBackground(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(dataUrl);
+      ctx.drawImage(img, 0, 0);
+      let imgData: ImageData;
+      try {
+        imgData = ctx.getImageData(0, 0, w, h);
+      } catch {
+        return resolve(dataUrl);
+      }
+      const d = imgData.data;
+      const at = (x: number, y: number) => (y * w + x) * 4;
+      // Background colour = average of the four corners.
+      const corners = [at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1)];
+      let br = 0,
+        bg = 0,
+        bb = 0;
+      corners.forEach((i) => {
+        br += d[i];
+        bg += d[i + 1];
+        bb += d[i + 2];
+      });
+      br /= 4;
+      bg /= 4;
+      bb /= 4;
+      const thr = 42 * 42 * 3; // squared distance threshold (per-channel ~42)
+      const visited = new Uint8Array(w * h);
+      const stack: number[] = [];
+      const seed = (x: number, y: number) => {
+        const p = y * w + x;
+        if (!visited[p]) stack.push(p);
+      };
+      for (let x = 0; x < w; x++) {
+        seed(x, 0);
+        seed(x, h - 1);
+      }
+      for (let y = 0; y < h; y++) {
+        seed(0, y);
+        seed(w - 1, y);
+      }
+      while (stack.length) {
+        const p = stack.pop() as number;
+        if (visited[p]) continue;
+        visited[p] = 1;
+        const i = p * 4;
+        const dr = d[i] - br,
+          dg = d[i + 1] - bg,
+          db = d[i + 2] - bb;
+        if (dr * dr + dg * dg + db * db > thr) continue; // not background — stop
+        d[i + 3] = 0; // transparent
+        const x = p % w;
+        const y = (p - x) / w;
+        if (x > 0) seed(x - 1, y);
+        if (x < w - 1) seed(x + 1, y);
+        if (y > 0) seed(x, y - 1);
+        if (y < h - 1) seed(x, y + 1);
+      }
+      ctx.putImageData(imgData, 0, 0);
+      try {
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 const DEFAULT_PRIZES: WheelSegment[] = [
   { label: "100 TFS" },
   { label: "450%", sub: "BONUS" },
@@ -71,11 +151,11 @@ export function WheelLandingApp() {
     setCharGenning(true);
     setGenError("");
     try {
-      setCharacter(
-        await genImage({
-          presetTemplate: `${charPrompt}. A SINGLE full-body mascot character, centered, isolated on a plain flat solid-colour studio background, full body visible, dynamic pose, high detail, sharp cutout silhouette.`,
-        }),
-      );
+      const raw = await genImage({
+        presetTemplate: `${charPrompt}. A SINGLE full-body mascot character, centered, dynamic pose, high detail, clean sharp silhouette. Isolated on a PLAIN UNIFORM FLAT SINGLE-COLOUR background (studio backdrop), no scenery, no props behind, character fully inside the frame with clear empty margins on every side.`,
+      });
+      // Cut out the plain background → transparent PNG that blends into the landing.
+      setCharacter(await removeBackground(raw));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -226,7 +306,7 @@ export function WheelLandingApp() {
             <img
               src={character}
               alt=""
-              className="mt-2 h-16 w-16 rounded-md border border-border object-cover"
+              className="mt-2 h-16 w-16 rounded-md border border-border bg-white/5 object-contain"
             />
           ) : null}
         </div>
