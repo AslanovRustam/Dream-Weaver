@@ -593,6 +593,7 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
   const textMuted = dark ? "#93a4cc" : "#475569";
   const footerBg = dark ? "#080d1c" : "#f7f8fa";
   const divider = dark ? "rgba(255,255,255,0.08)" : "#eef1f4";
+  const chipBg = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
 
   const Cta = ({ label }: { label: string }) => (
     <span
@@ -678,11 +679,10 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
         </div>
 
         {/* App + payments (dark promo only) */}
-        {dark ? (
-          <div className="px-6 pb-5" style={{ borderTop: `1px solid ${divider}` }}>
-            <p className="mb-3 mt-4 text-center text-xs font-bold uppercase tracking-wide" style={{ color: textMuted }}>
-              Download our mobile app
-            </p>
+        <div className="px-6 pb-5" style={{ borderTop: `1px solid ${divider}` }}>
+          <p className="mb-3 mt-4 text-center text-xs font-bold uppercase tracking-wide" style={{ color: textMuted }}>
+            Download our mobile app
+          </p>
             <div className="mb-4 flex justify-center gap-2">
               {["App Store", "Google Play"].map((a) => (
                 <span
@@ -699,14 +699,13 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
                 <span
                   key={p}
                   className="rounded px-2 py-0.5 text-[10px] font-semibold"
-                  style={{ background: "rgba(255,255,255,0.06)", color: textMuted }}
+                  style={{ background: chipBg, color: textMuted }}
                 >
                   {p}
                 </span>
               ))}
             </div>
           </div>
-        ) : null}
 
         {/* Footer */}
         <div className="px-6 py-4 text-center" style={{ background: footerBg, borderTop: `1px solid ${divider}` }}>
