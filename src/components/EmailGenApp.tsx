@@ -365,17 +365,24 @@ export function EmailGenApp() {
           </div>
           <div>
             <label className="mb-2 block ds-h4">Тёмная</label>
-            <button
-              type="button"
-              onClick={() => set("dark", !draft.dark)}
-              className={`h-11 w-20 rounded-lg border text-xs font-medium transition ${
-                draft.dark
-                  ? "border-accent-green/40 bg-accent-green/10 text-accent-green"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {draft.dark ? "Вкл" : "Выкл"}
-            </button>
+            <div className="flex h-11 items-center">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.dark}
+                aria-label="Тёмная тема"
+                onClick={() => set("dark", !draft.dark)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  draft.dark ? "bg-accent-green" : "bg-white/15"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    draft.dark ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
 
