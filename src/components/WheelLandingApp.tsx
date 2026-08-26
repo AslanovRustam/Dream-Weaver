@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Plus, Sparkles, Trash2, X } from "lucide-react";
 
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
@@ -167,6 +167,52 @@ export function WheelLandingApp() {
   const [spinSignal, setSpinSignal] = useState(0);
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+
+  // Persist the whole landing (config + generated images) so nothing is lost on
+  // reload or navigation.
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("dw_wheel_draft");
+      if (raw) {
+        const d = JSON.parse(raw) as Record<string, unknown>;
+        if (typeof d.brand === "string") setBrand(d.brand);
+        if (typeof d.headline === "string") setHeadline(d.headline);
+        if (typeof d.accent === "string") setAccent(d.accent);
+        if (typeof d.dark === "boolean") setDark(d.dark);
+        if (typeof d.ctaText === "string") setCtaText(d.ctaText);
+        if (typeof d.theme === "string") setTheme(d.theme);
+        if (typeof d.bgImage === "string") setBgImage(d.bgImage);
+        if (typeof d.character === "string") setCharacter(d.character);
+        if (typeof d.charPrompt === "string") setCharPrompt(d.charPrompt);
+        if (d.charSide === "left" || d.charSide === "right") setCharSide(d.charSide);
+        if (Array.isArray(d.prizes)) setPrizes(d.prizes as WheelSegment[]);
+      }
+    } catch {
+      /* ignore */
+    }
+    setRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    const id = window.setTimeout(() => {
+      const data = { brand, headline, accent, dark, ctaText, theme, bgImage, character, charPrompt, charSide, prizes };
+      try {
+        window.localStorage.setItem("dw_wheel_draft", JSON.stringify(data));
+      } catch {
+        // Quota (large data URLs) — keep at least the config.
+        try {
+          window.localStorage.setItem(
+            "dw_wheel_draft",
+            JSON.stringify({ ...data, bgImage: "", character: "" }),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, character, charPrompt, charSide, prizes]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
