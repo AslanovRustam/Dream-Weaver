@@ -19,6 +19,7 @@ export interface EmailDraft {
   subject: string;
   preheader: string;
   brand: string;
+  brandMode: "text" | "logo"; // show brand as text name or as an uploaded logo
   style: EmailStyle;
   accent: string; // hex — drives CTA gradient + **highlights**
   dark: boolean; // dark iGaming promo look vs light
@@ -48,6 +49,7 @@ export function newDraft(): EmailDraft {
     subject: "",
     preheader: "",
     brand: "",
+    brandMode: "text",
     style: "promo",
     accent: "#22c55e",
     dark: true,
@@ -75,6 +77,7 @@ export function sampleDraft(id: string): EmailDraft {
     subject: "50 фриспинов + бонус 100% на депозит",
     preheader: "Только до конца недели — заряжайте удочки!",
     brand: "20BET",
+    brandMode: "text",
     style: "promo",
     accent: "#22c55e",
     dark: true,

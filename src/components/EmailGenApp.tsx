@@ -259,25 +259,76 @@ export function EmailGenApp() {
         </Field>
 
         <div className="grid grid-cols-[1fr_auto] gap-3">
-          <Field label="Бренд">
-            <input
-              className={inputCls}
-              value={draft.brand}
-              onChange={(e) => set("brand", e.target.value)}
-              placeholder="Ваш бренд"
-            />
-          </Field>
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label className="ds-h4">Бренд</label>
+              <div className="flex rounded-md border border-border p-0.5 text-[11px]">
+                {(
+                  [
+                    ["text", "Текст"],
+                    ["logo", "Лого"],
+                  ] as const
+                ).map(([m, l]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => set("brandMode", m)}
+                    className={`min-h-7 rounded px-2 font-medium transition ${
+                      draft.brandMode === m
+                        ? "bg-white/10 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {draft.brandMode === "logo" ? (
+              draft.logo ? (
+                <div className="flex h-12 items-center gap-2">
+                  <img
+                    src={draft.logo}
+                    alt=""
+                    className="h-12 w-24 rounded-md border border-border bg-white object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set("logo", "")}
+                    className="text-xs text-muted-foreground transition hover:text-foreground"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-elevated px-3 text-sm text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground">
+                  <Upload className="h-4 w-4" /> Загрузить лого
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    className="hidden"
+                    onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              )
+            ) : (
+              <input
+                className={inputCls}
+                value={draft.brand}
+                onChange={(e) => set("brand", e.target.value)}
+                placeholder="Ваш бренд"
+              />
+            )}
+          </div>
           <div>
             <label className="mb-2 block ds-h4">Акцент</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : "#7B5CFF"}
-                onChange={(e) => set("accent", e.target.value)}
-                aria-label="Акцентный цвет"
-                className="h-12 w-12 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated"
-              />
-            </div>
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : "#7B5CFF"}
+              onChange={(e) => set("accent", e.target.value)}
+              aria-label="Акцентный цвет"
+              className="h-12 w-12 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated"
+            />
           </div>
         </div>
 
@@ -364,32 +415,20 @@ export function EmailGenApp() {
 
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
             <div>
-              <label className="mb-1.5 block ds-label">Логотип</label>
+              <label className="mb-1.5 block ds-label">Логотип бренда</label>
               {draft.logo ? (
-                <div className="flex items-center gap-2">
+                <div className="flex h-10 items-center gap-2">
                   <img
                     src={draft.logo}
                     alt=""
                     className="h-10 w-16 rounded-md border border-border bg-white object-contain p-1"
                   />
-                  <button
-                    type="button"
-                    onClick={() => set("logo", "")}
-                    className="text-xs text-muted-foreground transition hover:text-foreground"
-                  >
-                    Убрать
-                  </button>
+                  <span className="ds-caption">в генерации</span>
                 </div>
               ) : (
-                <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-elevated px-3 text-sm text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground">
-                  <Upload className="h-4 w-4" /> Загрузить лого
-                  <input
-                    type="file"
-                    accept="image/*,.svg"
-                    className="hidden"
-                    onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
-                  />
-                </label>
+                <p className="flex h-10 items-center ds-caption">
+                  Загрузите лого в поле «Бренд» → «Лого».
+                </p>
               )}
             </div>
             <div>
@@ -572,12 +611,16 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
           <img src={draft.heroImage} alt="" className="block h-auto w-full" draggable={false} />
         ) : (
           <div
-            className="flex h-40 w-full items-center justify-center"
+            className="flex h-40 w-full items-center justify-center px-6"
             style={{ background: `linear-gradient(160deg, ${accent}44, ${dark ? "#0b1226" : "#eef2ff"})` }}
           >
-            <span className="text-2xl font-extrabold tracking-tight" style={{ color: dark ? "#fff" : accent }}>
-              {draft.brand || "ВАШ БРЕНД"}
-            </span>
+            {draft.brandMode === "logo" && draft.logo ? (
+              <img src={draft.logo} alt="" className="max-h-16 max-w-[60%] object-contain" />
+            ) : (
+              <span className="text-2xl font-extrabold tracking-tight" style={{ color: dark ? "#fff" : accent }}>
+                {draft.brand || "ВАШ БРЕНД"}
+              </span>
+            )}
           </div>
         )}
 
