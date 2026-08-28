@@ -4,19 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 
-import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
+import { SlotMachine } from "@/components/SlotMachine";
 import { bgPreset, characterPreset, removeBackground } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
-import { buildWheelHtml } from "@/lib/wheelExport";
+import { buildSlotHtml } from "@/lib/slotExport";
 
-const DEFAULT_PRIZES: WheelSegment[] = [
-  { label: "100 TFS" },
-  { label: "450%", sub: "BONUS" },
-  { label: "140 FS" },
-  { label: "200 TFS" },
-  { label: "100%", sub: "BONUS" },
-  { label: "TRY AGAIN" },
-];
+const DEFAULT_SYMBOLS = ["🍒", "💎", "7️⃣", "🔔", "⭐", "🍋", "🍇", "🧧"];
 
 // One-click themes: set background scene, character, accent and headline together
 // so the whole landing matches a single тематика.
@@ -32,25 +25,25 @@ const THEMES: {
     id: "cartoon",
     label: "Мультяшный",
     accent: "#f97316",
-    headline: "TRY YOUR LUCK!",
+    headline: "SPIN TO WIN!",
     bg: "яркий мультяшный лес: зелёные холмы, деревья, голубое небо с облаками, парящие золотые монеты",
     char: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
+  },
+  {
+    id: "vegas",
+    label: "Вегас",
+    accent: "#eab308",
+    headline: "JACKPOT NIGHT",
+    bg: "ночной Лас-Вегас: неоновые вывески, золотые огни, ретро-казино маркиза, блеск и роскошь",
+    char: "мультяшный крупье в смокинге с бабочкой, обаятельная уверенная поза",
   },
   {
     id: "beach",
     label: "Пляж",
     accent: "#06b6d4",
-    headline: "SPIN & WIN",
+    headline: "LUCKY SPINS",
     bg: "тропический пляж: золотой песок, пальмы, бирюзовое море, воздушные шары, яркое летнее солнце",
     char: "мультяшный король-спасатель на пляже, корона, весёлый, шорты",
-  },
-  {
-    id: "paris",
-    label: "Париж",
-    accent: "#a855f7",
-    headline: "TENTEZ VOTRE CHANCE",
-    bg: "романтический Париж на закате: Эйфелева башня, античные колонны, виноградные лозы, тёплый золотой свет",
-    char: "мультяшный лис в парижском стиле, шарф-триколор, обаятельная поза",
   },
   {
     id: "cyber",
@@ -63,43 +56,42 @@ const THEMES: {
   {
     id: "egypt",
     label: "Египет",
-    accent: "#eab308",
+    accent: "#d97706",
     headline: "BOOK OF RICHES",
     bg: "древний Египет: золотые саркофаги, иероглифы на стенах, пирамиды вдали, тёплый песочный свет, богатство",
     char: "мультяшный фараон-маскот, золотые украшения, уверенная поза",
   },
 ];
 
-export function WheelLandingApp() {
+export function SlotLandingApp() {
   const [brand, setBrand] = useState("Fairspin");
-  const [headline, setHeadline] = useState("TRY YOUR LUCK!");
-  const [accent, setAccent] = useState("#f97316");
+  const [headline, setHeadline] = useState("SPIN TO WIN!");
+  const [accent, setAccent] = useState("#818cf8");
   const [dark, setDark] = useState(true);
   const [ctaText, setCtaText] = useState("SPIN");
   const [theme, setTheme] = useState(
-    "мультяшный кролик-персонаж с бейсбольной битой на зелёных холмах, монеты и морковь, яркий casino-promo фон",
+    "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
   );
   const [bgImage, setBgImage] = useState("");
-  // Two independent, optional character slots — one on each side of the wheel.
+  // Two independent, optional character slots — one on each side of the machine.
   const [chars, setChars] = useState<{ left: string; right: string }>({ left: "", right: "" });
   const [charPrompts, setCharPrompts] = useState<{ left: string; right: string }>({
-    left: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
+    left: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
     right: "",
   });
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
-  const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
-  const [won, setWon] = useState<number | null>(null);
+  const [symbols, setSymbols] = useState<string[]>(DEFAULT_SYMBOLS);
+  const [won, setWon] = useState<{ win: boolean; symbol: string } | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
 
-  // Persist the whole landing (config + generated images) so nothing is lost on
-  // reload or navigation.
+  // Persist the whole landing (config + generated images).
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem("dw_wheel_draft");
+      const raw = window.localStorage.getItem("dw_slot_draft");
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
         if (typeof d.brand === "string") setBrand(d.brand);
@@ -109,34 +101,18 @@ export function WheelLandingApp() {
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
-        // Characters: new two-slot shape, with backward-compat for the old single slot.
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
         const cr = typeof d.charRight === "string" ? d.charRight : "";
-        if (cl || cr) {
-          setChars({ left: cl, right: cr });
-        } else if (typeof d.character === "string" && d.character) {
-          const side = d.charSide === "left" ? "left" : "right";
-          setChars({
-            left: side === "left" ? d.character : "",
-            right: side === "right" ? d.character : "",
-          });
+        if (cl || cr) setChars({ left: cl, right: cr });
+        if (typeof d.charPromptLeft === "string" || typeof d.charPromptRight === "string") {
+          setCharPrompts((p) => ({
+            left: typeof d.charPromptLeft === "string" ? d.charPromptLeft : p.left,
+            right: typeof d.charPromptRight === "string" ? d.charPromptRight : p.right,
+          }));
         }
-        const oldPrompt = typeof d.charPrompt === "string" ? d.charPrompt : "";
-        setCharPrompts((p) => ({
-          left:
-            typeof d.charPromptLeft === "string"
-              ? d.charPromptLeft
-              : d.charSide === "left" && oldPrompt
-                ? oldPrompt
-                : p.left,
-          right:
-            typeof d.charPromptRight === "string"
-              ? d.charPromptRight
-              : d.charSide === "right" && oldPrompt
-                ? oldPrompt
-                : p.right,
-        }));
-        if (Array.isArray(d.prizes)) setPrizes(d.prizes as WheelSegment[]);
+        if (Array.isArray(d.symbols) && d.symbols.length >= 3) {
+          setSymbols((d.symbols as unknown[]).map((s) => String(s)));
+        }
       }
     } catch {
       /* ignore */
@@ -158,15 +134,14 @@ export function WheelLandingApp() {
         charRight: chars.right,
         charPromptLeft: charPrompts.left,
         charPromptRight: charPrompts.right,
-        prizes,
+        symbols,
       };
       try {
-        window.localStorage.setItem("dw_wheel_draft", JSON.stringify(data));
+        window.localStorage.setItem("dw_slot_draft", JSON.stringify(data));
       } catch {
-        // Quota (large data URLs) — keep at least the config.
         try {
           window.localStorage.setItem(
-            "dw_wheel_draft",
+            "dw_slot_draft",
             JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "" }),
           );
         } catch {
@@ -175,7 +150,7 @@ export function WheelLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, chars, charPrompts, prizes]);
+  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, chars, charPrompts, symbols]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -184,11 +159,11 @@ export function WheelLandingApp() {
     setCharPrompts((p) => ({ ...p, left: t.char }));
   };
 
-  const setPrize = (i: number, patch: Partial<WheelSegment>) =>
-    setPrizes((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const addPrize = () => setPrizes((p) => (p.length < 12 ? [...p, { label: "Приз" }] : p));
-  const removePrize = (i: number) =>
-    setPrizes((p) => (p.length > 2 ? p.filter((_, idx) => idx !== i) : p));
+  const setSymbol = (i: number, value: string) =>
+    setSymbols((s) => s.map((v, idx) => (idx === i ? value : v)));
+  const addSymbol = () => setSymbols((s) => (s.length < 12 ? [...s, "⭐"] : s));
+  const removeSymbol = (i: number) =>
+    setSymbols((s) => (s.length > 3 ? s.filter((_, idx) => idx !== i) : s));
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await fetch("/api/generate-email-hero", {
@@ -207,8 +182,6 @@ export function WheelLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      // A themed ENVIRONMENT/backdrop (not a hero banner): immersive scene with a
-      // clear central area for the wheel and no characters or central subject.
       setBgImage(await genImage({ presetTemplate: bgPreset(theme) }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
@@ -224,7 +197,6 @@ export function WheelLandingApp() {
     setGenError("");
     try {
       const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4" });
-      // Cut out the plain background → transparent PNG that blends into the landing.
       const cut = await removeBackground(raw);
       setChars((c) => ({ ...c, [side]: cut }));
     } catch (e) {
@@ -295,9 +267,9 @@ export function WheelLandingApp() {
             <ArrowLeft className="h-4 w-4" /> К шаблонам лендингов
           </Link>
           <p className="ds-overline text-accent-green">Лендинг</p>
-          <h1 className="ds-h1 mt-1">Колесо фортуны</h1>
+          <h1 className="ds-h1 mt-1">Слот-машина</h1>
           <p className="ds-body mt-2 text-muted-foreground">
-            Геймифицированный лендинг: крутите колесо, выигрывайте бонус, ведите на регистрацию.
+            Геймифицированный лендинг: крутите барабаны, ловите три в ряд, ведите на регистрацию.
           </p>
         </header>
 
@@ -332,9 +304,9 @@ export function WheelLandingApp() {
             <label className="mb-2 block ds-h4">Акцент</label>
             <input
               type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
+              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#818cf8"}
               onChange={(e) => setAccent(e.target.value)}
-              aria-label="Акцент колеса"
+              aria-label="Акцент машины"
               className="h-11 w-11 cursor-pointer rounded-lg border border-border bg-elevated"
             />
           </div>
@@ -392,12 +364,12 @@ export function WheelLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
-        {/* Characters (optional) — up to two, one flanking each side of the wheel */}
+        {/* Characters (optional) — up to two, one flanking each side */}
         <div className="rounded-xl border border-border bg-background/40 p-3">
           <label className="ds-h4">
             Персонажи{" "}
             <span className="ds-caption font-normal normal-case tracking-normal">
-              (опционально, по бокам колеса)
+              (опционально, по бокам машины)
             </span>
           </label>
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -406,37 +378,32 @@ export function WheelLandingApp() {
           </div>
         </div>
 
-        {/* Prizes */}
+        {/* Symbols */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="ds-h4">Сектора колеса</label>
+            <label className="ds-h4">Символы барабанов</label>
             <button
               type="button"
-              onClick={addPrize}
+              onClick={addSymbol}
               className="inline-flex items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
             >
               <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
-          <div className="flex flex-col gap-2">
-            {prizes.map((s, i) => (
+          <div className="grid grid-cols-2 gap-2">
+            {symbols.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
-                  className={`${inputCls} h-10`}
-                  value={s.label}
-                  onChange={(e) => setPrize(i, { label: e.target.value })}
-                  placeholder="Приз"
-                />
-                <input
-                  className={`${inputCls} h-10 w-24`}
-                  value={s.sub ?? ""}
-                  onChange={(e) => setPrize(i, { sub: e.target.value })}
-                  placeholder="подпись"
+                  className={`${inputCls} h-10 text-center text-lg`}
+                  value={s}
+                  onChange={(e) => setSymbol(i, e.target.value)}
+                  placeholder="🍒"
+                  maxLength={4}
                 />
                 <button
                   type="button"
-                  onClick={() => removePrize(i)}
-                  aria-label="Удалить сектор"
+                  onClick={() => removeSymbol(i)}
+                  aria-label="Удалить символ"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:border-[var(--status-error)]/50 hover:text-[var(--status-error)]"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -444,6 +411,7 @@ export function WheelLandingApp() {
               </div>
             ))}
           </div>
+          <p className="mt-1.5 ds-caption">Эмодзи или короткий текст. Минимум 3 символа.</p>
         </div>
 
         <Field label="Кнопка">
@@ -454,15 +422,15 @@ export function WheelLandingApp() {
           type="button"
           onClick={() =>
             downloadText(
-              `${slugify(brand, "wheel")}-wheel.html`,
-              buildWheelHtml({
+              `${slugify(brand, "slot")}-slot.html`,
+              buildSlotHtml({
                 brand,
                 headline,
                 accent,
                 dark,
                 ctaText,
                 bgImage,
-                prizes,
+                symbols,
                 charLeft: chars.left,
                 charRight: chars.right,
               }),
@@ -522,8 +490,7 @@ export function WheelLandingApp() {
           {/* Darkening for legibility */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
 
-          {/* Characters — anchored to the VIEWPORT bottom so the crop bleeds off the
-              edge (no floating, no visible cut line). Behind the wheel/SPIN column. */}
+          {/* Characters — anchored to the VIEWPORT bottom (crop bleeds off the edge). */}
           {(["left", "right"] as const).map((side) =>
             chars[side] ? (
               <img
@@ -548,16 +515,16 @@ export function WheelLandingApp() {
               className="mt-1 text-center text-2xl font-extrabold uppercase leading-none tracking-tight sm:text-3xl"
               style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
             >
-              {headline || "TRY YOUR LUCK!"}
+              {headline || "SPIN TO WIN!"}
             </h2>
 
             <div
               className={`relative mt-3 flex w-full flex-1 justify-center ${
-                viewport === "portrait" ? "items-start pt-1" : "items-center"
+                viewport === "portrait" ? "items-start pt-2" : "items-center"
               }`}
             >
-              <div className="relative z-10 mx-auto aspect-square h-full max-h-[520px] max-w-full">
-                <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
+              <div className="relative z-10 mx-auto flex h-full w-full max-w-[440px] items-center justify-center">
+                <SlotMachine symbols={symbols} accent={accent} spinSignal={spinSignal} onResult={(win, symbol) => setWon({ win, symbol })} />
               </div>
             </div>
 
@@ -572,63 +539,55 @@ export function WheelLandingApp() {
           </div>
 
           {/* Win / try-again modal */}
-          {won !== null
-            ? (() => {
-                const seg = prizes[won];
-                const lose = !seg || /try\s*again|снова|ещё раз|заново|again|empty|пусто/i.test(seg.label);
-                return (
-                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6">
-                    <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                      {lose ? (
-                        <>
-                          <p className="text-lg font-extrabold text-[#0f172a]">😅 Почти!</p>
-                          <p className="mt-1 text-sm text-[#475569]">
-                            В этот раз не повезло — крутите ещё раз, приз ждёт!
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setWon(null);
-                              setSpinSignal((n) => n + 1);
-                            }}
-                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                            style={{ backgroundColor: accent }}
-                          >
-                            Крутить ещё раз
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-lg font-extrabold text-[#0f172a]">🎉 Поздравляем!</p>
-                          <p className="mt-1 text-sm text-[#475569]">
-                            Вы выиграли{" "}
-                            <span className="font-bold" style={{ color: accent }}>
-                              {seg.label} {seg.sub}
-                            </span>
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setWon(null)}
-                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                            style={{ backgroundColor: accent }}
-                          >
-                            Забрать бонус
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setWon(null)}
-                        aria-label="Закрыть"
-                        className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()
-            : null}
+          {won !== null ? (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
+              <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
+                {won.win ? (
+                  <>
+                    <p className="text-lg font-extrabold text-[#0f172a]">🎉 Джекпот!</p>
+                    <p className="mt-1 text-3xl">
+                      {won.symbol} {won.symbol} {won.symbol}
+                    </p>
+                    <p className="mt-1 text-sm text-[#475569]">Три в ряд — забирайте бонус!</p>
+                    <button
+                      type="button"
+                      onClick={() => setWon(null)}
+                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                      style={{ backgroundColor: accent }}
+                    >
+                      Забрать бонус
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-extrabold text-[#0f172a]">😅 Почти!</p>
+                    <p className="mt-1 text-sm text-[#475569]">
+                      В этот раз не сошлось — крутите ещё раз, джекпот ждёт!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWon(null);
+                        setSpinSignal((n) => n + 1);
+                      }}
+                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                      style={{ backgroundColor: accent }}
+                    >
+                      Крутить ещё раз
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setWon(null)}
+                  aria-label="Закрыть"
+                  className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

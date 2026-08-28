@@ -138,7 +138,7 @@ export function FortuneWheel({
   }, [spinSignal]);
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[380px] select-none">
+    <div className="relative mx-auto aspect-square w-full max-w-full select-none">
       {/* Mute toggle */}
       <button
         type="button"

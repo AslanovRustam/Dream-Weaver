@@ -189,7 +189,20 @@ export function LandingGenApp() {
   };
 
   const [status, setStatus] = useState<Status>("idle");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
+  // The template gallery and the settings are shown ONE AT A TIME (on every
+  // breakpoint): browse tiles first, pick one → settings, "back" → tiles.
+  // A deep-link (?template=id) opens straight in settings.
+  const [mobileTab, setMobileTab] = useState<MobileTab>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const t = new URLSearchParams(window.location.search).get("template");
+        if (t && LANDING_TEMPLATE_BY_ID.has(t)) return "settings";
+      } catch {
+        /* ignore */
+      }
+    }
+    return "templates";
+  });
 
   // From-banner flow: vertical inherited from the banner (no template picker),
   // the banner image reused as the Hero visual, brand block collapsed by default.
@@ -267,6 +280,10 @@ export function LandingGenApp() {
     // Interactive templates (e.g. the fortune wheel) open their own builder.
     if (t.interactive === "wheel") {
       router.push("/wheel");
+      return;
+    }
+    if (t.interactive === "slot") {
+      router.push("/slot");
       return;
     }
     setTemplateId(t.id);
@@ -382,26 +399,25 @@ export function LandingGenApp() {
             vertical is inherited from the banner, so the picker isn't needed
             (leaves a 2-column settings + result layout). */}
         {!fromBanner ? (
-          <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
+          <div className={mobileTab === "templates" ? "contents" : "hidden"}>
             <LandingTemplateSidebar value={templateId} onSelect={selectTemplate} />
           </div>
         ) : null}
 
-        {/* COLUMN 2 — settings */}
+        {/* COLUMN 2 — settings (shown once a template is picked, or from-banner) */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
-            mobileTab !== "settings" ? "max-lg:hidden" : ""
+            !(fromBanner || mobileTab === "settings") ? "!hidden" : ""
           }`}
         >
           {!fromBanner ? (
-            <div className="flex items-center gap-3 px-2 pb-2 pt-3 lg:hidden">
+            <div className="flex items-center gap-3 px-2 pb-2 pt-3">
               <button
                 type="button"
                 onClick={() => setMobileTab("templates")}
                 className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-2 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Назад
+                <ArrowLeft className="h-4 w-4" />К шаблонам
               </button>
               <SectionDots sections={landSections} />
             </div>
@@ -409,6 +425,23 @@ export function LandingGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              {!fromBanner ? (
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("templates")}
+                  className="flex items-center gap-2.5 rounded-xl border border-border bg-background/40 p-3 text-left transition hover:border-accent-green/40"
+                >
+                  <span
+                    className="h-9 w-9 shrink-0 rounded-lg border border-white/10"
+                    style={{ background: template.gradient }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block ds-caption">Выбранный шаблон</span>
+                    <span className="block truncate text-sm font-medium">{template.name}</span>
+                  </span>
+                  <span className="shrink-0 ds-caption text-accent-green lg:hidden">Сменить</span>
+                </button>
+              ) : null}
               <BriefUploader
                 product="landing"
                 onApply={applyBrief}
@@ -846,7 +879,10 @@ function LandingTemplateSidebar({
   onSelect: (t: LandingTemplate) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Categories open by default so the gallery shows all tiles at a glance.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(LANDING_TEMPLATE_CATEGORIES.map((c) => [c.id, true])),
+  );
   const [filterOpen, setFilterOpen] = useState(false);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -1059,7 +1095,7 @@ function LandingTemplateSidebar({
                 </button>
                 {isExpanded ? (
                   <div className="border-t border-border p-2.5">
-                    <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
                       {cat.templates.map((t) => (
                         <TemplateTile
                           key={t.id}
