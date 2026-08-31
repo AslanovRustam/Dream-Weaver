@@ -26,6 +26,14 @@ export function characterPreset(prompt: string): string {
  * unavailable.
  */
 export async function removeBackground(dataUrl: string): Promise<string> {
+  const cut = await cutout(dataUrl);
+  // Trim the transparent margins so the character's real bottom (feet / crop
+  // line) becomes the image bottom — otherwise object-bottom anchors the empty
+  // padding to the floor and the figure looks like it's levitating.
+  return trimTransparent(cut);
+}
+
+async function cutout(dataUrl: string): Promise<string> {
   try {
     const res = await fetch("/api/remove-bg", {
       method: "POST",
@@ -40,6 +48,50 @@ export async function removeBackground(dataUrl: string): Promise<string> {
     /* service down — fall through */
   }
   return removeBackgroundColorKey(dataUrl);
+}
+
+/** Crop a cut-out PNG to the bounding box of its non-transparent pixels. */
+async function trimTransparent(dataUrl: string): Promise<string> {
+  try {
+    const img = await loadImage(dataUrl);
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (!w || !h) return dataUrl;
+    const src = document.createElement("canvas");
+    src.width = w;
+    src.height = h;
+    const sctx = src.getContext("2d");
+    if (!sctx) return dataUrl;
+    sctx.drawImage(img, 0, 0);
+    const d = sctx.getImageData(0, 0, w, h).data;
+    let minX = w,
+      minY = h,
+      maxX = -1,
+      maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < minX || maxY < minY) return dataUrl; // fully transparent
+    const cw = maxX - minX + 1;
+    const ch = maxY - minY + 1;
+    if (cw === w && ch === h) return dataUrl; // already tight
+    const out = document.createElement("canvas");
+    out.width = cw;
+    out.height = ch;
+    const octx = out.getContext("2d");
+    if (!octx) return dataUrl;
+    octx.drawImage(src, minX, minY, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
 }
 
 /** Load an image element from a URL/data-URL. */

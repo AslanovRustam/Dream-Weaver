@@ -530,10 +530,13 @@ export function WheelLandingApp() {
                 key={side}
                 src={chars[side]}
                 alt=""
-                className={`pointer-events-none absolute bottom-0 z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
-                  viewport === "portrait" ? "h-[74%] max-w-[54%]" : "h-full max-w-[42%]"
+                className={`pointer-events-none absolute z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
+                  viewport === "portrait" ? "h-[84%] max-w-[56%]" : "h-full max-w-[46%]"
                 }`}
-                style={{ [side]: viewport === "portrait" ? "0%" : "-2%" }}
+                style={{
+                  [side]: viewport === "portrait" ? "-1%" : "-4%",
+                  bottom: viewport === "portrait" ? "-7%" : "-9%",
+                }}
               />
             ) : null,
           )}

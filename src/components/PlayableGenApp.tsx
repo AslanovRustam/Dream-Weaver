@@ -1168,6 +1168,8 @@ const ANIM_CSS = `
 .pl-dot{width:10px;height:10px;border-radius:3px;background:var(--accent-green)}
 .pl-grid span:nth-child(odd){animation:pl-pop 1.4s infinite}
 .pl-grid span:nth-child(even){animation:pl-pop 1.4s .5s infinite}
+@keyframes pl-fly{0%{transform:translate(-9px,11px) rotate(6deg)}70%{transform:translate(9px,-11px) rotate(10deg)}100%{transform:translate(-9px,11px) rotate(6deg)}}
+.pl-crash{font-size:22px;animation:pl-fly 1.3s ease-in-out infinite}
 `;
 
 function MechanicAnim({ mechanic }: { mechanic: PlayableMechanic }) {
@@ -1195,6 +1197,13 @@ function MechanicAnim({ mechanic }: { mechanic: PlayableMechanic }) {
     return (
       <div className="pl-anim">
         <div className="pl-wheel" />
+      </div>
+    );
+  }
+  if (mechanic === "crash") {
+    return (
+      <div className="pl-anim">
+        <div className="pl-crash">🚀</div>
       </div>
     );
   }
@@ -1241,7 +1250,7 @@ function MechanicSidebar({
   // const shown = expanded ? PLAYABLE_MECHANICS : PLAYABLE_MECHANICS.slice(0, 3);
   const shown = PLAYABLE_MECHANICS;
   return (
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
+    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border">
       <style>{ANIM_CSS}</style>
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <h2 className="ds-h4">Игровые механики</h2>
@@ -1281,7 +1290,7 @@ function MechanicSidebar({
                     {m.label}
                     {active ? <Check className="h-3.5 w-3.5 text-accent-green" /> : null}
                   </span>
-                  <span className="mt-0.5 block ds-caption">{m.description}</span>
+                  <span className="mt-0.5 line-clamp-2 block ds-caption">{m.description}</span>
                 </span>
               </button>
             );

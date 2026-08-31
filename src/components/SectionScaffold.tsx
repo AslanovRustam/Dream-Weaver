@@ -76,7 +76,7 @@ export function SectionScaffold({ section }: { section: Section }) {
       <div className="flex flex-col p-0 lg:flex-row lg:gap-6 lg:p-3">
         {/* COLUMN 1 — templates placeholder */}
         <aside
-          className={`flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border ${
+          className={`flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border ${
             mobileTab !== "templates" ? "max-lg:hidden" : ""
           }`}
         >

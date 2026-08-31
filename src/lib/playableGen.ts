@@ -13,7 +13,7 @@
 // with this module's own template literals. RUNTIME must contain NO backticks and
 // NO `${` sequences.
 
-export type PlayableMechanic = "slot" | "wheel" | "scratch" | "quiz" | "match3";
+export type PlayableMechanic = "slot" | "wheel" | "crash" | "scratch" | "quiz" | "match3";
 
 export const PLAYABLE_MECHANICS: {
   id: PlayableMechanic;
@@ -22,6 +22,7 @@ export const PLAYABLE_MECHANICS: {
 }[] = [
   { id: "slot", label: "Демо слота", description: "Вращение барабанов с символами бренда" },
   { id: "wheel", label: "Колесо фортуны", description: "Крутить колесо и выиграть приз" },
+  { id: "crash", label: "Crash-игра", description: "Множитель растёт — успей забрать до краха" },
   { id: "scratch", label: "Скретч-карта", description: "Стереть слой и открыть приз" },
   { id: "quiz", label: "Квиз / Викторина", description: "Вопрос с вариантами → оффер" },
   { id: "match3", label: "Мини-матч (Match-3)", description: "Собери совпадения — демо-геймплей" },
@@ -71,6 +72,8 @@ type Copy = {
   movesLabel: string;
   claim: string;
   defaultPrize: string;
+  cashout: string;
+  retry: string;
 };
 
 function playCopy(lang: string): Copy {
@@ -83,6 +86,8 @@ function playCopy(lang: string): Copy {
       movesLabel: "Ходы",
       claim: "Забрать бонус",
       defaultPrize: "Ваш бонус",
+      cashout: "Забрать",
+      retry: "Ещё раз",
     },
     uk: {
       spin: "Крутити",
@@ -91,6 +96,8 @@ function playCopy(lang: string): Copy {
       movesLabel: "Ходи",
       claim: "Забрати бонус",
       defaultPrize: "Ваш бонус",
+      cashout: "Забрати",
+      retry: "Ще раз",
     },
     en: {
       spin: "Spin",
@@ -99,6 +106,8 @@ function playCopy(lang: string): Copy {
       movesLabel: "Moves",
       claim: "Claim bonus",
       defaultPrize: "Your bonus",
+      cashout: "Cash out",
+      retry: "Play again",
     },
   };
   return dict[base];
@@ -171,7 +180,25 @@ const RUNTIME =
   "      for(var g=0;g<group.length;g++){ data[group[g]]=rnd(); } moves--; ml.textContent=I.movesLabel+': '+moves; render(); if(moves<=0){ setTimeout(function(){ showEnd(DATA.offer); }, 400); } }\n" +
   "    render(); wrap.appendChild(grid); stage.appendChild(wrap);\n" +
   "  }\n" +
-  "  var games={ slot:slot, wheel:wheel, scratch:scratch, quiz:quiz, match3:match3 };\n" +
+  "  function crash(){\n" +
+  "    var wrap=el('div','crash'); var graph=el('div','crashGraph'); var rocket=el('div','rocket'); rocket.textContent='\\uD83D\\uDE80';\n" +
+  "    var mult=el('div','mult'); mult.textContent='1.00x'; mult.setAttribute('data-m','1.00'); graph.appendChild(rocket); graph.appendChild(mult); wrap.appendChild(graph);\n" +
+  "    var btn=el('button','play cashout'); btn.textContent=I.cashout; wrap.appendChild(btn); stage.appendChild(wrap);\n" +
+  "    var raf=0, done=false, crashed=false;\n" +
+  "    var crashAt=DATA.alwaysWin?(3+Math.random()*7):(1.4+Math.random()*4.6);\n" +
+  "    var t0=Date.now();\n" +
+  "    function tick(){ if(done) return; var dt=(Date.now()-t0)/1000; var m=Math.pow(1.0718, dt*10);\n" +
+  "      if(m>=crashAt){ boom(); return; } mult.textContent=m.toFixed(2)+'x'; mult.setAttribute('data-m', m.toFixed(2));\n" +
+  "      var p=Math.min(1,(m-1)/9); rocket.style.transform='translate('+(p*150)+'px,'+(-p*150)+'px) rotate(8deg)';\n" +
+  "      raf=requestAnimationFrame(tick); }\n" +
+  "    function cashOut(){ if(done||crashed) return; done=true; if(raf) cancelAnimationFrame(raf); btn.disabled=true; mult.className='mult win';\n" +
+  "      var cur=mult.getAttribute('data-m')||'1.00'; setTimeout(function(){ showEnd(cur+'x \\u2014 '+DATA.offer); }, 550); }\n" +
+  "    function boom(){ crashed=true; if(raf) cancelAnimationFrame(raf); mult.textContent='\\uD83D\\uDCA5 '+crashAt.toFixed(2)+'x'; mult.className='mult bust'; rocket.style.opacity='0';\n" +
+  "      btn.disabled=false; btn.className='play retry'; btn.textContent=I.retry; btn.onclick=function(){ wrap.remove(); crash(); }; }\n" +
+  "    btn.addEventListener('click', function(){ if(!crashed) cashOut(); });\n" +
+  "    raf=requestAnimationFrame(tick);\n" +
+  "  }\n" +
+  "  var games={ slot:slot, wheel:wheel, crash:crash, scratch:scratch, quiz:quiz, match3:match3 };\n" +
   "  (games[DATA.mechanic]||slot)();\n" +
   "}\n";
 
@@ -191,6 +218,7 @@ function css(accent: string): string {
     ".scratch{position:relative;width:260px;height:170px;border-radius:16px;overflow:hidden;border:2px solid #2c3424}.prizeText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--accent);text-align:center;padding:12px}.scratch canvas{position:absolute;inset:0;touch-action:none;cursor:grab}.scratch .hint{position:absolute;bottom:8px;width:100%;text-align:center;font-size:12px;color:#0a0d0a;font-weight:600;pointer-events:none}" +
     ".quiz{width:100%;max-width:320px;padding:12px}.quiz .q{font-size:18px;margin-bottom:16px;text-align:center}.opts{display:flex;flex-direction:column;gap:10px}.opt{background:#12160f;border:1px solid #2c3424;color:#f5f7f2;border-radius:12px;padding:14px;font-size:15px;cursor:pointer;text-align:left}.opt.right{border-color:var(--accent);background:rgba(212,255,61,.14);color:var(--accent)}.opt.wrong{border-color:#7f1d1d;opacity:.6}" +
     ".m3{display:flex;flex-direction:column;align-items:center;gap:12px}.hud{font-weight:700;color:var(--accent)}.grid{display:grid;gap:6px}.tile{width:44px;height:44px;font-size:24px;background:#12160f;border:1px solid #2c3424;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}.tile:active{transform:scale(.92)}" +
+    ".crash{display:flex;flex-direction:column;align-items:center;width:100%;max-width:320px}.crashGraph{position:relative;width:100%;height:210px;border:2px solid #2c3424;border-radius:16px;overflow:hidden;background:radial-gradient(130% 110% at 0% 100%, rgba(212,255,61,.14), transparent 60%),#0e1209;display:flex;align-items:center;justify-content:center}.rocket{position:absolute;left:14px;bottom:12px;font-size:34px;transition:transform .06s linear}.mult{font-size:46px;font-weight:900;color:var(--accent);text-shadow:0 2px 12px rgba(0,0,0,.55)}.mult.win{color:#4ade80}.mult.bust{color:#f87171}.cashout{animation:pulse 1.1s infinite}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}" +
     ".end{position:absolute;inset:0;background:rgba(8,10,7,.88);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:22px;z-index:5}.end[hidden]{display:none}.end-card{text-align:center;max-width:300px;animation:rise .4s}@keyframes rise{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}.win-badge{font-size:44px}.end-card h2{font-size:26px;margin:8px 0}.end-card #endPrize{color:var(--accent);font-size:18px;font-weight:700;margin-bottom:20px}.end .cta{background:var(--accent);color:#0a0d0a;font-weight:800;border:0;border-radius:12px;padding:15px 32px;font-size:16px;cursor:pointer;width:100%}"
   );
 }

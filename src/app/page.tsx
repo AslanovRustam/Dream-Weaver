@@ -220,51 +220,52 @@ function SectionTile({
           : "min-h-[168px] border-border hover:border-accent-green/70 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.40)] focus-visible:border-accent-green/60 lg:min-h-0"
       }`}
     >
-      {/* Live preview fills the tile; ken-burns scale on hover + gloss sweep +
-          the per-tile loop (playable/video) are the "comes alive" effect. */}
-      <div className="absolute inset-0">
-        <div className="h-full w-full transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
-          <TilePreview sectionId={section.id} />
+      {featured ? (
+        <>
+          {/* Featured (banner) — full-bleed preview with the caption OVERLAID at
+              the bottom over a darkening gradient. Tall enough that the two never
+              collide. */}
+          <div className="absolute inset-0">
+            <div className="h-full w-full transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
+              <TilePreview sectionId={section.id} />
+            </div>
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(123,92,255,0.18)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/[0.08] to-transparent" />
+          <span className="hub-shine" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2"
+            style={{ background: "radial-gradient(115% 90% at 16% 120%, rgba(123,92,255,0.45), transparent 58%)" }}
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.07]" />
+          <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+            Рекомендуем начать
+          </span>
+        </>
+      ) : (
+        // Other tools — a clean CAPTION card: the animated preview lives in a
+        // top band, the label + CTA sit BELOW it on the card's solid surface, so
+        // text never overlaps the preview at any size (the mobile failure mode).
+        <div className="relative min-h-[104px] w-full flex-1 overflow-hidden">
+          <div className="absolute inset-0 transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
+            <TilePreview sectionId={section.id} />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(198,255,61,0.12)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white/[0.08] to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-surface)] to-transparent" />
+          <span className="hub-shine" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.06]" />
         </div>
-      </div>
-      {/* Brand-tinted sheen (top-right): violet on the featured tile, lime on the
-          rest — so each preview carries its section's accent. */}
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent ${
-          featured ? "to-[rgba(123,92,255,0.18)]" : "to-[rgba(198,255,61,0.12)]"
-        }`}
-      />
-      {/* Glassy top highlight — a thin light gradient for depth. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/[0.08] to-transparent" />
-      <span className="hub-shine" aria-hidden />
-      {/* Darkening overlay: clear at the top (preview stays visible), dark at the
-          bottom where the label + button sit — legible over ANY preview. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
-      {/* Brand halo behind the footer — colour depth without hurting contrast. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2"
-        style={{
-          background: featured
-            ? "radial-gradient(115% 90% at 16% 120%, rgba(123,92,255,0.45), transparent 58%)"
-            : "radial-gradient(125% 100% at 14% 122%, rgba(198,255,61,0.22), transparent 60%)",
-        }}
-      />
-      {/* Crisp inset edge. */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.07]" />
-
-      {section.id === "banner" ? (
-        <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-          Рекомендуем начать
-        </span>
-      ) : null}
+      )}
 
       {/* Hierarchy: the featured (banner) tile gets a bigger title, icon, CTA and
           padding; the other three stay compact. Styling/overlay is identical —
           only relative size and weight differ. */}
       <div
-        className={`relative mt-auto flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2.5 p-4"}`}
+        className={`relative flex flex-col items-start ${featured ? "mt-auto gap-3.5 p-5" : "gap-2 p-4"}`}
       >
-        <div className="min-w-0">
+        <div className="w-full min-w-0">
           <div className="flex items-center gap-2.5">
             {/* Accent icon chip: violet on the featured tile, lime on the rest —
                 a small brand pop that anchors the title's hierarchy. */}
