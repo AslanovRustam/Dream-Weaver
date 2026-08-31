@@ -286,6 +286,10 @@ export function LandingGenApp() {
       router.push("/slot");
       return;
     }
+    if (t.interactive === "crash") {
+      router.push("/crash");
+      return;
+    }
     setTemplateId(t.id);
     setMobileTab("settings");
   };
@@ -849,7 +853,11 @@ function TemplateTile({
     >
       <div
         className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-        style={{ background: template.gradient }}
+        style={
+          template.preview
+            ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
+            : { background: template.gradient }
+        }
       />
       <p className="truncate text-xs font-medium">{template.name}</p>
       {selected && (

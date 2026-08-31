@@ -52,8 +52,11 @@ export type LandingTemplate = {
   accent: string;
   /** Card preview background. */
   gradient: string;
+  /** Optional real preview image (screenshot of a generated landing); falls back
+   *  to `gradient` when absent. */
+  preview?: string;
   /** Interactive templates open a dedicated builder instead of the block flow. */
-  interactive?: "wheel" | "slot";
+  interactive?: "wheel" | "slot" | "crash";
 };
 
 export type LandingTemplateCategory = {
@@ -126,6 +129,15 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
         gradient: "linear-gradient(135deg,#312e81,#6366f1,#a5b4fc)",
         interactive: "slot",
       },
+      {
+        id: "gambling-crash",
+        vertical: "gambling",
+        name: "Crash-игра",
+        description: "Геймифицированный лендинг: множитель растёт — успей забрать",
+        accent: "#ef4444",
+        gradient: "linear-gradient(135deg,#450a0a,#ef4444,#fca5a5)",
+        interactive: "crash",
+      },
     ],
   },
   {
@@ -151,6 +163,15 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
     ],
   },
 ];
+
+// Real preview images (screenshots of a generated landing per template) live in
+// /public/landing-previews/<id>.jpg — attach them so the tiles show the actual
+// result instead of a flat gradient.
+for (const cat of LANDING_TEMPLATE_CATEGORIES) {
+  for (const t of cat.templates) {
+    t.preview = `/landing-previews/${t.id}.jpg`;
+  }
+}
 
 export const LANDING_TEMPLATE_BY_ID = new Map(
   LANDING_TEMPLATE_CATEGORIES.flatMap((c) => c.templates).map((t) => [t.id, t]),
