@@ -85,7 +85,6 @@ function ruSeconds(n: number) {
 
 export function ResizeBatchPanel({
   disabled,
-  masterRatio,
   onLaunch,
   tiles,
   batchStatus,
@@ -125,13 +124,15 @@ export function ResizeBatchPanel({
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
-  // Price = one image generation per DISTINCT aspect ratio that differs from the
-  // master. Sizes in the master's own ratio are free client-side downscales.
+  // Price is charged per DISTINCT aspect ratio in the selection — including the
+  // master's own ratio (its sizes are billed too, per product decision). Each
+  // ratio ≈ 7 credits; the full set of all 9 ratios rounds to 62. masterRatio is
+  // intentionally not special-cased here.
   const packageCredits = useMemo(() => {
     const ratios = new Set<string>();
-    for (const s of selected.values()) if (s.ratio !== masterRatio) ratios.add(s.ratio);
+    for (const s of selected.values()) ratios.add(s.ratio);
     return imageCredits(ratios.size);
-  }, [selected, masterRatio]);
+  }, [selected]);
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;
@@ -562,9 +563,7 @@ export function ResizeBatchPanel({
                   className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                 >
                   Сгенерировать пакет
-                  {selectedCount > 0
-                    ? ` · ${packageCredits === 0 ? "бесплатно" : formatCreditsEstimate(packageCredits)}`
-                    : ""}
+                  {selectedCount > 0 ? ` · ${formatCreditsEstimate(packageCredits)}` : ""}
                 </button>
               </div>
             </>
