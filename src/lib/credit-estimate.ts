@@ -1,41 +1,38 @@
-// PRELIMINARY credit estimates shown on the "Сгенерировать" buttons.
+// Credit price shown on the "Сгенерировать" buttons.
 //
-// ⚠️ These numbers are ROUGH PLACEHOLDERS for UX only — they are NOT the real
-// price. The actual charge is computed server-side AFTER generation
-// (total_tokens × coefficient from the `pricing_coefficients` table, see
-// src/app/api/generate-image/route.ts). This module exists so the UI can show
-// a credit cost before the click, the way Sibrik shows a number on its
-// generate button.
+// Pricing model (agreed with product): price = round(self-cost USD × 10).
+// Every image generation runs on the same model (gemini-3.1-flash-image via
+// OpenRouter) at a flat measured self-cost of ~$0.0685 per image, so one image
+// ≈ 0.685 credits. An action's price is round(images × 0.685) whole credits.
 //
-// Credits are always shown as WHOLE numbers (no fractions, no "≈" prefix).
-//
-// TODO(pricing): replace these constants with a real estimator — either a
-// lightweight `/api/estimate` endpoint that reads pricing_coefficients, or a
-// shared table synced with the DB. Until then everything below is a guess.
+// The actual charge is still reconciled server-side from the real usage.cost;
+// this is the pre-click estimate the button shows.
 
 export type BannerModelKey = "gpt" | "nano";
 export type BannerQuality = "low" | "medium" | "high";
 
-// Placeholder base cost per image model + quality multiplier. Chosen so the
-// result is always a whole number. Tuned only to look plausible, not to match
-// real provider pricing.
-const BANNER_MODEL_BASE: Record<BannerModelKey, number> = {
-  gpt: 3, // premium image model
-  nano: 1, // cheaper/faster model
-};
-const BANNER_QUALITY_MULT: Record<BannerQuality, number> = {
-  low: 1,
-  medium: 2,
-  high: 3,
-};
+/** Measured flat self-cost of one image generation, in USD. */
+export const USD_PER_IMAGE = 0.0685;
+/** Credits per US dollar of self-cost (1 $ = 10 credits). */
+export const CREDITS_PER_USD = 10;
 
-export function estimateBannerCredits(args: {
-  model: BannerModelKey;
-  quality: BannerQuality;
+/**
+ * Whole-number credit price for an action that generates `images` images.
+ * round(images × USD_PER_IMAGE × CREDITS_PER_USD), never below 1.
+ */
+export function imageCredits(images = 1): number {
+  const n = Math.max(0, images);
+  return Math.max(1, Math.round(n * USD_PER_IMAGE * CREDITS_PER_USD));
+}
+
+// All banner generation is a single image on one model now, so quality/model no
+// longer change the price. Args kept for call-site compatibility.
+export function estimateBannerCredits(_args?: {
+  model?: BannerModelKey;
+  quality?: BannerQuality;
 }): number {
-  const base = BANNER_MODEL_BASE[args.model] ?? BANNER_MODEL_BASE.gpt;
-  const mult = BANNER_QUALITY_MULT[args.quality] ?? 1;
-  return toCredits(base * mult);
+  void _args;
+  return imageCredits(1);
 }
 
 // Placeholder video cost — scales with duration. Real video pricing depends on

@@ -10,6 +10,10 @@ import { downloadText, slugify } from "@/lib/download";
 import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
 import { CostMeter } from "@/components/CostMeter";
+import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+
+// One AI image generation (background or character) = 1 image.
+const IMG_PRICE = formatCreditsEstimate(imageCredits(1));
 
 // One-click themes: set background scene, character, accent and headline together.
 const THEMES: {
@@ -218,7 +222,9 @@ export function CrashLandingApp() {
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
-          {charGenning === side ? "Генерирую…" : chars[side] ? "Перегенерировать" : "Сгенерировать"}
+          {charGenning === side
+            ? "Генерирую…"
+            : `${chars[side] ? "Перегенерировать" : "Сгенерировать"} · ${IMG_PRICE}`}
         </button>
         {chars[side] ? (
           <img
@@ -326,7 +332,9 @@ export function CrashLandingApp() {
             className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
           >
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {genning ? "Генерирую фон…" : bgImage ? "Перегенерировать фон" : "Сгенерировать фон (ИИ)"}
+            {genning
+              ? "Генерирую фон…"
+              : `${bgImage ? "Перегенерировать фон" : "Сгенерировать фон (ИИ)"} · ${IMG_PRICE}`}
           </button>
           {bgImage ? (
             <button

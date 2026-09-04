@@ -8,6 +8,10 @@ import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { CostMeter } from "@/components/CostMeter";
+import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+
+// Email hero = one AI image generation.
+const IMG_PRICE = formatCreditsEstimate(imageCredits(1));
 import {
   EMAIL_STYLES,
   type EmailDraft,
@@ -414,9 +418,7 @@ export function EmailGenApp() {
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {genning
               ? "Генерирую баннер…"
-              : draft.heroImage
-                ? "Перегенерировать баннер"
-                : "Сгенерировать баннер (ИИ)"}
+              : `${draft.heroImage ? "Перегенерировать баннер" : "Сгенерировать баннер (ИИ)"} · ${IMG_PRICE}`}
           </button>
           <p className="mt-2 ds-caption">
             Баннер заполняется автоматически по полям письма. На картинке не будет текста — только

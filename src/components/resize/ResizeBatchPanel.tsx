@@ -33,6 +33,7 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
+import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -124,6 +125,13 @@ export function ResizeBatchPanel({
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
+  // Price = one image generation per DISTINCT aspect ratio that differs from the
+  // master. Sizes in the master's own ratio are free client-side downscales.
+  const packageCredits = useMemo(() => {
+    const ratios = new Set<string>();
+    for (const s of selected.values()) if (s.ratio !== masterRatio) ratios.add(s.ratio);
+    return imageCredits(ratios.size);
+  }, [selected, masterRatio]);
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;
@@ -554,6 +562,9 @@ export function ResizeBatchPanel({
                   className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                 >
                   Сгенерировать пакет
+                  {selectedCount > 0
+                    ? ` · ${packageCredits === 0 ? "бесплатно" : formatCreditsEstimate(packageCredits)}`
+                    : ""}
                 </button>
               </div>
             </>
