@@ -33,7 +33,7 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
-import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { resizeCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -124,15 +124,12 @@ export function ResizeBatchPanel({
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
-  // Price is charged per DISTINCT aspect ratio in the selection — including the
-  // master's own ratio (its sizes are billed too, per product decision). Each
-  // ratio ≈ 7 credits; the full set of all 9 ratios rounds to 62. masterRatio is
-  // intentionally not special-cased here.
-  const packageCredits = useMemo(() => {
-    const ratios = new Set<string>();
-    for (const s of selected.values()) ratios.add(s.ratio);
-    return imageCredits(ratios.size);
-  }, [selected]);
+  // Price is charged per SELECTED FORMAT (each resize costs the same), scaled so
+  // the full catalogue costs 62 credits → ~1.35 credits per format.
+  const packageCredits = useMemo(
+    () => resizeCredits(selected.size, totalAcross),
+    [selected, totalAcross],
+  );
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;

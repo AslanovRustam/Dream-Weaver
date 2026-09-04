@@ -35,6 +35,19 @@ export function estimateBannerCredits(_args?: {
   return imageCredits(1);
 }
 
+// Resize-package pricing. Priced PER SELECTED FORMAT (each resize costs the
+// same), scaled so that generating the FULL catalogue costs RESIZE_FULL_PACKAGE
+// credits. With 46 formats → ~1.35 credits each, full set = 62.
+export const RESIZE_FULL_PACKAGE_CREDITS = 62;
+
+export function resizeCredits(selectedFormats: number, totalFormats: number): number {
+  if (selectedFormats <= 0 || totalFormats <= 0) return 0;
+  return Math.max(
+    1,
+    Math.round((selectedFormats * RESIZE_FULL_PACKAGE_CREDITS) / totalFormats),
+  );
+}
+
 // Placeholder video cost — scales with duration. Real video pricing depends on
 // the (not-yet-chosen) provider and resolution, so this is deliberately coarse.
 const VIDEO_CREDITS_PER_SEC = 1;
