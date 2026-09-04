@@ -35,17 +35,19 @@ export function estimateBannerCredits(_args?: {
   return imageCredits(1);
 }
 
-// Resize-package pricing. Priced PER SELECTED FORMAT (each resize costs the
-// same), scaled so that generating the FULL catalogue costs RESIZE_FULL_PACKAGE
-// credits. With 46 formats → ~1.35 credits each, full set = 62.
-export const RESIZE_FULL_PACKAGE_CREDITS = 62;
+// Resize-package pricing. Flat price PER SELECTED FORMAT — each resize costs the
+// same. Fractions are allowed (1.5 → e.g. 3 formats = 4.5 кр.).
+export const RESIZE_CREDITS_PER_FORMAT = 1.5;
 
-export function resizeCredits(selectedFormats: number, totalFormats: number): number {
-  if (selectedFormats <= 0 || totalFormats <= 0) return 0;
-  return Math.max(
-    1,
-    Math.round((selectedFormats * RESIZE_FULL_PACKAGE_CREDITS) / totalFormats),
-  );
+export function resizeCredits(selectedFormats: number): number {
+  if (selectedFormats <= 0) return 0;
+  return selectedFormats * RESIZE_CREDITS_PER_FORMAT;
+}
+
+/** "1.5 кр." / "3 кр." — one decimal, trailing ".0" trimmed. */
+export function formatCredits(n: number): string {
+  const s = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return `${s} кр.`;
 }
 
 // Placeholder video cost — scales with duration. Real video pricing depends on

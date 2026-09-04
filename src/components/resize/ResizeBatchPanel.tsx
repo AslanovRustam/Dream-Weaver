@@ -33,7 +33,7 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
-import { resizeCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { resizeCredits, formatCredits } from "@/lib/credit-estimate";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -124,12 +124,8 @@ export function ResizeBatchPanel({
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
-  // Price is charged per SELECTED FORMAT (each resize costs the same), scaled so
-  // the full catalogue costs 62 credits → ~1.35 credits per format.
-  const packageCredits = useMemo(
-    () => resizeCredits(selected.size, totalAcross),
-    [selected, totalAcross],
-  );
+  // Price is charged per SELECTED FORMAT (each resize costs the same flat 1.5 кр).
+  const packageCredits = useMemo(() => resizeCredits(selected.size), [selected]);
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;
@@ -560,7 +556,7 @@ export function ResizeBatchPanel({
                   className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                 >
                   Сгенерировать пакет
-                  {selectedCount > 0 ? ` · ${formatCreditsEstimate(packageCredits)}` : ""}
+                  {selectedCount > 0 ? ` · ${formatCredits(packageCredits)}` : ""}
                 </button>
               </div>
             </>
