@@ -28,17 +28,25 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
 }
 
 // Hard ban on the model hallucinating a real-world betting/casino brand. On
-// gambling/iGaming banners the model loves to slap a Betano-style logo on by
-// default even when no brand was provided. Appended on EVERY prompt path so no
-// recognizable third-party brand identity ever leaks in — the only brand allowed
-// is the one the user explicitly supplied (name/logo).
-const NO_REAL_BRAND =
-  "CRITICAL BRAND SAFETY: Do NOT depict, draw, imitate, place or reference ANY real-world " +
-  "gambling, betting, casino or sportsbook brand, its logo, wordmark, emblem, mascot or signature colors — " +
-  "specifically NEVER Betano, and likewise never bet365, 1xBet, 1win, Parimatch, Melbet, Mostbet, " +
-  "Stake, DraftKings, FanDuel, William Hill, Bwin, Pinnacle, Pin-Up, Winline or any other existing " +
-  "bookmaker/casino/operator brand. Invent no brand mark whatsoever. Any brand identity in the image " +
-  "must come ONLY from an explicitly provided brand name/logo; if none is provided, show no brand at all.";
+// gambling/iGaming banners the model loves to slap a real bookmaker logo on by
+// default even when no brand was provided. IMPORTANT: we do NOT name specific
+// brands here — naming a brand in a negative instruction tends to *prime* an
+// image model to draw exactly that brand. Instead we forbid the whole category
+// and give a positive redirect (blank/abstract surfaces). Appended on EVERY
+// prompt path.
+function noRealBrandLine(brandName: string): string {
+  const allowed = brandName.trim()
+    ? `The ONLY brand identity allowed anywhere in the image is "${brandName.trim()}", rendered as plain typographic text. `
+    : "No brand identity of any kind may appear anywhere in the image. ";
+  return (
+    "CRITICAL BRAND SAFETY: Do NOT render any real-world company logo, wordmark, emblem, mascot or " +
+    "recognizable bookmaker / casino / sportsbook / betting-operator branding anywhere — not on signs, " +
+    "screens, boards, jerseys, bottles, cards, chips, packaging or backgrounds. " +
+    allowed +
+    "Every other logo, label or brand area must be left blank or filled with purely abstract/generic, " +
+    "non-branded graphics. Never invent a betting brand."
+  );
+}
 
 type Body = {
   preset_id?: string;
@@ -361,7 +369,7 @@ function eventPrompt(args: {
       "BRAND LOGO: No brand logo provided — do NOT invent, draw, or render any brand logo, wordmark, emblem, or brand mark anywhere on the banner. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
-  lines.push(NO_REAL_BRAND);
+  lines.push(noRealBrandLine(brandName));
 
   const paletteSource = hasLogo
     ? "the uploaded logo"
@@ -608,7 +616,7 @@ function sportPrompt(args: {
       "SPORTSBOOK BRAND: No brand logo provided — do NOT invent, draw, or render any sportsbook brand logo, wordmark, or emblem. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
-  lines.push(NO_REAL_BRAND);
+  lines.push(noRealBrandLine(brandName));
 
   lines.push(
     "COLOR RULES:\n- Dominant palette derived from team/national colors split between sides.\n- Strong color contrast between left and right side (warm vs cool typical for face-off posters).\n- Brand sportsbook color used as accent for CTA and bonus overlay only.\n- 2–3 dominant colors maximum per side.",
@@ -706,7 +714,7 @@ async function adaptPrompt(
     languageLine,
     brandLine,
     logoLine,
-    NO_REAL_BRAND,
+    noRealBrandLine(brandName),
     adTextsLine,
     personLine,
     bannerText ? `REQUIRED BANNER HEADLINE TEXT (verbatim): "${bannerText}"` : "",
@@ -1409,7 +1417,7 @@ export async function POST(request: Request) {
         // that flow must reproduce the master faithfully, and the master is the
         // brand authority there.
         if (!hasSourceImage) {
-          finalPrompt = `${finalPrompt}\n\n${NO_REAL_BRAND}`;
+          finalPrompt = `${finalPrompt}\n\n${noRealBrandLine(brandName)}`;
         }
 
         const dataUrlToBlob = (dataUrl: string): { blob: Blob; ext: string } | null => {
