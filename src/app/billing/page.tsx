@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
+import { imageCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
 // route here so a click is never a dead no-op.
@@ -40,9 +41,17 @@ type Plan = {
   cta?: string;
 };
 
-// Плейсхолдер-каталог: суммы, объёмы кредитов и состав тарифов
-// иллюстративные, пока не подключена реальная тарификация. Годовая цена
-// считается как monthly × 0.8 (скидка 20%). Средний тариф — «популярный».
+// Реальная экономика кредитов (одна точка правды — credit-estimate.ts):
+// 1 баннер = одна генерация изображения, 1 ресайз = фиксированная ставка.
+const BANNER_CREDITS = imageCredits(1); // 7 кр.
+const RESIZE_CREDITS = RESIZE_CREDITS_PER_FORMAT; // 1.5 кр.
+const ru = (n: number) => Math.round(n).toLocaleString("ru-RU");
+const bannersNote = (credits: number) => `≈ ${ru(credits / BANNER_CREDITS)} баннеров`;
+const resizesNote = (credits: number) => `≈ ${ru(credits / RESIZE_CREDITS)} ресайзов`;
+
+// Годовая цена считается как monthly × 0.8 (скидка 20%). Средний тариф —
+// «популярный». Объёмы «≈ N баннеров/ресайзов» выводятся из реальных ставок
+// кредитов выше, поэтому всегда сходятся с ценами в билдерах.
 const INDIVIDUAL_PLANS: Plan[] = [
   {
     id: "start",
@@ -50,7 +59,7 @@ const INDIVIDUAL_PLANS: Plan[] = [
     tagline: "Для первых проектов и тестов",
     monthly: 15,
     credits: "300 кредитов/мес",
-    creditNotes: ["≈ 75 генераций баннеров", "≈ 150 ресайзов"],
+    creditNotes: [bannersNote(300), resizesNote(300)],
     features: [
       { text: "Параллельные генерации: до 2", included: true },
       { text: "Все форматы ресайзов", included: true },
@@ -63,7 +72,7 @@ const INDIVIDUAL_PLANS: Plan[] = [
     tagline: "Для регулярной работы",
     monthly: 50,
     credits: "1 000 кредитов/мес",
-    creditNotes: ["≈ 250 генераций баннеров", "≈ 500 ресайзов"],
+    creditNotes: [bannersNote(1000), resizesNote(1000)],
     features: [
       { text: "Параллельные генерации: до 6", included: true },
       { text: "Приоритетная очередь генерации", included: true },
@@ -77,7 +86,7 @@ const INDIVIDUAL_PLANS: Plan[] = [
     tagline: "Максимум объёма для потока задач",
     monthly: 125,
     credits: "3 000 кредитов/мес",
-    creditNotes: ["≈ 750 генераций баннеров", "≈ 1 500 ресайзов"],
+    creditNotes: [bannersNote(3000), resizesNote(3000)],
     features: [
       { text: "Параллельные генерации: до 12", included: true },
       { text: "Приоритетная очередь генерации", included: true },
@@ -93,7 +102,7 @@ const BUSINESS_PLANS: Plan[] = [
     tagline: "Для небольшой команды дизайнеров",
     monthly: 250,
     credits: "8 000 кредитов/мес",
-    creditNotes: ["≈ 2 000 генераций баннеров", "до 5 пользователей"],
+    creditNotes: [bannersNote(8000), "до 5 пользователей"],
     features: [
       { text: "Общий баланс на команду", included: true },
       { text: "Роли и права доступа", included: true },
@@ -106,7 +115,7 @@ const BUSINESS_PLANS: Plan[] = [
     tagline: "Для агентств и больших потоков",
     monthly: 600,
     credits: "20 000 кредитов/мес",
-    creditNotes: ["≈ 5 000 генераций баннеров", "до 15 пользователей"],
+    creditNotes: [bannersNote(20000), "до 15 пользователей"],
     features: [
       { text: "Общий баланс на команду", included: true },
       { text: "Роли и права доступа", included: true },
@@ -155,8 +164,8 @@ export default function BillingPage() {
         <div className="mb-8 text-center">
           <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Кредиты начисляются каждый месяц и тратятся на генерацию баннеров и ресайзов.
-            При оплате за год — скидка 20%.
+            Кредиты начисляются каждый месяц и тратятся на генерацию: 1 баннер — {BANNER_CREDITS} кр.,
+            1 ресайз — {RESIZE_CREDITS} кр. При оплате за год — скидка 20%.
           </p>
         </div>
 
