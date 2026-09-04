@@ -5,6 +5,26 @@ const KEY = "webhook_url";
 const BRAND_NAME_KEY = "brand_name";
 const BRAND_LOGO_KEY = "brand_logo";
 const LANGUAGE_KEY = "brand_language";
+// One-time cleanup flag. A stale demo brand (Betano logo + name) was baked into
+// some browsers' saved settings and silently applied to EVERY banner as an image
+// reference the model then reproduced. We purge it exactly once so it stops
+// leaking; anything the user saves afterwards persists normally.
+const BRAND_RESET_KEY = "dw_brand_reset_v1";
+
+function purgeLegacyBrandOnce() {
+  if (typeof window === "undefined") return;
+  try {
+    if (localStorage.getItem(BRAND_RESET_KEY)) return;
+    localStorage.removeItem(BRAND_LOGO_KEY);
+    // Only wipe the name if it's the stale demo brand — never a real one.
+    if ((localStorage.getItem(BRAND_NAME_KEY) ?? "").trim().toLowerCase() === "betano") {
+      localStorage.removeItem(BRAND_NAME_KEY);
+    }
+    localStorage.setItem(BRAND_RESET_KEY, "1");
+  } catch {
+    /* localStorage unavailable — ignore */
+  }
+}
 
 const LANGUAGES: { value: string; label: string }[] = [
   { value: "auto", label: "Авто (по бренду)" },
@@ -31,6 +51,7 @@ export function SettingsDrawer({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    purgeLegacyBrandOnce();
     setUrl(localStorage.getItem(KEY) ?? "");
     setBrandName(localStorage.getItem(BRAND_NAME_KEY) ?? "");
     setBrandLogo(localStorage.getItem(BRAND_LOGO_KEY) ?? "");
@@ -236,6 +257,7 @@ export function getBrandSettings(): {
   if (typeof window === "undefined") {
     return { brand_name: "", brand_logo: "", language: "auto" };
   }
+  purgeLegacyBrandOnce();
   return {
     brand_name: localStorage.getItem(BRAND_NAME_KEY) ?? "",
     brand_logo: localStorage.getItem(BRAND_LOGO_KEY) ?? "",

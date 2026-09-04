@@ -34,10 +34,23 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
 // image model to draw exactly that brand. Instead we forbid the whole category
 // and give a positive redirect (blank/abstract surfaces). Appended on EVERY
 // prompt path.
-function noRealBrandLine(brandName: string): string {
-  const allowed = brandName.trim()
-    ? `The ONLY brand identity allowed anywhere in the image is "${brandName.trim()}", rendered as plain typographic text. `
-    : "No brand identity of any kind may appear anywhere in the image. ";
+// Two flows, decided by whether the user supplied their own brand reference:
+//   • hasLogo=true  → reproduce ONLY that provided logo (+ the brand name text
+//     if given); forbid every OTHER real brand.
+//   • hasLogo=false → no logo at all: brand name may appear as plain text if
+//     given, otherwise no brand identity whatsoever.
+function noRealBrandLine(brandName: string, hasLogo: boolean): string {
+  const name = brandName.trim();
+  let allowed: string;
+  if (hasLogo) {
+    allowed = name
+      ? `The ONLY brand identity allowed is the brand's OWN provided logo plus its name "${name}" as plain text; render no other brand. `
+      : "The ONLY brand identity allowed is the brand's OWN provided logo; render no other brand and add no other brand text. ";
+  } else {
+    allowed = name
+      ? `The ONLY brand identity allowed anywhere is "${name}", rendered as plain typographic text — never as a stylized logo. `
+      : "No brand identity of any kind may appear anywhere in the image. ";
+  }
   return (
     "CRITICAL BRAND SAFETY: Do NOT render any real-world company logo, wordmark, emblem, mascot or " +
     "recognizable bookmaker / casino / sportsbook / betting-operator branding anywhere — not on signs, " +
@@ -369,7 +382,7 @@ function eventPrompt(args: {
       "BRAND LOGO: No brand logo provided — do NOT invent, draw, or render any brand logo, wordmark, emblem, or brand mark anywhere on the banner. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
-  lines.push(noRealBrandLine(brandName));
+  lines.push(noRealBrandLine(brandName, hasLogo));
 
   const paletteSource = hasLogo
     ? "the uploaded logo"
@@ -616,7 +629,7 @@ function sportPrompt(args: {
       "SPORTSBOOK BRAND: No brand logo provided — do NOT invent, draw, or render any sportsbook brand logo, wordmark, or emblem. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
-  lines.push(noRealBrandLine(brandName));
+  lines.push(noRealBrandLine(brandName, hasBrandLogo));
 
   lines.push(
     "COLOR RULES:\n- Dominant palette derived from team/national colors split between sides.\n- Strong color contrast between left and right side (warm vs cool typical for face-off posters).\n- Brand sportsbook color used as accent for CTA and bonus overlay only.\n- 2–3 dominant colors maximum per side.",
@@ -714,7 +727,7 @@ async function adaptPrompt(
     languageLine,
     brandLine,
     logoLine,
-    noRealBrandLine(brandName),
+    noRealBrandLine(brandName, hasLogo),
     adTextsLine,
     personLine,
     bannerText ? `REQUIRED BANNER HEADLINE TEXT (verbatim): "${bannerText}"` : "",
@@ -1417,7 +1430,7 @@ export async function POST(request: Request) {
         // that flow must reproduce the master faithfully, and the master is the
         // brand authority there.
         if (!hasSourceImage) {
-          finalPrompt = `${finalPrompt}\n\n${noRealBrandLine(brandName)}`;
+          finalPrompt = `${finalPrompt}\n\n${noRealBrandLine(brandName, hasLogo)}`;
         }
 
         const dataUrlToBlob = (dataUrl: string): { blob: Blob; ext: string } | null => {
