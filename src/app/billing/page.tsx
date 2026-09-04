@@ -12,7 +12,6 @@
 //   • на годовой оплате под кнопкой — строка экономии за год.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSmartBack } from "@/lib/use-back";
 import { Check, Sparkles, X } from "lucide-react";
 
@@ -21,7 +20,6 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
-import { useAuth } from "@/lib/auth-context";
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
 // route here so a click is never a dead no-op.
@@ -133,9 +131,7 @@ const BUSINESS_PLANS: Plan[] = [
 ];
 
 export default function BillingPage() {
-  const router = useRouter();
   const goBack = useSmartBack("/account");
-  const { isAuthenticated, loading } = useAuth();
   const [audience, setAudience] = useState<Audience>("individual");
   const [annual, setAnnual] = useState(true);
 
@@ -143,9 +139,8 @@ export default function BillingPage() {
     document.title = "Тарифы — Gen Go";
   }, []);
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) router.push("/login");
-  }, [loading, isAuthenticated, router]);
+  // Тарифы — публичная страница: показываем и без логина (гостю шапка
+  // предложит войти, а CTA тарифов ведут на вход/поддержку).
 
   const plans = audience === "individual" ? INDIVIDUAL_PLANS : BUSINESS_PLANS;
 
