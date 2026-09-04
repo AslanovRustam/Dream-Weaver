@@ -207,6 +207,9 @@ export default function AdminPage() {
             <TabsTrigger value="usage" className={TAB_CLS}>
               Расход
             </TabsTrigger>
+            <TabsTrigger value="announcements" className={TAB_CLS}>
+              Уведомления
+            </TabsTrigger>
             <TabsTrigger value="settings" className={TAB_CLS}>
               Настройки
             </TabsTrigger>
@@ -231,6 +234,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="usage" className="mt-4">
             <UsageTab />
+          </TabsContent>
+          <TabsContent value="announcements" className="mt-4">
+            <AnnouncementsTab />
           </TabsContent>
           <TabsContent value="settings" className="mt-4">
             <SettingsTab />
@@ -2396,6 +2402,87 @@ function UsageTab() {
       ) : data && !loading ? (
         <p className="text-sm text-muted-foreground">Пока нет данных за выбранный период.</p>
       ) : null}
+    </div>
+  );
+}
+
+// Broadcast a system announcement to every user (POST /api/admin/notifications).
+function AnnouncementsTab() {
+  const confirm = useConfirm();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    const t = title.trim();
+    if (!t) {
+      toast.error("Введите заголовок");
+      return;
+    }
+    if (
+      !(await confirm({
+        title: "Разослать всем пользователям?",
+        body: "Уведомление появится у каждого пользователя. Отменить нельзя.",
+        confirmLabel: "Разослать",
+      }))
+    ) {
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await apiJson<{ recipients: number }>("/api/admin/notifications", {
+        method: "POST",
+        json: { title: t, body: body.trim() },
+      });
+      toast.success(`Разослано: ${res.recipients} получателей`);
+      setTitle("");
+      setBody("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось разослать");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl">
+      <Card>
+        <CardHeader>
+          <CardTitle>Системный анонс</CardTitle>
+          <CardDescription>
+            Отправляется как уведомление всем пользователям (тип «Системные»). Появится в колокольчике.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ann-title">Заголовок</Label>
+            <Input
+              id="ann-title"
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Напр. Новые шаблоны баннеров"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ann-body">Текст (необязательно)</Label>
+            <textarea
+              id="ann-body"
+              value={body}
+              maxLength={1000}
+              onChange={(e) => setBody(e.target.value)}
+              rows={4}
+              placeholder="Короткое описание анонса…"
+              className="min-h-[96px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={send} disabled={sending || !title.trim()}>
+              {sending ? "Рассылаю…" : "Разослать всем"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
