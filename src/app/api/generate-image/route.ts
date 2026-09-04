@@ -2,6 +2,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getGroupTemplate } from "@/lib/bannerSizes";
 import { recordGenerationAndUpload } from "@/lib/history/cardWriter";
+import { notifyLowBalanceIfNeeded } from "@/lib/notifications";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
@@ -1930,6 +1931,10 @@ export async function POST(request: Request) {
               });
             } else {
               newBalance = Number(spendResult);
+              // Nudge the user when the balance runs low (deduped 24h inside).
+              if (Number.isFinite(newBalance)) {
+                void notifyLowBalanceIfNeeded(authedUser.id, newBalance as number);
+              }
             }
           } catch (e) {
             void logSystem({

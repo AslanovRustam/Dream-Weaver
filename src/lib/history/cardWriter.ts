@@ -16,6 +16,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runBackground } from "../background";
+import { notify } from "../notifications";
 import { decodeDataUrl, uploadImage } from "../ftp/storage";
 import { resolveCanvasSize } from "../imageSizes";
 import { logAudit, logSystem } from "../logger";
@@ -236,6 +237,13 @@ export async function recordGenerationAndUpload(
               quality,
               template_name: name,
             },
+          });
+          // Notify the user their creative is ready (best-effort, fire-and-forget).
+          void notify(userId, {
+            type: "creative_ready",
+            title: "Креатив готов",
+            body: `«${name}» сгенерирован и сохранён в историю.`,
+            meta: { card_id: newCardId, preset_id: presetId, href: `/history/${newCardId}` },
           });
           // Fire-and-forget AI naming polish. User keeps the template name
           // if the LLM call or billing fails. runBackground keeps it alive

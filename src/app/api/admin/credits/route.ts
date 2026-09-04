@@ -7,6 +7,7 @@
 // allowed for admins (e.g. clawback) — the DB function does not block it
 // because admin_grant_credits is distinct from the spend path.
 import { authErrorResponse, getUserClient, requireCapability } from "@/lib/auth-server";
+import { notify } from "@/lib/notifications";
 
 type Body = {
   user_id?: string;
@@ -61,6 +62,16 @@ export async function POST(request: Request) {
                 ? 403
                 : 500;
             return Response.json({ error: msg }, { status });
+          }
+          // Notify the target user of a credit GRANT (positive delta only —
+          // revokes/clawbacks are silent).
+          if (delta > 0) {
+            await notify(userId, {
+              type: "credit_grant",
+              title: `Начислено ${delta} кр.`,
+              body: `На ваш баланс добавлено ${delta} кредитов. Новый баланс: ${Math.round(Number(data))} кр.`,
+              meta: { amount: delta, new_balance: Number(data), reason },
+            });
           }
           return Response.json({ new_balance: data });
         } catch (err) {

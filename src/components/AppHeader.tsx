@@ -21,7 +21,6 @@ import {
   Globe,
   HelpCircle,
   LayoutGrid,
-  LayoutTemplate,
   Loader2,
   LogOut,
   Pencil,
@@ -44,11 +43,12 @@ import { useAuth } from "@/lib/auth-context";
 import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
+import { useNotifications, relativeTime } from "@/lib/notifications-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
 import { useWorkspace } from "@/lib/workspace-context";
-import { useLocale, useT, useMessages, UI_LOCALES } from "@/lib/i18n";
+import { useLocale, useT, UI_LOCALES } from "@/lib/i18n";
 import { BrandLogo } from "./BrandLogo";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -81,16 +81,6 @@ export function refreshMe() {
 // Balance at/below which the credits chip turns amber to nudge a top-up.
 const LOW_CREDIT_THRESHOLD = 20;
 
-// UI-only mock data — swap for real endpoints once notifications / a projects
-// list exist on the backend.
-// Structural metadata for the mock notifications; the localized title/desc/time
-// come from the i18n dictionary (header.notifications.items), index-aligned.
-const NOTIF_META: { id: string; icon: typeof Sparkles; unread: boolean }[] = [
-  { id: "n1", icon: Sparkles, unread: true },
-  { id: "n2", icon: LayoutTemplate, unread: true },
-  { id: "n3", icon: ShieldCheck, unread: false },
-];
-
 const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] = [
   { id: "p1", name: "Новогодний экспресс", thumb: "https://picsum.photos/seed/dwp1/112/80", updated: "9 июл" },
   { id: "p2", name: "Слот «Book of Sun»", thumb: "https://picsum.photos/seed/dwp2/112/80", updated: "8 июл" },
@@ -104,7 +94,6 @@ export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const t = useT();
-  const m = useMessages();
   const { locale, setLocale } = useLocale();
   // Hub (start screen) shows a simplified header (no section switcher / editor
   // chrome). Tool routes show the section switcher; the banner editor also gets
@@ -124,6 +113,12 @@ export function AppHeader() {
   // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const {
+    items: notifItems,
+    unread: notifUnread,
+    loaded: notifLoaded,
+    markAllRead: notifMarkAllRead,
+  } = useNotifications();
   const { setActive: setActiveWorkspace } = useWorkspace();
   // Pending guarded action for the unsaved-changes modal — either a navigation
   // or a workspace switch. When set, the modal is open and confirming runs it.
@@ -420,7 +415,11 @@ export function AppHeader() {
                   onSelect={(e) => {
                     // Keep the menu open; just toggle the inline section.
                     e.preventDefault();
-                    setNotifOpen((o) => !o);
+                    setNotifOpen((o) => {
+                      const next = !o;
+                      if (next) void notifMarkAllRead();
+                      return next;
+                    });
                   }}
                   aria-expanded={notifOpen}
                   className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
@@ -430,8 +429,10 @@ export function AppHeader() {
                     {t("header.notifications.title")}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    {NOTIF_META.length > 0 ? (
-                      <span className="ds-caption tabular-nums">{NOTIF_META.length}</span>
+                    {notifUnread > 0 ? (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
+                        {notifUnread}
+                      </span>
                     ) : null}
                     <ChevronDown
                       className={`h-4 w-4 text-muted-foreground transition-transform ${
@@ -442,28 +443,36 @@ export function AppHeader() {
                 </DropdownMenuItem>
                 {notifOpen ? (
                   <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
-                    {NOTIF_META.length === 0 ? (
+                    {notifItems.length === 0 ? (
                       <p className="px-2 py-3 text-sm text-muted-foreground">
-                        {t("header.notifications.empty")}
+                        {notifLoaded ? t("header.notifications.empty") : "Загрузка…"}
                       </p>
                     ) : (
-                      NOTIF_META.map((n, i) => {
-                        const Icon = n.icon;
-                        const item = m.header.notifications.items[i];
+                      notifItems.map((n) => {
+                        const Icon = notifIcon(n.type);
+                        const href = typeof n.meta?.href === "string" ? (n.meta.href as string) : null;
                         return (
-                          <div
+                          <button
                             key={n.id}
-                            className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5"
+                            type="button"
+                            onClick={() => {
+                              if (href) router.push(href);
+                            }}
+                            className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-white/5"
                           >
                             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
                               <Icon className="h-3.5 w-3.5" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{item.title}</p>
-                              <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
+                              <p className="truncate text-sm font-medium">{n.title}</p>
+                              {n.body ? (
+                                <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
+                              ) : null}
                             </div>
-                            <span className="shrink-0 ds-micro text-muted-foreground">{item.time}</span>
-                          </div>
+                            <span className="shrink-0 ds-micro text-muted-foreground">
+                              {relativeTime(n.created_at)}
+                            </span>
+                          </button>
                         );
                       })
                     )}
@@ -938,15 +947,30 @@ function SectionSwitcher({
   );
 }
 
+// Icon per notification type. Falls back to the bell.
+function notifIcon(type: string): typeof Sparkles {
+  switch (type) {
+    case "credit_grant":
+      return Coins;
+    case "low_balance":
+      return AlertTriangle;
+    case "creative_ready":
+      return Sparkles;
+    case "system":
+      return ShieldCheck;
+    default:
+      return Bell;
+  }
+}
+
 function NotificationsMenu() {
   const t = useT();
-  const m = useMessages();
-  const [readAll, setReadAll] = useState(false);
-  const unread = readAll ? 0 : NOTIF_META.filter((n) => n.unread).length;
+  const router = useRouter();
+  const { items, unread, loaded, markAllRead } = useNotifications();
   return (
     <DropdownMenu
       onOpenChange={(o) => {
-        if (o) setReadAll(true);
+        if (o) void markAllRead();
       }}
     >
       <DropdownMenuTrigger asChild>
@@ -966,29 +990,50 @@ function NotificationsMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 rounded-xl border-border bg-popover p-2 text-foreground"
+        className="max-h-[70vh] w-80 overflow-y-auto rounded-xl border-border bg-popover p-2 text-foreground"
       >
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="ds-h4">{t("header.notifications.title")}</span>
-          <span className="ds-caption">{NOTIF_META.length}</span>
+          <span className="ds-caption">{items.length}</span>
         </div>
         <div className="space-y-0.5">
-          {NOTIF_META.map((n, i) => {
-            const Icon = n.icon;
-            const item = m.header.notifications.items[i];
-            return (
-              <div key={n.id} className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-                <span className="shrink-0 ds-micro text-muted-foreground">{item.time}</span>
-              </div>
-            );
-          })}
+          {items.length === 0 ? (
+            <p className="px-2 py-6 text-center ds-caption">
+              {loaded ? t("header.notifications.empty") : "Загрузка…"}
+            </p>
+          ) : (
+            items.map((n) => {
+              const Icon = notifIcon(n.type);
+              const href = typeof n.meta?.href === "string" ? (n.meta.href as string) : null;
+              const unreadDot = !n.read_at;
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => {
+                    if (href) router.push(href);
+                  }}
+                  className={`flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-white/5 ${
+                    href ? "cursor-pointer" : "cursor-default"
+                  }`}
+                >
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{n.title}</p>
+                    {n.body ? (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
+                    ) : null}
+                  </div>
+                  <span className="flex shrink-0 items-center gap-1.5 ds-micro text-muted-foreground">
+                    {unreadDot ? <span className="h-1.5 w-1.5 rounded-full bg-accent-green" /> : null}
+                    {relativeTime(n.created_at)}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
