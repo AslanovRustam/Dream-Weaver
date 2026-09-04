@@ -1,9 +1,9 @@
 // Credit price shown on the "Сгенерировать" buttons.
 //
-// Pricing model (agreed with product): price = round(self-cost USD × 10).
+// Pricing model (agreed with product): price = round(self-cost USD × 100).
 // Every image generation runs on the same model (gemini-3.1-flash-image via
 // OpenRouter) at a flat measured self-cost of ~$0.0685 per image, so one image
-// ≈ 0.685 credits. An action's price is round(images × 0.685) whole credits.
+// ≈ 6.85 credits. An action's price is round(images × 6.85) whole credits.
 //
 // The actual charge is still reconciled server-side from the real usage.cost;
 // this is the pre-click estimate the button shows.
@@ -13,8 +13,8 @@ export type BannerQuality = "low" | "medium" | "high";
 
 /** Measured flat self-cost of one image generation, in USD. */
 export const USD_PER_IMAGE = 0.0685;
-/** Credits per US dollar of self-cost (1 $ = 10 credits). */
-export const CREDITS_PER_USD = 10;
+/** Credits per US dollar of self-cost (1 $ = 100 credits). */
+export const CREDITS_PER_USD = 100;
 
 /**
  * Whole-number credit price for an action that generates `images` images.
