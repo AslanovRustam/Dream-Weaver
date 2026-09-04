@@ -5,6 +5,9 @@
 // Body: { topic?: string }
 // Response: { fields: { subject, preheader, heroTitle, heroSubtitle, body,
 //                       steps[3], ctaText, bonusCtaText, footer } }
+import { optionalUser } from "@/lib/auth-server";
+import { extractUsage, isOpenRouter, recordUsage } from "@/lib/usage";
+
 export const runtime = "nodejs";
 
 type Body = { topic?: string };
@@ -28,21 +31,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const providers = [
-    process.env.OPENAI_API_KEY && {
-      url: "https://api.openai.com/v1/chat/completions",
-      key: process.env.OPENAI_API_KEY,
-      model: "gpt-4o-mini",
-    },
-    process.env.OPENROUTER_API_KEY && {
-      url: "https://openrouter.ai/api/v1/chat/completions",
-      key: process.env.OPENROUTER_API_KEY,
-      model: "openai/gpt-4o-mini",
-    },
-  ].filter(Boolean) as { url: string; key: string; model: string }[];
-  if (!providers.length) {
-    return Response.json({ error: "Нет ключа LLM" }, { status: 500 });
+  // All LLM traffic goes through OpenRouter so every call returns real spend
+  // (usage.cost). OpenRouter carries the same models (openai/gpt-4o-mini).
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (!orKey) {
+    return Response.json({ error: "Нет ключа OpenRouter" }, { status: 500 });
   }
+  const providers = [
+    { url: "https://openrouter.ai/api/v1/chat/completions", key: orKey, model: "openai/gpt-4o-mini" },
+  ];
 
   const topic = (body.topic || "").trim().slice(0, 500);
   const system =
@@ -57,6 +54,8 @@ export async function POST(request: Request) {
 
   let content = "";
   let detail = "";
+  let usedModel = "";
+  let usageData: unknown = null;
   for (const p of providers) {
     try {
       const res = await fetch(p.url, {
@@ -70,6 +69,9 @@ export async function POST(request: Request) {
             { role: "system", content: system },
             { role: "user", content: user },
           ],
+          // OpenRouter Usage Accounting → response.usage.cost (USD). OpenAI
+          // rejects unknown params, so only send it to OpenRouter.
+          ...(isOpenRouter(p.url) ? { usage: { include: true } } : {}),
         }),
       });
       if (!res.ok) {
@@ -78,13 +80,25 @@ export async function POST(request: Request) {
       }
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       content = data.choices?.[0]?.message?.content ?? "";
-      if (content) break;
+      if (content) {
+        usedModel = p.model;
+        usageData = data;
+        break;
+      }
     } catch (e) {
       detail = e instanceof Error ? e.message : String(e);
     }
   }
   if (!content) {
     return Response.json({ error: "LLM недоступен", detail }, { status: 502 });
+  }
+
+  // Real per-generation cost (себестоимость) from OpenRouter usage accounting.
+  const usage = extractUsage(usageData);
+  // Per-user usage log (best-effort; only when the caller is signed in).
+  const authed = await optionalUser(request);
+  if (authed) {
+    await recordUsage(authed.id, { model: usedModel, feature: "email-content", type: "llm", ...usage });
   }
 
   let parsed: Record<string, unknown>;
@@ -104,5 +118,5 @@ export async function POST(request: Request) {
     fields.steps = steps.slice(0, 3).map((s) => String(s));
   }
 
-  return Response.json({ fields });
+  return Response.json({ fields, costUsd: usage.costUsd });
 }

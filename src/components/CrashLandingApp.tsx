@@ -8,6 +8,8 @@ import { CrashGame } from "@/components/CrashGame";
 import { bgPreset, characterPreset, removeBackground } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { buildCrashHtml } from "@/lib/crashExport";
+import { apiFetch } from "@/lib/api-client";
+import { CostMeter } from "@/components/CostMeter";
 
 // One-click themes: set background scene, character, accent and headline together.
 const THEMES: {
@@ -73,6 +75,7 @@ export function CrashLandingApp() {
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+  const [costUsd, setCostUsd] = useState(0);
 
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -142,15 +145,12 @@ export function CrashLandingApp() {
   };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
-    const res = await fetch("/api/generate-email-hero", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
     const data = await res.json();
     if (!res.ok || !data.imageUrl) {
       throw new Error([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
     }
+    if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
     return data.imageUrl as string;
   };
 
@@ -158,7 +158,7 @@ export function CrashLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      setBgImage(await genImage({ presetTemplate: bgPreset(theme) }));
+      setBgImage(await genImage({ presetTemplate: bgPreset(theme), feature: "landing-bg" }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -172,7 +172,7 @@ export function CrashLandingApp() {
     setCharGenning(side);
     setGenError("");
     try {
-      const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4" });
+      const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4", feature: "landing-character" });
       const cut = await removeBackground(raw);
       setChars((c) => ({ ...c, [side]: cut }));
     } catch (e) {
@@ -338,6 +338,7 @@ export function CrashLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
+          {costUsd > 0 ? <div className="mt-2"><CostMeter total={costUsd} /></div> : null}
         </div>
 
         {/* Characters (optional) */}

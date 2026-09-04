@@ -5,6 +5,7 @@ import { FileText, Loader2, Sparkles, Upload, Wand2, X } from "lucide-react";
 
 import { BRIEF_SCHEMAS, type BriefResult } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
+import { apiFetch } from "@/lib/api-client";
 
 // Reusable "upload a brief (ТЗ)" panel. Accepts a pasted text or a .txt/.docx/.pdf
 // file, sends it to /api/parse-brief, and offers two outcomes: fill the form
@@ -80,11 +81,7 @@ export function BriefUploader({
         }
         payload = { ...base, text };
       }
-      const res = await fetch("/api/parse-brief", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await apiFetch("/api/parse-brief", { method: "POST", json: payload });
       const data = await res.json();
       if (!res.ok) {
         setError(

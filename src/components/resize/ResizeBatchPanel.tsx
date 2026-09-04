@@ -111,6 +111,11 @@ export function ResizeBatchPanel({
   const [zipping, setZipping] = useState(false);
   const [, setTick] = useState(0);
   const startRef = useRef<number | null>(null);
+  // Frozen estimate of the TOTAL batch duration. Refreshed only when a tile
+  // actually finishes (processed changes) — never on the 1s tick — so the ETA
+  // counts DOWN between completions instead of inflating with wall-clock.
+  const estTotalMsRef = useRef<number | null>(null);
+  const lastProcessedRef = useRef(0);
   // Which finished tile is open in the fullscreen viewer (null = none). Kept
   // separate from the modal so opening it never resets the batch/scroll.
   const [viewTile, setViewTile] = useState<BatchTile | null>(null);
@@ -139,6 +144,18 @@ export function ResizeBatchPanel({
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [phase]);
+
+  // Refresh the total-duration estimate ONLY when a tile finishes. Extrapolate
+  // from the average time per completed tile: estTotal ≈ (elapsed / processed) × total.
+  // Between completions this stays frozen, so the ETA below counts down.
+  useEffect(() => {
+    if (phase !== "generating" || !startRef.current) return;
+    if (processed > 0 && processed !== lastProcessedRef.current) {
+      lastProcessedRef.current = processed;
+      const elapsed = Date.now() - startRef.current;
+      estTotalMsRef.current = (elapsed / processed) * total;
+    }
+  }, [processed, total, phase]);
 
   // If the batch was wiped mid-run (e.g. a new master), don't get stuck on a
   // stale "generating" screen. On the RESULT screen we deliberately stay put
@@ -286,6 +303,8 @@ export function ResizeBatchPanel({
     const ordered = orderedSelected();
     if (ordered.length === 0 || disabled) return;
     startRef.current = Date.now();
+    estTotalMsRef.current = null;
+    lastProcessedRef.current = 0;
     setPhase("generating");
     onLaunch(ordered);
   };
@@ -294,6 +313,8 @@ export function ResizeBatchPanel({
     const ordered = orderedSelected();
     if (ordered.length === 0) return;
     startRef.current = Date.now();
+    estTotalMsRef.current = null;
+    lastProcessedRef.current = 0;
     setPhase("generating");
     onLaunch(ordered);
   };
@@ -303,6 +324,8 @@ export function ResizeBatchPanel({
     const failed = tiles.filter((t) => t.status === "error").map((t) => t.size);
     if (failed.length === 0) return;
     startRef.current = Date.now();
+    estTotalMsRef.current = null;
+    lastProcessedRef.current = 0;
     setPhase("generating");
     onLaunch(failed);
   };
@@ -358,9 +381,11 @@ export function ResizeBatchPanel({
   // terminal, never visually reaching 100%.
   const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
   const remaining = total - processed;
+  // Count DOWN from the frozen total estimate: eta = estTotal − elapsed. Never
+  // grows between completions (only the tick advances elapsed, shrinking eta).
   const etaSecRounded =
-    processed > 0 && remaining > 0 && startRef.current
-      ? Math.max(1, Math.round((Date.now() - startRef.current) / processed / 1000 * remaining))
+    remaining > 0 && startRef.current && estTotalMsRef.current != null
+      ? Math.max(1, Math.round((estTotalMsRef.current - (Date.now() - startRef.current)) / 1000))
       : null;
   const canZip = doneCount >= 1 && !zipping;
 

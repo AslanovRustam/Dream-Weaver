@@ -7,7 +7,10 @@
 //    REFERENCE (never rendered as-is). "Overlay" mode is handled on the client.
 //
 // Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model? }
-// Response: { imageUrl (data URL), prompt }
+// Response: { imageUrl (data URL), prompt, costUsd (real OpenRouter spend) }
+import { optionalUser } from "@/lib/auth-server";
+import { extractUsage, recordUsage } from "@/lib/usage";
+
 export const runtime = "nodejs";
 
 type Body = {
@@ -23,6 +26,9 @@ type Body = {
   // Optional image aspect ratio (default "3:2"). Use e.g. "3:4" for a vertical
   // character portrait.
   aspectRatio?: string;
+  // Optional usage tag for per-user spend breakdown (e.g. "email-hero",
+  // "landing-bg", "landing-character").
+  feature?: string;
 };
 
 const NO_TEXT =
@@ -30,19 +36,12 @@ const NO_TEXT =
   "Numbers/digits are allowed. Leave clean negative space for text to be overlaid later.";
 
 async function composePrompt(brief: string): Promise<string> {
+  // Art-director LLM also goes through OpenRouter (single provider path).
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (!orKey) return "";
   const providers = [
-    process.env.OPENAI_API_KEY && {
-      url: "https://api.openai.com/v1/chat/completions",
-      key: process.env.OPENAI_API_KEY,
-      model: "gpt-4o-mini",
-    },
-    process.env.OPENROUTER_API_KEY && {
-      url: "https://openrouter.ai/api/v1/chat/completions",
-      key: process.env.OPENROUTER_API_KEY,
-      model: "openai/gpt-4o-mini",
-    },
-  ].filter(Boolean) as { url: string; key: string; model: string }[];
-  if (!providers.length) return "";
+    { url: "https://openrouter.ai/api/v1/chat/completions", key: orKey, model: "openai/gpt-4o-mini" },
+  ];
 
   const system =
     "Ты — арт-директор. По брифу email-рассылки составь ОДИН промпт на английском для " +
@@ -148,6 +147,7 @@ export async function POST(request: Request) {
   const aspectRatio = (body.aspectRatio || "").trim() || "3:2";
   let raw: string | null = null;
   let detail = "";
+  let usageData: unknown = null;
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -163,12 +163,15 @@ export async function POST(request: Request) {
         modalities: ["image", "text"],
         image_config: { aspect_ratio: aspectRatio },
         aspect_ratio: aspectRatio,
+        usage: { include: true },
       }),
     });
     if (!res.ok) {
       detail = (await res.text()).slice(0, 300);
     } else {
-      raw = extractImage(await res.json());
+      const json = await res.json();
+      usageData = json;
+      raw = extractImage(json);
     }
   } catch (e) {
     detail = e instanceof Error ? e.message : String(e);
@@ -176,6 +179,19 @@ export async function POST(request: Request) {
 
   if (!raw) {
     return Response.json({ error: "Не удалось сгенерировать картинку", detail }, { status: 502 });
+  }
+
+  // Real per-generation cost (себестоимость) from OpenRouter usage accounting.
+  const usage = extractUsage(usageData);
+  // Per-user usage log (best-effort; only when the caller is signed in).
+  const authed = await optionalUser(request);
+  if (authed) {
+    await recordUsage(authed.id, {
+      model,
+      feature: (body.feature || "").trim() || "hero-image",
+      type: "image",
+      ...usage,
+    });
   }
 
   let imageUrl: string;
@@ -188,5 +204,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json({ imageUrl, prompt });
+  return Response.json({ imageUrl, prompt, costUsd: usage.costUsd });
 }

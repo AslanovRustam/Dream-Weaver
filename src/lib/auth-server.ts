@@ -77,6 +77,19 @@ export async function requireUser(request: Request): Promise<AuthedUser> {
 }
 
 /**
+ * Resolve the caller if a valid token is present, else null — never throws.
+ * For routes that must stay callable anonymously (e.g. guest generation) but
+ * want to attribute usage to a user when they are signed in.
+ */
+export async function optionalUser(request: Request): Promise<AuthedUser | null> {
+  try {
+    return await requireUser(request);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Like requireUser but additionally enforces super-admin email allow-list.
  * Throws AuthError(403) for non-admins.
  */

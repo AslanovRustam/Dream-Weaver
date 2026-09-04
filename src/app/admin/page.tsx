@@ -204,6 +204,9 @@ export default function AdminPage() {
             <TabsTrigger value="pricing" className={TAB_CLS}>
               Тарифы
             </TabsTrigger>
+            <TabsTrigger value="usage" className={TAB_CLS}>
+              Расход
+            </TabsTrigger>
             <TabsTrigger value="settings" className={TAB_CLS}>
               Настройки
             </TabsTrigger>
@@ -225,6 +228,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="pricing" className="mt-4">
             <PricingTab />
+          </TabsContent>
+          <TabsContent value="usage" className="mt-4">
+            <UsageTab />
           </TabsContent>
           <TabsContent value="settings" className="mt-4">
             <SettingsTab />
@@ -2269,5 +2275,127 @@ function AdminCardDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Расход — per-user AI spend (OpenRouter + image gen), in $, from the
+// `generations` ledger via /api/admin/usage. Option B: our own ledger.
+// ---------------------------------------------------------------------
+type UsageUser = {
+  userId: string;
+  email: string;
+  costUsd: number;
+  tokens: number;
+  calls: number;
+  byFeature: Record<string, number>;
+};
+type UsageResponse = {
+  days: number;
+  totalCostUsd: number;
+  userCount: number;
+  users: UsageUser[];
+};
+
+function fmtUsd(n: number): string {
+  return "$" + (n < 0.01 && n > 0 ? n.toFixed(5) : n.toFixed(2));
+}
+
+function UsageTab() {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<UsageResponse | null>(null);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setErr("");
+    apiJson<UsageResponse>(`/api/admin/usage?days=${days}`)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch((e) => {
+        if (alive) setErr(e instanceof Error ? e.message : "Ошибка загрузки");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [days]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Расход по пользователям</h2>
+          <p className="text-sm text-muted-foreground">
+            Стоимость ИИ-генераций (OpenRouter + картинки) в долларах, из леджера generations.
+          </p>
+        </div>
+        <div className="flex rounded-lg border border-border p-0.5">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              className={`min-h-8 rounded-md px-3 text-sm font-medium transition ${
+                days === d ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {d} дн
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {data ? (
+        <div className="flex flex-wrap gap-4 text-sm">
+          <span className="rounded-lg border border-border bg-[var(--bg-surface)] px-3 py-2">
+            Итого: <span className="font-semibold tabular-nums">{fmtUsd(data.totalCostUsd)}</span>
+          </span>
+          <span className="rounded-lg border border-border bg-[var(--bg-surface)] px-3 py-2">
+            Пользователей: <span className="font-semibold tabular-nums">{data.userCount}</span>
+          </span>
+        </div>
+      ) : null}
+
+      {err ? <p className="text-sm text-[color:var(--status-error)]">{err}</p> : null}
+      {loading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
+
+      {data && data.users.length > 0 ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Пользователь</TableHead>
+              <TableHead className="text-right">Расход, $</TableHead>
+              <TableHead className="text-right">Токены</TableHead>
+              <TableHead className="text-right">Вызовы</TableHead>
+              <TableHead>По фичам</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.users.map((u) => (
+              <TableRow key={u.userId}>
+                <TableCell className="max-w-[220px] truncate">{u.email || u.userId}</TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">{fmtUsd(u.costUsd)}</TableCell>
+                <TableCell className="text-right tabular-nums">{u.tokens.toLocaleString("ru")}</TableCell>
+                <TableCell className="text-right tabular-nums">{u.calls}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {Object.entries(u.byFeature)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([f, c]) => `${f}: ${fmtUsd(c)}`)
+                    .join(" · ")}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : data && !loading ? (
+        <p className="text-sm text-muted-foreground">Пока нет данных за выбранный период.</p>
+      ) : null}
+    </div>
   );
 }

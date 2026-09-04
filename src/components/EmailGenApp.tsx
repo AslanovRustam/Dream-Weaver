@@ -6,6 +6,8 @@ import { Check, Loader2, Mail, Save, Send, Sparkles, Upload } from "lucide-react
 
 import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
+import { apiFetch } from "@/lib/api-client";
+import { CostMeter } from "@/components/CostMeter";
 import {
   EMAIL_STYLES,
   type EmailDraft,
@@ -30,6 +32,7 @@ export function EmailGenApp() {
 
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+  const [costUsd, setCostUsd] = useState(0);
   const [heroPreset, setHeroPreset] = useState(""); // "" = агент подберёт сам
   const [autofilling, setAutofilling] = useState(false);
 
@@ -38,16 +41,16 @@ export function EmailGenApp() {
     setAutofilling(true);
     setGenError("");
     try {
-      const res = await fetch("/api/generate-email-content", {
+      const res = await apiFetch("/api/generate-email-content", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: draft.subject || draft.heroTitle || draft.body || "" }),
+        json: { topic: draft.subject || draft.heroTitle || draft.body || "" },
       });
       const data = await res.json();
       if (!res.ok || !data.fields) {
         setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
         return;
       }
+      if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
       const f = data.fields as Record<string, string | string[]>;
       const str = (v: unknown) => (typeof v === "string" ? v : undefined);
       const steps = Array.isArray(f.steps) ? f.steps.map(String) : undefined;
@@ -131,23 +134,24 @@ export function EmailGenApp() {
           presetTemplate = p.template.replace(/\{SUBJECT\}/g, subject || draft.brand || "the offer");
         }
       }
-      const res = await fetch("/api/generate-email-hero", {
+      const res = await apiFetch("/api/generate-email-hero", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: {
           brand: draft.brand,
           heroTitle: draft.heroTitle,
           body: draft.body,
           presetTemplate: presetTemplate || undefined,
           logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
           logoMode: draft.logoMode,
-        }),
+          feature: "email-hero",
+        },
       });
       const data = await res.json();
       if (!res.ok || !data.imageUrl) {
         setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
         return;
       }
+      if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
       const finalUrl =
         draft.logo && draft.logoMode === "overlay"
           ? await overlayLogo(data.imageUrl, draft.logo)
@@ -466,6 +470,7 @@ export function EmailGenApp() {
           {genError ? (
             <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p>
           ) : null}
+          {costUsd > 0 ? <div className="mt-2"><CostMeter total={costUsd} /></div> : null}
         </div>
 
         <Field label="Заголовок (hero)">

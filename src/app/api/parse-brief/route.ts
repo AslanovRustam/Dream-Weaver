@@ -5,6 +5,8 @@
 // Response: { fields: Record<string,string>, generationPrompt: string, briefChars: number }
 import { BRIEF_SCHEMAS } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
+import { optionalUser } from "@/lib/auth-server";
+import { extractUsage, isOpenRouter, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -107,26 +109,15 @@ export async function POST(request: Request) {
   const briefChars = brief.length;
   if (brief.length > MAX_BRIEF_CHARS) brief = brief.slice(0, MAX_BRIEF_CHARS);
 
-  // LLM keys are system-side. Try OpenAI first, then OpenRouter (same model).
-  const providers = [
-    process.env.OPENAI_API_KEY && {
-      url: "https://api.openai.com/v1/chat/completions",
-      key: process.env.OPENAI_API_KEY,
-      model: "gpt-4o-mini",
-    },
-    process.env.OPENROUTER_API_KEY && {
-      url: "https://openrouter.ai/api/v1/chat/completions",
-      key: process.env.OPENROUTER_API_KEY,
-      model: "openai/gpt-4o-mini",
-    },
-  ].filter(Boolean) as { url: string; key: string; model: string }[];
-
-  if (providers.length === 0) {
-    return Response.json(
-      { error: "Нет ключа LLM (OPENAI_API_KEY / OPENROUTER_API_KEY)" },
-      { status: 500 },
-    );
+  // All LLM traffic goes through OpenRouter so every call returns real spend
+  // (usage.cost). OpenRouter carries the same models (openai/gpt-4o-mini).
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (!orKey) {
+    return Response.json({ error: "Нет ключа OpenRouter" }, { status: 500 });
   }
+  const providers = [
+    { url: "https://openrouter.ai/api/v1/chat/completions", key: orKey, model: "openai/gpt-4o-mini" },
+  ];
 
   const fieldList = schema.fields
     .map((f) => `- ${f.key} (${f.label})${f.hint ? `: ${f.hint}` : ""}${f.enum ? ` [одно из: ${f.enum.join(", ")}]` : ""}`)
@@ -144,6 +135,8 @@ export async function POST(request: Request) {
 
   let content = "";
   let lastDetail = "";
+  let usedModel = "";
+  let usageData: unknown = null;
   for (const p of providers) {
     try {
       const res = await fetch(p.url, {
@@ -157,6 +150,7 @@ export async function POST(request: Request) {
             { role: "system", content: system },
             { role: "user", content: user },
           ],
+          ...(isOpenRouter(p.url) ? { usage: { include: true } } : {}),
         }),
       });
       if (!res.ok) {
@@ -165,13 +159,23 @@ export async function POST(request: Request) {
       }
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       content = data.choices?.[0]?.message?.content ?? "";
-      if (content) break;
+      if (content) {
+        usedModel = p.model;
+        usageData = data;
+        break;
+      }
     } catch (e) {
       lastDetail = e instanceof Error ? e.message : String(e);
     }
   }
   if (!content) {
     return Response.json({ error: "LLM request failed", detail: lastDetail }, { status: 502 });
+  }
+
+  const usage = extractUsage(usageData);
+  const authed = await optionalUser(request);
+  if (authed) {
+    await recordUsage(authed.id, { model: usedModel, feature: "parse-brief", type: "llm", ...usage });
   }
 
   let parsed: { fields?: Record<string, unknown>; generationPrompt?: unknown };
@@ -193,5 +197,5 @@ export async function POST(request: Request) {
   }
   const generationPrompt = typeof parsed.generationPrompt === "string" ? parsed.generationPrompt.trim() : "";
 
-  return Response.json({ fields, generationPrompt, briefChars });
+  return Response.json({ fields, generationPrompt, briefChars, costUsd: usage.costUsd });
 }

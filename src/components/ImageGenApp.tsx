@@ -2039,6 +2039,14 @@ export function ImageGenApp() {
                     </div>
                   </div>
 
+                  {/* Real generation cost (себестоимость) + tokens for the
+                      just-generated master. Sourced from OpenRouter usage. */}
+                  {lastUsage ? (
+                    <div className="-mt-2 rounded-xl border border-border bg-card">
+                      <UsageStrip usage={lastUsage} />
+                    </div>
+                  ) : null}
+
                   {/* Direct step: the resize picker's own secondary button
                       opens the modal in one click — no intermediate screen.
                       Keep it mounted across a master regeneration (when
@@ -2312,7 +2320,11 @@ function UsageStrip({ usage }: { usage: UsageInfo }) {
         </span>
       </span>
       <span>·</span>
-      <span>{usage.note ?? "Lovable AI"}</span>
+      <span title="Реальная себестоимость (OpenRouter)">
+        {typeof usage.cost_usd === "number" ? `≈ $${usage.cost_usd.toFixed(4)}` : "—"}
+      </span>
+      <span>·</span>
+      <span>{usage.note ?? "OpenRouter"}</span>
       <span className="ml-auto">{usage.model}</span>
     </div>
   );

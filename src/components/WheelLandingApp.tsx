@@ -8,6 +8,8 @@ import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 import { bgPreset, characterPreset, removeBackground } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { buildWheelHtml } from "@/lib/wheelExport";
+import { apiFetch } from "@/lib/api-client";
+import { CostMeter } from "@/components/CostMeter";
 
 const DEFAULT_PRIZES: WheelSegment[] = [
   { label: "100 TFS" },
@@ -93,6 +95,7 @@ export function WheelLandingApp() {
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
+  const [costUsd, setCostUsd] = useState(0);
 
   // Persist the whole landing (config + generated images) so nothing is lost on
   // reload or navigation.
@@ -191,15 +194,12 @@ export function WheelLandingApp() {
     setPrizes((p) => (p.length > 2 ? p.filter((_, idx) => idx !== i) : p));
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
-    const res = await fetch("/api/generate-email-hero", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
     const data = await res.json();
     if (!res.ok || !data.imageUrl) {
       throw new Error([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
     }
+    if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
     return data.imageUrl as string;
   };
 
@@ -209,7 +209,7 @@ export function WheelLandingApp() {
     try {
       // A themed ENVIRONMENT/backdrop (not a hero banner): immersive scene with a
       // clear central area for the wheel and no characters or central subject.
-      setBgImage(await genImage({ presetTemplate: bgPreset(theme) }));
+      setBgImage(await genImage({ presetTemplate: bgPreset(theme), feature: "landing-bg" }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -223,7 +223,7 @@ export function WheelLandingApp() {
     setCharGenning(side);
     setGenError("");
     try {
-      const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4" });
+      const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4", feature: "landing-character" });
       // Cut out the plain background → transparent PNG that blends into the landing.
       const cut = await removeBackground(raw);
       setChars((c) => ({ ...c, [side]: cut }));
@@ -390,6 +390,7 @@ export function WheelLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
+          {costUsd > 0 ? <div className="mt-2"><CostMeter total={costUsd} /></div> : null}
         </div>
 
         {/* Characters (optional) — up to two, one flanking each side of the wheel */}

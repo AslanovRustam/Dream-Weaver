@@ -27,6 +27,19 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
   return "gpt-image-2";
 }
 
+// Hard ban on the model hallucinating a real-world betting/casino brand. On
+// gambling/iGaming banners the model loves to slap a Betano-style logo on by
+// default even when no brand was provided. Appended on EVERY prompt path so no
+// recognizable third-party brand identity ever leaks in — the only brand allowed
+// is the one the user explicitly supplied (name/logo).
+const NO_REAL_BRAND =
+  "CRITICAL BRAND SAFETY: Do NOT depict, draw, imitate, place or reference ANY real-world " +
+  "gambling, betting, casino or sportsbook brand, its logo, wordmark, emblem, mascot or signature colors — " +
+  "specifically NEVER Betano, and likewise never bet365, 1xBet, 1win, Parimatch, Melbet, Mostbet, " +
+  "Stake, DraftKings, FanDuel, William Hill, Bwin, Pinnacle, Pin-Up, Winline or any other existing " +
+  "bookmaker/casino/operator brand. Invent no brand mark whatsoever. Any brand identity in the image " +
+  "must come ONLY from an explicitly provided brand name/logo; if none is provided, show no brand at all.";
+
 type Body = {
   preset_id?: string;
   subject?: string;
@@ -348,6 +361,7 @@ function eventPrompt(args: {
       "BRAND LOGO: No brand logo provided — do NOT invent, draw, or render any brand logo, wordmark, emblem, or brand mark anywhere on the banner. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
+  lines.push(NO_REAL_BRAND);
 
   const paletteSource = hasLogo
     ? "the uploaded logo"
@@ -594,6 +608,7 @@ function sportPrompt(args: {
       "SPORTSBOOK BRAND: No brand logo provided — do NOT invent, draw, or render any sportsbook brand logo, wordmark, or emblem. The brand name may appear only as plain typographic text if needed, never stylized as a logo.",
     );
   }
+  lines.push(NO_REAL_BRAND);
 
   lines.push(
     "COLOR RULES:\n- Dominant palette derived from team/national colors split between sides.\n- Strong color contrast between left and right side (warm vs cool typical for face-off posters).\n- Brand sportsbook color used as accent for CTA and bonus overlay only.\n- 2–3 dominant colors maximum per side.",
@@ -691,6 +706,7 @@ async function adaptPrompt(
     languageLine,
     brandLine,
     logoLine,
+    NO_REAL_BRAND,
     adTextsLine,
     personLine,
     bannerText ? `REQUIRED BANNER HEADLINE TEXT (verbatim): "${bannerText}"` : "",
@@ -1387,6 +1403,15 @@ export async function POST(request: Request) {
         // attached (the master carries visual context).
         if (finalPrompt.length > 6000) finalPrompt = finalPrompt.slice(0, 6000);
 
+        // Guarantee the real-brand ban reaches the model on the generative paths
+        // (the adaptPrompt rewrite and the 6000-char cap above can otherwise drop
+        // the per-template copy). Skipped when a master/source image is attached —
+        // that flow must reproduce the master faithfully, and the master is the
+        // brand authority there.
+        if (!hasSourceImage) {
+          finalPrompt = `${finalPrompt}\n\n${NO_REAL_BRAND}`;
+        }
+
         const dataUrlToBlob = (dataUrl: string): { blob: Blob; ext: string } | null => {
           const m = dataUrl.trim().match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s);
           if (!m) return null;
@@ -1474,7 +1499,16 @@ export async function POST(request: Request) {
               : finalPrompt;
 
           const modelStr = (body.model || "").toLowerCase();
-          const isNano = modelStr.includes("gemini") || modelStr.startsWith("google/");
+          const wantsGemini = modelStr.includes("gemini") || modelStr.startsWith("google/");
+          // All banner generation now runs through OpenRouter (Gemini) so every
+          // call returns real usage.cost (себестоимость). The OpenAI-direct
+          // gpt-image path below is retired (kept dead for reference only); if a
+          // non-Gemini model was requested we transparently fall back to Gemini.
+          const orModel =
+            wantsGemini && (body.model || "").trim()
+              ? (body.model as string).trim()
+              : "google/gemini-3.1-flash-image-preview";
+          const isNano = true as boolean;
           const requestedAspect = body.aspect_ratio || "1:1";
 
           if (isNano) {
@@ -1493,7 +1527,6 @@ export async function POST(request: Request) {
             refs.forEach((r) => {
               userContent.push({ type: "image_url", image_url: { url: r.dataUrl } });
             });
-            const orModel = (body.model || "").trim() || "google/gemini-3.1-flash-image-preview";
 
             res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
               method: "POST",
@@ -1512,6 +1545,8 @@ export async function POST(request: Request) {
                 providerOptions: {
                   google: { imageConfig: { aspectRatio: requestedAspect } },
                 },
+                // OpenRouter Usage Accounting → response.usage.cost (real USD).
+                usage: { include: true },
               }),
             });
           } else {
@@ -1651,6 +1686,7 @@ export async function POST(request: Request) {
                 prompt_tokens?: number;
                 completion_tokens?: number;
                 total_tokens?: number;
+                cost?: number;
               };
             };
             const msg = data.choices?.[0]?.message;
@@ -1716,12 +1752,12 @@ export async function POST(request: Request) {
 
             usage = {
               provider: "openrouter",
-              model: (body.model || "").trim() || "google/gemini-3.1-flash-image-preview",
+              model: orModel,
               quality,
               prompt_tokens: data.usage?.prompt_tokens ?? null,
               completion_tokens: data.usage?.completion_tokens ?? null,
               total_tokens: data.usage?.total_tokens ?? null,
-              cost_usd: null,
+              cost_usd: data.usage?.cost ?? null,
             };
           }
           if (!image) {
@@ -1800,7 +1836,9 @@ export async function POST(request: Request) {
           // ---- Billing: total_tokens * coefficient(model, quality) ----
           // Anything we can't compute defaults to a tiny non-zero charge so
           // every successful generation still produces an audit trail.
-          const modelKey = pricingModelKey(body.model);
+          // All banners now run on Gemini via OpenRouter, so bill on the
+          // model we actually used (never the retired gpt-image key).
+          const modelKey = pricingModelKey(orModel);
           const totalTokens = (() => {
             const u = usage as Record<string, unknown> | null;
             if (!u) return 0;
