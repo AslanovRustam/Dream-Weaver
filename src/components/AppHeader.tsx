@@ -82,12 +82,7 @@ export function refreshMe() {
 // Balance at/below which the credits chip turns amber to nudge a top-up.
 const LOW_CREDIT_THRESHOLD = 20;
 
-const PROJECTS: { id: string; name: string; thumb: string; updated: string }[] = [
-  { id: "p1", name: "Новогодний экспресс", thumb: "https://picsum.photos/seed/dwp1/112/80", updated: "9 июл" },
-  { id: "p2", name: "Слот «Book of Sun»", thumb: "https://picsum.photos/seed/dwp2/112/80", updated: "8 июл" },
-  { id: "p3", name: "Матч ЦСКА — Спартак", thumb: "https://picsum.photos/seed/dwp3/112/80", updated: "5 июл" },
-  { id: "p4", name: "Проект без названия", thumb: "https://picsum.photos/seed/dwp4/112/80", updated: "3 июл" },
-];
+type ProjectItem = { id: string; name: string; thumb: string | null; updated: string };
 
 export function AppHeader() {
   const { isAuthenticated, signOut } = useAuth();
@@ -1064,8 +1059,45 @@ function NotificationsMenu() {
 function ProjectsMenu() {
   const router = useRouter();
   const t = useT();
+  const [items, setItems] = useState<ProjectItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load the latest real projects from history the first time the menu opens.
+  const load = () => {
+    if (loaded) return;
+    setLoaded(true);
+    apiJson<{ items?: unknown[] }>("/api/history?bucket=active&limit=6")
+      .then((r) => {
+        const cards = Array.isArray(r?.items) ? r.items : [];
+        setItems(
+          cards
+            .map((raw) => {
+              const c = raw as Record<string, unknown>;
+              const master = c.master as Record<string, unknown> | null | undefined;
+              const ts = (c.last_activity_at || c.created_at) as string | undefined;
+              let updated = "";
+              if (ts) {
+                const d = new Date(ts);
+                if (!Number.isNaN(d.getTime()))
+                  updated = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+              }
+              return {
+                id: String(c.id ?? ""),
+                name: (c.name as string) || "Проект без названия",
+                thumb: (master?.image_url as string) || null,
+                updated,
+              };
+            })
+            .filter((x) => x.id),
+        );
+      })
+      .catch(() => {
+        /* signed-out / transient — leave empty */
+      });
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(o) => o && load()}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -1087,22 +1119,43 @@ function ProjectsMenu() {
           </Link>
         </div>
         <div className="space-y-0.5">
-          {PROJECTS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => router.push("/banner")}
-              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5"
-            >
-              <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md bg-white/5">
-                <img src={p.thumb} alt="" className="h-full w-full object-cover" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{p.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{t("header.projects.updated", { date: p.updated })}</p>
-              </div>
-            </button>
-          ))}
+          {items.length === 0 ? (
+            <p className="px-2 py-6 text-center ds-caption">
+              {loaded ? "Пока нет проектов" : "Загрузка…"}
+            </p>
+          ) : (
+            items.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => router.push(`/banner?card=${p.id}`)}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5"
+              >
+                <span className="flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/5 text-muted-foreground">
+                  {p.thumb ? (
+                    <img
+                      src={p.thumb}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <LayoutGrid className="h-4 w-4" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{p.name}</p>
+                  {p.updated ? (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t("header.projects.updated", { date: p.updated })}
+                    </p>
+                  ) : null}
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
