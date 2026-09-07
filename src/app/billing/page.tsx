@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
-import { imageCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
+import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
 // route here so a click is never a dead no-op.
@@ -43,7 +43,7 @@ type Plan = {
 
 // Реальная экономика кредитов (одна точка правды — credit-estimate.ts):
 // 1 баннер = одна генерация изображения, 1 ресайз = фиксированная ставка.
-const BANNER_CREDITS = imageCredits(1); // 7 кр.
+const BANNER_CREDITS = estimateBannerCredits(); // rich banner model (~23 кр.)
 const RESIZE_CREDITS = RESIZE_CREDITS_PER_FORMAT; // 1.5 кр.
 const ru = (n: number) => Math.round(n).toLocaleString("ru-RU");
 const bannersNote = (credits: number) => `≈ ${ru(credits / BANNER_CREDITS)} баннеров`;

@@ -1520,16 +1520,13 @@ export async function POST(request: Request) {
               ? `${finalPrompt}\n\nREFERENCE IMAGES:\n- ${refLines.join("\n- ")}`
               : finalPrompt;
 
-          const modelStr = (body.model || "").toLowerCase();
-          const wantsGemini = modelStr.includes("gemini") || modelStr.startsWith("google/");
-          // All banner generation now runs through OpenRouter (Gemini) so every
-          // call returns real usage.cost (себестоимость). The OpenAI-direct
-          // gpt-image path below is retired (kept dead for reference only); if a
-          // non-Gemini model was requested we transparently fall back to Gemini.
-          const orModel =
-            wantsGemini && (body.model || "").trim()
-              ? (body.model as string).trim()
-              : "google/gemini-3.1-flash-image-preview";
+          // All banner generation runs through OpenRouter (so every call returns
+          // real usage.cost). Use whatever OpenRouter image model the client
+          // requested (ids contain a "/"), defaulting to the rich openai/gpt-5-image
+          // so banners aren't bland. The OpenAI-direct gpt-image path below is
+          // retired (kept dead for reference only).
+          const requestedModel = (body.model || "").trim();
+          const orModel = requestedModel.includes("/") ? requestedModel : "openai/gpt-5-image";
           const isNano = true as boolean;
           const requestedAspect = body.aspect_ratio || "1:1";
 

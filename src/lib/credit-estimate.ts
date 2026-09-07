@@ -11,28 +11,32 @@
 export type BannerModelKey = "gpt" | "nano";
 export type BannerQuality = "low" | "medium" | "high";
 
-/** Measured flat self-cost of one image generation, in USD. */
+// Measured flat self-cost per image, in USD, per model tier.
+//   - USD_PER_IMAGE: the cheap model (gemini-flash) — landing bg/character, email hero.
+//   - USD_PER_BANNER: the rich banner model (openai/gpt-5-image) — banner master.
 export const USD_PER_IMAGE = 0.0685;
+export const USD_PER_BANNER = 0.226;
 /** Credits per US dollar of self-cost (1 $ = 100 credits). */
 export const CREDITS_PER_USD = 100;
 
 /**
- * Whole-number credit price for an action that generates `images` images.
- * round(images × USD_PER_IMAGE × CREDITS_PER_USD), never below 1.
+ * Whole-number credit price for an action that generates `images` images on the
+ * cheap model. round(images × USD_PER_IMAGE × CREDITS_PER_USD), never below 1.
  */
 export function imageCredits(images = 1): number {
   const n = Math.max(0, images);
   return Math.max(1, Math.round(n * USD_PER_IMAGE * CREDITS_PER_USD));
 }
 
-// All banner generation is a single image on one model now, so quality/model no
-// longer change the price. Args kept for call-site compatibility.
+// Banner master runs on the rich model (openai/gpt-5-image). One image, priced
+// off USD_PER_BANNER. Args kept for call-site compatibility (model/quality no
+// longer change the price — the model is fixed server-side).
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;
   quality?: BannerQuality;
 }): number {
   void _args;
-  return imageCredits(1);
+  return Math.max(1, Math.round(USD_PER_BANNER * CREDITS_PER_USD));
 }
 
 // Resize-package pricing. Flat price PER SELECTED FORMAT — each resize costs the

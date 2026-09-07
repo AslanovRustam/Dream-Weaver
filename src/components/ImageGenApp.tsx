@@ -90,8 +90,8 @@ function aspectFromDims(w: number, h: number): string {
 }
 
 const MODEL_IDS: Record<ModelKey, string> = {
-  gpt: "openai/gpt-5.4-image-2",
-  nano: "google/gemini-3.1-flash-image-preview",
+  gpt: "openai/gpt-5-image", // rich promo look (measured ~$0.23/img) — the default
+  nano: "google/gemini-3.1-flash-image-preview", // fast/cheap (~$0.07/img)
 };
 
 const LANGUAGES: { value: string; label: string }[] = [
