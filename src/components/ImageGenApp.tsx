@@ -1980,6 +1980,17 @@ export function ImageGenApp() {
                               // Hand off the shared brand data to the landing
                               // generator so the user doesn't re-enter it.
                               try {
+                                // Banner → slot landing: the banner is the reference —
+                                // its texts, brand and palette prefill the slot builder,
+                                // and the banner image itself becomes the backdrop (read
+                                // live from the generation context on the slot side to
+                                // avoid the localStorage quota risk of a full data URL).
+                                const seedAccent =
+                                  colorRoles.find(
+                                    (r) => r.id === "accent" && r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
+                                  )?.hex ||
+                                  colorRoles.find((r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex))?.hex ||
+                                  "";
                                 window.localStorage.setItem(
                                   "dw:landingSeed",
                                   JSON.stringify({
@@ -1988,10 +1999,8 @@ export function ImageGenApp() {
                                     subject: isSlotPreset ? slotName : prompt,
                                     language,
                                     banner_text: bannerTextEnabled ? bannerText : "",
-                                    // From-banner flow: inherit the vertical and flag the
-                                    // handoff. The banner image itself is read live from the
-                                    // generation context on the landing side (avoids the
-                                    // localStorage quota risk of storing a full image here).
+                                    cta: buttonTextEnabled ? buttonText : "",
+                                    accent: seedAccent,
                                     vertical: bannerPresetToVertical(preset),
                                     from_banner: true,
                                   }),
@@ -1999,12 +2008,12 @@ export function ImageGenApp() {
                               } catch {
                                 /* quota — landing just opens empty */
                               }
-                              router.push("/landing");
+                              router.push("/slot");
                             }}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                           >
                             <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                            Создать лендинг на основе этого
+                            Сделать слот-лендинг из баннера
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem

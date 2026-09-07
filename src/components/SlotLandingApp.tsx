@@ -9,6 +9,8 @@ import { bgPreset, characterPreset, removeBackground } from "@/lib/landingCreati
 import { downloadText, slugify } from "@/lib/download";
 import { buildSlotHtml } from "@/lib/slotExport";
 import { apiFetch } from "@/lib/api-client";
+import { useGeneration } from "@/lib/generation-context";
+import { toast } from "sonner";
 import { CostMeter } from "@/components/CostMeter";
 import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
 
@@ -70,6 +72,7 @@ const THEMES: {
 ];
 
 export function SlotLandingApp() {
+  const gen = useGeneration();
   const [brand, setBrand] = useState("Fairspin");
   const [headline, setHeadline] = useState("SPIN TO WIN!");
   const [accent, setAccent] = useState("#818cf8");
@@ -128,6 +131,34 @@ export function SlotLandingApp() {
     }
     setRestored(true);
   }, []);
+
+  // Banner → slot handoff: prefill from the banner (the reference) — its texts,
+  // brand, CTA and palette fill the fields, and the banner image itself becomes
+  // the backdrop (read live from the generation context). Overrides the restored
+  // draft above, then clears the seed.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("dw:landingSeed");
+      if (!raw) return;
+      const s = JSON.parse(raw) as Record<string, unknown>;
+      if (!s.from_banner) return;
+      if (typeof s.brand_name === "string" && s.brand_name) setBrand(s.brand_name);
+      const head =
+        (typeof s.banner_text === "string" && s.banner_text) ||
+        (typeof s.subject === "string" ? s.subject : "");
+      if (head) setHeadline(String(head).toUpperCase());
+      if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
+      if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
+      if (gen.imageUrl) setBgImage(gen.imageUrl);
+      window.localStorage.removeItem("dw:landingSeed");
+      toast.success("Данные баннера перенесены — правьте поля лендинга");
+    } catch {
+      /* malformed seed — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!restored) return;
     const id = window.setTimeout(() => {
