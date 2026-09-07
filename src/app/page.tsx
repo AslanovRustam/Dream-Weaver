@@ -20,6 +20,7 @@ import { AppShell } from "@/components/AppShell";
 import { MobileScrim } from "@/components/MobileScrim";
 import { CATEGORIES } from "@/components/PresetSidebar";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
+import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -192,9 +193,9 @@ function TilePreview({ sectionId }: { sectionId: string }) {
   );
 }
 
-// MVP: только эти инструменты доступны. Остальные показываем серыми «Скоро»,
-// зайти в них нельзя (ни из сайдбара, ни из хаба).
-const MVP_ENABLED = new Set<string>(["banner", "landing"]);
+// MVP: только эти инструменты доступны (единый источник — lib/mvp). Остальные
+// показываем серыми «Скоро», зайти в них нельзя (сайдбар/хаб/переключатель).
+const MVP_ENABLED = MVP_ENABLED_SECTION_IDS;
 
 // A quick-start tile: full-bleed preview with the section label + CTA overlaid.
 function SectionTile({

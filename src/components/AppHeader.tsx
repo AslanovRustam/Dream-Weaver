@@ -45,6 +45,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { useNotifications, relativeTime } from "@/lib/notifications-client";
 import { SECTIONS, sectionFromPath } from "@/lib/sections";
+import { isSectionEnabled } from "@/lib/mvp";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -907,6 +908,26 @@ function SectionSwitcher({
         {SECTIONS.map((s) => {
           const Icon = s.icon;
           const active = s.id === current?.id;
+          const soon = !isSectionEnabled(s.id);
+          // MVP: disabled sections are greyed "Скоро" and cannot be selected.
+          if (soon) {
+            return (
+              <DropdownMenuItem
+                key={s.id}
+                disabled
+                onSelect={(e) => e.preventDefault()}
+                className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm text-hint opacity-60 max-sm:py-3 max-sm:text-base"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Icon className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
+                  {s.title}
+                </span>
+                <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                  Скоро
+                </span>
+              </DropdownMenuItem>
+            );
+          }
           return (
             <DropdownMenuItem
               key={s.id}

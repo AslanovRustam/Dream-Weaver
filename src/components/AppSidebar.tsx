@@ -15,15 +15,16 @@ import {
 } from "lucide-react";
 
 import { SECTION_BY_ID } from "@/lib/sections";
+import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
 // toggled by a button and persisted. Grouped like Krea/Linear/Vercel side-nav;
 // the active item uses the design-system lime "Active" pill (--lime-tint).
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 
-// MVP: только эти разделы кликабельны. Остальное показываем серым «Скоро»
-// (в неактивное попасть нельзя). Домой можно вернуться через логотип в шапке.
-const ENABLED_HREFS = new Set<string>(["/", "/banner", "/landing"]);
+// MVP: только эти разделы кликабельны (единый источник — lib/mvp). Остальное
+// серым «Скоро». Домой можно вернуться через логотип в шапке.
+const ENABLED_HREFS = MVP_ENABLED_ROUTES;
 
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
   const sec = SECTION_BY_ID.get(id)!;
