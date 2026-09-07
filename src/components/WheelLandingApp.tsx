@@ -82,6 +82,9 @@ export function WheelLandingApp() {
   const [accent, setAccent] = useState("#f97316");
   const [dark, setDark] = useState(true);
   const [ctaText, setCtaText] = useState("SPIN");
+  // Click-through target for the CTA / "Claim bonus": a real URL or a tracker
+  // macro/variable (e.g. {clickurl}) that the traffic source replaces.
+  const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(
     "мультяшный кролик-персонаж с бейсбольной битой на зелёных холмах, монеты и морковь, яркий casino-promo фон",
   );
@@ -114,6 +117,7 @@ export function WheelLandingApp() {
         if (typeof d.accent === "string") setAccent(d.accent);
         if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
+        if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
         // Characters: new two-slot shape, with backward-compat for the old single slot.
@@ -159,6 +163,7 @@ export function WheelLandingApp() {
         accent,
         dark,
         ctaText,
+        ctaUrl,
         theme,
         bgImage,
         charLeft: chars.left,
@@ -182,7 +187,7 @@ export function WheelLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, chars, charPrompts, prizes]);
+  }, [restored, brand, headline, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts, prizes]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -459,6 +464,19 @@ export function WheelLandingApp() {
           <input className={inputCls} value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
         </Field>
 
+        <Field label="Ссылка перехода (CTA)">
+          <input
+            className={inputCls}
+            value={ctaUrl}
+            onChange={(e) => setCtaUrl(e.target.value)}
+            placeholder="https://your-offer.com или {clickurl}"
+          />
+          <p className="mt-1 ds-caption">
+            Куда ведёт кнопка после выигрыша. Можно вставить URL или переменную-макрос
+            (напр. {"{clickurl}"}) — трафик-система подставит ссылку.
+          </p>
+        </Field>
+
         <button
           type="button"
           onClick={() =>
@@ -470,6 +488,7 @@ export function WheelLandingApp() {
                 accent,
                 dark,
                 ctaText,
+                ctaUrl,
                 bgImage,
                 prizes,
                 charLeft: chars.left,

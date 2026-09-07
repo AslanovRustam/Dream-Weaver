@@ -9,6 +9,10 @@ export type WheelExportConfig = {
   accent: string;
   dark: boolean;
   ctaText: string;
+  /** Click-through target for the "Claim bonus" CTA — a URL or a tracker
+   *  macro/variable (e.g. {clickurl}) embedded verbatim so the traffic source
+   *  can replace it in the file. Empty = the modal just closes. */
+  ctaUrl?: string;
   bgImage: string;
   prizes: { label: string; sub?: string }[];
   charLeft: string;
@@ -185,7 +189,7 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var again=document.getElementById('again'); if(again)again.onclick=function(){close();spin();};
-    var claim=document.getElementById('claim'); if(claim)claim.onclick=close;
+    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; } else { close(); } };
   }
   function close(){ modal.classList.remove('show'); }
   document.getElementById('hub').onclick=spin;

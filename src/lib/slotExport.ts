@@ -8,6 +8,8 @@ export type SlotExportConfig = {
   accent: string;
   dark: boolean;
   ctaText: string;
+  /** CTA click-through: URL or tracker macro (e.g. {clickurl}); empty = close. */
+  ctaUrl?: string;
   bgImage: string;
   symbols: string[];
   charLeft: string;
@@ -147,7 +149,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var again=document.getElementById('again'); if(again)again.onclick=function(){close();spin();};
-    var claim=document.getElementById('claim'); if(claim)claim.onclick=close;
+    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; } else { close(); } };
   }
   function close(){ modal.classList.remove('show'); }
   document.getElementById('cta').onclick=spin;

@@ -64,6 +64,7 @@ export function CrashLandingApp() {
   const [accent, setAccent] = useState("#ef4444");
   const [dark, setDark] = useState(true);
   const [ctaText, setCtaText] = useState("СТАРТ");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(
     "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
   );
@@ -92,6 +93,7 @@ export function CrashLandingApp() {
         if (typeof d.accent === "string") setAccent(d.accent);
         if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
+        if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
@@ -118,6 +120,7 @@ export function CrashLandingApp() {
         accent,
         dark,
         ctaText,
+        ctaUrl,
         theme,
         bgImage,
         charLeft: chars.left,
@@ -139,7 +142,7 @@ export function CrashLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, headline, accent, dark, ctaText, theme, bgImage, chars, charPrompts]);
+  }, [restored, brand, headline, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -367,6 +370,18 @@ export function CrashLandingApp() {
           <input className={inputCls} value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
         </Field>
 
+        <Field label="Ссылка перехода (CTA)">
+          <input
+            className={inputCls}
+            value={ctaUrl}
+            onChange={(e) => setCtaUrl(e.target.value)}
+            placeholder="https://your-offer.com или {clickurl}"
+          />
+          <p className="mt-1 ds-caption">
+            Куда ведёт кнопка «Забрать бонус». URL или переменная-макрос (напр. {"{clickurl}"}).
+          </p>
+        </Field>
+
         <button
           type="button"
           onClick={() =>
@@ -378,6 +393,7 @@ export function CrashLandingApp() {
                 accent,
                 dark,
                 ctaText,
+                ctaUrl,
                 bgImage,
                 charLeft: chars.left,
                 charRight: chars.right,

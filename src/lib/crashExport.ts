@@ -8,6 +8,8 @@ export type CrashExportConfig = {
   accent: string;
   dark: boolean;
   ctaText: string;
+  /** CTA click-through: URL or tracker macro (e.g. {clickurl}); empty = close. */
+  ctaUrl?: string;
   bgImage: string;
   charLeft: string;
   charRight: string;
@@ -106,7 +108,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
     else{ card.innerHTML='<button class="x" id="cx">&times;</button><h2>💥 Разбилось на ×'+val+'</h2><p>Чуть не успел — попробуйте ещё раз и заберите вовремя!</p><button class="claim" id="claim">Ещё раз</button>'; }
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx) cx.onclick=hide;
-    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ hide(); if(!win) start(); };
+    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ if(win){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } hide(); } else { hide(); start(); } };
   }
   function hide(){ modal.classList.remove('show'); }
   btn.addEventListener('click', function(){ if(phase==='running') cashOut(); else start(); });
