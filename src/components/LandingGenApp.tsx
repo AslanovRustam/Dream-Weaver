@@ -44,7 +44,9 @@ import {
 type MobileTab = "templates" | "settings" | "result";
 type Status = "idle" | "loading" | "done" | "error";
 
-const DEFAULT_TEMPLATE = "gambling-bonus";
+// MVP: default to an interactive template (wheel/slot/crash are the only
+// selectable ones). gambling-bonus and other static templates are "Скоро".
+const DEFAULT_TEMPLATE = "gambling-wheel";
 
 type BannerSeed = {
   brand_name?: string;
@@ -162,7 +164,8 @@ export function LandingGenApp() {
     if (typeof window !== "undefined") {
       try {
         const fromUrl = new URLSearchParams(window.location.search).get("template");
-        if (fromUrl && LANDING_TEMPLATE_BY_ID.has(fromUrl)) return fromUrl;
+        // Only interactive templates are selectable in the MVP.
+        if (fromUrl && LANDING_TEMPLATE_BY_ID.get(fromUrl)?.interactive) return fromUrl;
       } catch {
         /* ignore */
       }
@@ -841,6 +844,33 @@ function TemplateTile({
   selected: boolean;
   onSelect: () => void;
 }) {
+  // MVP: только интерактивные шаблоны (колесо / слот / краш) доступны.
+  // Остальные — серые «Скоро», выбрать нельзя.
+  const soon = !template.interactive;
+
+  if (soon) {
+    return (
+      <div
+        aria-disabled="true"
+        title={`${template.name} — скоро`}
+        className="group relative flex cursor-not-allowed flex-col gap-1.5 overflow-hidden rounded-lg border border-border p-1.5 text-left opacity-45"
+      >
+        <div
+          className="aspect-[4/3] w-full rounded-md bg-cover bg-center grayscale"
+          style={
+            template.preview
+              ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
+              : { background: template.gradient }
+          }
+        />
+        <p className="truncate text-xs font-medium text-hint">{template.name}</p>
+        <span className="absolute right-1.5 top-1.5 rounded-full border border-border bg-panel/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-hint backdrop-blur">
+          Скоро
+        </span>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"

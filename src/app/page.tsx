@@ -17,8 +17,6 @@ import {
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
-import { HubAdsPanel } from "@/components/HubAdsPanel";
-import { HubMailingPanel } from "@/components/HubMailingPanel";
 import { MobileScrim } from "@/components/MobileScrim";
 import { CATEGORIES } from "@/components/PresetSidebar";
 import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
@@ -194,6 +192,10 @@ function TilePreview({ sectionId }: { sectionId: string }) {
   );
 }
 
+// MVP: только эти инструменты доступны. Остальные показываем серыми «Скоро»,
+// зайти в них нельзя (ни из сайдбара, ни из хаба).
+const MVP_ENABLED = new Set<string>(["banner", "landing"]);
+
 // A quick-start tile: full-bleed preview with the section label + CTA overlaid.
 function SectionTile({
   section,
@@ -205,6 +207,42 @@ function SectionTile({
   onOpen: () => void;
 }) {
   const Icon = section.icon;
+  const soon = !MVP_ENABLED.has(section.id);
+
+  // Disabled ("Скоро") — greyed, not a button, no navigation.
+  if (soon) {
+    return (
+      <div
+        aria-disabled="true"
+        title={`${section.title} — скоро`}
+        className={`hub-tile relative flex w-full cursor-not-allowed flex-col overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] text-left opacity-55 grayscale lg:h-full ${
+          featured ? "min-h-[280px] lg:min-h-0" : "min-h-[168px] lg:min-h-0"
+        }`}
+      >
+        <div className="relative min-h-[104px] w-full flex-1 overflow-hidden">
+          <div className="absolute inset-0">
+            <TilePreview sectionId={section.id} />
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-surface)] to-transparent" />
+        </div>
+        <span className="absolute right-3 top-3 z-10 rounded-full border border-border bg-[var(--bg-void)]/80 px-2.5 py-1 text-xs font-semibold text-hint backdrop-blur">
+          Скоро
+        </span>
+        <div className={`relative flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2 p-4"}`}>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-hint">
+              <Icon className="h-4 w-4" />
+            </span>
+            <h3 className={`truncate font-semibold tracking-tight text-muted-foreground ${featured ? "text-xl" : "text-base"}`}>
+              {section.title}
+            </h3>
+          </div>
+          <p className="mt-1.5 truncate text-xs text-hint">{section.description}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -444,7 +482,11 @@ export default function HubPage() {
   }, [searchFocused]);
 
   const q = query.trim().toLowerCase();
-  const templateResults = useMemo(() => searchTemplates(query, 6), [query]);
+  // MVP: search only surfaces templates for enabled tools (banner/landing).
+  const templateResults = useMemo(
+    () => searchTemplates(query, 24).filter((t) => MVP_ENABLED.has(t.sectionId)).slice(0, 6),
+    [query],
+  );
   const projectResults = useMemo(
     () => (q ? recent.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 4) : []),
     [q, recent],
@@ -574,6 +616,23 @@ export default function HubPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {TOOL_CHIPS.map((sc) => {
               const Icon = sc.icon;
+              const soon = !MVP_ENABLED.has(sc.id);
+              if (soon) {
+                return (
+                  <span
+                    key={sc.id}
+                    aria-disabled="true"
+                    title={`${sc.title} — скоро`}
+                    className="inline-flex min-h-9 cursor-not-allowed items-center gap-1.5 rounded-full border border-border bg-white/[0.02] px-3 text-xs font-medium text-hint opacity-60"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {sc.title}
+                    <span className="ml-0.5 rounded-full border border-border px-1 text-[9px] uppercase tracking-wide">
+                      Скоро
+                    </span>
+                  </span>
+                );
+              }
               return (
                 <Link
                   key={sc.id}
@@ -827,11 +886,9 @@ export default function HubPage() {
           </div>
         </section>
 
-        {/* ── Реклама и аналитика (new): live snapshot or connect CTA ────── */}
+        {/* MVP: реклама и рассылки — «Скоро», вход скрыт на время демо.
         <HubAdsPanel />
-
-        {/* ── Email-рассылки (new): opens/clicks snapshot + compose entry ── */}
-        <HubMailingPanel />
+        <HubMailingPanel /> */}
 
         {/* ── Recent projects (only when the user has some) ─────────────── */}
         {recent.length > 0 ? (
@@ -894,7 +951,7 @@ export default function HubPage() {
             </div>
           </div>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
-            {POPULAR_TEMPLATES.map((t) => {
+            {POPULAR_TEMPLATES.filter((t) => MVP_ENABLED.has(t.sectionId)).map((t) => {
               const sec = SECTION_BY_ID.get(t.sectionId);
               const SecIcon = sec?.icon;
               return (

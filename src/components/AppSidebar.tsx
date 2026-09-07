@@ -21,6 +21,10 @@ import { SECTION_BY_ID } from "@/lib/sections";
 // the active item uses the design-system lime "Active" pill (--lime-tint).
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 
+// MVP: только эти разделы кликабельны. Остальное показываем серым «Скоро»
+// (в неактивное попасть нельзя). Домой можно вернуться через логотип в шапке.
+const ENABLED_HREFS = new Set<string>(["/", "/banner", "/landing"]);
+
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
   const sec = SECTION_BY_ID.get(id)!;
   return { href: sec.route, label: sec.title, icon: sec.icon };
@@ -112,7 +116,12 @@ export function AppSidebar() {
             <ul className="flex flex-col gap-0.5">
               {g.items.map((item) => (
                 <li key={item.href}>
-                  <SidebarLink item={item} active={!!isActive(item)} collapsed={collapsed} />
+                  <SidebarLink
+                    item={item}
+                    active={!!isActive(item)}
+                    collapsed={collapsed}
+                    soon={!ENABLED_HREFS.has(item.href)}
+                  />
                 </li>
               ))}
             </ul>
@@ -138,12 +147,38 @@ function SidebarLink({
   item,
   active,
   collapsed,
+  soon,
 }: {
   item: NavItem;
   active: boolean;
   collapsed: boolean;
+  soon?: boolean;
 }) {
   const Icon = item.icon;
+
+  // MVP: disabled ("Скоро") — greyed out, not a link, no navigation.
+  if (soon) {
+    return (
+      <div
+        aria-disabled="true"
+        title={collapsed ? `${item.label} — скоро` : undefined}
+        className={`group flex h-10 cursor-not-allowed items-center rounded-lg text-sm text-hint opacity-60 ${
+          collapsed ? "justify-center px-0" : "gap-3 px-3"
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {!collapsed ? (
+          <>
+            <span className="truncate">{item.label}</span>
+            <span className="ml-auto rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-hint">
+              Скоро
+            </span>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <Link
       href={item.href}
