@@ -28,20 +28,26 @@ export function imageCredits(images = 1): number {
   return Math.max(1, Math.round(n * USD_PER_IMAGE * CREDITS_PER_USD));
 }
 
-// Banner master runs on the rich model (openai/gpt-5-image). One image, priced
-// off USD_PER_BANNER. Args kept for call-site compatibility (model/quality no
-// longer change the price — the model is fixed server-side).
+// Banner + resize PRICING (a product decision, not raw self-cost). Target: a
+// banner plus its full set of 46 resize formats costs 150 credits, with a whole
+// per-resize price. 46 × 2 = 92 for the resizes, leaving 58 for the banner
+// master. (Self-cost is ~$0.225 banner / ~$0.067 per resize-bucket; the markup
+// lives in these numbers.)
+export const BANNER_PRICE_CREDITS = 58;
+
+// Banner master price. Args kept for call-site compatibility.
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;
   quality?: BannerQuality;
 }): number {
   void _args;
-  return Math.max(1, Math.round(USD_PER_BANNER * CREDITS_PER_USD));
+  return BANNER_PRICE_CREDITS;
 }
 
-// Resize-package pricing. Flat price PER SELECTED FORMAT — each resize costs the
-// same. Fractions are allowed (1.5 → e.g. 3 formats = 4.5 кр.).
-export const RESIZE_CREDITS_PER_FORMAT = 1.5;
+// Resize-package pricing. Flat WHOLE price PER SELECTED FORMAT — each resize
+// costs the same. 2 × 46 formats = 92; with the 58-credit banner the full
+// package totals exactly 150 credits.
+export const RESIZE_CREDITS_PER_FORMAT = 2;
 
 export function resizeCredits(selectedFormats: number): number {
   if (selectedFormats <= 0) return 0;
