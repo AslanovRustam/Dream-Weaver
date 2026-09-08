@@ -1521,12 +1521,20 @@ export async function POST(request: Request) {
               : finalPrompt;
 
           // All banner generation runs through OpenRouter (so every call returns
-          // real usage.cost). Use whatever OpenRouter image model the client
-          // requested (ids contain a "/"), defaulting to the rich openai/gpt-5-image
-          // so banners aren't bland. The OpenAI-direct gpt-image path below is
-          // retired (kept dead for reference only).
+          // real usage.cost). Two tiers:
+          //   • MASTER (fresh banner, no source): the rich requested model,
+          //     default openai/gpt-5.4-image-2 — top quality.
+          //   • RESIZE (i2i, source_image present): always the fast/cheap
+          //     gemini-flash — it only reframes the finished master into other
+          //     aspect ratios, so the heavy model isn't needed (and would be
+          //     slow + expensive). Overrides whatever the client requested.
+          // The OpenAI-direct gpt-image path below is retired (kept dead).
           const requestedModel = (body.model || "").trim();
-          const orModel = requestedModel.includes("/") ? requestedModel : "openai/gpt-5.4-image-2";
+          const orModel = hasSourceImage
+            ? "google/gemini-3.1-flash-image"
+            : requestedModel.includes("/")
+              ? requestedModel
+              : "openai/gpt-5.4-image-2";
           const isNano = true as boolean;
           const requestedAspect = body.aspect_ratio || "1:1";
 
