@@ -1526,7 +1526,7 @@ export async function POST(request: Request) {
           // so banners aren't bland. The OpenAI-direct gpt-image path below is
           // retired (kept dead for reference only).
           const requestedModel = (body.model || "").trim();
-          const orModel = requestedModel.includes("/") ? requestedModel : "openai/gpt-5-image";
+          const orModel = requestedModel.includes("/") ? requestedModel : "openai/gpt-5.4-image-2";
           const isNano = true as boolean;
           const requestedAspect = body.aspect_ratio || "1:1";
 
