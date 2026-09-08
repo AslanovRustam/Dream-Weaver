@@ -12,6 +12,8 @@ import { optionalUser } from "@/lib/auth-server";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
+// Landing/email hero images can also run on a slow model — allow up to 5 min.
+export const maxDuration = 300;
 
 type Body = {
   brand?: string;

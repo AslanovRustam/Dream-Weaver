@@ -8,6 +8,12 @@ import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
 import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
 
+export const runtime = "nodejs";
+// The master model (openai/gpt-5.4-image-2) can take ~2–3 min per banner, so
+// allow up to 5 min before the serverless function is killed — otherwise a slow
+// generation 504s mid-flight. (Vercel Node/Fluid caps at 300s.)
+export const maxDuration = 300;
+
 // Fallback coefficient if the pricing table is missing a row for this
 // (model, quality). Kept small so we never accidentally drain a balance.
 const DEFAULT_COEFFICIENT = 0.001;
