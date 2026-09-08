@@ -1089,7 +1089,9 @@ export async function POST(request: Request) {
             finalPrompt,
             "",
             "===== TEXT FIDELITY — USER-PROVIDED STRINGS (HIGHEST PRIORITY) =====",
-            "These are the ONLY texts permitted to appear as rendered words/numbers on the image. Render each one VERBATIM. Do not invent additional headlines, badges, taglines, numbers, dates, names or any other text.",
+            adTextsEnabled
+              ? "Render each user-provided string below EXACTLY, character-for-character, wherever that text appears — never paraphrase or translate it. You SHOULD still render the rich marketing texts this style calls for (headline, brand/product name, short feature lines, big NUMBERS with captions) derived from the brief; the strings below just lock the exact wording where they apply."
+              : "These are the ONLY texts permitted to appear as rendered words/numbers on the image. Render each one VERBATIM. Do not invent additional headlines, badges, taglines, numbers, dates, names or any other text.",
             "",
             ...fidelityItems,
           ].join("\n");
@@ -1137,8 +1139,15 @@ export async function POST(request: Request) {
           if (eventName) allowedTexts.push(`event name "${eventName}"`);
           if (bonusEnabled && bonusText) allowedTexts.push(`"${bonusText}"`);
 
-          const allowedTextLine =
-            allowedTexts.length > 0
+          // When ad-texts are ON (default), the banner SHOULD carry the rich
+          // marketing copy the style calls for (headline, big numbers, feature
+          // lines) — user-typed strings are just locked verbatim on top. Only a
+          // hard text-free banner when ad-texts are explicitly OFF.
+          const requiredVerbatim =
+            allowedTexts.length > 0 ? `Render these user-provided texts VERBATIM: ${allowedTexts.join(", ")}. ` : "";
+          const allowedTextLine = adTextsEnabled
+            ? `${requiredVerbatim}Render the marketing texts this banner/infographic style calls for — headline, brand/product name, short feature lines and the big NUMBERS with captions — derived from the brief. Keep every text short, correctly spelled in the target language, and inside the central safe zone; use only a few text blocks (no wall of text).`
+            : allowedTexts.length > 0
               ? `ALLOWED TEXT ELEMENTS — the ONLY readable text/numbers permitted on this image: ${allowedTexts.join(", ")}. Do not add any other text, numbers, statistics, badges, taglines, dates or captions.`
               : "NO TEXT — the user did not provide any banner text or CTA text. Produce a fully visual banner with ZERO readable text overlays. Do not invent text, do not add headlines, do not add numbers, do not add badges. The image must be text-free.";
 
