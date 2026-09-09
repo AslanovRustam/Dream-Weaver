@@ -30,7 +30,7 @@ import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
-import { estimateBannerCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { estimateBannerCredits } from "@/lib/credit-estimate";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -1691,7 +1691,7 @@ export function ImageGenApp() {
             >
               {status === "loading"
                 ? "Генерация…"
-                : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${formatCreditsEstimate(estCredits)}`}
+                : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${estCredits}`}
             </button>
             {((!isSlotPreset && prompt.trim().length === 0) ||
               (isSlotPreset && slotName.trim().length === 0)) &&
@@ -1801,7 +1801,7 @@ export function ImageGenApp() {
           >
             {status === "loading"
               ? "Генерация…"
-              : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${formatCreditsEstimate(estCredits)}`}
+              : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${estCredits}`}
           </button>
           {((!isSlotPreset && prompt.trim().length === 0) ||
             (isSlotPreset && slotName.trim().length === 0)) &&

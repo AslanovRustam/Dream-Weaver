@@ -34,7 +34,7 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
-import { resizeCredits, formatCredits } from "@/lib/credit-estimate";
+import { resizeCredits } from "@/lib/credit-estimate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -646,7 +646,7 @@ export function ResizeBatchPanel({
                     className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                   >
                     Сгенерировать пакет
-                    {selectedCount > 0 ? ` · ${formatCredits(packageCredits)}` : ""}
+                    {selectedCount > 0 ? ` · ${packageCredits}` : ""}
                   </button>
                 </div>
               </div>

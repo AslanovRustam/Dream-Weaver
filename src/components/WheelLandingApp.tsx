@@ -5,15 +5,16 @@ import Link from "next/link";
 import { ArrowLeft, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
-import { bgPreset, characterPreset, removeBackground } from "@/lib/landingCreative";
+import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { buildWheelHtml } from "@/lib/wheelExport";
 import { apiFetch } from "@/lib/api-client";
 import { CostMeter } from "@/components/CostMeter";
-import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 
-// One AI image generation (background or character) = 1 image.
-const IMG_PRICE = formatCreditsEstimate(imageCredits(1));
+// Background = gemini-flash (cheap). Character = OpenAI transparent PNG (richer).
+const BG_PRICE = imageCredits(1);
+const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
 
 const DEFAULT_PRIZES: WheelSegment[] = [
   { label: "100 TFS" },
@@ -242,12 +243,35 @@ export function WheelLandingApp() {
     setCharGenning(side);
     setGenError("");
     try {
-      const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4", feature: "landing-character" });
-      // Cut out the plain background → transparent PNG that blends into the landing.
-      const cut = await removeBackground(raw);
-      setChars((c) => ({ ...c, [side]: cut }));
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      // Primary: OpenAI transparent PNG — clean alpha straight from the model,
+      // no rembg cutout. Trim empty margins so the character doesn't levitate.
+      const res = await apiFetch("/api/generate-character", {
+        method: "POST",
+        json: { prompt: characterPreset(prompt) },
+      });
+      const data = await res.json();
+      if (res.ok && data.imageUrl) {
+        if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
+        const trimmed = await trimTransparent(data.imageUrl);
+        setChars((c) => ({ ...c, [side]: trimmed }));
+        return;
+      }
+      throw new Error(
+        [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
+      );
+    } catch {
+      // Fallback: gemini image + rembg cutout (old path).
+      try {
+        const raw = await genImage({
+          presetTemplate: characterPreset(prompt),
+          aspectRatio: "3:4",
+          feature: "landing-character",
+        });
+        const cut = await removeBackground(raw);
+        setChars((c) => ({ ...c, [side]: cut }));
+      } catch (e) {
+        setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      }
     } finally {
       setCharGenning(null);
     }
@@ -284,14 +308,9 @@ export function WheelLandingApp() {
           disabled={charGenning !== null || !charPrompts[side].trim()}
           className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-3 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
         >
-          {charGenning === side ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="h-3.5 w-3.5" />
-          )}
           {charGenning === side
             ? "Генерирую…"
-            : `${chars[side] ? "Перегенерировать" : "Сгенерировать"} · ${IMG_PRICE}`}
+            : `${chars[side] ? "Заменить" : "Генерация"} · ${CHAR_PRICE}`}
         </button>
         {chars[side] ? (
           <img
@@ -458,7 +477,7 @@ export function WheelLandingApp() {
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {genning
               ? "Генерирую фон…"
-              : `${bgImage ? "Перегенерировать фон" : "Сгенерировать фон (ИИ)"} · ${IMG_PRICE}`}
+              : `${bgImage ? "Перегенерировать фон" : "Сгенерировать фон"} · ${BG_PRICE}`}
           </button>
           {bgImage ? (
             <button

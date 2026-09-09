@@ -35,6 +35,11 @@ export function imageCredits(images = 1): number {
 // lives in these numbers.)
 export const BANNER_PRICE_CREDITS = 58;
 
+// Landing character runs on OpenAI gpt-image-2 (transparent PNG) — same cost
+// class as the banner model (~$0.225). Landing background stays on gemini-flash
+// (imageCredits(1) = 7).
+export const CHARACTER_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
+
 // Banner master price. Args kept for call-site compatibility.
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;

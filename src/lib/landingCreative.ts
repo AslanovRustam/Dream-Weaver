@@ -51,7 +51,7 @@ async function cutout(dataUrl: string): Promise<string> {
 }
 
 /** Crop a cut-out PNG to the bounding box of its non-transparent pixels. */
-async function trimTransparent(dataUrl: string): Promise<string> {
+export async function trimTransparent(dataUrl: string): Promise<string> {
   try {
     const img = await loadImage(dataUrl);
     const w = img.naturalWidth;

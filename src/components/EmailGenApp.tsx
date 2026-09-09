@@ -8,10 +8,10 @@ import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { CostMeter } from "@/components/CostMeter";
-import { imageCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { imageCredits } from "@/lib/credit-estimate";
 
 // Email hero = one AI image generation.
-const IMG_PRICE = formatCreditsEstimate(imageCredits(1));
+const IMG_PRICE = imageCredits(1);
 import {
   EMAIL_STYLES,
   type EmailDraft,

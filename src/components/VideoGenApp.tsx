@@ -57,7 +57,7 @@ import {
   CREATIVE_LANGUAGES,
   creativeLangShort,
 } from "@/lib/creative-language";
-import { estimateVideoCredits, formatCreditsEstimate } from "@/lib/credit-estimate";
+import { estimateVideoCredits } from "@/lib/credit-estimate";
 import {
   VIDEO_SCENE_TYPES,
   VIDEO_SCENE_BY_ID,
@@ -1129,7 +1129,7 @@ export function VideoGenApp() {
             >
               {status === "loading"
                 ? "Генерация…"
-                : `${result ? "Сгенерировать заново" : "Сгенерировать"} · ${formatCreditsEstimate(estCredits)}`}
+                : `${result ? "Сгенерировать заново" : "Сгенерировать"} · ${estCredits}`}
             </button>
             {script.trim().length === 0 && status !== "loading" ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">
