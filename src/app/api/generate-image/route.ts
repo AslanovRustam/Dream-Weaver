@@ -779,6 +779,58 @@ async function adaptPrompt(
   return out;
 }
 
+// Inspect an uploaded brand logo (data URL) via gpt-4o-mini vision to tell
+// whether it contains a wordmark (readable text) or is a mark/icon only, and
+// what the wordmark says. Best-effort — on any failure returns {hasText:false}.
+async function analyzeLogo(dataUrl: string): Promise<{ hasText: boolean; wordmark: string }> {
+  const fallback = { hasText: false, wordmark: "" };
+  try {
+    const orKey = process.env.OPENROUTER_API_KEY;
+    if (!orKey) return fallback;
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${orKey}`,
+        "HTTP-Referer": "https://dream-weaver-studio.local",
+        "X-Title": "Gen Go",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              'You classify brand logos. Reply STRICT JSON {"hasText":boolean,"wordmark":string}. ' +
+              "hasText=true if the logo contains readable letters/words (a wordmark or lettering baked into the logo), " +
+              "false if it is only an icon/symbol/emblem with NO text. wordmark = the exact text shown in the logo " +
+              "(empty string if none).",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Does this brand logo contain text? Return JSON only." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const raw = data.choices?.[0]?.message?.content ?? "{}";
+    const j = JSON.parse(raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim());
+    return {
+      hasText: !!j.hasText,
+      wordmark: typeof j.wordmark === "string" ? j.wordmark.slice(0, 120) : "",
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export async function POST(request: Request) {
         // Correlation id stitched through every log row this handler
         // emits — makes /admin → Логи trivial to follow request-by-request.
@@ -885,6 +937,22 @@ export async function POST(request: Request) {
           : null;
         const brandName = (body.brand_name || "").trim().slice(0, 80);
         const hasLogo = !!(body.brand_logo && body.brand_logo.startsWith("data:"));
+        // If the logo carries a wordmark (text), we must reproduce THAT lettering
+        // from the reference rather than re-typesetting the brand name in a new
+        // font. Mark-only logos → no directive, flow stays as before.
+        let logoTextDirective = "";
+        if (hasLogo && body.brand_logo) {
+          const la = await analyzeLogo(body.brand_logo);
+          if (la.hasText) {
+            logoTextDirective =
+              "LOGO WORDMARK (CRITICAL): the provided brand logo already contains the brand's own text" +
+              (la.wordmark ? ` ("${la.wordmark}")` : "") +
+              ". Reproduce the logo INCLUDING its lettering EXACTLY as in the reference image — same letterforms, " +
+              "typography, weight, style and colours. Do NOT re-typeset the brand name in a new or different font, " +
+              "and do NOT add a second typographic version of the brand name; the brand name appears only through the " +
+              "logo's own wordmark.";
+          }
+        }
         const language = (body.language || "auto").trim();
         const slotName = (body.slot_name || "").trim().slice(0, 120);
         const hasSlotScreenshot = !!(
@@ -1459,6 +1527,10 @@ export async function POST(request: Request) {
           // adult, fully clothed in tasteful professional/smart-casual attire.
           if (personEnabled) {
             finalPrompt = `${finalPrompt}\n\nPEOPLE: any person shown is an adult, FULLY CLOTHED in tasteful professional or smart-casual attire, in a natural non-sexual pose. No nudity, no lingerie/swimwear, no revealing or suggestive clothing, no sexualized framing or emphasis on the body.`;
+          }
+          // Logo carries a wordmark → force exact reproduction of its lettering.
+          if (logoTextDirective) {
+            finalPrompt = `${finalPrompt}\n\n${logoTextDirective}`;
           }
         }
 
