@@ -184,7 +184,7 @@ export function ImageGenApp() {
     return "gpt";
   });
   const [ratio, setRatio] = useState("1:1");
-  const [quality, setQuality] = useState<Quality>("low");
+  const [quality, setQuality] = useState<Quality>("medium");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   // Live elapsed-seconds counter for the master loader. The static "10–30 сек"
@@ -484,8 +484,10 @@ export function ImageGenApp() {
         // any legacy gen_history so old thumbnails disappear after this
         // release.
         localStorage.removeItem("gen_history");
-        const q = localStorage.getItem("gen_quality");
-        if (q === "low" || q === "medium" || q === "high") setQuality(q);
+        // Quality has no UI picker — it's a fixed product default (medium). Don't
+        // restore a stale stored value (older builds auto-saved "low"), so the
+        // default always wins.
+        localStorage.removeItem("gen_quality");
       } catch {
         /* localStorage unavailable — ignore */
       }
@@ -1661,7 +1663,7 @@ export function ImageGenApp() {
 
               {/* Соотношение сторон. Качество и модель (Артистизм/Реализм) скрыты
                   из UI — модель всегда "Артистизм" (дефолт из useState), а
-                  качество остаётся на своём значении по умолчанию ("low"). */}
+                  качество зафиксировано дефолтом ("medium"). */}
               {advanced && (
                 <div className="mt-2 flex flex-col gap-4">
                   <div className="min-w-0">
