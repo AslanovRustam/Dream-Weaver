@@ -25,6 +25,12 @@ const DEFAULT_COEFFICIENT = 0.001;
 // the image. A precise per-request hold belongs to the QUEUE-1 billing work.
 const MIN_BALANCE_TO_GENERATE = 1;
 
+// Banner-master engine (OpenAI-direct). Was "gpt-image-2"; upgraded to
+// OpenAI's ChatGPT Images 2.5 "Sunburst" (released 2026-09-08) — sharper output
+// and precise edits, far cheaper (token-billed) and faster than gpt-image-2.
+// Resizes still run on gemini-flash via OpenRouter.
+const MASTER_IMAGE_MODEL = "gpt-image-2.5-sunburst";
+
 // Resolve the pricing-table key from the request model string.
 // Anything that looks like Gemini/Google maps to "gemini-nano"; everything
 // else is billed as "gpt-image-2".
@@ -1620,12 +1626,10 @@ export async function POST(request: Request) {
               ? `${finalPrompt}\n\nREFERENCE IMAGES:\n- ${refLines.join("\n- ")}`
               : finalPrompt;
 
-          // All banner generation runs through OpenRouter (so every call returns
-          // real usage.cost). Two tiers:
-          //   • MASTER (fresh banner, no source): the rich requested model,
-          //     default openai/gpt-5.4-image-2 — top quality.
-          //   • MASTER (fresh banner, no source): OpenAI-DIRECT gpt-image-2
-          //     (native /v1/images API) — the A/B path we're comparing.
+          // Two tiers:
+          //   • MASTER (fresh banner, no source): OpenAI-DIRECT, native
+          //     /v1/images API, MASTER_IMAGE_MODEL (gpt-image-2.5-sunburst) —
+          //     top quality, token-billed, fast.
           //   • RESIZE (i2i, source_image present): fast/cheap gemini-flash via
           //     OpenRouter — only reframes the finished master.
           const requestedModel = (body.model || "").trim();
@@ -1675,10 +1679,9 @@ export async function POST(request: Request) {
               }),
             });
           } else {
-            // === gpt-image path → OpenAI direct ===
-            // OpenAI hosts the image model as "gpt-image-1" (no "gpt-image-2"
-            // exists). We always send that name regardless of what the
-            // frontend's MODEL_IDS happens to say.
+            // === master path → OpenAI direct ===
+            // We always send MASTER_IMAGE_MODEL (gpt-image-2.5-sunburst)
+            // regardless of what the frontend's MODEL_IDS happens to say.
             // For resize buckets we honour target_w/target_h so the model
             // emits an image at-or-above the largest tile size in the
             // bucket — all subsequent client-side scales are then pure
@@ -1694,7 +1697,7 @@ export async function POST(request: Request) {
               // Image-to-image / multi-reference → /v1/images/edits with
               // multipart form. OpenAI accepts up to 4 refs via image[].
               const form = new FormData();
-              form.append("model", "gpt-image-2");
+              form.append("model", MASTER_IMAGE_MODEL);
               form.append("prompt", promptForOpenAI);
               form.append("size", size);
               form.append("quality", quality);
@@ -1726,7 +1729,7 @@ export async function POST(request: Request) {
                   Authorization: `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                  model: "gpt-image-2",
+                  model: MASTER_IMAGE_MODEL,
                   prompt: promptForOpenAI,
                   size,
                   quality,
@@ -1757,7 +1760,7 @@ export async function POST(request: Request) {
               context: {
                 provider_status: res.status,
                 is_quota_error: isQuota,
-                model: body.model || "gpt-image-2",
+                model: body.model || MASTER_IMAGE_MODEL,
                 preset_id: (body.preset_id as string) || null,
                 detail: text.slice(0, 300),
               },
@@ -1791,7 +1794,7 @@ export async function POST(request: Request) {
               const u = data.usage;
               usage = {
                 provider: "openai",
-                model: "gpt-image-2",
+                model: MASTER_IMAGE_MODEL,
                 quality,
                 input_text_tokens: u?.input_tokens_details?.text_tokens ?? 0,
                 input_image_tokens: u?.input_tokens_details?.image_tokens ?? 0,
