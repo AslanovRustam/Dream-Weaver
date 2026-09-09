@@ -460,6 +460,23 @@ export function ResizeBatchPanel({
                 </DialogTitle>
               </DialogHeader>
 
+              {/* One-click maximum package — select every format at once. */}
+              <div className="px-4 pt-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectedCount === totalAcross
+                      ? setSelected(new Map())
+                      : selectAllSizes(BANNER_SIZE_GROUPS.flatMap((g) => g.sizes))
+                  }
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent-green/40 bg-[var(--lime-tint)] px-4 text-sm font-semibold text-accent-green transition hover:bg-accent-green/15"
+                >
+                  {selectedCount === totalAcross
+                    ? "Снять все ресайзы"
+                    : `Выбрать все ресайзы · максимальный пакет (${totalAcross})`}
+                </button>
+              </div>
+
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 {displayGroups.map((g) => {
                   const isExpanded = expandedGroups.has(g.id);
