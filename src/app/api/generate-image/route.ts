@@ -698,8 +698,9 @@ async function adaptPrompt(
     "no big numbers with captions, no callouts. Keep only the visual scene (product, optional person, background, lighting, " +
     "composition, style). The image must contain NO rendered text except the banner/CTA texts explicitly provided below.\n" +
     "- PERSON flag: if OFF, do NOT include any person, model, or face. Hands holding the product are still allowed. " +
-    "Recompose so the product itself is the hero. If ON, the central subject is a model of the specified gender; " +
-    "adapt clothing, hair, styling so they fit the gender and the brand.\n" +
+    "Recompose so the product itself is the hero. If ON, the central subject is a person of the specified gender, " +
+    "always FULLY CLOTHED in tasteful professional or smart-casual attire, natural non-sexual pose — never revealing, " +
+    "suggestive or sexualized; adapt clothing, hair, styling so they fit the gender and the brand.\n" +
     "- If a BANNER HEADLINE TEXT is provided, it MUST appear as the main headline in the image " +
     "(even when AD_TEXTS is OFF). If an explicit OUTPUT LANGUAGE is specified and the provided headline is in a different language, " +
     "TRANSLATE it accurately into the OUTPUT LANGUAGE before rendering — do NOT keep the source-language wording. " +
@@ -710,7 +711,7 @@ async function adaptPrompt(
     "Return ONLY the final image-generation prompt as a single paragraph in English, no preface, no markdown.";
 
   const personLine = personEnabled
-    ? `PERSON: ON — central subject is a ${personGender === "male" ? "male" : "female"} model.`
+    ? `PERSON: ON — central subject is a ${personGender === "male" ? "man" : "woman"}, a fully-dressed, professional presenter in tasteful business or smart-casual attire, natural non-sexual pose. Never revealing, suggestive or sexualized.`
     : "PERSON: OFF — no person, model, or face in the scene. Hands are allowed.";
   const adTextsLine = adTextsEnabled
     ? "AD_TEXTS: ON — keep all template marketing texts (adapted to the new subject and its language)."
@@ -1453,6 +1454,12 @@ export async function POST(request: Request) {
         // brand authority there.
         if (!hasSourceImage) {
           finalPrompt = `${finalPrompt}\n\n${noRealBrandLine(brandName, hasLogo)}`;
+          // People-safety clause — keeps OpenAI's input safety filter from
+          // false-flagging casino/iGaming creatives as sexual. Any person is an
+          // adult, fully clothed in tasteful professional/smart-casual attire.
+          if (personEnabled) {
+            finalPrompt = `${finalPrompt}\n\nPEOPLE: any person shown is an adult, FULLY CLOTHED in tasteful professional or smart-casual attire, in a natural non-sexual pose. No nudity, no lingerie/swimwear, no revealing or suggestive clothing, no sexualized framing or emphasis on the body.`;
+          }
         }
 
         const dataUrlToBlob = (dataUrl: string): { blob: Blob; ext: string } | null => {
@@ -1622,6 +1629,10 @@ export async function POST(request: Request) {
               form.append("output_format", "jpeg");
               form.append("output_compression", "88");
               form.append("n", "1");
+              // Relax OpenAI's built-in image moderation — the default ("auto")
+              // false-flags legit iGaming/casino creatives with a person as
+              // "sexual content". "low" keeps only the hard-blocked categories.
+              form.append("moderation", "low");
               refs.forEach((r, i) => {
                 form.append(
                   refs.length > 1 ? "image[]" : "image",
@@ -1648,6 +1659,8 @@ export async function POST(request: Request) {
                   size,
                   quality,
                   n: 1,
+                  // Relax over-eager moderation (see edits branch above).
+                  moderation: "low",
                 }),
               });
             }
