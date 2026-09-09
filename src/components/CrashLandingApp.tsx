@@ -11,6 +11,7 @@ import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
 import { CostMeter } from "@/components/CostMeter";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { SuggestButton } from "@/components/landing/SuggestButton";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -67,6 +68,7 @@ export function CrashLandingApp() {
     r.readAsDataURL(f);
   };
   const [headline, setHeadline] = useState("УСПЕЙ ЗАБРАТЬ!");
+  const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#ef4444");
   const [dark, setDark] = useState(true);
   const [ctaText, setCtaText] = useState("СТАРТ");
@@ -97,6 +99,7 @@ export function CrashLandingApp() {
         if (typeof d.brand === "string") setBrand(d.brand);
         if (typeof d.brandLogo === "string") setBrandLogo(d.brandLogo);
         if (typeof d.headline === "string") setHeadline(d.headline);
+        if (typeof d.topic === "string") setTopic(d.topic);
         if (typeof d.accent === "string") setAccent(d.accent);
         if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
@@ -125,6 +128,7 @@ export function CrashLandingApp() {
         brand,
         brandLogo,
         headline,
+        topic,
         accent,
         dark,
         ctaText,
@@ -150,7 +154,7 @@ export function CrashLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts]);
+  }, [restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -236,13 +240,21 @@ export function CrashLandingApp() {
           </button>
         ) : null}
       </div>
-      <textarea
-        className={`${inputCls} min-h-[52px] resize-y py-2 text-xs`}
-        rows={2}
-        value={charPrompts[side]}
-        onChange={(e) => setCharPrompts((p) => ({ ...p, [side]: e.target.value }))}
-        placeholder="Опишите персонажа / маскота"
-      />
+      <div className="flex items-start gap-2">
+        <textarea
+          className={`${inputCls} min-h-[52px] resize-y py-2 text-xs`}
+          rows={2}
+          value={charPrompts[side]}
+          onChange={(e) => setCharPrompts((p) => ({ ...p, [side]: e.target.value }))}
+          placeholder="Опишите персонажа / маскота"
+        />
+        <SuggestButton
+          topic={topic}
+          field="character"
+          mechanic="crash"
+          onFill={(t) => setCharPrompts((p) => ({ ...p, [side]: t }))}
+        />
+      </div>
       <div className="mt-2 flex items-center gap-2">
         <button
           type="button"
@@ -302,7 +314,23 @@ export function CrashLandingApp() {
         </header>
 
         <div>
-          <label className="mb-2 block ds-h4">Тематика</label>
+          <label className="mb-2 block ds-h4">
+            Тематика <span className="text-accent-green">*</span>
+          </label>
+          <textarea
+            className={`${inputCls} min-h-[64px] resize-y py-2`}
+            rows={2}
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Что хотите на лендинге: тематика, оффер, визуал…"
+          />
+          <p className="mt-1.5 ds-caption">
+            Обязательно. По тематике ИИ подбирает тексты и промпты — жмите ✨ у полей.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block ds-h4">Быстрые темы</label>
           <div className="flex flex-wrap gap-2">
             {THEMES.map((t) => (
               <button
@@ -322,7 +350,10 @@ export function CrashLandingApp() {
         </div>
 
         <Field label="Заголовок">
-          <input className={inputCls} value={headline} onChange={(e) => setHeadline(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <input className={inputCls} value={headline} onChange={(e) => setHeadline(e.target.value)} />
+            <SuggestButton topic={topic} field="headline" mechanic="crash" onFill={setHeadline} />
+          </div>
         </Field>
         <div className="grid grid-cols-[1fr_auto_auto] items-end gap-3">
           <Field label="Бренд">
@@ -403,12 +434,15 @@ export function CrashLandingApp() {
         {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <Field label="Сцена / персонаж (для фона)">
-            <textarea
-              className={`${inputCls} min-h-[70px] resize-y py-2`}
-              rows={2}
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-            />
+            <div className="flex items-start gap-2">
+              <textarea
+                className={`${inputCls} min-h-[70px] resize-y py-2`}
+                rows={2}
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+              />
+              <SuggestButton topic={topic} field="bg" mechanic="crash" onFill={setTheme} />
+            </div>
           </Field>
           <button
             type="button"
@@ -449,7 +483,10 @@ export function CrashLandingApp() {
         </div>
 
         <Field label="Кнопка">
-          <input className={inputCls} value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <input className={inputCls} value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+            <SuggestButton topic={topic} field="cta" mechanic="crash" onFill={setCtaText} />
+          </div>
         </Field>
 
         <Field label="Ссылка перехода (CTA)">
