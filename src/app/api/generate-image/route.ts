@@ -1545,18 +1545,16 @@ export async function POST(request: Request) {
           // real usage.cost). Two tiers:
           //   • MASTER (fresh banner, no source): the rich requested model,
           //     default openai/gpt-5.4-image-2 — top quality.
-          //   • RESIZE (i2i, source_image present): always the fast/cheap
-          //     gemini-flash — it only reframes the finished master into other
-          //     aspect ratios, so the heavy model isn't needed (and would be
-          //     slow + expensive). Overrides whatever the client requested.
-          // The OpenAI-direct gpt-image path below is retired (kept dead).
+          //   • MASTER (fresh banner, no source): OpenAI-DIRECT gpt-image-2
+          //     (native /v1/images API) — the A/B path we're comparing.
+          //   • RESIZE (i2i, source_image present): fast/cheap gemini-flash via
+          //     OpenRouter — only reframes the finished master.
           const requestedModel = (body.model || "").trim();
-          const orModel = hasSourceImage
-            ? "google/gemini-3.1-flash-image"
-            : requestedModel.includes("/")
-              ? requestedModel
-              : "openai/gpt-5.4-image-2";
-          const isNano = true as boolean;
+          const orModel = "google/gemini-3.1-flash-image"; // used only on the resize (OpenRouter) path
+          void requestedModel;
+          // isNano=true → OpenRouter path; false → OpenAI-direct gpt-image path.
+          // Masters go OpenAI-direct; resizes stay on OpenRouter gemini.
+          const isNano = hasSourceImage;
           const requestedAspect = body.aspect_ratio || "1:1";
 
           if (isNano) {
