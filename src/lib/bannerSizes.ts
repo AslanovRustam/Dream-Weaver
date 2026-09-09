@@ -144,6 +144,84 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
       { w: 600, h: 480, ratio: "5:4" },
     ],
   },
+
+  // ----------------------------------------------------------------
+  // Display / performance ads — IAB rectangles (square-ish tiles)
+  // ----------------------------------------------------------------
+  {
+    id: "display-rect",
+    title: "Display — прямоугольники",
+    subtitle: "IAB медийка: квадраты и прямоугольные тайлы",
+    sizes: [
+      { w: 300, h: 250, ratio: "6:5", label: "Medium Rectangle" },
+      { w: 336, h: 280, ratio: "6:5", label: "Large Rectangle" },
+      { w: 180, h: 150, ratio: "6:5", label: "Rectangle" },
+      { w: 580, h: 400, ratio: "29:20" },
+      { w: 400, h: 400, ratio: "1:1" },
+      { w: 125, h: 125, ratio: "1:1", label: "Button" },
+      { w: 468, h: 400, ratio: "117:100" },
+      { w: 600, h: 500, ratio: "6:5" },
+      { w: 120, h: 90, ratio: "4:3" },
+      { w: 160, h: 90, ratio: "16:9" },
+      { w: 480, h: 320, ratio: "3:2" },
+    ],
+  },
+
+  // ----------------------------------------------------------------
+  // Display / performance ads — horizontal (leaderboards, banners)
+  // ----------------------------------------------------------------
+  {
+    id: "display-horizontal",
+    title: "Display — горизонтальные",
+    subtitle: "Лидерборды и вытянутые баннеры",
+    sizes: [
+      { w: 728, h: 90, ratio: "364:45", label: "Leaderboard" },
+      { w: 970, h: 90, ratio: "97:9", label: "Large Leaderboard" },
+      { w: 970, h: 250, ratio: "97:25", label: "Billboard" },
+      { w: 468, h: 60, ratio: "39:5", label: "Full Banner" },
+      { w: 234, h: 60, ratio: "39:10", label: "Half Banner" },
+      { w: 930, h: 180, ratio: "31:6" },
+      { w: 980, h: 120, ratio: "49:6" },
+      { w: 750, h: 100, ratio: "15:2" },
+      { w: 750, h: 200, ratio: "15:4" },
+      { w: 750, h: 300, ratio: "5:2" },
+      { w: 1000, h: 90, ratio: "100:9" },
+      { w: 1000, h: 120, ratio: "25:3" },
+      { w: 960, h: 90, ratio: "32:3" },
+      { w: 950, h: 90, ratio: "95:9" },
+      { w: 800, h: 90, ratio: "80:9" },
+      { w: 640, h: 100, ratio: "32:5" },
+      { w: 400, h: 100, ratio: "4:1" },
+      { w: 320, h: 100, ratio: "16:5", label: "Large Mobile Banner" },
+      { w: 320, h: 50, ratio: "32:5", label: "Mobile Leaderboard" },
+      { w: 300, h: 50, ratio: "6:1", label: "Mobile Banner" },
+      { w: 120, h: 60, ratio: "2:1" },
+    ],
+  },
+
+  // ----------------------------------------------------------------
+  // Display / performance ads — vertical (skyscrapers, portraits)
+  // ----------------------------------------------------------------
+  {
+    id: "display-vertical",
+    title: "Display — вертикальные",
+    subtitle: "Небоскрёбы и портретные тайлы",
+    sizes: [
+      { w: 160, h: 600, ratio: "4:15", label: "Wide Skyscraper" },
+      { w: 120, h: 600, ratio: "1:5", label: "Skyscraper" },
+      { w: 300, h: 600, ratio: "1:2", label: "Half-Page" },
+      { w: 300, h: 1050, ratio: "2:7", label: "Portrait" },
+      { w: 120, h: 240, ratio: "1:2", label: "Vertical Banner" },
+      { w: 240, h: 600, ratio: "2:5" },
+      { w: 200, h: 600, ratio: "1:3" },
+      { w: 250, h: 600, ratio: "5:12" },
+      { w: 120, h: 400, ratio: "3:10" },
+      { w: 240, h: 400, ratio: "3:5" },
+      { w: 300, h: 400, ratio: "3:4" },
+      { w: 320, h: 480, ratio: "2:3" },
+      { w: 250, h: 360, ratio: "25:36" },
+    ],
+  },
 ];
 
 /** Unique key for a size — used as React key and as Map identifier. */
@@ -212,6 +290,21 @@ export const GROUP_TEMPLATES: Record<string, GroupTemplate> = {
     layout:
       "TINY TILE LAYOUT (small thumbnail / button-size): minimalism. Only the brand logo + at most ONE short word or number. Huge margins (≥ 14% from every edge). NO long text — at this size text becomes unreadable. Visual must be instantly recognisable at small scale.",
     boost: { x: 0.14, y: 0.14, width: 0.72, height: 0.72, weight: 1.0 },
+  },
+  "display-rect": {
+    layout:
+      "DISPLAY RECTANGLE LAYOUT (square-ish IAB tile): compact centred composition. Logo top-center or top-left inside 12% safe zone. Headline near the top, key visual centred, CTA button bottom-center inside bottom 20%. Everything within the central 84% — generous margins so the tile reads at small sizes.",
+    boost: { x: 0.08, y: 0.08, width: 0.84, height: 0.84, weight: 1.0 },
+  },
+  "display-horizontal": {
+    layout:
+      "HORIZONTAL LEADERBOARD LAYOUT (very wide banner, will be cropped to thin strips): keep EVERYTHING inside the CENTRAL HORIZONTAL BAND — the middle 60% of the height (from 20% to 80% vertically). Logo far left, headline center, CTA button far right, all vertically centered on one line. NOTHING important in the top 20% or bottom 20% — those bands get cropped away. Big, bold, legible.",
+    boost: { x: 0.02, y: 0.2, width: 0.96, height: 0.6, weight: 1.0 },
+  },
+  "display-vertical": {
+    layout:
+      "VERTICAL SKYSCRAPER LAYOUT (very tall banner, will be cropped to narrow strips): keep EVERYTHING inside the CENTRAL VERTICAL COLUMN — the middle 60% of the width (from 20% to 80% horizontally). Stack logo (top), key visual (center), CTA button (bottom) along that central column. NOTHING important in the left 20% or right 20% — those get cropped away. Tall, stacked, legible.",
+    boost: { x: 0.2, y: 0.02, width: 0.6, height: 0.96, weight: 1.0 },
   },
 };
 
