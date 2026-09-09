@@ -306,6 +306,23 @@ export const GROUP_TEMPLATES: Record<string, GroupTemplate> = {
       "VERTICAL SKYSCRAPER LAYOUT (very tall banner, will be cropped to narrow strips): keep EVERYTHING inside the CENTRAL VERTICAL COLUMN — the middle 60% of the width (from 20% to 80% horizontally). Stack logo (top), key visual (center), CTA button (bottom) along that central column. NOTHING important in the left 20% or right 20% — those get cropped away. Tall, stacked, legible.",
     boost: { x: 0.2, y: 0.02, width: 0.6, height: 0.96, weight: 1.0 },
   },
+  // Micro tiles — too small for a full layout. Stripped, shape-adapted
+  // compositions with ONE or TWO huge elements so they read at tiny scale.
+  "micro-wide": {
+    layout:
+      "MICRO WIDE TILE (tiny thin horizontal banner — will be a thin strip): show ONLY two things on ONE horizontal line, vertically centered: the brand LOGO on the left and ONE very short element on the right — either a short CTA word or the offer number (e.g. '100%', 'БОНУС', 'PLAY'). HUGE, bold type. A simple bold on-brand background/gradient. NO headline, NO paragraph, NO scene detail, NO extra text. Everything in the central 60% height band.",
+    boost: { x: 0.02, y: 0.2, width: 0.96, height: 0.6, weight: 1.0 },
+  },
+  "micro-square": {
+    layout:
+      "MICRO SQUARE TILE (tiny near-square badge): ONE dominant element only, filling ~80% of the frame on a simple bold on-brand background — either the brand MASCOT/character close-up OR the brand LOGO. At most ONE huge short word or number if it still reads. NO layout, NO CTA button, NO scene, NO body text. Must be instantly recognisable at postage-stamp size.",
+    boost: { x: 0.1, y: 0.1, width: 0.8, height: 0.8, weight: 1.0 },
+  },
+  "micro-tall": {
+    layout:
+      "MICRO TALL TILE (tiny narrow vertical strip): stack ONLY the brand LOGO (top) and ONE very short word or number (bottom) along the central vertical column, OR a single mascot filling the column. HUGE, bold type, one element per row. Simple bold on-brand background. NO paragraphs, NO CTA button, NO scene detail. Everything in the central 60% width column.",
+    boost: { x: 0.2, y: 0.02, width: 0.6, height: 0.96, weight: 1.0 },
+  },
 };
 
 /** Get a use-case template for a SizeGroup id; returns null if unknown. */

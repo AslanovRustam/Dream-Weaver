@@ -31,6 +31,28 @@ export const FLARE_EDGE_STEP = 16; // both edges must be divisible by 16
 /** Max/min aspect the model will render (long:short). */
 export const FLARE_MAX_ASPECT = 3;
 
+// A tile whose SHORTER edge is below this can't legibly hold a full layered
+// composition (logo + headline + visual + CTA). Such tiles get a dedicated
+// source generated with a stripped-down "micro" composition instead of a crop
+// from the busy shared source.
+export const MICRO_MIN_EDGE = 128;
+
+/** Detail tier for a target: full layout, or a shape-adapted micro composition. */
+export type DetailTier = "full" | "micro-wide" | "micro-square" | "micro-tall";
+
+/**
+ * Classify a target by how much composition it can legibly hold. Anything with
+ * a short edge ≥ MICRO_MIN_EDGE keeps the full layout. Smaller tiles get a
+ * shape-adapted micro tier: wide thin → one horizontal line (logo + offer);
+ * tall thin → stacked; near-square → a single dominant element.
+ */
+export function classifyDetail(w: number, h: number): DetailTier {
+  if (Math.min(w, h) >= MICRO_MIN_EDGE) return "full";
+  if (w / h >= 1.6) return "micro-wide";
+  if (h / w >= 1.6) return "micro-tall";
+  return "micro-square";
+}
+
 // Canonical source aspects we snap to, as [a, b] with a≥b (landscape) plus
 // their portrait mirrors. Kept small so a whole selection collapses into a
 // handful of source generations. Values span 1:1 → 3:1 and 1:1 → 1:3.
@@ -67,6 +89,8 @@ export interface PlannedTarget extends Target {
 export interface SourcePlan {
   /** Canonical source aspect, reduced (e.g. "3:1"). */
   ratio: string;
+  /** Detail tier — "full" or a "micro-*" simplified composition. */
+  detail: DetailTier;
   /** Generatable canvas for this source (÷16, within all flare limits). */
   source: { w: number; h: number };
   /** Every requested size served from this source. */
@@ -182,18 +206,23 @@ export function centerCrop(sourceW: number, sourceH: number, targetW: number, ta
  * source aspect, size each source to cover its members, and attach a crop.
  */
 export function planResizes(sizes: Target[]): SourcePlan[] {
-  // Bucket targets by canonical source ratio.
-  const buckets = new Map<string, { ra: number; rb: number; items: Target[] }>();
+  // Bucket targets by canonical source ratio AND detail tier, so micro tiles
+  // get their own simplified source instead of a crop from the busy one.
+  const buckets = new Map<
+    string,
+    { ra: number; rb: number; detail: DetailTier; items: Target[] }
+  >();
   for (const s of sizes) {
     const [ra, rb] = pickSourceRatio(s.w, s.h);
-    const key = `${ra}:${rb}`;
-    const bucket = buckets.get(key) ?? { ra, rb, items: [] };
+    const detail = classifyDetail(s.w, s.h);
+    const key = `${ra}:${rb}|${detail}`;
+    const bucket = buckets.get(key) ?? { ra, rb, detail, items: [] };
     bucket.items.push(s);
     buckets.set(key, bucket);
   }
 
   const plans: SourcePlan[] = [];
-  for (const [key, { ra, rb, items }] of buckets) {
+  for (const [, { ra, rb, detail, items }] of buckets) {
     // Source must cover the largest member on each edge. For a same-aspect
     // crop that's just max(w)/max(h); a strip crop from a flatter/taller
     // source still needs to cover the member's long edge, so max on both is
@@ -207,7 +236,7 @@ export function planResizes(sizes: Target[]): SourcePlan[] {
       crop: centerCrop(source.w, source.h, s.w, s.h),
       extreme: isExtreme(s.w, s.h),
     }));
-    plans.push({ ratio: key, source, targets });
+    plans.push({ ratio: `${ra}:${rb}`, detail, source, targets });
   }
   // Stable order: landscape sources first by descending width, then portrait.
   plans.sort((a, b) => b.source.w / b.source.h - a.source.w / a.source.h);

@@ -403,10 +403,10 @@ export function GenerationProvider({ children }: ProviderProps) {
 
       const initial: BatchTile[] = sizes.map((s) => {
         const plan = planByKey.get(`${s.w}x${s.h}`);
-        // "Free" only when the source aspect equals the (square) master — then
-        // the master itself is the source and no API call is needed. Every
-        // other aspect needs one flare i2i source shared across its members.
-        const free = plan?.ratio === masterRatio;
+        // "Free" only when the source IS the (square) master itself: aspect 1:1
+        // AND full detail. Micro tiles (even 1:1) need their own simplified
+        // source, so they are never free.
+        const free = plan?.ratio === masterRatio && plan?.detail === "full";
         return {
           id: `${s.w}x${s.h}`,
           size: s,
@@ -443,8 +443,10 @@ export function GenerationProvider({ children }: ProviderProps) {
         return fallback;
       };
 
-      // Vision pre-pass only if some source must be regenerated (not the master).
-      const needsVision = plans.some((p) => p.ratio !== masterRatio);
+      // Vision pre-pass only if some FULL-detail source must be regenerated
+      // (not the master). Micro sources are deliberately stripped down and
+      // don't reproduce the master's text, so they don't need it.
+      const needsVision = plans.some((p) => p.detail === "full" && p.ratio !== masterRatio);
       let masterDetails: MasterDetails | null = null;
       if (needsVision) {
         try {
@@ -473,8 +475,9 @@ export function GenerationProvider({ children }: ProviderProps) {
         for (const s of planSizes) updateTile(`${s.w}x${s.h}`, { status: "running" });
 
         // Resolve the SOURCE image for this plan.
+        const isMicro = plan.detail !== "full";
         let sourceUrl: string;
-        if (plan.ratio === masterRatio) {
+        if (plan.ratio === masterRatio && !isMicro) {
           sourceUrl = masterDataUrl; // free — crop straight from the master
         } else {
           const rep = planSizes[0];
@@ -484,8 +487,10 @@ export function GenerationProvider({ children }: ProviderProps) {
             source_image: masterDataUrl,
             target_w: plan.source.w,
             target_h: plan.source.h,
-            master_details: masterDetails ?? undefined,
-            group_id: rep.group_id,
+            // Micro sources use a stripped composition (see GROUP_TEMPLATES
+            // micro-*) and skip the master's detailed text facts.
+            master_details: isMicro ? undefined : masterDetails ?? undefined,
+            group_id: isMicro ? plan.detail : rep.group_id,
             skip_history_attach: true,
           };
           // t2i fallback: same prompt + aspect, no source image (used when i2i
@@ -601,12 +606,18 @@ export function GenerationProvider({ children }: ProviderProps) {
         let sourceForCrop = masterDataUrl;
         // Source aspect differs from the (square) master → fresh flare i2i.
         // Same aspect → crop straight from the master, no API.
-        if (plan && plan.ratio !== masterRatio) {
+        const isMicro = !!plan && plan.detail !== "full";
+        // Regenerate a source when the aspect differs from the master, or when
+        // this is a micro tile (which needs its own stripped composition even
+        // at 1:1). Same aspect + full detail → crop straight from the master.
+        if (plan && (plan.ratio !== masterRatio || isMicro)) {
           let masterDetails: MasterDetails | null = null;
-          try {
-            masterDetails = await extractMasterDetails(masterDataUrl);
-          } catch {
-            masterDetails = null;
+          if (!isMicro) {
+            try {
+              masterDetails = await extractMasterDetails(masterDataUrl);
+            } catch {
+              masterDetails = null;
+            }
           }
           const i2iPayload: GeneratePayload = {
             ...basePayload,
@@ -614,8 +625,8 @@ export function GenerationProvider({ children }: ProviderProps) {
             source_image: masterDataUrl,
             target_w: plan.source.w,
             target_h: plan.source.h,
-            master_details: masterDetails ?? undefined,
-            group_id: tile.size.group_id,
+            master_details: isMicro ? undefined : masterDetails ?? undefined,
+            group_id: isMicro ? plan.detail : tile.size.group_id,
             skip_history_attach: true,
           };
           try {
