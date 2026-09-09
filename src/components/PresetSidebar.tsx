@@ -1007,21 +1007,9 @@ export const CATEGORIES: Category[] = [
       "preset11",
       "preset12",
       "preset15",
-    ],
-  },
-  {
-    id: "betting",
-    label: "Betting",
-    presetIds: [
+      // Moved from the retired "Betting" category: Событие, Приветственный бонус, Кэшаут.
       "preset3",
-      "preset14",
-      "preset16",
-      "preset17",
-      "preset18",
-      "preset19",
       "preset20",
-      "preset23",
-      "preset24",
       "preset25",
     ],
   },
@@ -1041,6 +1029,14 @@ export const CATEGORIES: Category[] = [
       "preset32",
       "preset33",
       "preset35",
+      // Rest of the retired "Betting" category.
+      "preset14",
+      "preset16",
+      "preset17",
+      "preset18",
+      "preset19",
+      "preset23",
+      "preset24",
     ],
   },
 ];
