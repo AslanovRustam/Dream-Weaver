@@ -109,6 +109,46 @@ export async function extractMasterDetails(masterDataUrl: string): Promise<Maste
   }
 }
 
+export type BannerLandingAnalysis = {
+  headline: string;
+  subheadline: string;
+  cta_text: string;
+  brand_name: string;
+  accent_color_hex: string;
+  palette: string[];
+  has_person: boolean;
+  character_prompt: string;
+  background_prompt: string;
+};
+
+/**
+ * "Сделать лендинг из баннера" vision pre-pass — reads the approved banner's
+ * actual pixels (not the form state that produced it) and returns everything
+ * a landing builder needs: texts, accent colour, and ready-to-use background /
+ * character generation prompts. See /api/analyze-banner-for-landing.
+ */
+export async function analyzeBannerForLanding(
+  bannerUrl: string,
+  mechanic?: "wheel" | "slot" | "crash",
+): Promise<BannerLandingAnalysis | null> {
+  try {
+    const res = await apiFetch("/api/analyze-banner-for-landing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_image: bannerUrl, mechanic }),
+    });
+    if (!res.ok) {
+      console.warn("analyzeBannerForLanding non-OK", res.status);
+      return null;
+    }
+    const data = (await res.json().catch(() => null)) as { result?: BannerLandingAnalysis } | null;
+    return data?.result ?? null;
+  } catch (e) {
+    console.warn("analyzeBannerForLanding failed", e);
+    return null;
+  }
+}
+
 export type UsageInfo = {
   provider: "openai" | "lovable";
   model: string;

@@ -104,6 +104,11 @@ export function SlotLandingApp() {
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
+  // "Сделать лендинг из баннера": the approved banner, kept as a STYLE
+  // reference for the bg/character i2i calls below — never shown directly,
+  // only passed to the generator so a REGENERATED bg/character echoes the
+  // banner's palette/mood instead of being invented from text alone.
+  const [bannerRef, setBannerRef] = useState("");
 
   // Persist the whole landing (config + generated images).
   const [restored, setRestored] = useState(false);
@@ -160,7 +165,18 @@ export function SlotLandingApp() {
       if (head) setHeadline(String(head).toUpperCase());
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
-      if (gen.imageUrl) setBgImage(gen.imageUrl);
+      if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
+      // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
+      // replace the placeholder Сцена/фон text and, if a person was detected
+      // on the banner, prefill the left character slot.
+      if (typeof s.background_prompt === "string" && s.background_prompt) setTheme(s.background_prompt);
+      if (typeof s.character_prompt === "string" && s.character_prompt) {
+        setCharPrompts((p) => ({ ...p, left: s.character_prompt as string }));
+      }
+      if (gen.imageUrl) {
+        setBgImage(gen.imageUrl);
+        setBannerRef(gen.imageUrl);
+      }
       window.localStorage.removeItem("dw:landingSeed");
       toast.success("Данные баннера перенесены — правьте поля лендинга");
     } catch {
@@ -232,7 +248,13 @@ export function SlotLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      setBgImage(await genImage({ presetTemplate: bgPreset(theme), feature: "landing-bg" }));
+      setBgImage(
+        await genImage({
+          presetTemplate: bgPreset(theme),
+          feature: "landing-bg",
+          ...(bannerRef ? { styleReferenceImage: bannerRef } : {}),
+        }),
+      );
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -247,9 +269,14 @@ export function SlotLandingApp() {
     setGenError("");
     try {
       // Primary: OpenAI transparent PNG (clean alpha, no rembg). Trim margins.
+      // When seeded from a banner, pass it as a style reference (i2i) so the
+      // character echoes the banner's palette/attire instead of guessing.
       const res = await apiFetch("/api/generate-character", {
         method: "POST",
-        json: { prompt: characterPreset(prompt) },
+        json: {
+          prompt: characterPreset(prompt),
+          ...(bannerRef ? { reference_image: bannerRef } : {}),
+        },
       });
       const data = await res.json();
       if (res.ok && data.imageUrl) {

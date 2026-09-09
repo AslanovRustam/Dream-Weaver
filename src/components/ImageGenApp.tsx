@@ -28,7 +28,7 @@ import { GenerationErrorCard } from "./GenerationErrorCard";
 import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
-import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
+import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits } from "@/lib/credit-estimate";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
@@ -908,6 +908,54 @@ export function ImageGenApp() {
       basePayload: lastPayload ?? ({} as GeneratePayload),
       reuseCache: opts?.reuseCache,
     });
+  };
+
+  // "Сделать лендинг из баннера": a vision pass over the APPROVED banner's
+  // actual pixels (analyzeBannerForLanding — see api/analyze-banner-for-
+  // landing) extracts its texts, accent colour, and — if a person is on the
+  // banner — ready background/character generation prompts. The seed also
+  // carries `banner_reference` (the banner image itself) so the landing
+  // builder can pass it as a STYLE reference (i2i) when the user generates
+  // its background/character, not just as literal reused pixels.
+  const makeLandingFromBanner = async (mechanic: "wheel" | "slot" | "crash") => {
+    if (!imageUrl) return;
+    const toastId = toast.loading("Анализируем баннер…");
+    const analysis = await analyzeBannerForLanding(imageUrl, mechanic).catch(() => null);
+    toast.dismiss(toastId);
+    try {
+      const seedAccent =
+        (analysis?.accent_color_hex && /^#[0-9a-fA-F]{6}$/.test(analysis.accent_color_hex)
+          ? analysis.accent_color_hex
+          : "") ||
+        colorRoles.find(
+          (r) => r.id === "accent" && r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
+        )?.hex ||
+        colorRoles.find((r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex))?.hex ||
+        "";
+      window.localStorage.setItem(
+        "dw:landingSeed",
+        JSON.stringify({
+          brand_name: analysis?.brand_name || brandName,
+          brand_logo: brandLogo,
+          subject: isSlotPreset ? slotName : prompt,
+          language,
+          banner_text: analysis?.headline || (bannerTextEnabled ? bannerText : ""),
+          subheadline: analysis?.subheadline || "",
+          cta: analysis?.cta_text || (buttonTextEnabled ? buttonText : ""),
+          accent: seedAccent,
+          vertical: bannerPresetToVertical(preset),
+          background_prompt: analysis?.background_prompt || "",
+          character_prompt: analysis?.has_person ? analysis.character_prompt : "",
+          from_banner: true,
+        }),
+      );
+    } catch {
+      /* quota — landing just opens empty */
+    }
+    if (!analysis) {
+      toast.error("Не удалось проанализировать баннер — открываем с базовыми данными");
+    }
+    router.push(`/${mechanic}`);
   };
 
   const onModelChange = (m: ModelKey) => {
@@ -1967,45 +2015,29 @@ export function ImageGenApp() {
                             <RefreshCw className="h-4 w-4 text-muted-foreground" />
                             Перегенерировать
                           </DropdownMenuItem>
+                          <div className="px-2.5 pb-1 pt-2 ds-caption text-muted-foreground">
+                            Сделать лендинг из баннера
+                          </div>
                           <DropdownMenuItem
-                            onClick={() => {
-                              // Hand off the shared brand data to the landing
-                              // generator so the user doesn't re-enter it.
-                              try {
-                                // Banner → slot landing: the banner is the reference —
-                                // its texts, brand and palette prefill the slot builder,
-                                // and the banner image itself becomes the backdrop (read
-                                // live from the generation context on the slot side to
-                                // avoid the localStorage quota risk of a full data URL).
-                                const seedAccent =
-                                  colorRoles.find(
-                                    (r) => r.id === "accent" && r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
-                                  )?.hex ||
-                                  colorRoles.find((r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex))?.hex ||
-                                  "";
-                                window.localStorage.setItem(
-                                  "dw:landingSeed",
-                                  JSON.stringify({
-                                    brand_name: brandName,
-                                    brand_logo: brandLogo,
-                                    subject: isSlotPreset ? slotName : prompt,
-                                    language,
-                                    banner_text: bannerTextEnabled ? bannerText : "",
-                                    cta: buttonTextEnabled ? buttonText : "",
-                                    accent: seedAccent,
-                                    vertical: bannerPresetToVertical(preset),
-                                    from_banner: true,
-                                  }),
-                                );
-                              } catch {
-                                /* quota — landing just opens empty */
-                              }
-                              router.push("/slot");
-                            }}
+                            onClick={() => void makeLandingFromBanner("wheel")}
                             className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                           >
                             <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                            Сделать слот-лендинг из баннера
+                            Колесо фортуны
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => void makeLandingFromBanner("slot")}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                            Слот-машина
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => void makeLandingFromBanner("crash")}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                            Crash-игра
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem

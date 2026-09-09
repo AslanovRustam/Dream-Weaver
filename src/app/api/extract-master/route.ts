@@ -14,6 +14,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { assertAllowedImageUrl } from "@/lib/safe-fetch";
 import { rateLimitResponse } from "@/lib/request-guard";
+import { sanitizeVisionText } from "@/lib/visionSafety";
 
 type Body = {
   source_image?: string;
@@ -122,18 +123,8 @@ function normaliseBannerTexts(raw: unknown): BannerTextItem[] {
 // Belt-and-suspenders scrub: even with the strict system prompt the
 // model can slip a forbidden adjective into a person/scene/style field.
 // We replace those words BEFORE the JSON gets baked into the resize
-// prompt. Words removed entirely (not substituted), then collapsed
-// whitespace — the surrounding factual nouns stay intact.
-const FORBIDDEN_PATTERN =
-  /\b(attractive|beautiful|pretty|gorgeous|stunning|lovely|stylish|glamorous|glamour|elegant|sophisticated|chic|sultry|captivating|alluring|seductive|sexy|sensual|sensuous|flirty|playful|mysterious|dreamy|intimate|romantic|enchanting|smouldering|smoldering|soulful|piercing|confident|intense|fitted|form-fitting|body-hugging|tight|revealing|plunging|low-cut|daring|fierce|slim|slender|curvy|curves|curvaceous|figure|silhouette|posture|contoured|toned|glistening|dewy|wet-look|close-up|beauty\sshot|lifestyle\sshot|posing|posed|leaning|arching|draped)\b/gi;
-
-function sanitize(s: string): string {
-  return s
-    .replace(FORBIDDEN_PATTERN, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s,/g, ",")
-    .trim();
-}
+// prompt. Shared with analyze-banner-for-landing (src/lib/visionSafety.ts).
+const sanitize = sanitizeVisionText;
 
 function parseLLMJson(raw: string): MasterDetails {
   // Strip code fences if the model defied instructions.

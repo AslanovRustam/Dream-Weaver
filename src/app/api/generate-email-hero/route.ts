@@ -21,6 +21,10 @@ type Body = {
   body?: string;
   logoBase64?: string;
   logoMode?: "reference" | "overlay";
+  // "Сделать лендинг из баннера": the approved banner, passed as a visual
+  // STYLE reference (palette/mood/lighting) for a fresh background image —
+  // never reproduced as-is, never its text/logo/composition.
+  styleReferenceImage?: string;
   model?: string;
   // Optional: one of our banner-preset templates (with {SUBJECT} already filled).
   // When present, its visual style drives the image instead of the free agent.
@@ -143,6 +147,16 @@ export async function POST(request: Request) {
   if (body.logoBase64 && body.logoMode === "reference") {
     userContent.push({ type: "text", text: "Reference the brand's colours/mood from this logo, but do NOT draw the logo or any text." });
     userContent.push({ type: "image_url", image_url: { url: body.logoBase64 } });
+  }
+  if (body.styleReferenceImage && body.styleReferenceImage.startsWith("data:")) {
+    userContent.push({
+      type: "text",
+      text:
+        "STYLE REFERENCE: the attached image is an approved ad banner. Match its colour palette, " +
+        "lighting and overall mood for this NEW background — do NOT reproduce its composition, " +
+        "any person, text, logo or button.",
+    });
+    userContent.push({ type: "image_url", image_url: { url: body.styleReferenceImage } });
   }
 
   const model = (body.model || "").trim() || "google/gemini-3.1-flash-image-preview";

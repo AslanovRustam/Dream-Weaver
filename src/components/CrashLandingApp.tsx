@@ -9,6 +9,8 @@ import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/
 import { downloadText, slugify } from "@/lib/download";
 import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
+import { useGeneration } from "@/lib/generation-context";
+import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 
@@ -59,6 +61,7 @@ const THEMES: {
 ];
 
 export function CrashLandingApp() {
+  const gen = useGeneration();
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -88,6 +91,11 @@ export function CrashLandingApp() {
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
+  // "Сделать лендинг из баннера": the approved banner, kept as a STYLE
+  // reference for the bg/character i2i calls below — never shown directly,
+  // only passed to the generator so a REGENERATED bg/character echoes the
+  // banner's palette/mood instead of being invented from text alone.
+  const [bannerRef, setBannerRef] = useState("");
 
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -120,6 +128,44 @@ export function CrashLandingApp() {
     }
     setRestored(true);
   }, []);
+
+  // Banner → crash handoff: prefill from the approved banner (analysed by
+  // analyzeBannerForLanding — see ImageGenApp's "Сделать лендинг из баннера").
+  // Its texts, brand and accent fill the fields; the AI-written background/
+  // character prompts replace the placeholders; the banner itself becomes an
+  // eager backdrop AND a style reference for later i2i regeneration.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("dw:landingSeed");
+      if (!raw) return;
+      const s = JSON.parse(raw) as Record<string, unknown>;
+      if (!s.from_banner) return;
+      if (typeof s.brand_name === "string" && s.brand_name) setBrand(s.brand_name);
+      if (typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:")) setBrandLogo(s.brand_logo);
+      const head =
+        (typeof s.banner_text === "string" && s.banner_text) ||
+        (typeof s.subject === "string" ? s.subject : "");
+      if (head) setHeadline(String(head).toUpperCase());
+      if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
+      if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
+      if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
+      if (typeof s.background_prompt === "string" && s.background_prompt) setTheme(s.background_prompt);
+      if (typeof s.character_prompt === "string" && s.character_prompt) {
+        setCharPrompts((p) => ({ ...p, left: s.character_prompt as string }));
+      }
+      if (gen.imageUrl) {
+        setBgImage(gen.imageUrl);
+        setBannerRef(gen.imageUrl);
+      }
+      window.localStorage.removeItem("dw:landingSeed");
+      toast.success("Данные баннера перенесены — правьте поля лендинга");
+    } catch {
+      /* malformed seed — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!restored) return;
     const id = window.setTimeout(() => {
@@ -176,7 +222,13 @@ export function CrashLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      setBgImage(await genImage({ presetTemplate: bgPreset(theme), feature: "landing-bg" }));
+      setBgImage(
+        await genImage({
+          presetTemplate: bgPreset(theme),
+          feature: "landing-bg",
+          ...(bannerRef ? { styleReferenceImage: bannerRef } : {}),
+        }),
+      );
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -191,9 +243,14 @@ export function CrashLandingApp() {
     setGenError("");
     try {
       // Primary: OpenAI transparent PNG (clean alpha, no rembg). Trim margins.
+      // When seeded from a banner, pass it as a style reference (i2i) so the
+      // character echoes the banner's palette/attire instead of guessing.
       const res = await apiFetch("/api/generate-character", {
         method: "POST",
-        json: { prompt: characterPreset(prompt) },
+        json: {
+          prompt: characterPreset(prompt),
+          ...(bannerRef ? { reference_image: bannerRef } : {}),
+        },
       });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
