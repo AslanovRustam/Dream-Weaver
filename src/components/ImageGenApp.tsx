@@ -896,7 +896,7 @@ export function ImageGenApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset, model]);
 
-  const onLaunchBatch = (sizes: SelectedSize[]) => {
+  const onLaunchBatch = (sizes: SelectedSize[], opts?: { reuseCache?: boolean }) => {
     // In dev preview there's no real master/payload — fall back to the
     // placeholder image so the simulated batch can run for design work.
     const master = imageUrl ?? (DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : null);
@@ -906,6 +906,7 @@ export function ImageGenApp() {
       master,
       masterRatio: imageUrl ? lastMasterRatio : ratio,
       basePayload: lastPayload ?? ({} as GeneratePayload),
+      reuseCache: opts?.reuseCache,
     });
   };
 

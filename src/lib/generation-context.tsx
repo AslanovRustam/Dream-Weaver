@@ -86,6 +86,11 @@ interface GenerationContextValue extends GenerationStateSnapshot {
     master: string;
     masterRatio: string;
     basePayload: GeneratePayload;
+    /** True for a "retry failed" re-run: reuse an aspect+detail bucket's
+     *  already-generated source (from an earlier call this session) instead of
+     *  minting a new, visually inconsistent one. False/omitted (a fresh
+     *  "Сгенерировать" / "Сгенерировать заново") always generates anew. */
+    reuseCache?: boolean;
   }) => Promise<void>;
   /** Abort everything pending. In-flight provider calls return naturally. */
   cancel: () => void;
@@ -253,6 +258,17 @@ export function GenerationProvider({ children }: ProviderProps) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Cache of already-generated resize SOURCES (the uncropped flare canvas),
+  // keyed by `${masterEpoch}|${ratio}|${detail}`. Every size sharing an
+  // aspect+detail bucket must look like the SAME banner (just scaled) — a
+  // bulk "Повторить упавшие" retry re-plans ONLY the failed sizes in its own
+  // runBatch call, so without this cache it would mint a brand-new,
+  // uncorrelated source for a bucket whose sibling tiles already succeeded in
+  // the original run. masterEpoch bumps (invalidating the cache) whenever a
+  // genuinely new master image becomes active.
+  const masterEpochRef = useRef(0);
+  const sourceCacheRef = useRef<Map<string, string>>(new Map());
+
   // Persist any changes so a hard reload restores recent state.
   useEffect(() => {
     saveToStorage(state);
@@ -312,6 +328,8 @@ export function GenerationProvider({ children }: ProviderProps) {
 
   const setMasterImage = useCallback<GenerationContextValue["setMasterImage"]>(
     ({ image, payload, ratio, cardId, usage, tiles }) => {
+      masterEpochRef.current += 1;
+      sourceCacheRef.current.clear();
       patch({
         status: "done",
         imageUrl: image,
@@ -349,6 +367,8 @@ export function GenerationProvider({ children }: ProviderProps) {
       try {
         const result = await generateImage(payload);
         if (cancelRef.current) return null;
+        masterEpochRef.current += 1;
+        sourceCacheRef.current.clear();
         patch({
           status: "done",
           imageUrl: result.image,
@@ -370,9 +390,11 @@ export function GenerationProvider({ children }: ProviderProps) {
   );
 
   const runBatch = useCallback<GenerationContextValue["runBatch"]>(
-    async ({ sizes, master, masterRatio, basePayload }) => {
+    async ({ sizes, master, masterRatio, basePayload, reuseCache }) => {
       if (sizes.length === 0 || !master) return;
       cancelRef.current = false;
+      const epoch = masterEpochRef.current;
+      const cacheKeyFor = (ratio: string, detail: string) => `${epoch}|${ratio}|${detail}`;
 
       // If master is an FTP/HTTP URL (history-loaded), resolve it to a
       // dataURL server-side before doing any canvas operations. The FTP
@@ -476,9 +498,16 @@ export function GenerationProvider({ children }: ProviderProps) {
 
         // Resolve the SOURCE image for this plan.
         const isMicro = plan.detail !== "full";
+        const cacheKey = cacheKeyFor(plan.ratio, plan.detail);
         let sourceUrl: string;
+        const cached = reuseCache ? sourceCacheRef.current.get(cacheKey) : undefined;
         if (plan.ratio === masterRatio && !isMicro) {
           sourceUrl = masterDataUrl; // free — crop straight from the master
+        } else if (cached) {
+          // Retry mode: a sibling in this exact bucket already succeeded this
+          // session — reuse its source so the retried tile matches it instead
+          // of getting an uncorrelated fresh composition.
+          sourceUrl = cached;
         } else {
           const rep = planSizes[0];
           const i2iPayload: GeneratePayload = {
@@ -527,6 +556,7 @@ export function GenerationProvider({ children }: ProviderProps) {
               }
             }
             sourceUrl = src.image;
+            sourceCacheRef.current.set(cacheKey, sourceUrl);
           } catch (e) {
             // Source generation failed — mark every member of this plan as an
             // error (never pass off a wrong image as a real result).
@@ -632,6 +662,13 @@ export function GenerationProvider({ children }: ProviderProps) {
           try {
             const res = await generateImage(i2iPayload);
             sourceForCrop = res.image;
+            // Explicit single-tile regenerate: this is the user's chosen
+            // version — adopt it as the bucket's canonical source so a later
+            // "Повторить упавшие" for a sibling in this bucket matches it.
+            sourceCacheRef.current.set(
+              `${masterEpochRef.current}|${plan.ratio}|${plan.detail}`,
+              sourceForCrop,
+            );
           } catch (e) {
             // content_filter → retry as t2i with the original prompt.
             if (e instanceof Error && e.message.startsWith("[content_filter]")) {
@@ -641,6 +678,10 @@ export function GenerationProvider({ children }: ProviderProps) {
                 master_details: undefined,
               });
               sourceForCrop = res.image;
+              sourceCacheRef.current.set(
+                `${masterEpochRef.current}|${plan.ratio}|${plan.detail}`,
+                sourceForCrop,
+              );
             } else {
               throw e;
             }

@@ -61,8 +61,12 @@ function plural(n: number, one: string, few: string, many: string): string {
 type Props = {
   disabled?: boolean;
   masterRatio?: string;
-  /** Starts a batch for the given sizes (parent supplies the master image). */
-  onLaunch: (sizes: SelectedSize[]) => void;
+  /** Starts a batch for the given sizes (parent supplies the master image).
+   *  `reuseCache: true` on a retry-failed run — the parent should reuse an
+   *  aspect+detail bucket's already-generated source when one exists, so the
+   *  retried tile matches its already-succeeded siblings instead of getting a
+   *  fresh, uncorrelated composition. */
+  onLaunch: (sizes: SelectedSize[], opts?: { reuseCache?: boolean }) => void;
   /** Live batch tiles from the generation context. */
   tiles: BatchTile[];
   /** Live generation status from the context. */
@@ -379,7 +383,7 @@ export function ResizeBatchPanel({
     estTotalMsRef.current = null;
     lastProcessedRef.current = 0;
     setPhase("generating");
-    onLaunch(failed);
+    onLaunch(failed, { reuseCache: true });
   };
 
   const backToSelect = () => {
