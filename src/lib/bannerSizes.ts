@@ -161,7 +161,6 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
       { w: 125, h: 125, ratio: "1:1", label: "Button" },
       { w: 468, h: 400, ratio: "117:100" },
       { w: 600, h: 500, ratio: "6:5" },
-      { w: 120, h: 90, ratio: "4:3" },
       { w: 160, h: 90, ratio: "16:9" },
       { w: 480, h: 320, ratio: "3:2" },
     ],
@@ -175,27 +174,17 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Display — горизонтальные",
     subtitle: "Лидерборды и вытянутые баннеры",
     sizes: [
-      { w: 728, h: 90, ratio: "364:45", label: "Leaderboard" },
-      { w: 970, h: 90, ratio: "97:9", label: "Large Leaderboard" },
+      // NOTE: very thin leaderboard/mobile-banner formats (728×90, 970×90,
+      // 468×60, 930×180, 980×120, 750×100, 1000×90, 1000×120, 960×90,
+      // 950×90, 800×90, 640×100, 320×50, 300×50) and the near-square micro
+      // tile 120×60 are TEMPORARILY REMOVED — the strip/micro crop currently
+      // loses important content on them. Revisit once that's fixed.
       { w: 970, h: 250, ratio: "97:25", label: "Billboard" },
-      { w: 468, h: 60, ratio: "39:5", label: "Full Banner" },
       { w: 234, h: 60, ratio: "39:10", label: "Half Banner" },
-      { w: 930, h: 180, ratio: "31:6" },
-      { w: 980, h: 120, ratio: "49:6" },
-      { w: 750, h: 100, ratio: "15:2" },
       { w: 750, h: 200, ratio: "15:4" },
       { w: 750, h: 300, ratio: "5:2" },
-      { w: 1000, h: 90, ratio: "100:9" },
-      { w: 1000, h: 120, ratio: "25:3" },
-      { w: 960, h: 90, ratio: "32:3" },
-      { w: 950, h: 90, ratio: "95:9" },
-      { w: 800, h: 90, ratio: "80:9" },
-      { w: 640, h: 100, ratio: "32:5" },
       { w: 400, h: 100, ratio: "4:1" },
       { w: 320, h: 100, ratio: "16:5", label: "Large Mobile Banner" },
-      { w: 320, h: 50, ratio: "32:5", label: "Mobile Leaderboard" },
-      { w: 300, h: 50, ratio: "6:1", label: "Mobile Banner" },
-      { w: 120, h: 60, ratio: "2:1" },
     ],
   },
 
@@ -207,10 +196,9 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Display — вертикальные",
     subtitle: "Небоскрёбы и портретные тайлы",
     sizes: [
-      { w: 160, h: 600, ratio: "4:15", label: "Wide Skyscraper" },
-      { w: 120, h: 600, ratio: "1:5", label: "Skyscraper" },
+      // NOTE: 160×600 / 120×600 / 300×1050 TEMPORARILY REMOVED — same strip-
+      // crop content-loss issue as the horizontal group above.
       { w: 300, h: 600, ratio: "1:2", label: "Half-Page" },
-      { w: 300, h: 1050, ratio: "2:7", label: "Portrait" },
       { w: 120, h: 240, ratio: "1:2", label: "Vertical Banner" },
       { w: 240, h: 600, ratio: "2:5" },
       { w: 200, h: 600, ratio: "1:3" },
