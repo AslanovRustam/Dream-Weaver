@@ -22,10 +22,25 @@ async function authHeaders(): Promise<Record<string, string>> {
   }
 }
 
-export async function apiFetch(path: string, init: ApiInit = {}): Promise<Response> {
+// Force a session refresh (bypassing whatever local/racing state the SDK's
+// background auto-refresh timer is in) and return the new token, if any.
+// Used as a one-shot recovery when a request comes back 401 — long-running
+// flows (e.g. a big resize batch) can outlive the access token's TTL, and a
+// single stale-token 401 shouldn't need the user to sign in again.
+async function forceRefreshToken(): Promise<string | undefined> {
+  try {
+    const supa = getBrowserClient();
+    const { data } = await supa.auth.refreshSession();
+    return data.session?.access_token;
+  } catch {
+    return undefined;
+  }
+}
+
+async function doFetch(path: string, init: ApiInit, extraHeaders: Record<string, string>): Promise<Response> {
   const headers: Record<string, string> = {
     ...(init.headers as Record<string, string> | undefined),
-    ...(await authHeaders()),
+    ...extraHeaders,
   };
   let body = init.body;
   if (init.json !== undefined) {
@@ -34,6 +49,22 @@ export async function apiFetch(path: string, init: ApiInit = {}): Promise<Respon
   }
   const { json: _omit, ...rest } = init;
   return fetch(path, { ...rest, headers, body });
+}
+
+export async function apiFetch(path: string, init: ApiInit = {}): Promise<Response> {
+  const res = await doFetch(path, init, await authHeaders());
+  // A 401 can mean a genuinely dead session, OR just an access token that
+  // expired while a long-running flow (e.g. a resize batch) was still going —
+  // getSession() only refreshes proactively on its own schedule, which can
+  // race with a burst of concurrent requests. Force one real refresh and
+  // retry once before giving up; a still-401 after that is a real sign-out.
+  if (res.status === 401) {
+    const token = await forceRefreshToken();
+    if (token) {
+      return doFetch(path, init, { Authorization: `Bearer ${token}` });
+    }
+  }
+  return res;
 }
 
 export class ApiError extends Error {
