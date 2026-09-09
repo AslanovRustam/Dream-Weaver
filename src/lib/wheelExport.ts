@@ -5,6 +5,8 @@
 
 export type WheelExportConfig = {
   brand: string;
+  /** Optional uploaded brand logo (data URL). Rendered instead of the brand text. */
+  brandLogo?: string;
   headline: string;
   accent: string;
   dark: boolean;
@@ -132,7 +134,11 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     ${charImg(cfg.charLeft, "left")}
     ${charImg(cfg.charRight, "right")}
     <div class="col">
-      <div class="top"><span>${esc(cfg.brand || "BRAND")}</span><span class="lang">EN</span></div>
+      <div class="top">${
+        cfg.brandLogo
+          ? `<img src="${esc(cfg.brandLogo)}" alt="" style="height:26px;width:auto;max-width:45%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"/>`
+          : `<span>${esc(cfg.brand || "LOGO")}</span>`
+      }<span class="lang">EN</span></div>
       <h1>${esc(cfg.headline || "TRY YOUR LUCK!")}</h1>
       <div class="wheelWrap">
         <div class="wheel">

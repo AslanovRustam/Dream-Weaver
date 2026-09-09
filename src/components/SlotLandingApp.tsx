@@ -73,7 +73,13 @@ const THEMES: {
 
 export function SlotLandingApp() {
   const gen = useGeneration();
-  const [brand, setBrand] = useState("Fairspin");
+  const [brand, setBrand] = useState("LOGO");
+  const [brandLogo, setBrandLogo] = useState("");
+  const onLogoFile = (f: File) => {
+    const r = new FileReader();
+    r.onload = () => setBrandLogo(String(r.result));
+    r.readAsDataURL(f);
+  };
   const [headline, setHeadline] = useState("SPIN TO WIN!");
   const [accent, setAccent] = useState("#818cf8");
   const [dark, setDark] = useState(true);
@@ -106,6 +112,7 @@ export function SlotLandingApp() {
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
         if (typeof d.brand === "string") setBrand(d.brand);
+        if (typeof d.brandLogo === "string") setBrandLogo(d.brandLogo);
         if (typeof d.headline === "string") setHeadline(d.headline);
         if (typeof d.accent === "string") setAccent(d.accent);
         if (typeof d.dark === "boolean") setDark(d.dark);
@@ -144,6 +151,7 @@ export function SlotLandingApp() {
       const s = JSON.parse(raw) as Record<string, unknown>;
       if (!s.from_banner) return;
       if (typeof s.brand_name === "string" && s.brand_name) setBrand(s.brand_name);
+      if (typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:")) setBrandLogo(s.brand_logo);
       const head =
         (typeof s.banner_text === "string" && s.banner_text) ||
         (typeof s.subject === "string" ? s.subject : "");
@@ -164,6 +172,7 @@ export function SlotLandingApp() {
     const id = window.setTimeout(() => {
       const data = {
         brand,
+        brandLogo,
         headline,
         accent,
         dark,
@@ -183,7 +192,7 @@ export function SlotLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_slot_draft",
-            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "" }),
+            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "" }),
           );
         } catch {
           /* ignore */
@@ -191,7 +200,7 @@ export function SlotLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, headline, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts, symbols]);
+  }, [restored, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts, symbols]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -338,7 +347,46 @@ export function SlotLandingApp() {
         </Field>
         <div className="grid grid-cols-[1fr_auto_auto] items-end gap-3">
           <Field label="Бренд">
-            <input className={inputCls} value={brand} onChange={(e) => setBrand(e.target.value)} />
+            {brandLogo ? (
+              <div className="flex h-11 items-center gap-2">
+                <img
+                  src={brandLogo}
+                  alt=""
+                  className="h-9 w-auto max-w-[140px] rounded bg-white/5 object-contain p-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setBrandLogo("")}
+                  className="text-xs text-muted-foreground transition hover:text-foreground"
+                >
+                  Убрать лого
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  className={inputCls}
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  placeholder="Название или загрузите лого"
+                />
+                <label
+                  className="flex h-11 shrink-0 cursor-pointer items-center rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+                  title="Загрузить PNG-лого"
+                >
+                  PNG
+                  <input
+                    type="file"
+                    accept="image/png,image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onLogoFile(f);
+                    }}
+                  />
+                </label>
+              </div>
+            )}
           </Field>
           <div>
             <label className="mb-2 block ds-h4">Акцент</label>
@@ -480,6 +528,7 @@ export function SlotLandingApp() {
               `${slugify(brand, "slot")}-slot.html`,
               buildSlotHtml({
                 brand,
+                brandLogo,
                 headline,
                 accent,
                 dark,
@@ -566,7 +615,11 @@ export function SlotLandingApp() {
 
           <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
             <div className="flex w-full items-center justify-between">
-              <span className="text-sm font-extrabold text-white drop-shadow">{brand || "BRAND"}</span>
+              {brandLogo ? (
+                <img src={brandLogo} alt="" className="h-6 w-auto max-w-[45%] object-contain drop-shadow" />
+              ) : (
+                <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
+              )}
               <span className="rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-medium text-white/80">EN</span>
             </div>
 
