@@ -845,32 +845,8 @@ function TemplateTile({
   onSelect: () => void;
 }) {
   // MVP: только интерактивные шаблоны (колесо / слот / краш) доступны.
-  // Остальные — серые «Скоро», выбрать нельзя.
-  const soon = !template.interactive;
-
-  if (soon) {
-    return (
-      <div
-        aria-disabled="true"
-        title={`${template.name} — скоро`}
-        className="group relative flex cursor-not-allowed flex-col gap-1.5 overflow-hidden rounded-lg border border-border p-1.5 text-left opacity-45"
-      >
-        <div
-          className="aspect-[4/3] w-full rounded-md bg-cover bg-center grayscale"
-          style={
-            template.preview
-              ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
-              : { background: template.gradient }
-          }
-        />
-        <p className="truncate text-xs font-medium text-hint">{template.name}</p>
-        <span className="absolute right-1.5 top-1.5 rounded-full border border-border bg-panel/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-hint backdrop-blur">
-          Скоро
-        </span>
-      </div>
-    );
-  }
-
+  // Остальные скрыты из галереи целиком — см. LandingTemplateSidebar's
+  // `groups` (фильтр по `interactive`), а не серятся здесь.
   return (
     <button
       type="button"
@@ -899,9 +875,18 @@ function TemplateTile({
   );
 }
 
+// MVP: only interactive templates (wheel/slot/crash) are selectable — the rest
+// are hidden from the gallery entirely (not shown greyed-out). A category with
+// zero interactive templates (e.g. Sport, for now) drops out of both the
+// filter dropdown and the results.
+const LANDING_CATEGORIES_ACTIVE = LANDING_TEMPLATE_CATEGORIES.map((c) => ({
+  ...c,
+  templates: c.templates.filter((t) => t.interactive),
+})).filter((c) => c.templates.length > 0);
+
 const LANDING_CATEGORY_OPTIONS = [
   { id: "all", label: "Все категории" },
-  ...LANDING_TEMPLATE_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+  ...LANDING_CATEGORIES_ACTIVE.map((c) => ({ id: c.id, label: c.label })),
 ];
 
 // Same pattern as the banner-generator's PresetSidebar: a search box + funnel
@@ -919,7 +904,7 @@ function LandingTemplateSidebar({
   const [query, setQuery] = useState("");
   // Categories open by default so the gallery shows all tiles at a glance.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(LANDING_TEMPLATE_CATEGORIES.map((c) => [c.id, true])),
+    Object.fromEntries(LANDING_CATEGORIES_ACTIVE.map((c) => [c.id, true])),
   );
   const [filterOpen, setFilterOpen] = useState(false);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
@@ -963,7 +948,7 @@ function LandingTemplateSidebar({
   // For each category resolve its templates filtered by search + applied
   // category filter; hide categories with no matches.
   const groups = useMemo(() => {
-    return LANDING_TEMPLATE_CATEGORIES.filter(
+    return LANDING_CATEGORIES_ACTIVE.filter(
       (cat) => categoryFilter === "all" || cat.id === categoryFilter,
     )
       .map((cat) => {

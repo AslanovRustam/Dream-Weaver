@@ -34,14 +34,19 @@ export const ALL_TEMPLATES: HubTemplate[] = [
     preview: p.preview,
     gradient: p.gradient,
   })),
-  ...LANDING_TEMPLATE_CATEGORIES.flatMap((c) => c.templates).map((t) => ({
-    id: t.id,
-    name: t.name,
-    description: t.description,
-    sectionId: "landing" as const,
-    href: `/landing?template=${t.id}`,
-    gradient: t.gradient,
-  })),
+  // MVP: only interactive landing templates (wheel/slot/crash) are usable —
+  // the rest are hidden here too, so Hub search never surfaces a template the
+  // landing picker itself won't show.
+  ...LANDING_TEMPLATE_CATEGORIES.flatMap((c) => c.templates)
+    .filter((t) => t.interactive)
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      sectionId: "landing" as const,
+      href: `/landing?template=${t.id}`,
+      gradient: t.gradient,
+    })),
   ...PLAYABLE_MECHANICS.map((m) => ({
     id: m.id,
     name: m.label,
@@ -71,7 +76,7 @@ export function searchTemplates(query: string, limit = 6): HubTemplate[] {
 // row. There is no popularity/analytics feed yet; replace this array with a real
 // one (same HubTemplate shape) once usage data exists. Curated to banner+landing
 // because those have real preview art AND per-template deep-links.
-const POPULAR_IDS = ["preset2", "gambling-bonus", "preset3", "sport-match", "preset4", "preset1"];
+const POPULAR_IDS = ["preset2", "gambling-wheel", "preset3", "gambling-slot-machine", "preset4", "preset1"];
 
 export const POPULAR_TEMPLATES: HubTemplate[] = POPULAR_IDS.map((id) =>
   ALL_TEMPLATES.find((t) => t.id === id),
