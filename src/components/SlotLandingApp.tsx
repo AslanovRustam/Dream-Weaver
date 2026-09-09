@@ -309,12 +309,30 @@ export function SlotLandingApp() {
       {/* ── Config ─────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <header>
-          <Link
-            href="/landing"
-            className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> К шаблонам лендингов
-          </Link>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Link
+              href="/landing"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> К шаблонам лендингов
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm("Сбросить все настройки лендинга к значениям по умолчанию?")) return;
+                try {
+                  window.localStorage.removeItem("dw_slot_draft");
+                } catch {
+                  /* ignore */
+                }
+                window.location.reload();
+              }}
+              title="Очистить сохранённый черновик и вернуть значения по умолчанию"
+              className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-border/80 hover:text-foreground"
+            >
+              Сбросить по умолчанию
+            </button>
+          </div>
           <p className="ds-overline text-accent-green">Лендинг</p>
           <h1 className="ds-h1 mt-1">Слот-машина</h1>
           <p className="ds-body mt-2 text-muted-foreground">
