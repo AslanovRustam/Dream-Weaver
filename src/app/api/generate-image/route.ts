@@ -743,15 +743,21 @@ async function adaptPrompt(
     .filter(Boolean)
     .join("\n\n");
 
-  // adaptPrompt uses gpt-4o-mini via OpenAI direct (same key as image gen).
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  // adaptPrompt runs gpt-4o-mini through OpenRouter (openai/gpt-4o-mini) — the
+  // OpenAI-direct key is retired everywhere else, and using it here made the
+  // whole generic/style-preset path fail whenever that key was missing/expired.
+  void apiKey;
+  const orKey = process.env.OPENROUTER_API_KEY;
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${orKey}`,
+      "HTTP-Referer": "https://dream-weaver-studio.local",
+      "X-Title": "Gen Go",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "openai/gpt-4o-mini",
       temperature: 0.7,
       messages: [
         { role: "system", content: system },
