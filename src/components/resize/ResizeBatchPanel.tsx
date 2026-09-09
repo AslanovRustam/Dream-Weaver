@@ -24,6 +24,7 @@ import {
   Download,
   Eye,
   FileArchive,
+  Info,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { resizeCredits, formatCredits } from "@/lib/credit-estimate";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -95,6 +97,8 @@ export function ResizeBatchPanel({
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
   const [selected, setSelected] = useState<Map<string, SelectedSize>>(new Map());
+  // "Запомнить выбор" — persist the chosen formats per account for next time.
+  const [remember, setRemember] = useState(false);
   // All categories expanded by default so the user sees every format at once
   // (they can still collapse any group). The two web-banner data groups are
   // shown merged under the "web-banners" display id.
@@ -213,6 +217,52 @@ export function ResizeBatchPanel({
       return next;
     });
   };
+
+  // ---- "Запомнить выбор": persist chosen formats per account ---------------
+  const REMEMBER_KEY = "dw_resize_remember";
+  const SELECTION_KEY = "dw_resize_selection";
+  // Load the saved preference + selection once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (localStorage.getItem(REMEMBER_KEY) !== "1") return;
+      setRemember(true);
+      const raw = localStorage.getItem(SELECTION_KEY);
+      if (!raw) return;
+      const keys = JSON.parse(raw) as string[];
+      const byKey = new Map<string, BannerSize>();
+      for (const g of BANNER_SIZE_GROUPS) for (const s of g.sizes) byKey.set(sizeKey(s), s);
+      const next = new Map<string, SelectedSize>();
+      for (const k of keys) {
+        const s = byKey.get(k);
+        if (s) next.set(k, s);
+      }
+      if (next.size) setSelected(next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  // While enabled, keep the saved selection synced with the current one.
+  useEffect(() => {
+    if (typeof window === "undefined" || !remember) return;
+    try {
+      localStorage.setItem(SELECTION_KEY, JSON.stringify([...selected.keys()]));
+    } catch {
+      /* ignore */
+    }
+  }, [remember, selected]);
+  const toggleRemember = () =>
+    setRemember((r) => {
+      const next = !r;
+      try {
+        localStorage.setItem(REMEMBER_KEY, next ? "1" : "0");
+        if (next) localStorage.setItem(SELECTION_KEY, JSON.stringify([...selected.keys()]));
+        else localStorage.removeItem(SELECTION_KEY);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
   // The two web-banner data groups are merged into one "Баннеры для сайта"
   // category that splits into Горизонтальные / Вертикальные subsections.
@@ -450,32 +500,30 @@ export function ResizeBatchPanel({
                   <ArrowLeft className="h-4 w-4" />
                   Назад
                 </button>
-                <DialogTitle className="ds-h4 text-left">
-                  Выбрать ресайз
-                  {selectedCount > 0 ? (
-                    <span className="ml-2 rounded-full bg-accent-green/20 px-2 py-0.5 text-xs font-semibold text-accent-green">
-                      {selectedCount} из {totalAcross}
-                    </span>
-                  ) : null}
-                </DialogTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <DialogTitle className="ds-h4 text-left">
+                    Выбрать ресайз
+                    {selectedCount > 0 ? (
+                      <span className="ml-2 rounded-full bg-accent-green/20 px-2 py-0.5 text-xs font-semibold text-accent-green">
+                        {selectedCount} из {totalAcross}
+                      </span>
+                    ) : null}
+                  </DialogTitle>
+                  {/* Top-right one-click maximum package — select/clear every format. */}
+                  <button
+                    type="button"
+                    title="Выбрать все форматы (максимальный пакет)"
+                    onClick={() =>
+                      selectedCount === totalAcross
+                        ? setSelected(new Map())
+                        : selectAllSizes(BANNER_SIZE_GROUPS.flatMap((g) => g.sizes))
+                    }
+                    className="shrink-0 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-accent-green/40 bg-[var(--lime-tint)] px-3 text-xs font-semibold text-accent-green transition hover:bg-accent-green/15"
+                  >
+                    {selectedCount === totalAcross ? "Снять все" : "Выбрать все"}
+                  </button>
+                </div>
               </DialogHeader>
-
-              {/* One-click maximum package — select every format at once. */}
-              <div className="px-4 pt-1">
-                <button
-                  type="button"
-                  onClick={() =>
-                    selectedCount === totalAcross
-                      ? setSelected(new Map())
-                      : selectAllSizes(BANNER_SIZE_GROUPS.flatMap((g) => g.sizes))
-                  }
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent-green/40 bg-[var(--lime-tint)] px-4 text-sm font-semibold text-accent-green transition hover:bg-accent-green/15"
-                >
-                  {selectedCount === totalAcross
-                    ? "Снять все ресайзы"
-                    : `Выбрать все ресайзы · максимальный пакет (${totalAcross})`}
-                </button>
-              </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 {displayGroups.map((g) => {
@@ -555,26 +603,52 @@ export function ResizeBatchPanel({
                   Выберите хотя бы один формат, чтобы продолжить
                 </p>
               ) : null}
-              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
-                {selectedCount > 0 ? (
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
+                {/* Remember-my-choice — persists the ticked formats for next time. */}
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground max-sm:order-last max-sm:w-full max-sm:justify-center">
+                        <input
+                          type="checkbox"
+                          checked={remember}
+                          onChange={toggleRemember}
+                          className="h-4 w-4 accent-[color:var(--brand-lime)]"
+                        />
+                        <span className="inline-flex items-center gap-1">
+                          Запомнить выбор
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/70" />
+                        </span>
+                      </label>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[260px] text-left">
+                      Запомним отмеченные форматы ресайзов и автоматически подставим их при
+                      следующей генерации на этом аккаунте. Снимите галочку, чтобы забыть.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <div className="flex items-center gap-2 max-sm:w-full">
+                  {selectedCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelected(new Map())}
+                      className="ds-btn ds-btn-secondary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-1"
+                      disabled={disabled}
+                    >
+                      Сбросить
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => setSelected(new Map())}
-                    className="ds-btn ds-btn-secondary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-1"
-                    disabled={disabled}
+                    onClick={startBatch}
+                    disabled={selectedCount === 0 || disabled}
+                    className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
                   >
-                    Сбросить
+                    Сгенерировать пакет
+                    {selectedCount > 0 ? ` · ${formatCredits(packageCredits)}` : ""}
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={startBatch}
-                  disabled={selectedCount === 0 || disabled}
-                  className="ds-btn ds-btn-primary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-[2]"
-                >
-                  Сгенерировать пакет
-                  {selectedCount > 0 ? ` · ${formatCredits(packageCredits)}` : ""}
-                </button>
+                </div>
               </div>
             </>
           ) : null}
