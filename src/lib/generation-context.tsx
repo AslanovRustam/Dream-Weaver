@@ -29,14 +29,15 @@ import {
 import { apiFetch, apiJson } from "./api-client";
 import { formatGenerationError } from "./generation-errors";
 import {
+  centerCropToExact,
   extractMasterDetails,
   generateImage,
   resizeContain,
-  resizeToExact,
   type GeneratePayload,
   type MasterDetails,
   type UsageInfo,
 } from "./imageGen";
+import { planResizes, type SourcePlan } from "./resizePlan";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
 export type GenerationStatus = "idle" | "master_running" | "batch_running" | "done" | "error";
@@ -392,30 +393,32 @@ export function GenerationProvider({ children }: ProviderProps) {
         }
       }
 
-      const initial: BatchTile[] = sizes.map((s) => ({
-        id: `${s.w}x${s.h}`,
-        size: s,
-        status: "queued",
-        // Same aspect as master → free client-side scale.
-        // Different aspect → bucket needs an i2i API call shared
-        // across all siblings; that's the "paid" path.
-        kind: s.ratio === masterRatio ? "scale_from_master" : "scale_from_bucket",
-      }));
+      // Plan the batch: group every requested size by the canonical source
+      // aspect flare can actually render (≤3:1), and size each source so a
+      // pure client crop covers every member (resizePlan.ts).
+      const sizeByKey = new Map(sizes.map((s) => [`${s.w}x${s.h}`, s]));
+      const plans = planResizes(sizes.map((s) => ({ w: s.w, h: s.h })));
+      const planByKey = new Map<string, SourcePlan>();
+      for (const p of plans) for (const t of p.targets) planByKey.set(`${t.w}x${t.h}`, p);
+
+      const initial: BatchTile[] = sizes.map((s) => {
+        const plan = planByKey.get(`${s.w}x${s.h}`);
+        // "Free" only when the source aspect equals the (square) master — then
+        // the master itself is the source and no API call is needed. Every
+        // other aspect needs one flare i2i source shared across its members.
+        const free = plan?.ratio === masterRatio;
+        return {
+          id: `${s.w}x${s.h}`,
+          size: s,
+          status: "queued",
+          kind: free ? "scale_from_master" : "scale_from_bucket",
+        };
+      });
       patch({ status: "batch_running", tiles: initial, errorMsg: "" });
 
-      // Group sizes by aspect.
-      const buckets = new Map<string, BatchTile[]>();
-      for (const t of initial) {
-        const arr = buckets.get(t.size.ratio) ?? [];
-        arr.push(t);
-        buckets.set(t.size.ratio, arr);
-      }
-
-      // Retry wrapper for canvas scale operations. Browser canvas can fail
-      // transiently under memory pressure with many concurrent operations.
-      // On failure: wait briefly and retry; log to console, never surface
-      // the error to the UI.
-      const scaleWithRetry = async (
+      // Retry wrapper for the client center-crop. Browser canvas can fail
+      // transiently under memory pressure; retry, then fall back to the source.
+      const cropWithRetry = async (
         src: string,
         w: number,
         h: number,
@@ -424,9 +427,9 @@ export function GenerationProvider({ children }: ProviderProps) {
         const maxAttempts = 3;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           try {
-            return await resizeToExact(src, w, h, "image/jpeg", 0.92);
+            return await centerCropToExact(src, w, h, "image/jpeg", 0.92);
           } catch (e) {
-            console.warn(`[runBatch] resizeToExact failed (attempt ${attempt + 1}/${maxAttempts})`, {
+            console.warn(`[runBatch] centerCropToExact failed (attempt ${attempt + 1}/${maxAttempts})`, {
               w,
               h,
               error: e,
@@ -436,14 +439,12 @@ export function GenerationProvider({ children }: ProviderProps) {
             }
           }
         }
-        // All retries exhausted — return fallback (master) so the tile still
-        // shows something. Logged above; not shown to the user.
-        console.error("[runBatch] resizeToExact permanently failed, using fallback", { w, h });
+        console.error("[runBatch] centerCropToExact permanently failed, using fallback", { w, h });
         return fallback;
       };
 
-      // Vision pre-pass only if there's a different-aspect bucket.
-      const needsVision = Array.from(buckets.keys()).some((r) => r !== masterRatio);
+      // Vision pre-pass only if some source must be regenerated (not the master).
+      const needsVision = plans.some((p) => p.ratio !== masterRatio);
       let masterDetails: MasterDetails | null = null;
       if (needsVision) {
         try {
@@ -453,120 +454,91 @@ export function GenerationProvider({ children }: ProviderProps) {
         }
       }
 
-      for (const [ratio, bucketTiles] of buckets.entries()) {
-        if (cancelRef.current) break;
-        for (const t of bucketTiles) updateTile(t.id, { status: "running" });
+      const isTransient = (e: unknown) => {
+        const msg = e instanceof Error ? e.message : "";
+        return (
+          msg.includes("оборвалось") ||
+          msg.includes("пустой ответ") ||
+          msg.includes("Таймаут") ||
+          msg.includes("empty model response") ||
+          msg.includes("No image payload")
+        );
+      };
+      const isContentFilter = (e: unknown) =>
+        e instanceof Error && e.message.startsWith("[content_filter]");
 
-        // Same-aspect: pure scale, no API.
-        if (ratio === masterRatio) {
-          for (const t of bucketTiles) {
-            if (cancelRef.current) break;
-            const exact = await scaleWithRetry(masterDataUrl, t.size.w, t.size.h, masterDataUrl);
-            updateTile(t.id, { status: "done", dataUrl: exact });
-            void persistResizeTile(basePayload.card_id, t.size, exact);
+      for (const plan of plans) {
+        if (cancelRef.current) break;
+        const planSizes = plan.targets.map((t) => sizeByKey.get(`${t.w}x${t.h}`)!);
+        for (const s of planSizes) updateTile(`${s.w}x${s.h}`, { status: "running" });
+
+        // Resolve the SOURCE image for this plan.
+        let sourceUrl: string;
+        if (plan.ratio === masterRatio) {
+          sourceUrl = masterDataUrl; // free — crop straight from the master
+        } else {
+          const rep = planSizes[0];
+          const i2iPayload: GeneratePayload = {
+            ...basePayload,
+            aspect_ratio: plan.ratio,
+            source_image: masterDataUrl,
+            target_w: plan.source.w,
+            target_h: plan.source.h,
+            master_details: masterDetails ?? undefined,
+            group_id: rep.group_id,
+            skip_history_attach: true,
+          };
+          // t2i fallback: same prompt + aspect, no source image (used when i2i
+          // trips content_filter — the master's prompt already passed safety).
+          const t2iPayload: GeneratePayload = {
+            ...i2iPayload,
+            source_image: undefined,
+            master_details: undefined,
+          };
+          const callWithRetry = async (
+            attemptsLeft = 3,
+          ): Promise<Awaited<ReturnType<typeof generateImage>>> => {
+            try {
+              return await generateImage(i2iPayload);
+            } catch (e) {
+              if (attemptsLeft > 1 && isTransient(e)) {
+                console.warn("[runBatch] i2i transient error, retrying", e);
+                await new Promise((r) => setTimeout(r, 1500));
+                return callWithRetry(attemptsLeft - 1);
+              }
+              throw e;
+            }
+          };
+          try {
+            let src: Awaited<ReturnType<typeof generateImage>>;
+            try {
+              src = await callWithRetry();
+            } catch (e) {
+              if (isContentFilter(e)) {
+                console.warn("[runBatch] i2i content_filter → retrying as t2i", { ratio: plan.ratio });
+                src = await generateImage(t2iPayload);
+              } else {
+                throw e;
+              }
+            }
+            sourceUrl = src.image;
+          } catch (e) {
+            // Source generation failed — mark every member of this plan as an
+            // error (never pass off a wrong image as a real result).
+            console.error("[runBatch] source generation failed", { ratio: plan.ratio, error: e });
+            const message = formatGenerationError(e instanceof Error ? e.message : "Ошибка");
+            for (const s of planSizes) updateTile(`${s.w}x${s.h}`, { status: "error", error: message });
+            continue;
           }
-          continue;
         }
 
-        // Different-aspect: one i2i, then pure scale.
-        const primary = bucketTiles.reduce((biggest, cur) =>
-          cur.size.w * cur.size.h > biggest.size.w * biggest.size.h ? cur : biggest,
-        );
-
-        const i2iPayload: GeneratePayload = {
-          ...basePayload,
-          aspect_ratio: ratio,
-          source_image: masterDataUrl,
-          target_w: primary.size.w,
-          target_h: primary.size.h,
-          master_details: masterDetails ?? undefined,
-          group_id: primary.size.group_id,
-          skip_history_attach: true,
-        };
-
-        const isTransient = (e: unknown) => {
-          const msg = e instanceof Error ? e.message : "";
-          return (
-            msg.includes("оборвалось") ||
-            msg.includes("пустой ответ") ||
-            msg.includes("Таймаут") ||
-            msg.includes("empty model response") ||
-            msg.includes("No image payload")
-          );
-        };
-
-        const isContentFilter = (e: unknown) =>
-          e instanceof Error && e.message.startsWith("[content_filter]");
-
-        const callWithRetry = async (attemptsLeft = 3): Promise<Awaited<ReturnType<typeof generateImage>>> => {
-          try {
-            return await generateImage(i2iPayload);
-          } catch (e) {
-            if (attemptsLeft > 1 && isTransient(e)) {
-              console.warn("[runBatch] i2i transient error, retrying", e);
-              await new Promise((r) => setTimeout(r, 1500));
-              return callWithRetry(attemptsLeft - 1);
-            }
-            throw e;
-          }
-        };
-
-        // t2i fallback: same original prompt + new aspect ratio, no source
-        // image. Used when i2i is blocked by content_filter — the original
-        // prompt already passed safety when generating the master, so t2i
-        // with that same prompt should also pass and produce a very similar
-        // result in the target aspect.
-        const t2iPayload: GeneratePayload = {
-          ...basePayload,
-          aspect_ratio: ratio,
-          source_image: undefined,
-          target_w: primary.size.w,
-          target_h: primary.size.h,
-          master_details: undefined,
-          group_id: primary.size.group_id,
-          skip_history_attach: true,
-        };
-
-        const getBucketSource = async () => {
-          try {
-            return await callWithRetry();
-          } catch (e) {
-            if (isContentFilter(e)) {
-              console.warn(
-                "[runBatch] i2i content_filter → retrying as t2i with original prompt",
-                { ratio },
-              );
-              return await generateImage(t2iPayload);
-            }
-            throw e;
-          }
-        };
-
-        try {
-          const bucketSource = await getBucketSource();
+        if (cancelRef.current) break;
+        // Carve every exact tile out of the source.
+        for (const s of planSizes) {
           if (cancelRef.current) break;
-          for (const t of bucketTiles) {
-            if (cancelRef.current) break;
-            const exact = await scaleWithRetry(
-              bucketSource.image,
-              t.size.w,
-              t.size.h,
-              masterDataUrl,
-            );
-            updateTile(t.id, { status: "done", dataUrl: exact });
-            void persistResizeTile(basePayload.card_id, t.size, exact);
-          }
-        } catch (e) {
-          // Both i2i and t2i failed — surface a real error on every tile in
-          // this bucket. Previously we stretch-scaled the master and marked the
-          // tiles "done", which passed off a wrong-aspect image as a genuine
-          // result and polluted the counter, the result list and the ZIP, while
-          // leaving errorCount at 0 so "Повторить упавшие" never appeared.
-          console.error("[runBatch] bucket fully failed", { ratio, error: e });
-          const message = formatGenerationError(e instanceof Error ? e.message : "Ошибка");
-          for (const t of bucketTiles) {
-            updateTile(t.id, { status: "error", error: message });
-          }
+          const exact = await cropWithRetry(sourceUrl, s.w, s.h, masterDataUrl);
+          updateTile(`${s.w}x${s.h}`, { status: "done", dataUrl: exact });
+          void persistResizeTile(basePayload.card_id, s, exact);
         }
       }
 
@@ -597,10 +569,10 @@ export function GenerationProvider({ children }: ProviderProps) {
       // client-side scale — avoids a jarring one-frame flash.
       const minVisible = new Promise((r) => setTimeout(r, 400));
 
-      const scaleWithRetry = async (src: string, w: number, h: number, fallback: string) => {
+      const cropWithRetry = async (src: string, w: number, h: number, fallback: string) => {
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            return await resizeToExact(src, w, h, "image/jpeg", 0.92);
+            return await centerCropToExact(src, w, h, "image/jpeg", 0.92);
           } catch {
             if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
           }
@@ -620,14 +592,16 @@ export function GenerationProvider({ children }: ProviderProps) {
             });
             masterDataUrl = r.dataUrl;
           } catch {
-            /* keep as-is; same-aspect scale may still work */
+            /* keep as-is; same-aspect crop may still work */
           }
         }
 
-        let sourceForScale = masterDataUrl;
-        // Different aspect than the master → this tile needs a fresh i2i.
-        // Same aspect → a pure client-side re-scale from the master.
-        if (tile.size.ratio !== masterRatio) {
+        // Plan this single size → the flare source aspect + canvas.
+        const plan = planResizes([{ w: tile.size.w, h: tile.size.h }])[0];
+        let sourceForCrop = masterDataUrl;
+        // Source aspect differs from the (square) master → fresh flare i2i.
+        // Same aspect → crop straight from the master, no API.
+        if (plan && plan.ratio !== masterRatio) {
           let masterDetails: MasterDetails | null = null;
           try {
             masterDetails = await extractMasterDetails(masterDataUrl);
@@ -636,17 +610,17 @@ export function GenerationProvider({ children }: ProviderProps) {
           }
           const i2iPayload: GeneratePayload = {
             ...basePayload,
-            aspect_ratio: tile.size.ratio,
+            aspect_ratio: plan.ratio,
             source_image: masterDataUrl,
-            target_w: tile.size.w,
-            target_h: tile.size.h,
+            target_w: plan.source.w,
+            target_h: plan.source.h,
             master_details: masterDetails ?? undefined,
             group_id: tile.size.group_id,
             skip_history_attach: true,
           };
           try {
             const res = await generateImage(i2iPayload);
-            sourceForScale = res.image;
+            sourceForCrop = res.image;
           } catch (e) {
             // content_filter → retry as t2i with the original prompt.
             if (e instanceof Error && e.message.startsWith("[content_filter]")) {
@@ -655,14 +629,14 @@ export function GenerationProvider({ children }: ProviderProps) {
                 source_image: undefined,
                 master_details: undefined,
               });
-              sourceForScale = res.image;
+              sourceForCrop = res.image;
             } else {
               throw e;
             }
           }
         }
 
-        const exact = await scaleWithRetry(sourceForScale, tile.size.w, tile.size.h, masterDataUrl);
+        const exact = await cropWithRetry(sourceForCrop, tile.size.w, tile.size.h, masterDataUrl);
         await minVisible;
         updateTile(id, { status: "done", dataUrl: exact, error: undefined });
         void persistResizeTile(basePayload.card_id, tile.size, exact);

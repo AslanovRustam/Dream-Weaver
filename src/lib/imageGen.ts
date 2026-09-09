@@ -2,6 +2,7 @@ import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { refreshMe } from "@/components/AppHeader";
 import { CONTENT_FILTER_PREFIX, describeProviderError } from "@/lib/generation-errors";
+import { centerCrop } from "@/lib/resizePlan";
 
 export type GeneratePayload = {
   preset_id: string;
@@ -463,6 +464,41 @@ export async function resizeToExact(
     ctx.fillRect(0, 0, targetW, targetH);
   }
   ctx.drawImage(img, 0, 0, targetW, targetH);
+  return canvas.toDataURL(mime, quality);
+}
+
+/**
+ * Center-crop a source image to the exact target aspect, then scale to
+ * targetW×targetH. Used by the resize pipeline: the planner (resizePlan.ts)
+ * generated the source at a canonical aspect; here we carve out each exact
+ * tile. The crop rect is recomputed from the ACTUAL loaded pixels (not the
+ * planner's nominal source dims), so it stays correct even when the source is
+ * the 1:1 master itself or came back a size-tier larger than planned.
+ * For extreme (>3:1 / <1:3) targets this is a thin center strip — by design.
+ */
+export async function centerCropToExact(
+  imageDataUrl: string,
+  targetW: number,
+  targetH: number,
+  mime: "image/jpeg" | "image/png" = "image/jpeg",
+  quality = 0.92,
+): Promise<string> {
+  const img = await loadImage(imageDataUrl);
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  const crop = centerCrop(srcW, srcH, targetW, targetH);
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2d not supported");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  if (mime === "image/jpeg") {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetW, targetH);
+  }
+  ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, targetW, targetH);
   return canvas.toDataURL(mime, quality);
 }
 

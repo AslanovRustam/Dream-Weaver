@@ -31,6 +31,11 @@ const MIN_BALANCE_TO_GENERATE = 1;
 // Resizes still run on gemini-flash via OpenRouter.
 const MASTER_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 
+// Resize / reframe engine (OpenAI-direct, i2i via /v1/images/edits). ChatGPT
+// Images 2.5 "Flare" — fast, cheap, same 1:3…3:1 aspect band as the planner
+// (src/lib/resizePlan.ts). Replaced the old gemini-flash OpenRouter resize path.
+const RESIZE_IMAGE_MODEL = "gpt-image-2.5-flare";
+
 // Resolve the pricing-table key from the request model string.
 // Anything that looks like Gemini/Google maps to "gemini-nano"; everything
 // else is billed as "gpt-image-2".
@@ -1626,18 +1631,19 @@ export async function POST(request: Request) {
               ? `${finalPrompt}\n\nREFERENCE IMAGES:\n- ${refLines.join("\n- ")}`
               : finalPrompt;
 
-          // Two tiers:
-          //   • MASTER (fresh banner, no source): OpenAI-DIRECT, native
-          //     /v1/images API, MASTER_IMAGE_MODEL (gpt-image-2.5-sunburst) —
-          //     top quality, token-billed, fast.
-          //   • RESIZE (i2i, source_image present): fast/cheap gemini-flash via
-          //     OpenRouter — only reframes the finished master.
+          // Both tiers now run OpenAI-DIRECT via the native /v1/images API:
+          //   • MASTER (fresh banner, no source): MASTER_IMAGE_MODEL
+          //     (gpt-image-2.5-sunburst) — top quality.
+          //   • RESIZE (i2i, source_image present): RESIZE_IMAGE_MODEL
+          //     (gpt-image-2.5-flare) — fast/cheap, reframes the master into a
+          //     source at the requested aspect; the client then crops exact tiles.
           const requestedModel = (body.model || "").trim();
-          const orModel = "google/gemini-3.1-flash-image"; // used only on the resize (OpenRouter) path
+          const orModel = "google/gemini-3.1-flash-image"; // retained for the (now dead) OpenRouter branch
           void requestedModel;
-          // isNano=true → OpenRouter path; false → OpenAI-direct gpt-image path.
-          // Masters go OpenAI-direct; resizes stay on OpenRouter gemini.
-          const isNano = hasSourceImage;
+          const openAiModel = hasSourceImage ? RESIZE_IMAGE_MODEL : MASTER_IMAGE_MODEL;
+          // Always OpenAI-direct now. (isNano kept false so the legacy OpenRouter
+          // gemini branch below is bypassed; response parsing uses the OpenAI shape.)
+          const isNano = false;
           const requestedAspect = body.aspect_ratio || "1:1";
 
           if (isNano) {
@@ -1697,7 +1703,7 @@ export async function POST(request: Request) {
               // Image-to-image / multi-reference → /v1/images/edits with
               // multipart form. OpenAI accepts up to 4 refs via image[].
               const form = new FormData();
-              form.append("model", MASTER_IMAGE_MODEL);
+              form.append("model", openAiModel);
               form.append("prompt", promptForOpenAI);
               form.append("size", size);
               form.append("quality", quality);
@@ -1729,7 +1735,7 @@ export async function POST(request: Request) {
                   Authorization: `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                  model: MASTER_IMAGE_MODEL,
+                  model: openAiModel,
                   prompt: promptForOpenAI,
                   size,
                   quality,
@@ -1760,7 +1766,7 @@ export async function POST(request: Request) {
               context: {
                 provider_status: res.status,
                 is_quota_error: isQuota,
-                model: body.model || MASTER_IMAGE_MODEL,
+                model: body.model || openAiModel,
                 preset_id: (body.preset_id as string) || null,
                 detail: text.slice(0, 300),
               },
@@ -1794,7 +1800,7 @@ export async function POST(request: Request) {
               const u = data.usage;
               usage = {
                 provider: "openai",
-                model: MASTER_IMAGE_MODEL,
+                model: openAiModel,
                 quality,
                 input_text_tokens: u?.input_tokens_details?.text_tokens ?? 0,
                 input_image_tokens: u?.input_tokens_details?.image_tokens ?? 0,
@@ -1969,10 +1975,9 @@ export async function POST(request: Request) {
 
           // ---- Billing: total_tokens * coefficient(model, quality) ----
           // Anything we can't compute defaults to a tiny non-zero charge so
-          // every successful generation still produces an audit trail.
-          // All banners now run on Gemini via OpenRouter, so bill on the
-          // model we actually used (never the retired gpt-image key).
-          const modelKey = pricingModelKey(orModel);
+          // every successful generation still produces an audit trail. Bill on
+          // the OpenAI model we actually used (sunburst master / flare resize).
+          const modelKey = pricingModelKey(openAiModel);
           const totalTokens = (() => {
             const u = usage as Record<string, unknown> | null;
             if (!u) return 0;
