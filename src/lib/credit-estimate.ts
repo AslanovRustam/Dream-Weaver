@@ -28,12 +28,10 @@ export function imageCredits(images = 1): number {
   return Math.max(1, Math.round(n * USD_PER_IMAGE * CREDITS_PER_USD));
 }
 
-// Banner + resize PRICING (a product decision, not raw self-cost). Target: a
-// banner plus its full set of 46 resize formats costs 150 credits, with a whole
-// per-resize price. 46 × 2 = 92 for the resizes, leaving 58 for the banner
-// master. (Self-cost is ~$0.225 banner / ~$0.067 per resize-bucket; the markup
-// lives in these numbers.)
-export const BANNER_PRICE_CREDITS = 58;
+// Banner PRICING (a product decision, not raw self-cost). The banner master now
+// runs on gpt-image-2.5-sunburst at a measured self-cost of ~$0.04/banner, so
+// 30 credits is a healthy margin. (Resizes are priced separately below.)
+export const BANNER_PRICE_CREDITS = 30;
 
 // Landing character runs on OpenAI gpt-image-2 (transparent PNG) — same cost
 // class as the banner model (~$0.225). Landing background stays on gemini-flash

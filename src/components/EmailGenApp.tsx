@@ -7,7 +7,6 @@ import { Check, Loader2, Mail, Save, Send, Sparkles, Upload } from "lucide-react
 import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
-import { CostMeter } from "@/components/CostMeter";
 import { imageCredits } from "@/lib/credit-estimate";
 
 // Email hero = one AI image generation.
@@ -472,7 +471,6 @@ export function EmailGenApp() {
           {genError ? (
             <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p>
           ) : null}
-          {costUsd > 0 ? <div className="mt-2"><CostMeter total={costUsd} /></div> : null}
         </div>
 
         <Field label="Заголовок (hero)">

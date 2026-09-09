@@ -21,7 +21,6 @@ import {
 import { apiJson, ApiError } from "@/lib/api-client";
 import { BriefUploader } from "@/components/BriefUploader";
 import { PresetSidebar, PRESETS, compileTemplateOptions } from "./PresetSidebar";
-import { AspectRatioPicker } from "./AspectRatioPicker";
 import { type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
 import { FullscreenImageModal } from "./FullscreenImageModal";
@@ -29,7 +28,7 @@ import { GenerationErrorCard } from "./GenerationErrorCard";
 import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
-import { downloadAsJpg, type GeneratePayload, type UsageInfo } from "@/lib/imageGen";
+import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits } from "@/lib/credit-estimate";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
@@ -127,7 +126,6 @@ export function ImageGenApp() {
   // A banner exists → we're on step 2 (choose resizes). Drives the step
   // indicator and the "Назад" button. Accounts for the dev preview flag.
   const hasBanner = DEV_PREVIEW_RESULT || imageUrl !== null;
-  const lastUsage = gen.lastUsage;
   const lastPayload = gen.lastPayload;
   const lastMasterRatio = gen.lastMasterRatio;
   const setLastPayload = gen.setLastPayload;
@@ -464,7 +462,8 @@ export function ImageGenApp() {
     if (typeof p.button_text_enabled === "boolean") setButtonTextEnabled(p.button_text_enabled);
     if (typeof p.subheadline_enabled === "boolean") setSubheadlineEnabled(p.subheadline_enabled);
     if (typeof p.bonus_enabled === "boolean") setBonusEnabled(p.bonus_enabled);
-    if (typeof p.aspect_ratio === "string" && p.aspect_ratio) setRatio(p.aspect_ratio);
+    // Banner master is always square (1:1) now — presets no longer override the
+    // aspect ratio; resizes are derived from the square master afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -833,7 +832,6 @@ export function ImageGenApp() {
 
   const onLogoFile = (file: File | null) => compressImageFile(file, setBrandLogo, 256);
 
-  const ratios = useMemo(() => (model === "gpt" ? RATIOS_GPT : RATIOS_NANO), [model]);
   // PRELIMINARY credit estimate for the generate button (see lib/credit-estimate).
   const estCredits = useMemo(() => estimateBannerCredits({ model, quality }), [model, quality]);
   const currentPreset = PRESETS.find((p) => p.id === preset);
@@ -1661,17 +1659,8 @@ export function ImageGenApp() {
                 </div>
               ) : null}
 
-              {/* Соотношение сторон. Качество и модель (Артистизм/Реализм) скрыты
-                  из UI — модель всегда "Артистизм" (дефолт из useState), а
-                  качество зафиксировано дефолтом ("medium"). */}
-              {advanced && (
-                <div className="mt-2 flex flex-col gap-4">
-                  <div className="min-w-0">
-                    <p className="mb-2 ds-h4">Соотношение сторон</p>
-                    <AspectRatioPicker ratios={ratios} value={ratio} onChange={setRatio} />
-                  </div>
-                </div>
-              )}
+              {/* Соотношение сторон, качество и модель скрыты из UI. Баннер-мастер
+                  всегда генерится 1:1 (квадрат), ресайзы делаются уже из него. */}
             </div>
           </div>
 
@@ -2052,14 +2041,6 @@ export function ImageGenApp() {
                     </div>
                   </div>
 
-                  {/* Real generation cost (себестоимость) + tokens for the
-                      just-generated master. Sourced from OpenRouter usage. */}
-                  {lastUsage ? (
-                    <div className="-mt-2 rounded-xl border border-border bg-card">
-                      <UsageStrip usage={lastUsage} />
-                    </div>
-                  ) : null}
-
                   {/* Direct step: the resize picker's own secondary button
                       opens the modal in one click — no intermediate screen.
                       Keep it mounted across a master regeneration (when
@@ -2290,55 +2271,3 @@ function SlotUpload({
   );
 }
 
-function UsageStrip({ usage }: { usage: UsageInfo }) {
-  const fmt = (n: number | null | undefined) =>
-    typeof n === "number" ? n.toLocaleString("ru-RU") : "—";
-  const qLabel = usage.quality.charAt(0).toUpperCase() + usage.quality.slice(1);
-  const timeLabel =
-    typeof usage.elapsed_ms === "number" ? `${(usage.elapsed_ms / 1000).toFixed(1)}с` : "—";
-  if (usage.provider === "openai") {
-    const inTxt = usage.input_text_tokens ?? 0;
-    const inImg = usage.input_image_tokens ?? 0;
-    const outImg = usage.output_image_tokens ?? 0;
-    const total = usage.total_tokens ?? inTxt + inImg + outImg;
-    const cost = typeof usage.cost_usd === "number" ? `≈ $${usage.cost_usd.toFixed(4)}` : "—";
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 ds-caption">
-        <span>{qLabel}</span>
-        <span>·</span>
-        <span>{timeLabel}</span>
-        <span>·</span>
-        <span>
-          токены: <span className="text-foreground/55">{fmt(total)}</span>{" "}
-          <span>
-            (txt {fmt(inTxt)} + img {fmt(inImg)} + out {fmt(outImg)})
-          </span>
-        </span>
-        <span>·</span>
-        <span>{cost}</span>
-        <span className="ml-auto">{usage.model}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-3 pt-2 ds-caption">
-      <span>{qLabel}</span>
-      <span>·</span>
-      <span>{timeLabel}</span>
-      <span>·</span>
-      <span>
-        токены: <span className="text-foreground/55">{fmt(usage.total_tokens)}</span>{" "}
-        <span>
-          (prompt {fmt(usage.prompt_tokens)} + out {fmt(usage.completion_tokens)})
-        </span>
-      </span>
-      <span>·</span>
-      <span title="Реальная себестоимость (OpenRouter)">
-        {typeof usage.cost_usd === "number" ? `≈ $${usage.cost_usd.toFixed(4)}` : "—"}
-      </span>
-      <span>·</span>
-      <span>{usage.note ?? "OpenRouter"}</span>
-      <span className="ml-auto">{usage.model}</span>
-    </div>
-  );
-}

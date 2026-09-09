@@ -9,7 +9,6 @@ import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/
 import { downloadText, slugify } from "@/lib/download";
 import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
-import { CostMeter } from "@/components/CostMeter";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 
@@ -465,7 +464,6 @@ export function CrashLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
-          {costUsd > 0 ? <div className="mt-2"><CostMeter total={costUsd} /></div> : null}
         </div>
 
         {/* Characters (optional) */}
