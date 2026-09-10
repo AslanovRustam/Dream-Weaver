@@ -2012,6 +2012,13 @@ export async function POST(request: Request) {
           const usageObj = (usage as Record<string, unknown>) || {};
           const costUsd = Number(usageObj.cost_usd ?? 0) || 0;
 
+          // Whether this call creates a brand-new card (master) or attaches to
+          // one that already exists (resize) — computed here (not just below,
+          // where the history/FTP step needs it) so it can ride along in the
+          // credit_transactions audit row: real История → Кредиты reads this
+          // meta to label/link each spend row.
+          const isMasterForBilling = !hasSourceImage && !body.card_id;
+
           // Spend atomically. If the user somehow went to zero between the
           // pre-flight check and now (race), we surface a payment-required
           // error but still return the image since the provider already ran.
@@ -2027,6 +2034,8 @@ export async function POST(request: Request) {
                 total_tokens: totalTokens,
                 cost_usd: costUsd,
                 coefficient,
+                is_master: isMasterForBilling,
+                card_id: body.card_id ?? null,
               },
             });
             if (spendErr) {

@@ -44,8 +44,8 @@ import { apiJson } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/lib/workspace-context";
 import { readProjectMap } from "@/lib/workspaces";
+import { getBrowserClient } from "@/lib/supabase/browser";
 import {
-  getMockCredits,
   getMockProjects,
   type CreditTx,
   type Project,
@@ -695,20 +695,84 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
   );
 }
 
+// Real credit_transactions row (RLS-scoped to the caller — see 0001_init.sql).
+type CreditTxRow = {
+  id: number;
+  created_at: string;
+  delta: number | string;
+  reason: string;
+  meta: Record<string, unknown> | null;
+};
+
+const REASON_LABEL: Record<string, string> = {
+  admin_grant: "Пополнение баланса",
+  admin_adjust: "Корректировка баланса",
+  refund: "Возврат",
+};
+
+/** DB row → the CreditTx shape the list/summary UI already renders.
+ *  Today only banner master/resize generations call spend_credits (see
+ *  generate-image/route.ts) — landing/video/playable creation is logged to
+ *  `generations` for cost tracking but doesn't yet debit credits_balance, so
+ *  those rows won't appear here until they're wired the same way. */
+function mapCreditRow(r: CreditTxRow): CreditTx {
+  const delta = Number(r.delta) || 0;
+  const meta = r.meta ?? {};
+  const isMaster = meta.is_master === true;
+  const cardId = typeof meta.card_id === "string" ? meta.card_id : undefined;
+  let label = REASON_LABEL[r.reason] ?? "Списание";
+  if (r.reason === "generation") {
+    label = isMaster ? "Генерация баннера" : "Ресайз баннера";
+  }
+  return {
+    id: String(r.id),
+    at: r.created_at,
+    kind: delta >= 0 ? "topup" : "spend",
+    amount: Math.round(Math.abs(delta) * 100) / 100,
+    label,
+    section: r.reason === "generation" ? "banner" : undefined,
+    projectId: cardId,
+  };
+}
+
 // ── Tab 2: credits ────────────────────────────────────────────────────────────
 function CreditsTab() {
   const router = useRouter();
-  const [balance, setBalance] = useState<number>(8);
+  const { user } = useAuth();
+  const [balance, setBalance] = useState<number>(0);
   const [filter, setFilter] = useState<"all" | "spend" | "topup">("all");
-  const txs = useMemo(() => getMockCredits(), []);
+  const [txs, setTxs] = useState<CreditTx[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     apiJson<{ profile?: { credits_balance?: number | string } }>("/api/me")
-      .then((r) => { if (!cancelled) { const b = Number(r?.profile?.credits_balance); if (!Number.isNaN(b) && b > 0) setBalance(b); } })
+      .then((r) => { if (!cancelled) { const b = Number(r?.profile?.credits_balance); if (!Number.isNaN(b)) setBalance(b); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    getBrowserClient()
+      .from("credit_transactions")
+      .select("id,created_at,delta,reason,meta")
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn("credit_transactions fetch failed", error);
+          setTxs([]);
+        } else {
+          setTxs(((data as CreditTxRow[] | null) ?? []).map(mapCreditRow));
+        }
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const now = Date.now();
   const spent30 = txs.filter((t) => t.kind === "spend" && now - +new Date(t.at) <= 30 * 24 * 3600_000).reduce((s, t) => s + t.amount, 0);
@@ -717,11 +781,6 @@ function CreditsTab() {
 
   return (
     <div>
-      {/* Mock notice */}
-      <p className="mb-4 inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--status-premium)]/30 bg-[color:var(--status-premium)]/10 px-2.5 py-1.5 ds-caption text-[color:var(--status-premium)]">
-        Демо-данные — лог использования кредитов появится после подключения биллинга.
-      </p>
-
       {/* Summary */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -772,14 +831,22 @@ function CreditsTab() {
       </div>
 
       {/* List */}
-      {rows.length === 0 ? (
+      {loading ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-border py-16 text-center ds-caption">
+          Загрузка…
+        </div>
+      ) : rows.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-border py-16 text-center ds-caption">
           Здесь появится история использования кредитов
         </div>
       ) : (
         <div className="mt-4 flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
           {rows.map((t) => (
-            <CreditRow key={t.id} t={t} onProject={t.projectId ? () => router.push("/history") : undefined} />
+            <CreditRow
+              key={t.id}
+              t={t}
+              onProject={t.projectId ? () => router.push(`/history/${t.projectId}`) : undefined}
+            />
           ))}
         </div>
       )}
