@@ -44,6 +44,10 @@ export const CHARACTER_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_U
 // CHARACTER_PRICE_CREDITS rather than per-icon.
 export const SLOT_SYMBOLS_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
 
+// Crash-game rocket icon — same model/cost class as the character generator
+// (gpt-image-2.5-sunburst): one call, flat price like CHARACTER_PRICE_CREDITS.
+export const CRASH_ROCKET_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
+
 // ⚠️ PLACEHOLDER — "Сделать лендинг" price shown on the button under the
 // master banner. Landing generation (bg + character, analysis) doesn't
 // actually debit credits_balance yet (see HistoryApp's Кредиты tab notes —

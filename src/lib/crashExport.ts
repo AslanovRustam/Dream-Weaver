@@ -14,6 +14,10 @@ export type CrashExportConfig = {
   ctaUrl?: string;
   /** Max rounds the visitor may start. 0/undefined = unlimited. */
   maxAttempts?: number;
+  /** AI-generated rocket icon (data: URL), pointing up-and-right at ~45°
+   *  (same convention the 🚀 emoji fallback uses) — see CrashGame.tsx's
+   *  ROCKET_BASELINE_DEG. Empty/undefined = the plain emoji. */
+  rocketImage?: string;
   bgImage: string;
   charLeft: string;
   charRight: string;
@@ -57,7 +61,8 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
   .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;gap:14px}
   .graph{position:relative;width:min(86vw,360px);aspect-ratio:10/9;border-radius:18px;border:2px solid ${accent}66;overflow:hidden;background:radial-gradient(130% 120% at 0% 100%, ${accent}22, transparent 62%),#0c0718;box-shadow:0 0 26px ${accent}44,0 14px 30px rgba(0,0,0,.5)}
   .trail{position:absolute;bottom:0;left:0;transform-origin:bottom left;width:150%;height:3px;background:linear-gradient(90deg,transparent,${accent});opacity:.85}
-  .rocket{position:absolute;left:8%;bottom:8%;font-size:34px;transition:transform .06s linear}
+  .rocket{position:absolute;left:8%;bottom:8%;width:34px;height:34px;font-size:34px;display:flex;align-items:center;justify-content:center;transition:transform .06s linear}
+  .rocket img{width:100%;height:100%;object-fit:contain;pointer-events:none}
   .mult{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(30px,9vw,52px);font-weight:900;color:${accent};text-shadow:0 2px 14px rgba(0,0,0,.55)}
   .cash{width:min(70vw,260px);height:52px;border:2px solid rgba(255,255,255,.6);border-radius:999px;color:#fff;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;box-shadow:0 0 16px ${accent}88,inset 0 2px 6px rgba(255,255,255,.35),0 6px 14px rgba(0,0,0,.5);text-shadow:0 1px 2px rgba(0,0,0,.5)}
   .cash.live{background:radial-gradient(circle at 30% 25%,#fff6,transparent 45%),linear-gradient(180deg,${accent},${accent}bb)}
@@ -91,7 +96,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
       <div class="mid">
         <div class="graph" id="graph">
           <div class="trail" id="trail"></div>
-          <div class="rocket" id="rocket">🚀</div>
+          <div class="rocket" id="rocket">${cfg.rocketImage ? `<img src="${cfg.rocketImage}" alt=""/>` : "🚀"}</div>
           <div class="mult" id="mult">1.00x</div>
         </div>
         <button class="cash live" id="cash" type="button">ЗАБРАТЬ ×1.00</button>
@@ -122,7 +127,20 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
       if(phase!=='running'){ btn.disabled=true; btn.className='cash dead'; btn.textContent='Попытки закончились'; }
     }
   }
-  function draw(){ var p=Math.min(1,(m-1)/9); mult.textContent=fmt(m)+'x'; mult.style.color=ACCENT; rocket.style.transform='translate('+(p*62)+'%,'+(-p*150)+'%) rotate(12deg)'; rocket.style.opacity='1'; trail.style.transform='rotate('+(-(18+p*30))+'deg)'; btn.textContent='ЗАБРАТЬ ×'+fmt(m); }
+  // Rocket travels AND points along the exact same angle as the trail line
+  // (18-48° above horizontal as p goes 0..1) — see CrashGame.tsx's identical
+  // trailAngleDeg/ROCKET_BASELINE_DEG derivation. Both the emoji glyph and
+  // the AI-generated icon are drawn pointing up-right at a 45° baseline, so
+  // rotate(45-angle) turns that baseline into "pointing along the trail".
+  function draw(){
+    var p=Math.min(1,(m-1)/9); mult.textContent=fmt(m)+'x'; mult.style.color=ACCENT;
+    var angle=18+p*30, rad=angle*Math.PI/180, dist=p*165;
+    var dx=dist*Math.cos(rad), dy=-dist*Math.sin(rad);
+    rocket.style.transform='translate('+dx+'%,'+dy+'%) rotate('+(45-angle)+'deg)';
+    rocket.style.opacity='1';
+    trail.style.transform='rotate('+(-angle)+'deg)';
+    btn.textContent='ЗАБРАТЬ ×'+fmt(m);
+  }
   // setInterval (not rAF) so the multiplier climbs even in a background tab.
   function start(){ if(exhausted()) return; attemptsUsed+=1; updateAttemptsUi(); clearInterval(raf); crashAt=2+Math.random()*8; t0=Date.now(); phase='running'; m=1; btn.disabled=false; btn.className='cash live'; hide(); draw();
     raf=setInterval(function(){ if(phase!=='running') return; var dt=(Date.now()-t0)/1000; m=Math.pow(1.0718,dt*10); if(m>=crashAt){ m=crashAt; boom(); return; } draw(); }, 45); }

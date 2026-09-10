@@ -11,11 +11,12 @@ import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
 import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
-import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { imageCredits, CHARACTER_PRICE_CREDITS, CRASH_ROCKET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
+const ROCKET_PRICE = CRASH_ROCKET_PRICE_CREDITS;
 
 // One-click themes: set background scene, character, accent and headline together.
 const THEMES: {
@@ -85,6 +86,18 @@ export function CrashLandingApp() {
     right: "",
   });
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
+  // Rocket icon: an AI-generated PNG (pointing up-right at ~45°, matching the
+  // 🚀 emoji's own baseline — see CrashGame's ROCKET_BASELINE_DEG) that
+  // replaces the plain emoji on the rising trail line.
+  const [rocketIcon, setRocketIcon] = useState("");
+  const [rocketTheme, setRocketTheme] = useState("");
+  const [rocketRef, setRocketRef] = useState("");
+  const [rocketGenning, setRocketGenning] = useState(false);
+  const onRocketRefFile = (f: File) => {
+    const r = new FileReader();
+    r.onload = () => setRocketRef(String(r.result));
+    r.readAsDataURL(f);
+  };
   const [won, setWon] = useState<{ win: boolean; mult: string } | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
   // Attempts: how many rounds the player may start. 0 = unlimited. CrashGame
@@ -135,6 +148,7 @@ export function CrashLandingApp() {
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.maxAttempts === "number" && d.maxAttempts >= 0) setMaxAttempts(d.maxAttempts);
+        if (typeof d.rocketIcon === "string") setRocketIcon(d.rocketIcon);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
@@ -242,6 +256,7 @@ export function CrashLandingApp() {
         ctaText,
         ctaUrl,
         maxAttempts,
+        rocketIcon,
         theme,
         bgImage,
         charLeft: chars.left,
@@ -255,7 +270,7 @@ export function CrashLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_crash_draft",
-            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "" }),
+            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "", rocketIcon: "" }),
           );
         } catch {
           /* ignore */
@@ -274,6 +289,7 @@ export function CrashLandingApp() {
     ctaText,
     ctaUrl,
     maxAttempts,
+    rocketIcon,
     theme,
     bgImage,
     chars,
@@ -386,6 +402,39 @@ export function CrashLandingApp() {
       }
     } finally {
       setCharGenning(null);
+    }
+  };
+
+  // AI-generated rocket icon: one call, transparent PNG, pointing up-right at
+  // the ~45° baseline CrashGame's rotation math assumes. Trimmed to its own
+  // bounding box (same helper used for characters) so it sits tight in the
+  // small trail-line footprint instead of carrying empty padding.
+  const generateRocketIcon = async () => {
+    const prompt = (rocketTheme || topic).trim();
+    if (!prompt) {
+      toast.error("Укажите тематику иконки (или тематику лендинга выше)");
+      return;
+    }
+    setRocketGenning(true);
+    setGenError("");
+    try {
+      const res = await apiFetch("/api/generate-crash-rocket", {
+        method: "POST",
+        json: { prompt, ...(rocketRef ? { reference_image: rocketRef } : {}) },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageUrl) {
+        throw new Error(
+          [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
+        );
+      }
+      if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
+      setRocketIcon(await trimTransparent(data.imageUrl));
+      toast.success("Иконка ракеты сгенерирована");
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+    } finally {
+      setRocketGenning(false);
     }
   };
 
@@ -647,6 +696,96 @@ export function CrashLandingApp() {
           </div>
         </div>
 
+        {/* AI-generated rocket icon — replaces the plain 🚀 emoji on the
+            trail line with a premium, richly rendered one. */}
+        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="ds-h4">Иконка ракеты (ИИ)</span>
+            {rocketIcon ? (
+              <button
+                type="button"
+                onClick={() => setRocketIcon("")}
+                className="text-[11px] text-muted-foreground transition hover:text-foreground"
+              >
+                Вернуть эмодзи
+              </button>
+            ) : null}
+          </div>
+          <textarea
+            className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
+            rows={2}
+            value={rocketTheme}
+            onChange={(e) => setRocketTheme(e.target.value)}
+            placeholder={
+              topic
+                ? `По умолчанию — тематика лендинга: «${topic}»`
+                : "Тематика иконки (например: золотая ракета в стиле киберпанк)"
+            }
+          />
+          <div className="mt-2 flex items-center gap-2">
+            {rocketRef ? (
+              <div className="relative h-9 w-9 shrink-0">
+                <img
+                  src={rocketRef}
+                  alt=""
+                  className="h-9 w-9 rounded-md border border-border bg-white/5 object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setRocketRef("")}
+                  title="Убрать референс"
+                  aria-label="Убрать референс"
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-[9px] text-white"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <label
+                className="flex h-9 shrink-0 cursor-pointer items-center rounded-lg border border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+                title="Референс стиля (опционально)"
+              >
+                Референс
+                <input
+                  type="file"
+                  accept="image/png,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onRocketRefFile(f);
+                  }}
+                />
+              </label>
+            )}
+            <button
+              type="button"
+              onClick={() => void generateRocketIcon()}
+              disabled={rocketGenning}
+              className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-3 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+            >
+              {rocketGenning ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              {rocketGenning
+                ? "Генерирую…"
+                : `${rocketIcon ? "Перегенерировать" : "Сгенерировать"} иконку · ${ROCKET_PRICE}`}
+            </button>
+            {rocketIcon ? (
+              <img
+                src={rocketIcon}
+                alt=""
+                className="h-9 w-9 shrink-0 rounded-md border border-border bg-black/10 object-contain"
+              />
+            ) : null}
+          </div>
+          <p className="mt-1.5 ds-caption">
+            Без генерации используется эмодзи 🚀. Иконка всегда рисуется с наклоном как на линии — направление
+            не собьётся.
+          </p>
+        </div>
+
         <Field label="Кнопка">
           <div className="flex items-center gap-2">
             <input className={inputCls} value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
@@ -695,6 +834,7 @@ export function CrashLandingApp() {
                 ctaText,
                 ctaUrl,
                 maxAttempts,
+                rocketImage: rocketIcon,
                 bgImage,
                 charLeft: chars.left,
                 charRight: chars.right,
@@ -800,6 +940,7 @@ export function CrashLandingApp() {
                   spinSignal={spinSignal}
                   startLabel={ctaText || "СТАРТ"}
                   maxAttempts={maxAttempts || undefined}
+                  rocketImage={rocketIcon || undefined}
                   onResult={(win, mult) => setWon({ win, mult })}
                   onAttemptsChange={(_used, left) => setAttemptsLeft(left)}
                 />

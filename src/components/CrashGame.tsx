@@ -6,6 +6,18 @@ import { useEffect, useRef, useState } from "react";
 // before it "crashes" to lock in the multiplier. Starts on the internal button
 // or on a spinSignal bump (the landing's external CTA). Reports {win, multiplier}
 // via onResult when the round ends (cash out = win, crash = loss).
+// The trail line's angle above horizontal at progress p (0..1) — see the
+// `rotate(${-(18 + p * 30)}deg)` below. Both the trail AND the rocket derive
+// their angle from this single formula so they can never disagree.
+const trailAngleDeg = (p: number) => 18 + p * 30;
+// The rocket artwork's OWN baked-in orientation: both the 🚀 emoji glyph
+// (across every common emoji font) and the AI-generated icon (explicitly
+// prompted for this) point up-and-to-the-right at ~45° above horizontal by
+// default. Rotating by (ROCKET_BASELINE_DEG - trailAngleDeg) turns that
+// baseline into "pointing exactly along the current trail angle" — see the
+// derivation in the rocket transform below.
+const ROCKET_BASELINE_DEG = 45;
+
 export function CrashGame({
   accent = "#ef4444",
   spinSignal = 0,
@@ -16,6 +28,10 @@ export function CrashGame({
    *  unchanged behaviour). Once reached, the internal button locks and
    *  start() (incl. via spinSignal) becomes a no-op. */
   maxAttempts,
+  /** AI-generated rocket icon (data: URL), pointing up-and-right at
+   *  ROCKET_BASELINE_DEG by convention (see generate-crash-rocket's
+   *  prompt). Omitted = the 🚀 emoji glyph, same convention. */
+  rocketImage,
   onResult,
   onAttemptsChange,
 }: {
@@ -25,6 +41,7 @@ export function CrashGame({
   cashLabel?: string;
   retryLabel?: string;
   maxAttempts?: number;
+  rocketImage?: string;
   onResult?: (win: boolean, multiplier: string) => void;
   /** Fired whenever the attempt count changes, so a parent landing can show
    *  "N попыток осталось" / disable its own external start button too. */
@@ -125,21 +142,35 @@ export function CrashGame({
             width: "150%",
             height: "3px",
             background: `linear-gradient(90deg, transparent, ${accent})`,
-            transform: `rotate(${-(18 + p * 30)}deg)`,
+            transform: `rotate(${-trailAngleDeg(p)}deg)`,
             opacity: phase === "crashed" ? 0.25 : 0.85,
           }}
         />
-        {/* rocket */}
+        {/* rocket — travels AND points along the exact same angle as the
+            trail line above (trailAngleDeg), so the two never disagree. */}
         <div
-          className="pointer-events-none absolute text-3xl transition-transform duration-75 ease-linear"
+          className="pointer-events-none absolute flex items-center justify-center text-3xl transition-transform duration-75 ease-linear"
           style={{
             left: "8%",
             bottom: "8%",
-            transform: `translate(${p * 62}%, ${-p * 150}%) rotate(12deg)`,
+            width: rocketImage ? 34 : undefined,
+            height: rocketImage ? 34 : undefined,
+            transform: (() => {
+              const angle = trailAngleDeg(p);
+              const rad = (angle * Math.PI) / 180;
+              const dist = p * 165; // % of the rocket's own box — matches the previous travel magnitude
+              const dx = dist * Math.cos(rad);
+              const dy = -dist * Math.sin(rad);
+              return `translate(${dx}%, ${dy}%) rotate(${ROCKET_BASELINE_DEG - angle}deg)`;
+            })(),
             opacity: phase === "crashed" ? 0 : 1,
           }}
         >
-          🚀
+          {rocketImage ? (
+            <img src={rocketImage} alt="" draggable={false} className="h-full w-full select-none object-contain" />
+          ) : (
+            "🚀"
+          )}
         </div>
         {/* multiplier */}
         <div className="absolute inset-0 flex items-center justify-center">
