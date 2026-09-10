@@ -113,6 +113,10 @@ export function WheelLandingApp() {
   const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
   const [won, setWon] = useState<number | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
+  // Which segment the NEXT spin must land on — computed fresh right before
+  // every spin, restricted to the checked ("Может выпасть") segments only.
+  // Passed straight through to FortuneWheel's own forceIndex prop.
+  const [forceIndex, setForceIndex] = useState<number | undefined>(undefined);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
@@ -308,9 +312,43 @@ export function WheelLandingApp() {
 
   const setPrize = (i: number, patch: Partial<WheelSegment>) =>
     setPrizes((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const addPrize = () => setPrizes((p) => (p.length < 12 ? [...p, { label: "Приз" }] : p));
+  const addPrize = () => setPrizes((p) => (p.length < 12 ? [...p, { label: "Приз", enabled: true }] : p));
   const removePrize = (i: number) =>
     setPrizes((p) => (p.length > 2 ? p.filter((_, idx) => idx !== i) : p));
+
+  // Pick which segment the wheel is ALLOWED to land on (checkbox-enabled
+  // ones only — `enabled` defaults to true when the field is absent, so
+  // existing/legacy prize lists without the flag still work as "all on"),
+  // then trigger the spin. Falls back to the full list if every segment
+  // happens to be unchecked (never render a dead SPIN button).
+  const spinWheel = () => {
+    const pool = prizes
+      .map((_, i) => i)
+      .filter((i) => prizes[i].enabled !== false);
+    const from = pool.length > 0 ? pool : prizes.map((_, i) => i);
+    setForceIndex(from[Math.floor(Math.random() * from.length)]);
+    setSpinSignal((s) => s + 1);
+  };
+
+  // "Забрать бонус" — navigate the visitor to the configured offer. A macro
+  // placeholder (e.g. {clickurl}) is meant to be substituted by the traffic
+  // source at serve time — it can't be resolved here in the builder preview,
+  // so we explain that instead of trying (and failing) to navigate to it.
+  const claimBonus = () => {
+    setWon(null);
+    const url = ctaUrl.trim();
+    if (!url) return;
+    if (/[{}]/.test(url)) {
+      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
+      return;
+    }
+    try {
+      const abs = new URL(url, window.location.origin).toString();
+      window.open(abs, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Некорректная ссылка в поле CTA");
+    }
+  };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
@@ -663,9 +701,21 @@ export function WheelLandingApp() {
               <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
+          <p className="mb-2 ds-caption">
+            Отмеченные ✓ сектора могут выпасть игроку. Снимите галочку, чтобы исключить сектор из
+            розыгрыша — он останется на колесе, но никогда не станет призом.
+          </p>
           <div className="flex flex-col gap-2">
             {prizes.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={s.enabled !== false}
+                  onChange={(e) => setPrize(i, { enabled: e.target.checked })}
+                  aria-label="Может выпасть"
+                  title="Может выпасть"
+                  className="h-5 w-5 shrink-0 cursor-pointer accent-[color:var(--color-accent-green,#9bff58)]"
+                />
                 <input
                   className={`${inputCls} h-10`}
                   value={s.label}
@@ -827,13 +877,19 @@ export function WheelLandingApp() {
               }`}
             >
               <div className="relative z-10 mx-auto aspect-square h-full max-h-[520px] max-w-full">
-                <FortuneWheel segments={prizes} accent={accent} spinSignal={spinSignal} onResult={setWon} />
+                <FortuneWheel
+                  segments={prizes}
+                  accent={accent}
+                  forceIndex={forceIndex}
+                  spinSignal={spinSignal}
+                  onResult={setWon}
+                />
               </div>
             </div>
 
             <button
               type="button"
-              onClick={() => setSpinSignal((s) => s + 1)}
+              onClick={spinWheel}
               className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
@@ -859,7 +915,7 @@ export function WheelLandingApp() {
                             type="button"
                             onClick={() => {
                               setWon(null);
-                              setSpinSignal((n) => n + 1);
+                              spinWheel();
                             }}
                             className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
                             style={{ backgroundColor: accent }}
@@ -878,7 +934,7 @@ export function WheelLandingApp() {
                           </p>
                           <button
                             type="button"
-                            onClick={() => setWon(null)}
+                            onClick={claimBonus}
                             className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
                             style={{ backgroundColor: accent }}
                           >

@@ -16,7 +16,10 @@ export type WheelExportConfig = {
    *  can replace it in the file. Empty = the modal just closes. */
   ctaUrl?: string;
   bgImage: string;
-  prizes: { label: string; sub?: string }[];
+  /** `enabled` (default true when omitted) restricts which segments the spin
+   *  RNG may land on — the wheel still draws every segment, it just never
+   *  stops on a disabled one. See spin() below. */
+  prizes: { label: string; sub?: string; enabled?: boolean }[];
   charLeft: string;
   charRight: string;
 };
@@ -172,9 +175,11 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
   var n=prizes.length, ang=360/n, rotation=0, spinning=false;
   var disc=document.getElementById('disc'), modal=document.getElementById('modal'), card=document.getElementById('card');
   var loseRe=/try\\s*again|снова|ещё раз|заново|again|empty|пусто/i;
+  var pool=[]; for(var pi=0;pi<n;pi++){ if(prizes[pi].enabled!==false) pool.push(pi); }
+  if(pool.length===0){ for(var pj=0;pj<n;pj++) pool.push(pj); }
   function spin(){
     if(spinning)return; spinning=true;
-    var target=Math.floor(Math.random()*n);
+    var target=pool[Math.floor(Math.random()*pool.length)];
     var base=rotation-(rotation%360);
     var segCenter=(target+0.5)*ang;
     var need=(360-segCenter)%360;

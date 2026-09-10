@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
-export type WheelSegment = { label: string; sub?: string };
+// `enabled` (default true when omitted) controls whether the win-selection
+// RNG may ever land on this segment — it does NOT change how the segment is
+// drawn on the wheel itself (a disabled segment still shows, it's just never
+// chosen as the outcome). The caller (WheelLandingApp) is responsible for
+// honouring it via the `forceIndex` prop below; FortuneWheel itself has no
+// opinion on which segments are "real" prizes.
+export type WheelSegment = { label: string; sub?: string; enabled?: boolean };
 
 function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
   const a = ((deg - 90) * Math.PI) / 180;
