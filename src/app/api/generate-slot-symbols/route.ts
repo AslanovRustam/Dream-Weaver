@@ -52,19 +52,27 @@ export async function POST(request: Request) {
   const hasReference = reference.startsWith("data:");
 
   const referenceClause = hasReference
-    ? "\n\nSTYLE REFERENCE: match the attached image's color palette and art style (flat / cartoon / " +
-      "photoreal — whichever it is) for every icon, but invent NEW icon subjects that fit the THEME below — " +
-      "do not copy the reference's subject or composition, only its visual style."
+    ? "\n\nSTYLE REFERENCE: match the attached image's color palette and overall mood for every icon, but " +
+      "invent NEW icon subjects that fit the THEME below — do not copy the reference's subject or " +
+      "composition, only its palette/mood, and still render every icon in the premium slot-symbol material " +
+      "style described below (never flatten it down to the reference's own flat/cartoon rendering if it has one)."
     : "";
 
   const full =
-    `Generate exactly ${count} unique slot-machine symbol icons, one per cell, arranged in a precise ` +
-    `${cols}-column × ${ROWS}-row grid that evenly divides the full canvas (each cell is the same fixed size). ` +
-    `Center each icon inside its cell with generous padding on all sides so nothing touches the cell edges or ` +
-    `bleeds into a neighbouring cell. Theme: ${prompt}. Every icon must be CLEARLY DIFFERENT from the others — ` +
-    `distinct objects/symbols/characters fitting the theme, not colour variants of the same shape. Consistent ` +
-    `single icon-art style across all of them (flat/cartoon, bold clean silhouette, vivid saturated colours, ` +
-    `soft drop shadow), game-symbol quality suitable for a casino slot reel.${referenceClause}\n\n` +
+    `Generate exactly ${count} unique, PREMIUM CASINO SLOT-MACHINE SYMBOL ICONS — the polished, high-value ` +
+    `AAA symbol art used in real slot games (Gonzo's Quest / Book of Dead / Starburst tier), NOT flat vector ` +
+    `icons, NOT app icons, and absolutely NOT simple flat emoji-style shapes. Each icon must read as a real, ` +
+    `chunky 3D-rendered game object: thick glossy/glassy or polished-metal/gem material with rich color ` +
+    `gradients, strong specular highlights and a bright rim-light glow around the silhouette, a bold dark ` +
+    `beveled outline, and a soft drop shadow beneath it for depth. Ornate, jewel-encrusted, richly detailed — ` +
+    `like a valuable in-game collectible, not a flat pictogram.\n\n` +
+    `Arrange them one per cell in a precise ${cols}-column × ${ROWS}-row grid that evenly divides the full ` +
+    `canvas (every cell the same fixed size). Center each icon inside its cell with generous padding on all ` +
+    `sides so nothing touches the cell edges or bleeds into a neighbouring cell.\n\n` +
+    `Theme: ${prompt}. Every icon must be CLEARLY DIFFERENT from the others — distinct objects/symbols/` +
+    `characters fitting the theme, not colour variants of the same shape. Keep the exact same premium ` +
+    `material/lighting/rendering style consistent across all ${count} icons, as if from one matched slot-reel ` +
+    `symbol set.${referenceClause}\n\n` +
     `OUTPUT: no grid lines, no cell borders, no numbering, no text or labels anywhere. FULLY TRANSPARENT ` +
     `background everywhere outside the icons themselves (including all the padding inside each cell) — no ` +
     `scene, no floor, no background colour, no vignette.`;
@@ -82,7 +90,9 @@ export async function POST(request: Request) {
       form.append("model", SYMBOLS_IMAGE_MODEL);
       form.append("prompt", full);
       form.append("size", GRID_SIZE);
-      form.append("quality", "medium");
+      // "high" (not "medium") — the premium glossy/gem material + specular
+      // highlight detail this feature aims for needs the extra fidelity.
+      form.append("quality", "high");
       form.append("output_format", "png");
       form.append("background", "transparent");
       form.append("moderation", "low");
@@ -102,7 +112,7 @@ export async function POST(request: Request) {
           model: SYMBOLS_IMAGE_MODEL,
           prompt: full,
           size: GRID_SIZE,
-          quality: "medium",
+          quality: "high",
           n: 1,
           background: "transparent",
           output_format: "png",
