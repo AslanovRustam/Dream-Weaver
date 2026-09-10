@@ -25,7 +25,7 @@
 // Response: { site_url, brand_name, logo_data_url, accent_color_hex, palette, style, is_clean_logo }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { logSystem, newRequestId } from "@/lib/logger";
-import { fetchPublicHtml, fetchPublicImage, UnsafeUrlError } from "@/lib/safe-fetch";
+import { fetchPublicHtml, fetchPublicImage } from "@/lib/safe-fetch";
 import { extractLogoCandidates, extractSiteName } from "@/lib/brandExtract";
 import { rateLimitResponse } from "@/lib/request-guard";
 import { sanitizeVisionText, VISION_VOCAB_RULE } from "@/lib/visionSafety";
@@ -163,9 +163,15 @@ export async function POST(request: Request) {
     let finalUrl: string;
     try {
       ({ html, finalUrl } = await fetchPublicHtml(siteUrl));
-    } catch (e) {
-      const msg = e instanceof UnsafeUrlError ? e.message : "не удалось открыть сайт";
-      return Response.json({ error: `Сайт недоступен: ${msg}`, site_url: siteUrl }, { status: 502 });
+    } catch {
+      // Don't leak the raw fetch/network error (often just "не удалось открыть
+      // сайт" with no actionable detail — e.g. a gambling operator's regional
+      // block, a timeout, TLS refusal). Same friendly fallback either way:
+      // point the user at the manual logo upload right below this field.
+      return Response.json(
+        { error: "Сайт недоступен — загрузите логотип вручную ниже", site_url: siteUrl },
+        { status: 502 },
+      );
     }
 
     // 2. EXTRACT candidates + a clean site-name fallback.
@@ -185,7 +191,11 @@ export async function POST(request: Request) {
     }
     if (!logoDataUrl) {
       return Response.json(
-        { error: "Логотип не найден на сайте", site_url: finalUrl, brand_name: siteName },
+        {
+          error: "Логотип не найден на сайте — загрузите вручную ниже",
+          site_url: finalUrl,
+          brand_name: siteName,
+        },
         { status: 404 },
       );
     }
