@@ -14,7 +14,7 @@
 // i.e. the measured average time per finished banner times the number left.
 // This is backend-agnostic — it works the same for the dev simulation and for
 // real generation because it only measures observed completion times.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Check,
@@ -77,6 +77,9 @@ type Props = {
   onRemoveTile?: (id: string) => void;
   /** Abort the running batch (stops queued/in-flight tiles). */
   onCancel?: () => void;
+  /** Rendered before the "Выбрать ресайзы" trigger, inside the SAME row (and
+   *  the same mobile sticky-bottom bar) — e.g. a "Сделать лендинг" button. */
+  leadingButton?: ReactNode;
 };
 
 type Phase = "select" | "generating" | "result";
@@ -97,6 +100,7 @@ export function ResizeBatchPanel({
   onRegenerateTile,
   onRemoveTile,
   onCancel,
+  leadingButton,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
@@ -446,14 +450,15 @@ export function ResizeBatchPanel({
   const canZip = doneCount >= 1 && !zipping;
 
   return (
-    <div className="mt-3 flex justify-start max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
+    <div className="mt-3 flex justify-start gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
+      {leadingButton}
       {/* Trigger — compact secondary button (primary is the green "Сгенерировать").
           On mobile it becomes the full-width sticky CTA for this screen. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:w-full max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
+        className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:flex-1 max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
       >
         Выбрать ресайзы
         {selectedCount > 0 ? (

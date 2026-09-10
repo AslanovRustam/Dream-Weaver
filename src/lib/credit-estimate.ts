@@ -38,6 +38,14 @@ export const BANNER_PRICE_CREDITS = 30;
 // (imageCredits(1) = 7).
 export const CHARACTER_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
 
+// ⚠️ PLACEHOLDER — "Сделать лендинг" price shown on the button under the
+// master banner. Landing generation (bg + character, analysis) doesn't
+// actually debit credits_balance yet (see HistoryApp's Кредиты tab notes —
+// only banner master/resize call spend_credits so far), so this is just a
+// display number the product hasn't finalised. Replace with a real estimate
+// once landing generation is wired into spend_credits.
+export const LANDING_FROM_BANNER_PRICE_CREDITS = 15;
+
 // Banner master price. Args kept for call-site compatibility.
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;

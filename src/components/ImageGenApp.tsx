@@ -30,7 +30,7 @@ import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
-import { estimateBannerCredits } from "@/lib/credit-estimate";
+import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -2033,30 +2033,6 @@ export function ImageGenApp() {
                             <RefreshCw className="h-4 w-4 text-muted-foreground" />
                             Перегенерировать
                           </DropdownMenuItem>
-                          <div className="px-2.5 pb-1 pt-2 ds-caption text-muted-foreground">
-                            Сделать лендинг из баннера
-                          </div>
-                          <DropdownMenuItem
-                            onClick={() => void makeLandingFromBanner("wheel")}
-                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                          >
-                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                            Колесо фортуны
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => void makeLandingFromBanner("slot")}
-                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                          >
-                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                            Слот-машина
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => void makeLandingFromBanner("crash")}
-                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
-                          >
-                            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                            Crash-игра
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
                             onClick={() => {
@@ -2107,6 +2083,53 @@ export function ImageGenApp() {
                       onRegenerateTile={gen.regenerateTile}
                       onRemoveTile={gen.removeTile}
                       onCancel={gen.cancel}
+                      leadingButton={
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={gen.isBusy}
+                              className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 max-lg:min-h-12 max-lg:flex-1 max-lg:text-base max-lg:shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
+                            >
+                              <LayoutTemplate className="h-4 w-4 text-on-accent/70" />
+                              Сделать лендинг
+                              <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-on-accent">
+                                {LANDING_FROM_BANNER_PRICE_CREDITS}
+                              </span>
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="start"
+                            sideOffset={8}
+                            className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
+                          >
+                            <div className="px-2.5 pb-1 pt-1 ds-caption text-muted-foreground">
+                              Выберите шаблон
+                            </div>
+                            <DropdownMenuItem
+                              onClick={() => void makeLandingFromBanner("wheel")}
+                              className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                            >
+                              <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                              Колесо фортуны
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => void makeLandingFromBanner("slot")}
+                              className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                            >
+                              <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                              Слот-машина
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => void makeLandingFromBanner("crash")}
+                              className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                            >
+                              <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                              Crash-игра
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      }
                     />
                   ) : null}
                 </div>
