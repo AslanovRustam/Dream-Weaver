@@ -12,6 +12,8 @@ export type CrashExportConfig = {
   ctaText: string;
   /** CTA click-through: URL or tracker macro (e.g. {clickurl}); empty = close. */
   ctaUrl?: string;
+  /** Max rounds the visitor may start. 0/undefined = unlimited. */
+  maxAttempts?: number;
   bgImage: string;
   charLeft: string;
   charRight: string;
@@ -69,7 +71,10 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
   .card h2{font-size:19px;margin-bottom:6px}.card p{color:#475569;font-size:14px}
   .card .big{font-size:34px;font-weight:900;margin:4px 0}
   .card .claim{margin-top:16px;width:100%;border:0;border-radius:10px;padding:12px;font-weight:800;color:#fff;cursor:pointer;background:${accent}}
+  .card .claim:disabled{cursor:not-allowed;opacity:.6}
   .card .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1}
+  .cta:disabled{cursor:not-allowed;opacity:.6}
+  .attemptsInfo{position:relative;z-index:3;margin-top:-2px;font-size:12px;color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -92,34 +97,49 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
         <button class="cash live" id="cash" type="button">ЗАБРАТЬ ×1.00</button>
       </div>
       <button class="cta" id="cta" type="button">${esc(cfg.ctaText || "СТАРТ")}</button>
+      <p class="attemptsInfo" id="attemptsInfo" hidden></p>
     </div>
     <div class="modal" id="modal"><div class="card" id="card"></div></div>
   </div>
 <script>
 (function(){
   var ACCENT=${JSON.stringify(accent)};
+  var maxAttempts=${JSON.stringify(cfg.maxAttempts || 0)};
+  var attemptsUsed=0;
   var mult=document.getElementById('mult'), rocket=document.getElementById('rocket'), trail=document.getElementById('trail');
-  var btn=document.getElementById('cash'), cta=document.getElementById('cta');
+  var btn=document.getElementById('cash'), cta=document.getElementById('cta'), attemptsInfo=document.getElementById('attemptsInfo');
   var modal=document.getElementById('modal'), card=document.getElementById('card');
   var raf=0, phase='idle', crashAt=0, t0=0, m=1;
   function fmt(x){ return x.toFixed(2); }
+  function exhausted(){ return maxAttempts>0 && attemptsUsed>=maxAttempts; }
+  function updateAttemptsUi(){
+    if(maxAttempts<=0){ attemptsInfo.hidden=true; return; }
+    var left=Math.max(0,maxAttempts-attemptsUsed);
+    attemptsInfo.hidden=false;
+    attemptsInfo.textContent='Осталось попыток: '+left;
+    if(exhausted()){
+      cta.disabled=true; cta.textContent='Попытки закончились';
+      if(phase!=='running'){ btn.disabled=true; btn.className='cash dead'; btn.textContent='Попытки закончились'; }
+    }
+  }
   function draw(){ var p=Math.min(1,(m-1)/9); mult.textContent=fmt(m)+'x'; mult.style.color=ACCENT; rocket.style.transform='translate('+(p*62)+'%,'+(-p*150)+'%) rotate(12deg)'; rocket.style.opacity='1'; trail.style.transform='rotate('+(-(18+p*30))+'deg)'; btn.textContent='ЗАБРАТЬ ×'+fmt(m); }
   // setInterval (not rAF) so the multiplier climbs even in a background tab.
-  function start(){ clearInterval(raf); crashAt=2+Math.random()*8; t0=Date.now(); phase='running'; m=1; btn.className='cash live'; hide(); draw();
+  function start(){ if(exhausted()) return; attemptsUsed+=1; updateAttemptsUi(); clearInterval(raf); crashAt=2+Math.random()*8; t0=Date.now(); phase='running'; m=1; btn.disabled=false; btn.className='cash live'; hide(); draw();
     raf=setInterval(function(){ if(phase!=='running') return; var dt=(Date.now()-t0)/1000; m=Math.pow(1.0718,dt*10); if(m>=crashAt){ m=crashAt; boom(); return; } draw(); }, 45); }
   function cashOut(){ if(phase!=='running') return; clearInterval(raf); phase='cashed'; mult.style.color='#4ade80'; show(true, fmt(m)); }
-  function boom(){ clearInterval(raf); phase='crashed'; mult.textContent='\\uD83D\\uDCA5 '+fmt(m)+'x'; mult.style.color='#f87171'; rocket.style.opacity='0'; btn.className='cash dead'; btn.textContent='Ещё раз'; show(false, fmt(m)); }
+  function boom(){ clearInterval(raf); phase='crashed'; mult.textContent='\\uD83D\\uDCA5 '+fmt(m)+'x'; mult.style.color='#f87171'; rocket.style.opacity='0'; btn.className='cash dead'; btn.textContent=exhausted()?'Попытки закончились':'Ещё раз'; btn.disabled=exhausted(); show(false, fmt(m)); }
   function show(win, val){
     if(win){ card.innerHTML='<button class="x" id="cx">&times;</button><h2>🚀 Забрал вовремя!</h2><div class="big" style="color:'+ACCENT+'">×'+val+'</div><p>Отличный кэшаут — забирайте бонус!</p><button class="claim" id="claim">Забрать бонус</button>'; }
-    else{ card.innerHTML='<button class="x" id="cx">&times;</button><h2>💥 Разбилось на ×'+val+'</h2><p>Чуть не успел — попробуйте ещё раз и заберите вовремя!</p><button class="claim" id="claim">Ещё раз</button>'; }
+    else{ var canRetry=!exhausted(); card.innerHTML='<button class="x" id="cx">&times;</button><h2>💥 Разбилось на ×'+val+'</h2><p>Чуть не успел — попробуйте ещё раз и заберите вовремя!</p><button class="claim" id="claim"'+(canRetry?'':' disabled')+'>'+(canRetry?'Ещё раз':'Попытки закончились')+'</button>'; }
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx) cx.onclick=hide;
-    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ if(win){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } hide(); } else { hide(); start(); } };
+    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ if(win){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } hide(); } else { if(exhausted()) return; hide(); start(); } };
   }
   function hide(){ modal.classList.remove('show'); }
   btn.addEventListener('click', function(){ if(phase==='running') cashOut(); else start(); });
   cta.addEventListener('click', start);
   modal.addEventListener('click', function(e){ if(e.target===modal) hide(); });
+  updateAttemptsUi();
   start();
 })();
 </script>

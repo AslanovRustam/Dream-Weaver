@@ -87,6 +87,19 @@ export function CrashLandingApp() {
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
   const [won, setWon] = useState<{ win: boolean; mult: string } | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
+  // Attempts: how many rounds the player may start. 0 = unlimited. CrashGame
+  // owns the actual counting (it also fires internally, not only via
+  // spinSignal); onAttemptsChange mirrors that count up here so the
+  // landing's own external "СТАРТ"/"Ещё раз" button can be disabled too.
+  const [maxAttempts, setMaxAttempts] = useState(0);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const outOfAttempts = attemptsLeft !== null && attemptsLeft <= 0;
+  // Editing the limit remounts CrashGame (via the key below) — reset the
+  // mirrored counter here so the external button doesn't stay disabled from
+  // a previous, now-discarded round.
+  useEffect(() => {
+    setAttemptsLeft(null);
+  }, [maxAttempts]);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
@@ -121,6 +134,7 @@ export function CrashLandingApp() {
         if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
+        if (typeof d.maxAttempts === "number" && d.maxAttempts >= 0) setMaxAttempts(d.maxAttempts);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
@@ -227,6 +241,7 @@ export function CrashLandingApp() {
         dark,
         ctaText,
         ctaUrl,
+        maxAttempts,
         theme,
         bgImage,
         charLeft: chars.left,
@@ -248,7 +263,42 @@ export function CrashLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts]);
+  }, [
+    restored,
+    brand,
+    brandLogo,
+    headline,
+    topic,
+    accent,
+    dark,
+    ctaText,
+    ctaUrl,
+    maxAttempts,
+    theme,
+    bgImage,
+    chars,
+    charPrompts,
+  ]);
+
+  // Same ctaUrl / {macro} handling as the wheel and slot builders: an
+  // unresolved ad-tracking macro shows an info toast instead of a failed
+  // navigation, and a real URL opens in a NEW tab so the builder page itself
+  // (with the user's in-progress edits) is never navigated away.
+  const claimBonus = () => {
+    setWon(null);
+    const url = ctaUrl.trim();
+    if (!url) return;
+    if (/[{}]/.test(url)) {
+      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
+      return;
+    }
+    try {
+      const abs = new URL(url, window.location.origin).toString();
+      window.open(abs, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Некорректная ссылка в поле CTA");
+    }
+  };
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -616,6 +666,21 @@ export function CrashLandingApp() {
           </p>
         </Field>
 
+        <Field label="Количество попыток">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            className={inputCls}
+            value={maxAttempts}
+            onChange={(e) => setMaxAttempts(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+            placeholder="0"
+          />
+          <p className="mt-1 ds-caption">
+            Сколько раз игрок может запустить раунд. 0 — без ограничений.
+          </p>
+        </Field>
+
         <button
           type="button"
           onClick={() =>
@@ -629,6 +694,7 @@ export function CrashLandingApp() {
                 dark,
                 ctaText,
                 ctaUrl,
+                maxAttempts,
                 bgImage,
                 charLeft: chars.left,
                 charRight: chars.right,
@@ -729,10 +795,13 @@ export function CrashLandingApp() {
             >
               <div className="relative z-10 mx-auto flex h-full w-full max-w-[420px] items-center justify-center">
                 <CrashGame
+                  key={maxAttempts}
                   accent={accent}
                   spinSignal={spinSignal}
                   startLabel={ctaText || "СТАРТ"}
+                  maxAttempts={maxAttempts || undefined}
                   onResult={(win, mult) => setWon({ win, mult })}
+                  onAttemptsChange={(_used, left) => setAttemptsLeft(left)}
                 />
               </div>
             </div>
@@ -740,11 +809,17 @@ export function CrashLandingApp() {
             <button
               type="button"
               onClick={() => setSpinSignal((s) => s + 1)}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
+              disabled={outOfAttempts}
+              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
-              {ctaText || "СТАРТ"}
+              {outOfAttempts ? "Попытки закончились" : ctaText || "СТАРТ"}
             </button>
+            {maxAttempts > 0 && attemptsLeft !== null ? (
+              <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">
+                Осталось попыток: {attemptsLeft}
+              </p>
+            ) : null}
           </div>
 
           {/* Win / crash modal */}
@@ -760,7 +835,7 @@ export function CrashLandingApp() {
                     <p className="mt-1 text-sm text-[#475569]">Отличный кэшаут — забирайте бонус!</p>
                     <button
                       type="button"
-                      onClick={() => setWon(null)}
+                      onClick={claimBonus}
                       className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
                       style={{ backgroundColor: accent }}
                     >
@@ -777,12 +852,13 @@ export function CrashLandingApp() {
                       type="button"
                       onClick={() => {
                         setWon(null);
-                        setSpinSignal((n) => n + 1);
+                        if (!outOfAttempts) setSpinSignal((n) => n + 1);
                       }}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                      disabled={outOfAttempts}
+                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                       style={{ backgroundColor: accent }}
                     >
-                      Ещё раз
+                      {outOfAttempts ? "Попытки закончились" : "Ещё раз"}
                     </button>
                   </>
                 )}

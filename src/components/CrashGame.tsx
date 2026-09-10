@@ -12,31 +12,50 @@ export function CrashGame({
   startLabel = "СТАРТ",
   cashLabel = "ЗАБРАТЬ",
   retryLabel = "Ещё раз",
+  /** Max rounds the player may start. undefined/0 = unlimited (default,
+   *  unchanged behaviour). Once reached, the internal button locks and
+   *  start() (incl. via spinSignal) becomes a no-op. */
+  maxAttempts,
   onResult,
+  onAttemptsChange,
 }: {
   accent?: string;
   spinSignal?: number;
   startLabel?: string;
   cashLabel?: string;
   retryLabel?: string;
+  maxAttempts?: number;
   onResult?: (win: boolean, multiplier: string) => void;
+  /** Fired whenever the attempt count changes, so a parent landing can show
+   *  "N попыток осталось" / disable its own external start button too. */
+  onAttemptsChange?: (used: number, left: number | null) => void;
 }) {
   const [mult, setMult] = useState(1);
   const [phase, setPhase] = useState<"idle" | "running" | "cashed" | "crashed">("idle");
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
   const timerRef = useRef(0);
   const crashAtRef = useRef(0);
   const startTsRef = useRef(0);
   const phaseRef = useRef<"idle" | "running" | "cashed" | "crashed">("idle");
   const multRef = useRef(1);
+  const attemptsUsedRef = useRef(0);
+  const exhausted = !!maxAttempts && attemptsUsed >= maxAttempts;
 
   // setInterval (not requestAnimationFrame) so the multiplier keeps climbing even
   // when the page/preview is not the foreground tab (rAF is frozen there).
   const start = () => {
+    if (maxAttempts && attemptsUsedRef.current >= maxAttempts) return; // out of tries
     window.clearInterval(timerRef.current);
     crashAtRef.current = 2 + Math.random() * 8; // demo: usually reachable
     startTsRef.current = performance.now();
     phaseRef.current = "running";
     multRef.current = 1;
+    attemptsUsedRef.current += 1;
+    setAttemptsUsed(attemptsUsedRef.current);
+    onAttemptsChange?.(
+      attemptsUsedRef.current,
+      maxAttempts ? Math.max(0, maxAttempts - attemptsUsedRef.current) : null,
+    );
     setPhase("running");
     setMult(1);
     timerRef.current = window.setInterval(() => {
@@ -81,9 +100,11 @@ export function CrashGame({
   const btnLabel =
     phase === "running"
       ? `${cashLabel} ×${mult.toFixed(2)}`
-      : phase === "idle"
-        ? startLabel
-        : retryLabel;
+      : exhausted
+        ? "Попытки закончились"
+        : phase === "idle"
+          ? startLabel
+          : retryLabel;
 
   return (
     <div className="relative mx-auto flex w-full max-w-[420px] select-none flex-col">
@@ -135,14 +156,17 @@ export function CrashGame({
       <button
         type="button"
         onClick={onBtn}
-        className="mx-auto mt-3 flex h-12 w-full max-w-[260px] items-center justify-center rounded-full text-base font-extrabold uppercase tracking-wide text-white transition active:scale-95"
+        disabled={exhausted && phase !== "running"}
+        className="mx-auto mt-3 flex h-12 w-full max-w-[260px] items-center justify-center rounded-full text-base font-extrabold uppercase tracking-wide text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
         style={{
           background:
             phase === "running"
               ? `radial-gradient(circle at 30% 25%, #fff6, transparent 45%), linear-gradient(180deg, ${accent}, ${accent}bb)`
-              : phase === "idle"
-                ? `radial-gradient(circle at 30% 25%, #fff6, transparent 45%), linear-gradient(180deg, ${accent}, ${accent}bb)`
-                : "linear-gradient(180deg,#3a4150,#2a303c)",
+              : exhausted
+                ? "linear-gradient(180deg,#3a4150,#2a303c)"
+                : phase === "idle"
+                  ? `radial-gradient(circle at 30% 25%, #fff6, transparent 45%), linear-gradient(180deg, ${accent}, ${accent}bb)`
+                  : "linear-gradient(180deg,#3a4150,#2a303c)",
           border: "2px solid rgba(255,255,255,.6)",
           boxShadow: `0 0 16px ${accent}88, inset 0 2px 6px rgba(255,255,255,.35), 0 6px 14px rgba(0,0,0,.5)`,
           textShadow: "0 1px 2px rgba(0,0,0,.5)",
