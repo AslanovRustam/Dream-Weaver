@@ -13,13 +13,17 @@ export type SlotExportConfig = {
   /** CTA click-through: URL or tracker macro (e.g. {clickurl}); empty = close. */
   ctaUrl?: string;
   bgImage: string;
-  /** `bonus` is shown in the win popup when this symbol lands the payline;
-   *  `enabled` (default true when omitted) restricts which symbols the win
-   *  RNG may land on — every symbol still spins, disabled ones just never
-   *  win. `imageUrl` (optional, a data: URL) is an AI-generated icon —
-   *  when set it's drawn on the reel and in the win popup instead of the
-   *  plain text/emoji glyph in `symbol`. */
-  symbols: { symbol: string; imageUrl?: string; bonus?: string; enabled?: boolean }[];
+  /** Purely visual reel symbols — ANY of them can land the payline, which
+   *  one lands has no effect on the outcome or the bonus text. `imageUrl`
+   *  (optional, a data: URL) is an AI-generated icon, drawn instead of the
+   *  plain text/emoji glyph in `symbol` when set. */
+  symbols: { symbol: string; imageUrl?: string }[];
+  /** Ordered list of GUARANTEED wins, one bonus text per attempt (e.g.
+   *  ["50 USD bonus", "100% deposit bonus"]) — every spin always wins, the
+   *  bonus shown comes from how many spins have happened so far, not from
+   *  which symbol landed. Every attempt but the last shows a "spin again"
+   *  button; the last shows the real CTA button (ctaUrl). */
+  attempts: string[];
   charLeft: string;
   charRight: string;
 };
@@ -47,6 +51,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     cfg.symbols.length >= 3
       ? cfg.symbols
       : [{ symbol: "🍒" }, { symbol: "💎" }, { symbol: "7️⃣" }];
+  const attempts = cfg.attempts.length > 0 ? cfg.attempts : [""];
   const bg = cfg.bgImage
     ? `background:#0b0d12 url('${cfg.bgImage}') center/cover no-repeat;`
     : `background:radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${cfg.dark ? "#160d29" : "#ffe9a8"};`;
@@ -54,8 +59,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     src ? `<img class="char ${side}" src="${src}" alt=""/>` : "";
   const symbolsJson = JSON.stringify(symbols.map((s) => s.symbol));
   const imagesJson = JSON.stringify(symbols.map((s) => s.imageUrl || ""));
-  const bonusesJson = JSON.stringify(symbols.map((s) => s.bonus || ""));
-  const eligibleJson = JSON.stringify(symbols.map((s) => s.enabled !== false));
+  const attemptsJson = JSON.stringify(attempts);
 
   return `<!doctype html>
 <html lang="en">
@@ -89,6 +93,8 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   .payline{position:absolute;left:4px;right:4px;z-index:2;border:2px solid ${accent};border-radius:8px;box-shadow:0 0 14px ${accent}aa,inset 0 0 12px ${accent}55;pointer-events:none}
   .cta{position:relative;z-index:3;margin:12px 0 4px;width:100%;max-width:300px;border:0;border-radius:999px;padding:15px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}cc);box-shadow:0 8px 20px rgba(0,0,0,.35)}
   .cta:active{transform:scale(.97)}
+  .cta:disabled{cursor:not-allowed;opacity:.6}
+  .attemptsInfo{position:relative;z-index:3;margin-top:-2px;font-size:12px;color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.5)}
   .modal{position:absolute;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:24px}
   .modal.show{display:flex}
   .card{width:100%;max-width:320px;background:#fff;color:#0f172a;border-radius:18px;padding:26px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4);position:relative}
@@ -119,6 +125,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
         </div></div>
       </div>
       <button class="cta" id="cta" type="button">${esc(cfg.ctaText || "SPIN")}</button>
+      <p class="attemptsInfo" id="attemptsInfo" hidden></p>
     </div>
     <div class="modal" id="modal"><div class="card" id="card"></div></div>
   </div>
@@ -126,15 +133,22 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
 (function(){
   var syms=${symbolsJson};
   var symImgs=${imagesJson};
-  var bonuses=${bonusesJson};
-  var elig=${eligibleJson};
+  var attempts=${attemptsJson};
+  var maxAttempts=attempts.length;
+  var attemptsUsed=0;
   var len=syms.length, REELS=3, VISIBLE=3, BASE=24, REP=60;
-  var pool=[]; for(var pi=0;pi<len;pi++){ if(elig[pi]) pool.push(pi); } if(pool.length===0){ for(var pj=0;pj<len;pj++) pool.push(pj); }
   var DUR=[2.4,2.9,3.4];
   var reelsEl=document.getElementById('reels'), win=document.getElementById('window'), payline=document.getElementById('payline');
+  var cta=document.getElementById('cta'), attemptsInfo=document.getElementById('attemptsInfo');
   var modal=document.getElementById('modal'), card=document.getElementById('card');
   var pos=[], strips=[], cell=76, spinning=false;
   function mod(a,n){return ((a%n)+n)%n;}
+  function exhausted(){ return attemptsUsed>=maxAttempts; }
+  function updateAttemptsUi(){
+    if(maxAttempts<=1){ attemptsInfo.hidden=true; }
+    else{ attemptsInfo.hidden=false; attemptsInfo.textContent='Осталось попыток: '+Math.max(0,maxAttempts-attemptsUsed); }
+    if(exhausted()){ cta.disabled=true; cta.textContent='Бонусы закончились'; }
+  }
   function build(){
     var w=win.clientWidth||300; cell=Math.floor((w-24-2*8)/REELS); if(cell<20)cell=20;
     var wh=VISIBLE*cell;
@@ -154,39 +168,44 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     }
     payline.style.top=cell+'px'; payline.style.height=cell+'px';
   }
+  // Every spin is a GUARANTEED win — which symbol lands is purely cosmetic
+  // (any of them can land, it never affects the bonus). The bonus text comes
+  // from attempts[attemptIdx], i.e. how many spins have happened so far.
   function spin(){
-    if(spinning)return; spinning=true;
-    var winFlag=Math.random()<0.45; var winK=pool[Math.floor(Math.random()*pool.length)];
-    var targets=[]; for(var i=0;i<REELS;i++)targets.push(winFlag?winK:Math.floor(Math.random()*len));
-    if(!winFlag&&targets[0]===targets[1]&&targets[1]===targets[2])targets[2]=(targets[2]+1)%len;
+    if(spinning||exhausted())return; spinning=true;
+    var attemptIdx=attemptsUsed; attemptsUsed+=1; updateAttemptsUi();
+    var winK=Math.floor(Math.random()*len);
+    var targets=[]; for(var i=0;i<REELS;i++)targets.push(winK);
     for(var i=0;i<REELS;i++){
       var p=pos[i]; var spins=(4+i)*len; var delta=mod(targets[i]-mod(p,len),len); var np=p+spins+delta;
       (function(ri,npv){ strips[ri].style.transition='transform '+DUR[ri]+'s cubic-bezier(.12,.7,.2,1)'; strips[ri].style.transform='translateY('+((1-npv)*cell)+'px)'; pos[ri]=npv; })(i,np);
     }
     setTimeout(function(){
       for(var i=0;i<REELS;i++){ var np=BASE*len+mod(pos[i],len); strips[i].style.transition='none'; strips[i].style.transform='translateY('+((1-np)*cell)+'px)'; pos[i]=np; }
-      spinning=false; show(winFlag, syms[winFlag?winK:targets[0]], winFlag?winK:-1);
+      spinning=false; show(syms[winK], winK, attemptIdx);
     }, DUR[REELS-1]*1000+250);
   }
-  function show(w, sym, idx){
-    if(w){
-      var bonus = idx>=0 ? bonuses[idx] : '';
-      var bonusLine = bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!';
-      var img = idx>=0 ? symImgs[idx] : '';
-      var bigHtml = img
-        ? new Array(3).fill('<img src="'+img+'" alt="" style="height:46px;width:46px;object-fit:contain;margin:0 4px">').join('')
-        : sym+' '+sym+' '+sym;
-      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div><p>'+bonusLine+'</p><button id="claim">Claim bonus</button>';
-    }
-    else{ card.innerHTML='<button class="x" id="cx">&times;</button><h2>😅 Almost!</h2><p>No match this time — spin again, the jackpot is waiting!</p><button id="again">Spin again</button>'; }
+  function show(sym, symIdx, attemptIdx){
+    var bonus = attempts[attemptIdx] || '';
+    var isLast = attemptIdx>=maxAttempts-1;
+    var bonusLine = bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!';
+    var img = symImgs[symIdx];
+    var bigHtml = img
+      ? new Array(3).fill('<img src="'+img+'" alt="" style="height:46px;width:46px;object-fit:contain;margin:0 4px">').join('')
+      : sym+' '+sym+' '+sym;
+    var btnLabel = isLast ? 'Claim bonus' : 'Spin again';
+    card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div><p>'+bonusLine+'</p><button id="claim">'+btnLabel+'</button>';
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
-    var again=document.getElementById('again'); if(again)again.onclick=function(){close();spin();};
-    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; } else { close(); } };
+    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){
+      if(isLast){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } close(); }
+      else { close(); spin(); }
+    };
   }
   function close(){ modal.classList.remove('show'); }
-  document.getElementById('cta').onclick=spin;
+  cta.onclick=spin;
   modal.onclick=function(e){ if(e.target===modal)close(); };
+  updateAttemptsUi();
   build(); window.addEventListener('resize',function(){ if(!spinning)build(); });
 })();
 </script>

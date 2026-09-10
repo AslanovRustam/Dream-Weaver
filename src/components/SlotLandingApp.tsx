@@ -19,41 +19,46 @@ const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
 const SYMBOLS_PRICE = SLOT_SYMBOLS_PRICE_CREDITS;
 
-// Each reel symbol carries its own bonus text (shown on a win) and an
-// `enabled` flag (default true when omitted) — same "may this drop?"
-// checkbox concept as the wheel's prize segments. Disabled symbols still
-// spin on the reels, they just never land the payline as a win. `imageUrl`
-// (optional) is an AI-generated icon PNG — when set it's rendered instead of
-// `symbol`'s plain text/emoji glyph, on both the reel and the win popup.
-export type SlotSymbol = { symbol: string; imageUrl?: string; bonus: string; enabled?: boolean };
+// Reel symbols are PURELY VISUAL — any of them can land the payline (every
+// spin is a guaranteed win, see `attempts` below), which one shows has no
+// effect on the bonus. `imageUrl` (optional) is an AI-generated icon PNG —
+// when set it's rendered instead of `symbol`'s plain text/emoji glyph, on
+// both the reel and the win popup.
+export type SlotSymbol = { symbol: string; imageUrl?: string };
 
-/** Accepts either the legacy plain-string symbol format (pre-bonus feature)
- *  or the current { symbol, imageUrl, bonus, enabled } shape, from
- *  localStorage/seed data of unknown provenance. */
+/** Accepts either the legacy plain-string symbol format or the current
+ *  { symbol, imageUrl } shape (plus any now-dropped legacy bonus/enabled
+ *  fields, silently ignored), from localStorage/seed data of unknown
+ *  provenance. */
 function normalizeSymbol(raw: unknown): SlotSymbol {
-  if (typeof raw === "string") return { symbol: raw, bonus: "", enabled: true };
+  if (typeof raw === "string") return { symbol: raw };
   if (raw && typeof raw === "object") {
     const r = raw as Record<string, unknown>;
     return {
       symbol: typeof r.symbol === "string" ? r.symbol : "⭐",
       imageUrl: typeof r.imageUrl === "string" && r.imageUrl.startsWith("data:") ? r.imageUrl : undefined,
-      bonus: typeof r.bonus === "string" ? r.bonus : "",
-      enabled: typeof r.enabled === "boolean" ? r.enabled : true,
     };
   }
-  return { symbol: "⭐", bonus: "", enabled: true };
+  return { symbol: "⭐" };
 }
 
 const DEFAULT_SYMBOLS: SlotSymbol[] = [
-  { symbol: "🍒", bonus: "", enabled: true },
-  { symbol: "💎", bonus: "", enabled: true },
-  { symbol: "7️⃣", bonus: "", enabled: true },
-  { symbol: "🔔", bonus: "", enabled: true },
-  { symbol: "⭐", bonus: "", enabled: true },
-  { symbol: "🍋", bonus: "", enabled: true },
-  { symbol: "🍇", bonus: "", enabled: true },
-  { symbol: "🧧", bonus: "", enabled: true },
+  { symbol: "🍒" },
+  { symbol: "💎" },
+  { symbol: "7️⃣" },
+  { symbol: "🔔" },
+  { symbol: "⭐" },
+  { symbol: "🍋" },
+  { symbol: "🍇" },
+  { symbol: "🧧" },
 ];
+
+/** Ordered list of GUARANTEED wins — one bonus text per attempt (e.g.
+ *  "50 USD bonus", then "100% deposit bonus"). Every spin always wins; the
+ *  bonus shown is picked by how many spins have happened so far, not by
+ *  which symbol landed. All attempts but the last show "Крутить ещё"; the
+ *  last shows "Забрать бонус" (the real CTA). */
+const DEFAULT_ATTEMPTS: string[] = [""];
 
 // One-click themes: set background scene, character, accent and headline together
 // so the whole landing matches a single тематика.
@@ -146,7 +151,15 @@ export function SlotLandingApp() {
     r.onload = () => setSymbolRef(String(r.result));
     r.readAsDataURL(f);
   };
-  const [won, setWon] = useState<{ win: boolean; symbol: string; imageUrl?: string; bonus: string } | null>(
+  // Ordered, guaranteed-win bonus sequence — see DEFAULT_ATTEMPTS above.
+  const [attempts, setAttempts] = useState<string[]>(DEFAULT_ATTEMPTS);
+  // Mirrors SlotMachine's own internal spin counter (via onSpinsChange) so
+  // the external CTA button below the reel can disable/relabel itself once
+  // every configured attempt has been played — SlotMachine is the single
+  // source of truth since it also gates its own internal lever.
+  const [attemptIndex, setAttemptIndex] = useState(0);
+  const attemptIndexRef = useRef(0);
+  const [won, setWon] = useState<{ symbol: string; imageUrl?: string; bonus: string; isLast: boolean } | null>(
     null,
   );
   const [spinSignal, setSpinSignal] = useState(0);
@@ -199,6 +212,10 @@ export function SlotLandingApp() {
         if (Array.isArray(d.symbols) && d.symbols.length >= 3) {
           setSymbols((d.symbols as unknown[]).map(normalizeSymbol));
         }
+        if (Array.isArray(d.attempts) && d.attempts.length > 0) {
+          const list = (d.attempts as unknown[]).map((v) => (typeof v === "string" ? v : ""));
+          setAttempts(list);
+        }
       }
     } catch {
       /* ignore */
@@ -239,10 +256,10 @@ export function SlotLandingApp() {
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
       // AI-derived slot-reel symbols (6, themed to the banner) — replace the
-      // generic defaults outright when present. The analysis only writes
-      // emoji, not bonus amounts — the user fills bonus/enabled in afterward.
+      // generic defaults outright when present. Purely visual; bonus text
+      // lives in `attempts`, configured separately by the user below.
       if (Array.isArray(s.symbols) && s.symbols.length >= 3) {
-        setSymbols(s.symbols.map((x) => ({ symbol: String(x), bonus: "", enabled: true })));
+        setSymbols(s.symbols.map((x) => ({ symbol: String(x) })));
       }
       // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
       // AUTHORITATIVE, same reasoning as brand/brandLogo/accent above: always
@@ -310,6 +327,7 @@ export function SlotLandingApp() {
         charPromptLeft: charPrompts.left,
         charPromptRight: charPrompts.right,
         symbols,
+        attempts,
       };
       try {
         window.localStorage.setItem("dw_slot_draft", JSON.stringify(data));
@@ -332,7 +350,23 @@ export function SlotLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts, symbols]);
+  }, [
+    restored,
+    brand,
+    brandLogo,
+    headline,
+    topic,
+    accent,
+    dark,
+    ctaText,
+    ctaUrl,
+    theme,
+    bgImage,
+    chars,
+    charPrompts,
+    symbols,
+    attempts,
+  ]);
 
   const applyTheme = (t: (typeof THEMES)[number]) => {
     setAccent(t.accent);
@@ -343,10 +377,15 @@ export function SlotLandingApp() {
 
   const setSymbol = (i: number, patch: Partial<SlotSymbol>) =>
     setSymbols((s) => s.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
-  const addSymbol = () =>
-    setSymbols((s) => (s.length < 12 ? [...s, { symbol: "⭐", bonus: "", enabled: true }] : s));
+  const addSymbol = () => setSymbols((s) => (s.length < 12 ? [...s, { symbol: "⭐" }] : s));
   const removeSymbol = (i: number) =>
     setSymbols((s) => (s.length > 3 ? s.filter((_, idx) => idx !== i) : s));
+
+  // Bonus sequence — arbitrary length, one guaranteed-win bonus text each.
+  const setAttemptBonus = (i: number, bonus: string) =>
+    setAttempts((a) => a.map((v, idx) => (idx === i ? bonus : v)));
+  const addAttempt = () => setAttempts((a) => (a.length < 20 ? [...a, ""] : a));
+  const removeAttempt = (i: number) => setAttempts((a) => (a.length > 1 ? a.filter((_, idx) => idx !== i) : a));
 
   // "Забрать бонус" — navigate the visitor to the configured offer. A macro
   // placeholder (e.g. {clickurl}) is meant to be substituted by the traffic
@@ -404,8 +443,6 @@ export function SlotLandingApp() {
         tiles.map((imageUrl, i) => ({
           symbol: prev[i]?.symbol || DEFAULT_SYMBOLS[i % DEFAULT_SYMBOLS.length].symbol,
           imageUrl,
-          bonus: prev[i]?.bonus || "",
-          enabled: true,
         })),
       );
       toast.success(`Сгенерировано ${tiles.length} иконок символов`);
@@ -858,20 +895,12 @@ export function SlotLandingApp() {
           </div>
 
           <p className="mb-2 ds-caption">
-            Отмеченные ✓ символы могут выпасть игроку (три в ряд). Бонус — что покажем в попапе
-            при выигрыше именно на этом символе.
+            Чисто визуальные — какой символ выпадет, не важно, любой считается выигрышем (см. «Бонусы по
+            попыткам» ниже).
           </p>
           <div className="flex flex-col gap-2">
             {symbols.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={s.enabled !== false}
-                  onChange={(e) => setSymbol(i, { enabled: e.target.checked })}
-                  aria-label="Может выпасть"
-                  title="Может выпасть"
-                  className="h-5 w-5 shrink-0 cursor-pointer accent-[color:var(--color-accent-green,#9bff58)]"
-                />
                 {s.imageUrl ? (
                   <div className="relative h-10 w-14 shrink-0">
                     <img
@@ -898,12 +927,6 @@ export function SlotLandingApp() {
                     maxLength={4}
                   />
                 )}
-                <input
-                  className={`${inputCls} h-10`}
-                  value={s.bonus}
-                  onChange={(e) => setSymbol(i, { bonus: e.target.value })}
-                  placeholder="Бонус (например, 50 FS)"
-                />
                 <button
                   type="button"
                   onClick={() => removeSymbol(i)}
@@ -918,6 +941,52 @@ export function SlotLandingApp() {
           <p className="mt-1.5 ds-caption">
             Эмодзи, короткий текст или сгенерированная ИИ иконка (сверху). Минимум 3 символа.
           </p>
+        </div>
+
+        {/* Bonus sequence — arbitrary length, one guaranteed-win bonus per attempt */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="ds-h4">Бонусы по попыткам</label>
+            <button
+              type="button"
+              onClick={addAttempt}
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
+            >
+              <Plus className="h-3.5 w-3.5" /> Добавить попытку
+            </button>
+          </div>
+          <p className="mb-2 ds-caption">
+            Каждая попытка — гарантированный выигрыш с указанным бонусом. После всех попыток, кроме
+            последней, кнопка — «Крутить ещё»; после последней — «Забрать бонус» (ведёт по ссылке CTA
+            ниже).
+          </p>
+          <div className="flex flex-col gap-2">
+            {attempts.map((bonus, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-xs font-semibold text-muted-foreground">
+                  {i + 1}
+                </span>
+                <input
+                  className={inputCls}
+                  value={bonus}
+                  onChange={(e) => setAttemptBonus(i, e.target.value)}
+                  placeholder={
+                    i === attempts.length - 1
+                      ? "Финальный бонус (например, 100% на депозит)"
+                      : "Бонус (например, 50 USD)"
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAttempt(i)}
+                  aria-label="Удалить попытку"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:border-[var(--status-error)]/50 hover:text-[var(--status-error)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <Field label="Кнопка">
@@ -954,6 +1023,7 @@ export function SlotLandingApp() {
                 ctaUrl,
                 bgImage,
                 symbols,
+                attempts,
                 charLeft: chars.left,
                 charRight: chars.right,
               }),
@@ -1057,17 +1127,26 @@ export function SlotLandingApp() {
                 <SlotMachine
                   symbols={symbols.map((s) => s.symbol)}
                   symbolImages={symbols.map((s) => s.imageUrl)}
-                  winEligible={symbols.map((s) => s.enabled !== false)}
+                  forceWin
+                  maxSpins={attempts.length}
                   accent={accent}
                   spinSignal={spinSignal}
-                  onResult={(win, symbol, index) =>
+                  onSpinsChange={(used) => {
+                    attemptIndexRef.current = used;
+                    setAttemptIndex(used);
+                  }}
+                  onResult={(_win, symbol, index) => {
+                    // The round that JUST settled is attemptIndexRef.current - 1
+                    // (onSpinsChange already incremented it when this spin
+                    // STARTED, well before this onResult fires).
+                    const idx = attemptIndexRef.current - 1;
                     setWon({
-                      win,
                       symbol,
-                      imageUrl: win && index >= 0 ? symbols[index]?.imageUrl : undefined,
-                      bonus: win && index >= 0 ? symbols[index]?.bonus || "" : "",
-                    })
-                  }
+                      imageUrl: index >= 0 ? symbols[index]?.imageUrl : undefined,
+                      bonus: attempts[idx] || "",
+                      isLast: idx >= attempts.length - 1,
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -1075,71 +1154,63 @@ export function SlotLandingApp() {
             <button
               type="button"
               onClick={() => setSpinSignal((s) => s + 1)}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
+              disabled={attemptIndex >= attempts.length}
+              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
-              {ctaText || "SPIN"}
+              {attemptIndex >= attempts.length ? "Бонусы закончились" : ctaText || "SPIN"}
             </button>
+            {attempts.length > 1 && attemptIndex > 0 && attemptIndex < attempts.length ? (
+              <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">
+                Осталось попыток: {attempts.length - attemptIndex}
+              </p>
+            ) : null}
           </div>
 
-          {/* Win / try-again modal */}
+          {/* Win modal — every spin is a guaranteed win; the bonus text and
+              button come from how many spins have happened, not the symbol. */}
           {won !== null ? (
             <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
               <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                {won.win ? (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">🎉 Джекпот!</p>
-                    {won.imageUrl ? (
-                      <div className="mt-1 flex items-center justify-center gap-2">
-                        {[0, 1, 2].map((k) => (
-                          <img key={k} src={won.imageUrl} alt="" className="h-11 w-11 object-contain" />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-3xl">
-                        {won.symbol} {won.symbol} {won.symbol}
-                      </p>
-                    )}
-                    <p className="mt-1 text-sm text-[#475569]">
-                      {won.bonus ? (
-                        <>
-                          Вы выиграли{" "}
-                          <span className="font-bold" style={{ color: accent }}>
-                            {won.bonus}
-                          </span>
-                        </>
-                      ) : (
-                        "Три в ряд — забирайте бонус!"
-                      )}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={claimBonus}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                      style={{ backgroundColor: accent }}
-                    >
-                      Забрать бонус
-                    </button>
-                  </>
+                <p className="text-lg font-extrabold text-[#0f172a]">🎉 Джекпот!</p>
+                {won.imageUrl ? (
+                  <div className="mt-1 flex items-center justify-center gap-2">
+                    {[0, 1, 2].map((k) => (
+                      <img key={k} src={won.imageUrl} alt="" className="h-11 w-11 object-contain" />
+                    ))}
+                  </div>
                 ) : (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">😅 Почти!</p>
-                    <p className="mt-1 text-sm text-[#475569]">
-                      В этот раз не сошлось — крутите ещё раз, джекпот ждёт!
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWon(null);
-                        setSpinSignal((n) => n + 1);
-                      }}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                      style={{ backgroundColor: accent }}
-                    >
-                      Крутить ещё раз
-                    </button>
-                  </>
+                  <p className="mt-1 text-3xl">
+                    {won.symbol} {won.symbol} {won.symbol}
+                  </p>
                 )}
+                <p className="mt-1 text-sm text-[#475569]">
+                  {won.bonus ? (
+                    <>
+                      Вы выиграли{" "}
+                      <span className="font-bold" style={{ color: accent }}>
+                        {won.bonus}
+                      </span>
+                    </>
+                  ) : (
+                    "Три в ряд — забирайте бонус!"
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (won.isLast) {
+                      claimBonus();
+                    } else {
+                      setWon(null);
+                      setSpinSignal((s) => s + 1);
+                    }
+                  }}
+                  className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
+                  style={{ backgroundColor: accent }}
+                >
+                  {won.isLast ? "Забрать бонус" : "Крутить ещё"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setWon(null)}

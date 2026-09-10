@@ -61,7 +61,9 @@ export function SlotMachine({
   accent = "#818cf8",
   spinSignal = 0,
   forceWin,
+  maxSpins,
   onResult,
+  onSpinsChange,
 }: {
   symbols: string[];
   /** Parallel array (same length as `symbols`) — an optional AI-generated
@@ -78,7 +80,17 @@ export function SlotMachine({
   accent?: string;
   spinSignal?: number;
   forceWin?: boolean;
+  /** Max spins the player may start. undefined/0 = unlimited (default,
+   *  unchanged behaviour). Once reached, the internal lever locks and
+   *  spin() (incl. via spinSignal) becomes a no-op — same idea as
+   *  CrashGame's maxAttempts. */
+  maxSpins?: number;
   onResult?: (win: boolean, symbol: string, index: number) => void;
+  /** Fired the instant each spin STARTS (not when it settles), so a parent
+   *  landing can know exactly which round is in flight — e.g. to pick the
+   *  right bonus text for a guaranteed-win sequence — and mirror the count
+   *  for its own external controls. */
+  onSpinsChange?: (used: number, left: number | null) => void;
 }) {
   const syms = symbols.length >= 3 ? symbols : ["🍒", "💎", "7️⃣"];
   const len = syms.length;
@@ -95,6 +107,9 @@ export function SlotMachine({
   const [spinning, setSpinning] = useState(false);
   const [muted, setMuted] = useState(false);
   const [cell, setCell] = useState(76);
+  const [spinsUsed, setSpinsUsed] = useState(0);
+  const spinsUsedRef = useRef(0);
+  const exhausted = !!maxSpins && spinsUsed >= maxSpins;
   const audioRef = useRef<AudioContext | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -119,7 +134,10 @@ export function SlotMachine({
   }, []);
 
   const spin = () => {
-    if (spinning) return;
+    if (spinning || (maxSpins && spinsUsedRef.current >= maxSpins)) return;
+    spinsUsedRef.current += 1;
+    setSpinsUsed(spinsUsedRef.current);
+    onSpinsChange?.(spinsUsedRef.current, maxSpins ? Math.max(0, maxSpins - spinsUsedRef.current) : null);
     const win = typeof forceWin === "boolean" ? forceWin : Math.random() < 0.45;
     const winK = eligibleIdxs[Math.floor(Math.random() * eligibleIdxs.length)];
     const targets = Array.from({ length: REELS }, (_, i) =>
@@ -312,17 +330,19 @@ export function SlotMachine({
           <button
             type="button"
             onClick={spin}
-            disabled={spinning}
+            disabled={spinning || exhausted}
             aria-label="Крутить барабаны"
-            className="mx-auto mt-3 flex h-12 w-full max-w-[220px] items-center justify-center rounded-full text-base font-extrabold uppercase tracking-wide text-white transition active:scale-95 disabled:opacity-80"
+            className="mx-auto mt-3 flex h-12 w-full max-w-[220px] items-center justify-center rounded-full text-base font-extrabold uppercase tracking-wide text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             style={{
-              background: `radial-gradient(circle at 30% 25%, #fff6, transparent 45%), linear-gradient(180deg, ${accent}, ${accent}bb)`,
+              background: exhausted
+                ? "linear-gradient(180deg,#3a4150,#2a303c)"
+                : `radial-gradient(circle at 30% 25%, #fff6, transparent 45%), linear-gradient(180deg, ${accent}, ${accent}bb)`,
               border: "2px solid rgba(255,255,255,.65)",
               boxShadow: `0 0 16px ${accent}aa, inset 0 2px 6px rgba(255,255,255,.4), 0 6px 14px rgba(0,0,0,.5)`,
               textShadow: "0 1px 2px rgba(0,0,0,.5)",
             }}
           >
-            {spinning ? "…" : "SPIN"}
+            {spinning ? "…" : exhausted ? "Бонусы закончились" : "SPIN"}
           </button>
         </div>
       </div>
