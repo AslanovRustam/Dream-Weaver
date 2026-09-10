@@ -6,32 +6,37 @@ import { ArrowLeft, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Tras
 
 import { SlotMachine } from "@/components/SlotMachine";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
+import { sliceIconGrid } from "@/lib/spriteSlice";
 import { downloadText, slugify } from "@/lib/download";
 import { buildSlotHtml } from "@/lib/slotExport";
 import { apiFetch } from "@/lib/api-client";
 import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
-import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { imageCredits, CHARACTER_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
+const SYMBOLS_PRICE = SLOT_SYMBOLS_PRICE_CREDITS;
 
 // Each reel symbol carries its own bonus text (shown on a win) and an
 // `enabled` flag (default true when omitted) — same "may this drop?"
 // checkbox concept as the wheel's prize segments. Disabled symbols still
-// spin on the reels, they just never land the payline as a win.
-export type SlotSymbol = { symbol: string; bonus: string; enabled?: boolean };
+// spin on the reels, they just never land the payline as a win. `imageUrl`
+// (optional) is an AI-generated icon PNG — when set it's rendered instead of
+// `symbol`'s plain text/emoji glyph, on both the reel and the win popup.
+export type SlotSymbol = { symbol: string; imageUrl?: string; bonus: string; enabled?: boolean };
 
 /** Accepts either the legacy plain-string symbol format (pre-bonus feature)
- *  or the current { symbol, bonus, enabled } shape, from localStorage/seed
- *  data of unknown provenance. */
+ *  or the current { symbol, imageUrl, bonus, enabled } shape, from
+ *  localStorage/seed data of unknown provenance. */
 function normalizeSymbol(raw: unknown): SlotSymbol {
   if (typeof raw === "string") return { symbol: raw, bonus: "", enabled: true };
   if (raw && typeof raw === "object") {
     const r = raw as Record<string, unknown>;
     return {
       symbol: typeof r.symbol === "string" ? r.symbol : "⭐",
+      imageUrl: typeof r.imageUrl === "string" && r.imageUrl.startsWith("data:") ? r.imageUrl : undefined,
       bonus: typeof r.bonus === "string" ? r.bonus : "",
       enabled: typeof r.enabled === "boolean" ? r.enabled : true,
     };
@@ -129,7 +134,21 @@ export function SlotLandingApp() {
   });
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
   const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
-  const [won, setWon] = useState<{ win: boolean; symbol: string; bonus: string } | null>(null);
+  // AI icon-set generation: one call draws `symbolCount` icons on a single
+  // grid image (see /api/generate-slot-symbols), sliceIconGrid() cuts it into
+  // individual symbol PNGs client-side.
+  const [symbolTheme, setSymbolTheme] = useState("");
+  const [symbolCount, setSymbolCount] = useState<6 | 8>(8);
+  const [symbolRef, setSymbolRef] = useState("");
+  const [symbolsGenning, setSymbolsGenning] = useState(false);
+  const onSymbolRefFile = (f: File) => {
+    const r = new FileReader();
+    r.onload = () => setSymbolRef(String(r.result));
+    r.readAsDataURL(f);
+  };
+  const [won, setWon] = useState<{ win: boolean; symbol: string; imageUrl?: string; bonus: string } | null>(
+    null,
+  );
   const [spinSignal, setSpinSignal] = useState(0);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
@@ -298,7 +317,14 @@ export function SlotLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_slot_draft",
-            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "" }),
+            JSON.stringify({
+              ...data,
+              bgImage: "",
+              charLeft: "",
+              charRight: "",
+              brandLogo: "",
+              symbols: symbols.map((s) => ({ ...s, imageUrl: undefined })),
+            }),
           );
         } catch {
           /* ignore */
@@ -339,6 +365,54 @@ export function SlotLandingApp() {
       window.open(abs, "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Некорректная ссылка в поле CTA");
+    }
+  };
+
+  // Generate `symbolCount` unique icons in ONE call (a single grid image),
+  // then slice it into individual symbol PNGs — replaces the current symbol
+  // list outright, keeping each slot's existing bonus/glyph text where the
+  // new list is at least as long (so re-rolling doesn't wipe bonus amounts
+  // the user already typed in).
+  const generateSlotIcons = async () => {
+    const prompt = (symbolTheme || topic).trim();
+    if (!prompt) {
+      toast.error("Укажите тематику иконок (или тематику лендинга выше)");
+      return;
+    }
+    setSymbolsGenning(true);
+    setGenError("");
+    try {
+      const rows = 2;
+      const cols = symbolCount / rows;
+      const res = await apiFetch("/api/generate-slot-symbols", {
+        method: "POST",
+        json: {
+          prompt,
+          count: symbolCount,
+          ...(symbolRef ? { reference_image: symbolRef } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageUrl) {
+        throw new Error(
+          [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
+        );
+      }
+      if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
+      const tiles = await sliceIconGrid(data.imageUrl, cols, rows);
+      setSymbols((prev) =>
+        tiles.map((imageUrl, i) => ({
+          symbol: prev[i]?.symbol || DEFAULT_SYMBOLS[i % DEFAULT_SYMBOLS.length].symbol,
+          imageUrl,
+          bonus: prev[i]?.bonus || "",
+          enabled: true,
+        })),
+      );
+      toast.success(`Сгенерировано ${tiles.length} иконок символов`);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+    } finally {
+      setSymbolsGenning(false);
     }
   };
 
@@ -695,6 +769,94 @@ export function SlotLandingApp() {
               <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
+          {/* AI-generated icon set: one call draws the whole grid, then we
+              slice it into individual symbol images below. */}
+          <div className="mb-3 rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="ds-h4">Иконки символов (ИИ)</span>
+              <div className="flex rounded-lg border border-border p-0.5">
+                {([6, 8] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSymbolCount(n)}
+                    className={`h-7 w-9 rounded-md text-xs font-semibold transition ${
+                      symbolCount === n
+                        ? "bg-accent-green text-on-accent"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea
+              className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
+              rows={2}
+              value={symbolTheme}
+              onChange={(e) => setSymbolTheme(e.target.value)}
+              placeholder={
+                topic
+                  ? `По умолчанию — тематика лендинга: «${topic}»`
+                  : "Тематика иконок (например: фрукты и самоцветы в стиле киберпанк)"
+              }
+            />
+            <div className="mt-2 flex items-center gap-2">
+              {symbolRef ? (
+                <div className="relative h-9 w-9 shrink-0">
+                  <img
+                    src={symbolRef}
+                    alt=""
+                    className="h-9 w-9 rounded-md border border-border bg-white/5 object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSymbolRef("")}
+                    title="Убрать референс"
+                    aria-label="Убрать референс"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-[9px] text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <label
+                  className="flex h-9 shrink-0 cursor-pointer items-center rounded-lg border border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+                  title="Референс стиля (опционально)"
+                >
+                  Референс
+                  <input
+                    type="file"
+                    accept="image/png,image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onSymbolRefFile(f);
+                    }}
+                  />
+                </label>
+              )}
+              <button
+                type="button"
+                onClick={() => void generateSlotIcons()}
+                disabled={symbolsGenning}
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-green px-3 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+              >
+                {symbolsGenning ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {symbolsGenning ? "Генерирую…" : `Сгенерировать ${symbolCount} иконок · ${SYMBOLS_PRICE}`}
+              </button>
+            </div>
+            <p className="mt-1.5 ds-caption">
+              ИИ рисует {symbolCount} уникальных иконок на одном холсте по теме — затем автоматически режем
+              на отдельные символы. Заменит текущий список символов ниже.
+            </p>
+          </div>
+
           <p className="mb-2 ds-caption">
             Отмеченные ✓ символы могут выпасть игроку (три в ряд). Бонус — что покажем в попапе
             при выигрыше именно на этом символе.
@@ -710,13 +872,32 @@ export function SlotLandingApp() {
                   title="Может выпасть"
                   className="h-5 w-5 shrink-0 cursor-pointer accent-[color:var(--color-accent-green,#9bff58)]"
                 />
-                <input
-                  className={`${inputCls} h-10 w-16 shrink-0 text-center text-lg`}
-                  value={s.symbol}
-                  onChange={(e) => setSymbol(i, { symbol: e.target.value })}
-                  placeholder="🍒"
-                  maxLength={4}
-                />
+                {s.imageUrl ? (
+                  <div className="relative h-10 w-14 shrink-0">
+                    <img
+                      src={s.imageUrl}
+                      alt=""
+                      className="h-10 w-14 rounded-md border border-border bg-black/10 object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSymbol(i, { imageUrl: undefined })}
+                      title="Убрать иконку, вернуть эмодзи"
+                      aria-label="Убрать иконку, вернуть эмодзи"
+                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-[9px] text-white"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    className={`${inputCls} h-10 w-16 shrink-0 text-center text-lg`}
+                    value={s.symbol}
+                    onChange={(e) => setSymbol(i, { symbol: e.target.value })}
+                    placeholder="🍒"
+                    maxLength={4}
+                  />
+                )}
                 <input
                   className={`${inputCls} h-10`}
                   value={s.bonus}
@@ -734,7 +915,9 @@ export function SlotLandingApp() {
               </div>
             ))}
           </div>
-          <p className="mt-1.5 ds-caption">Эмодзи или короткий текст. Минимум 3 символа.</p>
+          <p className="mt-1.5 ds-caption">
+            Эмодзи, короткий текст или сгенерированная ИИ иконка (сверху). Минимум 3 символа.
+          </p>
         </div>
 
         <Field label="Кнопка">
@@ -873,11 +1056,17 @@ export function SlotLandingApp() {
               <div className="relative z-10 mx-auto flex h-full w-full max-w-[440px] items-center justify-center">
                 <SlotMachine
                   symbols={symbols.map((s) => s.symbol)}
+                  symbolImages={symbols.map((s) => s.imageUrl)}
                   winEligible={symbols.map((s) => s.enabled !== false)}
                   accent={accent}
                   spinSignal={spinSignal}
                   onResult={(win, symbol, index) =>
-                    setWon({ win, symbol, bonus: win && index >= 0 ? symbols[index]?.bonus || "" : "" })
+                    setWon({
+                      win,
+                      symbol,
+                      imageUrl: win && index >= 0 ? symbols[index]?.imageUrl : undefined,
+                      bonus: win && index >= 0 ? symbols[index]?.bonus || "" : "",
+                    })
                   }
                 />
               </div>
@@ -900,9 +1089,17 @@ export function SlotLandingApp() {
                 {won.win ? (
                   <>
                     <p className="text-lg font-extrabold text-[#0f172a]">🎉 Джекпот!</p>
-                    <p className="mt-1 text-3xl">
-                      {won.symbol} {won.symbol} {won.symbol}
-                    </p>
+                    {won.imageUrl ? (
+                      <div className="mt-1 flex items-center justify-center gap-2">
+                        {[0, 1, 2].map((k) => (
+                          <img key={k} src={won.imageUrl} alt="" className="h-11 w-11 object-contain" />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-3xl">
+                        {won.symbol} {won.symbol} {won.symbol}
+                      </p>
+                    )}
                     <p className="mt-1 text-sm text-[#475569]">
                       {won.bonus ? (
                         <>

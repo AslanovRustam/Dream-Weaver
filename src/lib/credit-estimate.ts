@@ -38,6 +38,12 @@ export const BANNER_PRICE_CREDITS = 30;
 // (imageCredits(1) = 7).
 export const CHARACTER_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
 
+// Slot-symbol icon set (6 or 8 icons, sliced from one generated grid image) —
+// same model/cost class as the character generator (gpt-image-2.5-sunburst):
+// ONE call regardless of grid size, so this is priced flat like
+// CHARACTER_PRICE_CREDITS rather than per-icon.
+export const SLOT_SYMBOLS_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
+
 // ⚠️ PLACEHOLDER — "Сделать лендинг" price shown on the button under the
 // master banner. Landing generation (bg + character, analysis) doesn't
 // actually debit credits_balance yet (see HistoryApp's Кредиты tab notes —

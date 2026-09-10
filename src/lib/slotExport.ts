@@ -16,8 +16,10 @@ export type SlotExportConfig = {
   /** `bonus` is shown in the win popup when this symbol lands the payline;
    *  `enabled` (default true when omitted) restricts which symbols the win
    *  RNG may land on — every symbol still spins, disabled ones just never
-   *  win. */
-  symbols: { symbol: string; bonus?: string; enabled?: boolean }[];
+   *  win. `imageUrl` (optional, a data: URL) is an AI-generated icon —
+   *  when set it's drawn on the reel and in the win popup instead of the
+   *  plain text/emoji glyph in `symbol`. */
+  symbols: { symbol: string; imageUrl?: string; bonus?: string; enabled?: boolean }[];
   charLeft: string;
   charRight: string;
 };
@@ -51,6 +53,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   const charImg = (src: string, side: "left" | "right") =>
     src ? `<img class="char ${side}" src="${src}" alt=""/>` : "";
   const symbolsJson = JSON.stringify(symbols.map((s) => s.symbol));
+  const imagesJson = JSON.stringify(symbols.map((s) => s.imageUrl || ""));
   const bonusesJson = JSON.stringify(symbols.map((s) => s.bonus || ""));
   const eligibleJson = JSON.stringify(symbols.map((s) => s.enabled !== false));
 
@@ -122,6 +125,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
 <script>
 (function(){
   var syms=${symbolsJson};
+  var symImgs=${imagesJson};
   var bonuses=${bonusesJson};
   var elig=${eligibleJson};
   var len=syms.length, REELS=3, VISIBLE=3, BASE=24, REP=60;
@@ -141,7 +145,10 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     for(var ri=0;ri<REELS;ri++){
       var reel=document.createElement('div'); reel.className='reel'; reel.style.width=cell+'px'; reel.style.height=wh+'px';
       var strip=document.createElement('div'); strip.className='strip';
-      for(var j=0;j<REP*len;j++){ var c=document.createElement('div'); c.className='cell'; c.style.height=cell+'px'; c.style.fontSize=(cell*0.56)+'px'; c.textContent=syms[j%len]; strip.appendChild(c); }
+      for(var j=0;j<REP*len;j++){ var idx=j%len; var c=document.createElement('div'); c.className='cell'; c.style.height=cell+'px';
+        if(symImgs[idx]){ var im=document.createElement('img'); im.src=symImgs[idx]; im.alt=''; im.draggable=false; im.style.height=(cell*0.72)+'px'; im.style.width=(cell*0.72)+'px'; im.style.objectFit='contain'; im.style.pointerEvents='none'; c.appendChild(im); }
+        else { c.style.fontSize=(cell*0.56)+'px'; c.textContent=syms[idx]; }
+        strip.appendChild(c); }
       reel.appendChild(strip); reelsEl.appendChild(reel); strips.push(strip);
       var p=BASE*len+ri; pos.push(p); strip.style.transition='none'; strip.style.transform='translateY('+((1-p)*cell)+'px)';
     }
@@ -165,7 +172,11 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     if(w){
       var bonus = idx>=0 ? bonuses[idx] : '';
       var bonusLine = bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!';
-      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big">'+sym+' '+sym+' '+sym+'</div><p>'+bonusLine+'</p><button id="claim">Claim bonus</button>';
+      var img = idx>=0 ? symImgs[idx] : '';
+      var bigHtml = img
+        ? new Array(3).fill('<img src="'+img+'" alt="" style="height:46px;width:46px;object-fit:contain;margin:0 4px">').join('')
+        : sym+' '+sym+' '+sym;
+      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div><p>'+bonusLine+'</p><button id="claim">Claim bonus</button>';
     }
     else{ card.innerHTML='<button class="x" id="cx">&times;</button><h2>😅 Almost!</h2><p>No match this time — spin again, the jackpot is waiting!</p><button id="again">Spin again</button>'; }
     modal.classList.add('show');

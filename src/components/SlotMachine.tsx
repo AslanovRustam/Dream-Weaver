@@ -56,6 +56,7 @@ const mod = (a: number, n: number) => ((a % n) + n) % n;
 // win) and reports {win, symbol, index} via onResult after the reels settle.
 export function SlotMachine({
   symbols,
+  symbolImages,
   winEligible,
   accent = "#818cf8",
   spinSignal = 0,
@@ -63,6 +64,12 @@ export function SlotMachine({
   onResult,
 }: {
   symbols: string[];
+  /** Parallel array (same length as `symbols`) — an optional AI-generated
+   *  icon image for each symbol; when set for an index, that image is
+   *  rendered on the reel instead of the plain text/emoji glyph. Omitted or
+   *  length-mismatched = every symbol falls back to its text glyph
+   *  (unchanged default behaviour). */
+  symbolImages?: (string | undefined)[];
   /** Parallel array (same length as `symbols`) — which symbols the win RNG
    *  may land the payline on. Omitted/mismatched length = every symbol is
    *  eligible (unchanged default behaviour). All entries reels still show
@@ -75,6 +82,9 @@ export function SlotMachine({
 }) {
   const syms = symbols.length >= 3 ? symbols : ["🍒", "💎", "7️⃣"];
   const len = syms.length;
+  // Only trust symbolImages when it lines up 1:1 with the real (non-fallback)
+  // symbol list — a mismatched/omitted array means plain text for everyone.
+  const imgs = symbolImages && symbolImages.length === len ? symbolImages : undefined;
   const eligibleIdxs = (() => {
     const flags = winEligible && winEligible.length === len ? winEligible : syms.map(() => true);
     const idxs = flags.map((e, i) => (e ? i : -1)).filter((i) => i >= 0);
@@ -225,15 +235,29 @@ export function SlotMachine({
                       transition: dur[ri] ? `transform ${dur[ri]}s cubic-bezier(.12,.7,.2,1)` : "none",
                     }}
                   >
-                    {Array.from({ length: REPEATS * len }).map((_, j) => (
-                      <div
-                        key={j}
-                        className="flex items-center justify-center"
-                        style={{ height: cell, fontSize: cell * 0.56, lineHeight: 1 }}
-                      >
-                        {syms[j % len]}
-                      </div>
-                    ))}
+                    {Array.from({ length: REPEATS * len }).map((_, j) => {
+                      const idx = j % len;
+                      const img = imgs?.[idx];
+                      return (
+                        <div
+                          key={j}
+                          className="flex items-center justify-center"
+                          style={{ height: cell, fontSize: cell * 0.56, lineHeight: 1 }}
+                        >
+                          {img ? (
+                            <img
+                              src={img}
+                              alt=""
+                              draggable={false}
+                              className="pointer-events-none select-none object-contain"
+                              style={{ height: cell * 0.72, width: cell * 0.72 }}
+                            />
+                          ) : (
+                            syms[idx]
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
