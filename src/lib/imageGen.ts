@@ -119,6 +119,8 @@ export type BannerLandingAnalysis = {
   has_person: boolean;
   character_prompt: string;
   background_prompt: string;
+  /** Exactly 6 slot-reel symbols themed to the banner (mechanic "slot" only). */
+  symbols: string[];
 };
 
 /**

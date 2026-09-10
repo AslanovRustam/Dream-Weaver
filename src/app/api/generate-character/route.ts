@@ -43,9 +43,14 @@ export async function POST(request: Request) {
   // background (no scene/floor/shadow) + a people-safety clause so OpenAI's
   // filter doesn't false-flag it.
   const referenceClause = hasReference
-    ? "\n\nSTYLE REFERENCE: the attached image is an approved ad banner — match its colour palette, " +
-      "lighting mood and overall art style for this character, but do NOT reproduce its exact pose, " +
-      "composition, text, logo or background. This is a NEW standalone character asset."
+    ? "\n\nIDENTITY REFERENCE: the attached image is the approved ad banner this landing page is built " +
+      "from. If it shows a person/character, this is the SAME character — reproduce them with matching " +
+      "identity: same hair colour/style, same face shape and features, same outfit and colours, same " +
+      "distinctive accessories or markings. The viewer must recognise it as the exact same character seen " +
+      "on the banner, not a different-looking reinterpretation. You MAY change the pose/angle to a clean " +
+      "standalone full-body stance, and you MUST discard the banner's original background, props, text and " +
+      "logo — only the character itself carries over. If the banner shows NO person, use it only as a " +
+      "colour-palette and art-style reference for this character."
     : "";
   const full =
     `${prompt}${referenceClause}\n\nOUTPUT: isolate the character on a FULLY TRANSPARENT background — no scene, no floor, ` +

@@ -166,19 +166,30 @@ export function SlotLandingApp() {
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
+      // AI-derived slot-reel symbols (6, themed to the banner) — replace the
+      // generic defaults outright when present.
+      if (Array.isArray(s.symbols) && s.symbols.length >= 3) {
+        setSymbols(s.symbols.map((x) => String(x)));
+      }
       // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
       // replace the placeholder Сцена/фон text and, if a person was detected
-      // on the banner, prefill the left character slot.
-      if (typeof s.background_prompt === "string" && s.background_prompt) setTheme(s.background_prompt);
-      if (typeof s.character_prompt === "string" && s.character_prompt) {
-        setCharPrompts((p) => ({ ...p, left: s.character_prompt as string }));
+      // on the banner, prefill the left character slot. Fire off the actual
+      // generation immediately (not just prefill-and-wait): pass the fresh
+      // values directly rather than relying on the state just set above,
+      // which hasn't committed yet in this same effect tick.
+      const bgPrompt = typeof s.background_prompt === "string" ? s.background_prompt : "";
+      const charPrompt = typeof s.character_prompt === "string" ? s.character_prompt : "";
+      if (bgPrompt) setTheme(bgPrompt);
+      if (charPrompt) setCharPrompts((p) => ({ ...p, left: charPrompt }));
+      const bannerImg = gen.imageUrl || "";
+      if (bannerImg) {
+        setBgImage(bannerImg); // instant preview while the real generation runs
+        setBannerRef(bannerImg);
       }
-      if (gen.imageUrl) {
-        setBgImage(gen.imageUrl);
-        setBannerRef(gen.imageUrl);
-      }
+      if (bgPrompt) void generateBg(bgPrompt, bannerImg || undefined);
+      if (charPrompt) void generateCharacter("left", charPrompt, bannerImg || undefined);
       window.localStorage.removeItem("dw:landingSeed");
-      toast.success("Данные баннера перенесены — правьте поля лендинга");
+      toast.success("Данные баннера перенесены — генерируем фон и персонажа…");
     } catch {
       /* malformed seed — ignore */
     }
@@ -244,15 +255,21 @@ export function SlotLandingApp() {
     return data.imageUrl as string;
   };
 
-  const generateBg = async () => {
+  // Both accept an optional (theme/prompt, reference) override so the banner-
+  // seed effect can trigger generation immediately with the just-fetched
+  // values — reading `theme`/`bannerRef` from closure there would race the
+  // setState calls that set them (still holding the PREVIOUS render's value).
+  const generateBg = async (themeOverride?: string, refOverride?: string) => {
+    const useTheme = themeOverride ?? theme;
+    const ref = refOverride ?? bannerRef;
     setGenning(true);
     setGenError("");
     try {
       setBgImage(
         await genImage({
-          presetTemplate: bgPreset(theme),
+          presetTemplate: bgPreset(useTheme),
           feature: "landing-bg",
-          ...(bannerRef ? { styleReferenceImage: bannerRef } : {}),
+          ...(ref ? { styleReferenceImage: ref } : {}),
         }),
       );
     } catch (e) {
@@ -262,20 +279,25 @@ export function SlotLandingApp() {
     }
   };
 
-  const generateCharacter = async (side: "left" | "right") => {
-    const prompt = charPrompts[side].trim();
+  const generateCharacter = async (
+    side: "left" | "right",
+    promptOverride?: string,
+    refOverride?: string,
+  ) => {
+    const prompt = (promptOverride ?? charPrompts[side]).trim();
     if (!prompt) return;
+    const ref = refOverride ?? bannerRef;
     setCharGenning(side);
     setGenError("");
     try {
       // Primary: OpenAI transparent PNG (clean alpha, no rembg). Trim margins.
-      // When seeded from a banner, pass it as a style reference (i2i) so the
-      // character echoes the banner's palette/attire instead of guessing.
+      // When seeded from a banner, pass it as a reference (i2i) so the
+      // character is the SAME recognizable one from the banner, not a guess.
       const res = await apiFetch("/api/generate-character", {
         method: "POST",
         json: {
           prompt: characterPreset(prompt),
-          ...(bannerRef ? { reference_image: bannerRef } : {}),
+          ...(ref ? { reference_image: ref } : {}),
         },
       });
       const data = await res.json();
@@ -529,7 +551,7 @@ export function SlotLandingApp() {
           </Field>
           <button
             type="button"
-            onClick={generateBg}
+            onClick={() => void generateBg()}
             disabled={genning}
             className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
           >

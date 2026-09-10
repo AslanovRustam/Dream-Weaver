@@ -947,6 +947,7 @@ export function ImageGenApp() {
           vertical: bannerPresetToVertical(preset),
           background_prompt: analysis?.background_prompt || "",
           character_prompt: analysis?.has_person ? analysis.character_prompt : "",
+          symbols: analysis?.symbols?.length ? analysis.symbols : undefined,
           from_banner: true,
         }),
       );

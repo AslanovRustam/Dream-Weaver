@@ -43,6 +43,9 @@ export type BannerLandingAnalysis = {
   has_person: boolean;
   character_prompt: string;
   background_prompt: string;
+  /** Exactly 6 slot-reel symbols themed to the banner, ONLY when mechanic
+   *  is "slot" — empty for wheel/crash. */
+  symbols: string[];
 };
 
 const EMPTY: BannerLandingAnalysis = {
@@ -55,6 +58,7 @@ const EMPTY: BannerLandingAnalysis = {
   has_person: false,
   character_prompt: "",
   background_prompt: "",
+  symbols: [],
 };
 
 const MECH_LABEL: Record<Mechanic, string> = {
@@ -65,6 +69,7 @@ const MECH_LABEL: Record<Mechanic, string> = {
 
 function buildSystem(mechanic: Mechanic | undefined): string {
   const mech = mechanic ? MECH_LABEL[mechanic] : "a gamified landing page";
+  const isSlot = mechanic === "slot";
   return [
     "You are a visual analyst for a banner-to-landing-page pipeline. You receive",
     "ONE approved ad banner image and must extract structured facts so a landing",
@@ -80,10 +85,14 @@ function buildSystem(mechanic: Mechanic | undefined): string {
     '  "cta_text": string,          // the button/CTA text EXACTLY as printed, else ""',
     '  "brand_name": string,        // the brand/logo name if visible as text, else ""',
     '  "accent_color_hex": string,  // ONE dominant accent colour (the colour behind the CTA button or the boldest highlight colour), format "#RRGGBB"',
-    '  "palette": string[],         // 3-5 dominant colours as hex codes "#RRGGBB", most prominent first',
+    '  "palette": string[],         // 3-5 dominant colours as hex codes "#RRGGBB", most prominent first — this drives the landing\'s own colour scheme, so read the banner\'s ACTUAL colours carefully',
     '  "has_person": boolean,       // true if a human figure/character is visible anywhere in the banner',
-    '  "character_prompt": string,  // ONLY if has_person: a concise (1-2 sentences) ENGLISH description of that person, written as an image-gen prompt for a STANDALONE full-body character cutout in the SAME attire/colouring/style — hair colour, clothing colour+type, neutral factual pose. Empty string if has_person is false.',
-    '  "background_prompt": string  // a concise (1-2 sentences) ENGLISH description of the banner\'s BACKGROUND scene/setting/mood/motifs (colours, environment, props, lighting) suitable as an image-gen prompt for a background-only image. Do NOT mention any person, text, logo or button.',
+    '  "character_prompt": string,  // ONLY if has_person: a concise (2-3 sentences) ENGLISH description of that SAME person, written as an image-gen prompt for a STANDALONE full-body character cutout that must stay RECOGNISABLE as the identical character — hair colour/style, face/head shape, exact outfit colours and type, any distinctive accessories, markings or mascot-design details. Neutral factual pose. Empty string if has_person is false.',
+    '  "background_prompt": string, // a concise (1-2 sentences) ENGLISH description of the banner\'s BACKGROUND scene/setting/mood/motifs (colours, environment, props, lighting) suitable as an image-gen prompt for a background-only image. Do NOT mention any person, text, logo or button.',
+    '  "symbols": string[]          // ' +
+      (isSlot
+        ? "EXACTLY 6 short slot-machine reel symbols themed to this banner's subject (prefer single emoji; else a 1-3 character string). Match the banner's actual theme — e.g. a fruit/classic-fruit-machine banner → fruit emoji (🍒🍋🍇🍉), an Egypt theme → pyramid/scarab/ankh-style symbols, a treasure/pirate theme → gold coin/skull/anchor, a generic bright casino banner → classic reel icons (💎 7️⃣ 🔔 ⭐ 🍀 💰). Never leave this empty when mechanic is slot."
+        : "always an empty array — this landing isn't a slot machine, so no reel symbols are needed."),
     "}",
     "",
     "Rules:",
@@ -124,6 +133,12 @@ function parseResponse(raw: string): BannerLandingAnalysis {
         ? sanitizeVisionText(String(parsed.character_prompt ?? "")).slice(0, 600)
         : "",
       background_prompt: sanitizeVisionText(String(parsed.background_prompt ?? "")).slice(0, 600),
+      symbols: Array.isArray(parsed.symbols)
+        ? parsed.symbols
+            .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+            .map((s) => s.trim().slice(0, 8))
+            .slice(0, 6)
+        : [],
     };
   } catch {
     return EMPTY;
