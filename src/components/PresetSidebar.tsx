@@ -973,6 +973,120 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       FIELD_SHOW_ODDS,
       FIELD_BONUS_BADGE,    ],
   },
+  // ── New composition archetypes sourced from C:\claude\genGO\шаблоны — real
+  //    ad/poster references analysed one by one and adapted to casino/sport
+  //    betting. Only genuinely NEW layouts made the cut; most of that folder's
+  //    compositions already overlap presets 1-35 above. ──
+  {
+    id: "preset36",
+    fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
+    name: "Мега-слоган",
+    description: "Гигантская фоновая надпись, герой на переднем плане, список плюсов",
+    gradient: "linear-gradient(135deg,#1c1400,#f59e0b,#fde047)",
+    examples: [
+      "linear-gradient(135deg,#1c1400,#f59e0b)",
+      "linear-gradient(160deg,#0b0b0f,#fde047)",
+      "linear-gradient(120deg,#78350f,#fbbf24)",
+      "linear-gradient(140deg,#1c1400,#f97316)",
+    ],
+    isNew: true,
+    template:
+      "Create a bold hero-subject advertisement banner for {SUBJECT}. " +
+      "STYLE: oversized background wordmark typography filling most of the frame, with the hero subject standing sharply in front of it in full detail and dramatic studio lighting; premium editorial-poster energy. " +
+      "COMPOSITION: one giant headline word fills the background top-to-bottom behind the centered hero subject; a short feature checklist (3 short benefit lines with small icon bullets) sits to one side; a closing tagline strip runs along the bottom. " +
+      "LIGHTING: warm dramatic studio key light on the hero subject, soft rim light separating it from the giant background type. " +
+      "TYPOGRAPHY & LAYOUT: the giant background word is the dominant visual element (60-70% of frame height), bold condensed display font; feature checklist in a clean sans-serif; CTA/tagline strip along the bottom edge; the hero subject never fully obscures the giant word. " +
+      "COLOR: dark base with one saturated accent color shared between the giant word and the hero lighting (max 3 dominant colors). " +
+      "AVOID: unreadable overlapping text, the giant word competing with the CTA, more than 3 dominant colors, cluttered corners.",
+  },
+  {
+    id: "preset37",
+    fields: [FIELD_WIN_CALLOUT],
+    name: "Стрит-афиша",
+    description: "Грандж-постер события: рваная текстура, QR-код, дерзкий тон",
+    gradient: "linear-gradient(135deg,#1a0000,#b91c1c,#f1f5f9)",
+    examples: [
+      "linear-gradient(135deg,#1a0000,#b91c1c)",
+      "linear-gradient(160deg,#0b0b0f,#f1f5f9)",
+      "linear-gradient(120deg,#450a0a,#ef4444)",
+      "linear-gradient(140deg,#1a0000,#dc2626)",
+    ],
+    isNew: true,
+    template:
+      "Create a gritty street-poster event advertisement banner for {SUBJECT}. " +
+      "STYLE: raw grunge event-flyer aesthetic — halftone texture, torn-paper edges, high-contrast duotone photo treatment, distressed grain, punchy underground-club energy. " +
+      "COMPOSITION: a bold dynamic hero subject dominates the frame with hands/motion breaking out toward the viewer; a large condensed display headline stacked at the top; a small QR-code tile and short event-details strip (date/venue-style line) anchored at the bottom; thin repeating corner tags. " +
+      "LIGHTING: high-contrast duotone lighting (single dark base color + one bright accent), hard shadows, grainy texture overlay. " +
+      "TYPOGRAPHY & LAYOUT: huge bold condensed sans headline at the top, small uppercase detail lines below it, CTA/date strip along the bottom edge inside the safe zone. " +
+      "COLOR: dominant dark red or black base + one bright accent, gritty duotone (max 3 dominant colors). " +
+      "AVOID: clean corporate minimalism, muddy illegible grain over text, more than 3 dominant colors, cluttered corners.",
+  },
+  {
+    id: "preset38",
+    fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
+    name: "Талисман-взрыв",
+    description: "3D-маскот с глянцевыми объёмными буквами и брызгами",
+    gradient: "linear-gradient(135deg,#f97316,#22c55e,#fef08a)",
+    examples: [
+      "linear-gradient(135deg,#f97316,#22c55e)",
+      "linear-gradient(160deg,#ea580c,#fef08a)",
+      "linear-gradient(120deg,#16a34a,#fde047)",
+      "linear-gradient(140deg,#f97316,#4ade80)",
+    ],
+    isNew: true,
+    template:
+      "Create a playful 3D mascot-character advertisement banner for {SUBJECT}. " +
+      "STYLE: glossy inflated 3D bubble-letter headline bursting apart, an expressive cartoon mascot character with a funny exaggerated face reacting to the splash/explosion, ice cubes or sparkle particles, juicy energetic commercial-mascot mood. " +
+      "COMPOSITION: the mascot character centered low in frame reacting to a burst of glossy splash/particles erupting from above; the glossy bubble-letter headline arcs across the upper half; small benefit icon badges along the bottom edge; an optional small speech-bubble callout beside the mascot. " +
+      "LIGHTING: bright glossy studio lighting with strong specular highlights on every glossy surface (letters, splash, mascot skin). " +
+      "TYPOGRAPHY & LAYOUT: the glossy 3D bubble headline is the dominant typographic element, a smaller reaction line below it, benefit icon row along the bottom inside the safe zone. " +
+      "COLOR: two to three vivid candy-bright colors (e.g. orange + green, or gold + red) on a contrasting base. " +
+      "AVOID: flat 2D lettering, muddy dark palette, more than 3 dominant colors, unreadable overlapping splash over text.",
+  },
+  {
+    id: "preset39",
+    fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
+    name: "Экшн-лайфстайл",
+    description: "Динамичный fisheye-экшн: приложение в руке, городская энергия",
+    gradient: "linear-gradient(135deg,#0ea5e9,#f97316,#fde68a)",
+    examples: [
+      "linear-gradient(135deg,#0ea5e9,#f97316)",
+      "linear-gradient(160deg,#0369a1,#fde68a)",
+      "linear-gradient(120deg,#0284c7,#fbbf24)",
+      "linear-gradient(140deg,#0ea5e9,#f59e0b)",
+    ],
+    isNew: true,
+    template:
+      "Create a dynamic lifestyle-action advertisement banner for {SUBJECT}. " +
+      "STYLE: energetic ultra-wide fisheye action photography — a smiling subject in motion (skating, running, celebrating) holds a phone/app screen up toward the camera lens, urban environment blurred behind with motion energy, bright natural daylight, authentic UGC-style excitement. " +
+      "COMPOSITION: the held-up phone/app screen is the hero focal point close to the lens in sharp focus; the subject's excited face and motion fill the rest of the frame; environment (street/stadium/city) receding sharply into the fisheye distortion. " +
+      "LIGHTING: bright natural daylight, high dynamic range, crisp sharp focus on the phone screen with a touch of motion blur in the background. " +
+      "TYPOGRAPHY & LAYOUT: short punchy tagline along one side edge, a small CTA/handle line along the bottom, both kept clear of the phone screen and the subject's face. " +
+      "COLOR: vivid natural daylight palette with one bold accent color carried from the app screen into the graphic overlays. " +
+      "AVOID: static posed studio look, unreadable tiny text, more than 3 dominant colors, cluttering the phone screen area.",
+  },
+  {
+    id: "preset40",
+    fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
+    name: "VIP-приглашение",
+    description: "Золотая корона на картах, орнаментальная рамка, статус",
+    gradient: "linear-gradient(135deg,#000000,#78350f,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#000000,#78350f)",
+      "linear-gradient(160deg,#0b0b0f,#facc15)",
+      "linear-gradient(120deg,#1c1917,#eab308)",
+      "linear-gradient(140deg,#000000,#d4af37)",
+    ],
+    isNew: true,
+    template:
+      "Create a VIP invitation-poster advertisement banner for {SUBJECT}. " +
+      "STYLE: opulent formal invitation poster — a glowing gold crown resting on a fanned hand of premium playing cards, sparkling light particles, engraved ornamental gold frame border running along all edges, exclusive high-roller ceremony mood. " +
+      "COMPOSITION: the crown-and-cards hero element centered in the upper-middle of the frame; a large bold gold-and-chrome 3D headline banner below it inside an ornate frame shield; event-style detail lines (date/status line) beneath the headline; thin engraved border framing the whole banner with small vertical corner text. " +
+      "LIGHTING: warm dramatic spotlight on the crown with sparkling highlights, deep black negative space, soft smoke haze. " +
+      "TYPOGRAPHY & LAYOUT: bold gold-and-chrome 3D display headline as the dominant element inside its ornate frame, a smaller detail line below it, thin uppercase micro-text tracking the outer border. " +
+      "COLOR: black base with gold/chrome accent only (max 2 dominant colors). " +
+      "AVOID: bright cheerful palettes, cluttered center, unreadable ornate text, more than 2 dominant colors.",
+  },
 ];
 
 // Generated 3:2 preview banners live in public/previews/<id>.png
@@ -1011,6 +1125,10 @@ export const CATEGORIES: Category[] = [
       "preset3",
       "preset20",
       "preset25",
+      // New archetypes sourced from шаблоны/ (see comment above PRESETS entries).
+      "preset36",
+      "preset38",
+      "preset40",
     ],
   },
   {
@@ -1037,6 +1155,9 @@ export const CATEGORIES: Category[] = [
       "preset19",
       "preset23",
       "preset24",
+      // New archetypes sourced from шаблоны/ (see comment above PRESETS entries).
+      "preset37",
+      "preset39",
     ],
   },
 ];
