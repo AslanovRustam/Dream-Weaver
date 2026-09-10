@@ -1,6 +1,6 @@
-// Client helper for "Найти по сайту" (SettingsDrawer) — see
-// /api/brand-lookup for the full pipeline (web search → fetch → extract →
-// vision analysis).
+// Client helper for "Найти по сайту" (see components/BrandLookup.tsx) —
+// see /api/brand-lookup for the full pipeline (fetch → extract → vision
+// analysis; the site URL/domain is given directly, no name search).
 import { apiFetch } from "./api-client";
 
 export type BrandLookupResult = {
@@ -27,7 +27,7 @@ export async function lookupBrand(query: string): Promise<BrandLookupResult> {
     | null;
   if (!res.ok || !data?.result) {
     if (res.status === 401) throw new BrandLookupError("Войдите, чтобы найти бренд по сайту");
-    throw new BrandLookupError(data?.error || "Не удалось найти бренд");
+    throw new BrandLookupError(data?.error || "Не удалось найти бренд — загрузите логотип вручную ниже");
   }
   return data.result;
 }

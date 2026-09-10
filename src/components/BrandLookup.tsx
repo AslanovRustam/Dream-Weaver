@@ -88,7 +88,9 @@ export function BrandLookup({
           : "Похоже на маркетинговое изображение, не чистый логотип — проверьте результат",
       );
     } catch (e) {
-      setError(e instanceof BrandLookupError ? e.message : "Не удалось найти бренд");
+      setError(
+        e instanceof BrandLookupError ? e.message : "Не удалось найти бренд — загрузите логотип вручную ниже",
+      );
     } finally {
       setLoading(false);
     }

@@ -138,16 +138,20 @@ export async function POST(request: Request) {
   if (rl) return rl;
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
+  if (!apiKey) {
+    return Response.json({ error: "Сервис временно недоступен, попробуйте позже" }, { status: 500 });
+  }
 
   let body: Body;
   try {
     body = (await request.json()) as Body;
   } catch {
-    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    return Response.json({ error: "Некорректный запрос" }, { status: 400 });
   }
   const query = (body.query || "").trim().slice(0, 200);
-  if (!query) return Response.json({ error: "query required" }, { status: 400 });
+  if (!query) {
+    return Response.json({ error: "Введите адрес сайта, например grandcasino.com" }, { status: 400 });
+  }
 
   const siteUrl = looksLikeUrl(query);
   if (!siteUrl) {
@@ -224,6 +228,9 @@ export async function POST(request: Request) {
     });
     return Response.json({ result });
   } catch (e) {
+    // Log the real error server-side for diagnosis, but never surface a raw
+    // fetch/parser/provider message to the user — same friendly fallback as
+    // the fetch-failure branch above: try the manual upload instead.
     void logSystem({
       level: "error",
       category: "image-gen",
@@ -233,6 +240,9 @@ export async function POST(request: Request) {
       context: { query },
       error: e,
     });
-    return Response.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
+    return Response.json(
+      { error: "Не удалось найти бренд — загрузите логотип вручную ниже" },
+      { status: 500 },
+    );
   }
 }
