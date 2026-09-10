@@ -4,6 +4,7 @@ import { Settings, X } from "lucide-react";
 const KEY = "webhook_url";
 const BRAND_NAME_KEY = "brand_name";
 const BRAND_LOGO_KEY = "brand_logo";
+const BRAND_ACCENT_KEY = "brand_accent";
 const LANGUAGE_KEY = "brand_language";
 // One-time cleanup flag. A stale demo brand (Betano logo + name) was baked into
 // some browsers' saved settings and silently applied to EVERY banner as an image
@@ -75,7 +76,6 @@ export function SettingsDrawer({
     if (v) localStorage.setItem(BRAND_LOGO_KEY, v);
     else localStorage.removeItem(BRAND_LOGO_KEY);
   };
-
   const onLogoFile = async (file: File | null) => {
     if (!file) return;
     if (file.size > 1024 * 1024) {
@@ -253,14 +253,17 @@ export function getBrandSettings(): {
   brand_name: string;
   brand_logo: string;
   language: string;
+  /** Accent hex from the last successful "Найти по сайту" lookup, if any. */
+  brand_accent: string;
 } {
   if (typeof window === "undefined") {
-    return { brand_name: "", brand_logo: "", language: "auto" };
+    return { brand_name: "", brand_logo: "", language: "auto", brand_accent: "" };
   }
   purgeLegacyBrandOnce();
   return {
     brand_name: localStorage.getItem(BRAND_NAME_KEY) ?? "",
     brand_logo: localStorage.getItem(BRAND_LOGO_KEY) ?? "",
     language: localStorage.getItem(LANGUAGE_KEY) ?? "auto",
+    brand_accent: localStorage.getItem(BRAND_ACCENT_KEY) ?? "",
   };
 }

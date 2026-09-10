@@ -121,3 +121,100 @@ export async function safeFetchImage(raw: string): Promise<{ buffer: Buffer; mim
   const mime = (res.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
   return { buffer: Buffer.from(ab), mime };
 }
+
+// ---------------------------------------------------------------------------
+// Arbitrary-public-URL fetching — used by the "Найти по сайту" brand lookup
+// (analyze-banner-for-landing's sibling: instead of an uploaded banner, the
+// source is a THIRD-PARTY WEBSITE the user names, found via web search). This
+// is a materially bigger attack surface than assertAllowedImageUrl above (no
+// origin allowlist — fetching arbitrary internet hosts is the whole point),
+// so it adds what that one gets for free from the allowlist: manual redirect
+// following with the SAME IP check re-applied at every hop. `redirect:"error"`
+// would just break normal sites (bare-domain→www, http→https are near-universal
+// redirects); blindly following redirects would let a same-origin-on-request-
+// #1 URL still bounce to an internal target on hop #2.
+const MAX_HTML_BYTES = 3 * 1024 * 1024; // 3 MB — plenty for a homepage <head>
+const MAX_REDIRECTS = 5;
+
+async function assertPublicHost(hostname: string): Promise<void> {
+  let addrs: Array<{ address: string }>;
+  try {
+    addrs = await lookup(hostname, { all: true });
+  } catch {
+    throw new UnsafeUrlError("DNS resolution failed");
+  }
+  if (addrs.length === 0 || addrs.some((a) => isBlockedIp(a.address))) {
+    throw new UnsafeUrlError("host resolves to a blocked address");
+  }
+}
+
+/** Validate an ARBITRARY (no origin allowlist) http(s) URL is safe to fetch
+ *  server-side: scheme http(s), hostname resolves only to public IPs. */
+export async function assertPublicHttpUrl(raw: string): Promise<URL> {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new UnsafeUrlError("malformed URL");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new UnsafeUrlError("only http(s) URLs are allowed");
+  }
+  await assertPublicHost(url.hostname);
+  return url;
+}
+
+/** Fetch an arbitrary public URL's response, manually following redirects
+ *  (re-validating the target's IP at every hop) up to MAX_REDIRECTS times.
+ *  Returns the final Response — caller reads/caps the body. */
+async function fetchPublicUrlFollowing(raw: string): Promise<Response> {
+  let current = raw;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    await assertPublicHttpUrl(current);
+    const res = await fetch(current, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; GenGoBrandLookup/1.0)" },
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new UnsafeUrlError("redirect with no Location");
+      current = new URL(loc, current).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new UnsafeUrlError("too many redirects");
+}
+
+/** Fetch a public webpage's HTML (size-capped, redirect-safe). Returns the
+ *  final URL (post-redirects) alongside the text — callers resolve any
+ *  relative asset URLs found in the markup against `finalUrl`, not `raw`. */
+export async function fetchPublicHtml(raw: string): Promise<{ html: string; finalUrl: string }> {
+  const res = await fetchPublicUrlFollowing(raw);
+  if (!res.ok) throw new UnsafeUrlError(`upstream ${res.status}`);
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (ct && !ct.includes("text/html") && !ct.includes("application/xhtml")) {
+    throw new UnsafeUrlError("not an HTML page");
+  }
+  const declared = Number(res.headers.get("content-length") || 0);
+  if (declared && declared > MAX_HTML_BYTES) throw new UnsafeUrlError("page too large");
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > MAX_HTML_BYTES) throw new UnsafeUrlError("page too large");
+  return { html: buf.toString("utf8"), finalUrl: res.url || raw };
+}
+
+/** Fetch an arbitrary public image URL (redirect-safe, unlike safeFetchImage
+ *  which is restricted to our own FTP origin). Used for logo/og:image
+ *  candidates discovered on a third-party site. */
+export async function fetchPublicImage(raw: string): Promise<{ buffer: Buffer; mime: string }> {
+  const res = await fetchPublicUrlFollowing(raw);
+  if (!res.ok) throw new UnsafeUrlError(`upstream ${res.status}`);
+  const ct = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!ct.startsWith("image/")) throw new UnsafeUrlError("not an image");
+  const declared = Number(res.headers.get("content-length") || 0);
+  if (declared && declared > MAX_IMAGE_BYTES) throw new UnsafeUrlError("image too large");
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > MAX_IMAGE_BYTES) throw new UnsafeUrlError("image too large");
+  return { buffer: buf, mime: ct || "image/png" };
+}

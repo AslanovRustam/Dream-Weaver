@@ -23,6 +23,7 @@ import { BriefUploader } from "@/components/BriefUploader";
 import { PresetSidebar, PRESETS, compileTemplateOptions } from "./PresetSidebar";
 import { type ModelKey } from "./ModelToggle";
 import { SettingsDrawer, getBrandSettings } from "./SettingsDrawer";
+import { BrandLookup, type BrandLookupFound } from "./BrandLookup";
 import { FullscreenImageModal } from "./FullscreenImageModal";
 import { GenerationErrorCard } from "./GenerationErrorCard";
 import { ToolCoachmark } from "./ToolCoachmark";
@@ -1473,6 +1474,18 @@ export function ImageGenApp() {
                 <>
               <div className="rounded-xl border border-border bg-background/40 p-3">
                 <p className="mb-2 ds-h4">Бренд</p>
+                <BrandLookup
+                  className="mb-3"
+                  onFound={(found: BrandLookupFound) => {
+                    if (found.brandName) setBrandName(found.brandName);
+                    setBrandLogo(found.logoDataUrl);
+                    if (found.accentHex) {
+                      setColorRoles((rs) =>
+                        rs.map((r) => (r.id === "accent" ? { ...r, enabled: true, hex: found.accentHex } : r)),
+                      );
+                    }
+                  }}
+                />
                 <div className="flex items-start gap-3">
                   {/* Small square optional logo uploader on the side */}
                   <div className="shrink-0">
