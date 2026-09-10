@@ -525,22 +525,35 @@ export function WheelLandingApp() {
         </header>
 
         <div>
-          <label className="mb-2 block ds-h4">Быстрые темы</label>
-          <div className="flex flex-wrap gap-2">
+          <label className="mb-2 block ds-h4">Акцент</label>
+          <div className="flex flex-wrap items-center gap-2">
             {THEMES.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => applyTheme(t)}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.accent }} />
-                {t.label}
-              </button>
+                title={t.label}
+                aria-label={t.label}
+                className={`h-8 w-8 shrink-0 rounded-full border-2 transition ${
+                  accent.toLowerCase() === t.accent.toLowerCase()
+                    ? "border-white"
+                    : "border-transparent hover:border-white/40"
+                }`}
+                style={{ backgroundColor: t.accent }}
+              />
             ))}
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
+              onChange={(e) => setAccent(e.target.value)}
+              aria-label="Свой цвет акцента"
+              title="Свой цвет"
+              className="h-8 w-8 cursor-pointer rounded-full border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-full [&::-webkit-color-swatch-wrapper]:p-0"
+            />
           </div>
           <p className="mt-1.5 ds-caption">
-            Задаёт фон, персонажа, цвет и заголовок под тему — затем сгенерируйте фон и персонажа.
+            Пресет задаёт ещё и фон, персонажа и заголовок под тему — затем сгенерируйте фон и персонажа. Или
+            выберите свой цвет справа.
           </p>
         </div>
 
@@ -563,7 +576,7 @@ export function WheelLandingApp() {
             <SuggestButton topic={topic} field="headline" mechanic="wheel" onFill={setHeadline} />
           </div>
         </Field>
-        <div className="grid grid-cols-[1fr_auto_auto] items-end gap-3">
+        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
           <Field label="Бренд">
             {brandLogo ? (
               <div className="flex h-11 items-center gap-2">
@@ -606,16 +619,6 @@ export function WheelLandingApp() {
               </div>
             )}
           </Field>
-          <div>
-            <label className="mb-2 block ds-h4">Акцент</label>
-            <input
-              type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
-              onChange={(e) => setAccent(e.target.value)}
-              aria-label="Акцент колеса"
-              className="h-11 w-11 cursor-pointer rounded-lg border border-border bg-elevated"
-            />
-          </div>
           <div>
             <label className="mb-2 block ds-h4">Тёмный</label>
             <div className="flex h-11 items-center">
