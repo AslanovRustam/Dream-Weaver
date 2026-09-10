@@ -1,12 +1,13 @@
 "use client";
 
-// "Найти по сайту" — a small reusable search field: given a brand/product
-// name (or a URL/domain directly), it finds the official site, extracts the
-// logo, and reads off an accent colour + visual-style descriptor from it (see
-// /api/brand-lookup for the full pipeline). Drop this next to any generator's
-// own Бренд/Логотип fields — each one owns its own brand state (there's no
-// single global "settings" screen for it), so this component only reports
-// what it found via onFound; the caller decides what to do with it.
+// "Найти по сайту" — a small reusable field: given the brand's website URL/
+// domain directly (no name search — deliberately not guessing), it extracts
+// the logo and reads off an accent colour + visual-style descriptor from it
+// (see /api/brand-lookup for the full pipeline). Drop this next to any
+// generator's own Бренд/Логотип fields — each one owns its own brand state
+// (there's no single global "settings" screen for it), so this component
+// only reports what it found via onFound; the caller decides what to do
+// with it.
 import { useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -96,7 +97,7 @@ export function BrandLookup({
   return (
     <div className={className}>
       <label className="block text-xs font-medium text-foreground/70">
-        Найти по сайту / названию бренда
+        Найти по сайту бренда
       </label>
       <div className="mt-1 flex items-center gap-1.5">
         <input
@@ -109,7 +110,7 @@ export function BrandLookup({
               void run();
             }
           }}
-          placeholder="Например, Grand Casino или grandcasino.com"
+          placeholder="Например, grandcasino.com"
           className="w-full rounded-md border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-foreground"
         />
         <button
@@ -117,7 +118,7 @@ export function BrandLookup({
           onClick={() => void run()}
           disabled={!query.trim() || loading}
           aria-label="Найти"
-          title="Найти сайт и логотип бренда"
+          title="Найти логотип и цвета на сайте"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-foreground/70 transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
@@ -138,7 +139,7 @@ export function BrandLookup({
         </div>
       ) : (
         <p className="mt-1.5 text-xs text-foreground/50">
-          ИИ найдёт сайт, вытащит логотип и определит фирменные цвета.
+          Укажите адрес сайта — ИИ вытащит логотип и определит фирменные цвета.
         </p>
       )}
     </div>

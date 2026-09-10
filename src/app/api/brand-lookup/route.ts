@@ -1,28 +1,27 @@
 // POST /api/brand-lookup
 //
-// "Найти по сайту" — given a brand/product name (or a URL directly), find the
-// official website, pull its best logo candidate, and run a vision pass over
-// it to read off an accent colour + visual-style descriptor. Feeds the global
-// brand settings (SettingsDrawer) so every generator (banner/landing/email)
-// can start from the real brand instead of the user typing/uploading by hand.
+// "Найти по сайту" — given the brand's website URL/domain directly, pull its
+// best logo candidate and run a vision pass over it to read off an accent
+// colour + visual-style descriptor. Feeds the generator's Бренд fields so the
+// user doesn't have to type/upload a logo by hand.
+//
+// (No brand-NAME search — the model resolving a bare name to a domain via a
+// hosted web-search tool was dropped: the user only wants the deterministic
+// "I already know the URL" path, not a guess.)
 //
 // Pipeline:
-//   1. SEARCH  — if `query` isn't already a URL, gpt-5.4-mini + OpenAI's
-//      hosted `web_search` tool (Responses API) finds the single official
-//      homepage. (Verified live: this tool is available on our key and
-//      reliably resolves brand names to their real domain with citations.)
-//   2. FETCH   — the homepage HTML, via the SSRF-safe arbitrary-URL fetcher
-//      (src/lib/safe-fetch.ts — no origin allowlist, but every redirect hop
-//      is re-validated against private/loopback/metadata IP ranges).
-//   3. EXTRACT — logo/icon candidates ranked by src/lib/brandExtract.ts
+//   1. FETCH   — the given homepage's HTML, via the SSRF-safe arbitrary-URL
+//      fetcher (src/lib/safe-fetch.ts — no origin allowlist, but every
+//      redirect hop is re-validated against private/loopback/metadata IPs).
+//   2. EXTRACT — logo/icon candidates ranked by src/lib/brandExtract.ts
 //      (apple-touch-icon > sized <link rel=icon> > og:image > favicon.ico);
 //      the first one that actually fetches as an image wins.
-//   4. ANALYSE — the winning image + brand name go through the SAME
+//   3. ANALYSE — the winning image + site name go through the SAME
 //      gpt-5.4-mini vision pipeline already validated for
 //      analyze-banner-for-landing: accent colour, palette, style, and
 //      whether it's actually a clean logo (vs. e.g. a busy marketing photo).
 //
-// Body: { query: string }
+// Body: { query: string } — a URL or bare domain, e.g. "grandcasino.com".
 // Response: { site_url, brand_name, logo_data_url, accent_color_hex, palette, style, is_clean_logo }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { logSystem, newRequestId } from "@/lib/logger";
@@ -52,31 +51,6 @@ function looksLikeUrl(q: string): string | null {
   // Bare domain, e.g. "stripe.com" or "www.notion.com" — no scheme.
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(s) && !s.includes(" ")) return `https://${s}`;
   return null;
-}
-
-/** Ask gpt-5.4-mini (+ hosted web_search) for the single official homepage. */
-async function findOfficialSite(brand: string, apiKey: string): Promise<string | null> {
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "gpt-5.4-mini",
-      tools: [{ type: "web_search" }],
-      input:
-        `Find the single OFFICIAL homepage URL for the brand/product "${brand}". ` +
-        "Respond with ONLY that URL and nothing else — no words, no punctuation around it. " +
-        "If you cannot confidently identify one official site, respond with exactly: NONE",
-    }),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json().catch(() => null)) as {
-    output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
-  } | null;
-  const msg = data?.output?.find((o) => o.type === "message");
-  const text = msg?.content?.find((c) => c.type === "output_text")?.text?.trim() ?? "";
-  if (!text || text.toUpperCase() === "NONE") return null;
-  const m = text.match(/https?:\/\/[^\s"'<>)]+/i);
-  return m ? m[0] : null;
 }
 
 const ANALYSIS_SYSTEM = [
@@ -175,17 +149,16 @@ export async function POST(request: Request) {
   const query = (body.query || "").trim().slice(0, 200);
   if (!query) return Response.json({ error: "query required" }, { status: 400 });
 
-  try {
-    // 1. SEARCH (skipped if the user already gave a URL/domain).
-    let siteUrl = looksLikeUrl(query);
-    if (!siteUrl) {
-      siteUrl = await findOfficialSite(query, apiKey);
-      if (!siteUrl) {
-        return Response.json({ error: "Официальный сайт не найден" }, { status: 404 });
-      }
-    }
+  const siteUrl = looksLikeUrl(query);
+  if (!siteUrl) {
+    return Response.json(
+      { error: "Введите адрес сайта, например grandcasino.com" },
+      { status: 400 },
+    );
+  }
 
-    // 2. FETCH the homepage (SSRF-safe, redirect-revalidated, size-capped).
+  try {
+    // 1. FETCH the homepage (SSRF-safe, redirect-revalidated, size-capped).
     let html: string;
     let finalUrl: string;
     try {
@@ -195,7 +168,7 @@ export async function POST(request: Request) {
       return Response.json({ error: `Сайт недоступен: ${msg}`, site_url: siteUrl }, { status: 502 });
     }
 
-    // 3. EXTRACT candidates + a clean site-name fallback.
+    // 2. EXTRACT candidates + a clean site-name fallback.
     const candidates = extractLogoCandidates(html, finalUrl);
     const siteName = extractSiteName(html) || query;
 
@@ -217,7 +190,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. ANALYSE — colour/style/logo-quality vision pass.
+    // 3. ANALYSE — colour/style/logo-quality vision pass.
     const analysis = await analyzeLogoImage(logoDataUrl, siteName, apiKey);
 
     const result: LookupResult = {
