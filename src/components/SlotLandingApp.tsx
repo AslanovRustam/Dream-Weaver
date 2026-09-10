@@ -217,6 +217,13 @@ export function SlotLandingApp() {
         : "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль";
       setTheme(bgPrompt);
       setCharPrompts((p) => ({ ...p, left: charPrompt }));
+      // AUTHORITATIVE for the rendered character image too, not just its
+      // prompt text: clear the left slot outright (a restored draft above
+      // may have left an OLD character image showing from a previous banner
+      // that DID have one). If this banner has a character, generateCharacter
+      // below fills it back in moments later; if it doesn't, the slot now
+      // correctly stays empty instead of keeping the stale one.
+      setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
         setBgImage(bannerImg); // instant preview while the real generation runs
