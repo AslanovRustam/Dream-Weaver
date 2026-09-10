@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 
@@ -112,7 +112,17 @@ export function SlotLandingApp() {
 
   // Persist the whole landing (config + generated images).
   const [restored, setRestored] = useState(false);
+  // Mount-time hydration (draft restore + banner-seed override, below) must
+  // run EXACTLY once. React StrictMode double-invokes effects in dev; without
+  // this guard, the second pass re-reads dw_slot_draft (unchanged — the
+  // debounced persist-effect hasn't written the fresh values yet) and
+  // silently clobbers whatever the first pass's banner-seed just applied,
+  // making a fresh "Сделать лендинг из баннера" appear to do nothing. Same
+  // pattern already used in LandingGenApp.tsx's mount handoff.
+  const hydratedRef = useRef(false);
   useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
     try {
       const raw = window.localStorage.getItem("dw_slot_draft");
       if (raw) {
@@ -143,28 +153,40 @@ export function SlotLandingApp() {
     } catch {
       /* ignore */
     }
-    setRestored(true);
-  }, []);
 
-  // Banner → slot handoff: prefill from the banner (the reference) — its texts,
-  // brand, CTA and palette fill the fields, and the banner image itself becomes
-  // the backdrop (read live from the generation context). Overrides the restored
-  // draft above, then clears the seed.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Banner → slot handoff: prefill from the banner (the reference) — its
+    // texts, brand, CTA and palette fill the fields, and the banner image
+    // itself becomes the backdrop (read live from the generation context).
+    // Overrides the draft just restored above, then clears the seed.
     try {
       const raw = window.localStorage.getItem("dw:landingSeed");
-      if (!raw) return;
+      if (!raw) {
+        setRestored(true);
+        return;
+      }
       const s = JSON.parse(raw) as Record<string, unknown>;
-      if (!s.from_banner) return;
-      if (typeof s.brand_name === "string" && s.brand_name) setBrand(s.brand_name);
-      if (typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:")) setBrandLogo(s.brand_logo);
+      if (!s.from_banner) {
+        setRestored(true);
+        return;
+      }
+      // AUTHORITATIVE overwrite: this fires right after the draft-restore
+      // effect above, which may have just repopulated brand/brandLogo/accent
+      // from a STALE dw_slot_draft left over from a previous, unrelated
+      // session. A fresh "Сделать лендинг из баннера" must win outright —
+      // explicitly set (or clear) every one of these fields instead of only
+      // conditionally overriding when the seed happens to have a value,
+      // which let the old draft's values silently keep showing whenever the
+      // banner analysis came back empty for that one field.
+      setBrand(typeof s.brand_name === "string" && s.brand_name ? s.brand_name : "LOGO");
+      setBrandLogo(typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:") ? s.brand_logo : "");
+      setAccent(
+        typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent) ? s.accent : "#818cf8",
+      );
       const head =
         (typeof s.banner_text === "string" && s.banner_text) ||
         (typeof s.subject === "string" ? s.subject : "");
       if (head) setHeadline(String(head).toUpperCase());
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
-      if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
       // AI-derived slot-reel symbols (6, themed to the banner) — replace the
       // generic defaults outright when present.
@@ -193,6 +215,7 @@ export function SlotLandingApp() {
     } catch {
       /* malformed seed — ignore */
     }
+    setRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

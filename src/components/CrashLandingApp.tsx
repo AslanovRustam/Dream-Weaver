@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2, Monitor, Smartphone, Sparkles, X } from "lucide-react";
 
@@ -98,7 +98,17 @@ export function CrashLandingApp() {
   const [bannerRef, setBannerRef] = useState("");
 
   const [restored, setRestored] = useState(false);
+  // Mount-time hydration (draft restore + banner-seed override, below) must
+  // run EXACTLY once. React StrictMode double-invokes effects in dev; without
+  // this guard, the second pass re-reads dw_crash_draft (unchanged — the
+  // debounced persist-effect hasn't written the fresh values yet) and
+  // silently clobbers whatever the first pass's banner-seed just applied,
+  // making a fresh "Сделать лендинг из баннера" appear to do nothing. Same
+  // pattern already used in LandingGenApp.tsx's mount handoff.
+  const hydratedRef = useRef(false);
   useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
     try {
       const raw = window.localStorage.getItem("dw_crash_draft");
       if (raw) {
@@ -126,29 +136,42 @@ export function CrashLandingApp() {
     } catch {
       /* ignore */
     }
-    setRestored(true);
-  }, []);
 
-  // Banner → crash handoff: prefill from the approved banner (analysed by
-  // analyzeBannerForLanding — see ImageGenApp's "Сделать лендинг из баннера").
-  // Its texts, brand and accent fill the fields; the AI-written background/
-  // character prompts replace the placeholders; the banner itself becomes an
-  // eager backdrop AND a style reference for later i2i regeneration.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Banner → crash handoff: prefill from the approved banner (analysed by
+    // analyzeBannerForLanding — see ImageGenApp's "Сделать лендинг из баннера").
+    // Its texts, brand and accent fill the fields; the AI-written background/
+    // character prompts replace the placeholders; the banner itself becomes an
+    // eager backdrop AND a style reference for later i2i regeneration.
+    // Overrides the draft just restored above, then clears the seed.
     try {
       const raw = window.localStorage.getItem("dw:landingSeed");
-      if (!raw) return;
+      if (!raw) {
+        setRestored(true);
+        return;
+      }
       const s = JSON.parse(raw) as Record<string, unknown>;
-      if (!s.from_banner) return;
-      if (typeof s.brand_name === "string" && s.brand_name) setBrand(s.brand_name);
-      if (typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:")) setBrandLogo(s.brand_logo);
+      if (!s.from_banner) {
+        setRestored(true);
+        return;
+      }
+      // AUTHORITATIVE overwrite: this fires right after the draft-restore
+      // effect above, which may have just repopulated brand/brandLogo/accent
+      // from a STALE dw_crash_draft left over from a previous, unrelated
+      // session. A fresh "Сделать лендинг из баннера" must win outright —
+      // explicitly set (or clear) every one of these fields instead of only
+      // conditionally overriding when the seed happens to have a value,
+      // which let the old draft's values silently keep showing whenever the
+      // banner analysis came back empty for that one field.
+      setBrand(typeof s.brand_name === "string" && s.brand_name ? s.brand_name : "LOGO");
+      setBrandLogo(typeof s.brand_logo === "string" && s.brand_logo.startsWith("data:") ? s.brand_logo : "");
+      setAccent(
+        typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent) ? s.accent : "#ef4444",
+      );
       const head =
         (typeof s.banner_text === "string" && s.banner_text) ||
         (typeof s.subject === "string" ? s.subject : "");
       if (head) setHeadline(String(head).toUpperCase());
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
-      if (typeof s.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(s.accent)) setAccent(s.accent);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
       // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
       // replace the placeholder Сцена/фон text and fire off the actual
@@ -171,6 +194,7 @@ export function CrashLandingApp() {
     } catch {
       /* malformed seed — ignore */
     }
+    setRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -924,14 +924,18 @@ export function ImageGenApp() {
     const analysis = await analyzeBannerForLanding(imageUrl, mechanic).catch(() => null);
     toast.dismiss(toastId);
     try {
+      const hexRe = /^#[0-9a-fA-F]{6}$/;
       const seedAccent =
-        (analysis?.accent_color_hex && /^#[0-9a-fA-F]{6}$/.test(analysis.accent_color_hex)
+        (analysis?.accent_color_hex && hexRe.test(analysis.accent_color_hex)
           ? analysis.accent_color_hex
           : "") ||
-        colorRoles.find(
-          (r) => r.id === "accent" && r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
-        )?.hex ||
-        colorRoles.find((r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex))?.hex ||
+        // accent_color_hex can occasionally miss the regex (model formatting
+        // slip) even when the broader palette came back fine — fall back to
+        // the first valid palette colour before giving up on the banner
+        // entirely, so the landing's accent almost always ends up banner-derived.
+        analysis?.palette?.find((c) => hexRe.test(c)) ||
+        colorRoles.find((r) => r.id === "accent" && r.enabled && hexRe.test(r.hex))?.hex ||
+        colorRoles.find((r) => r.enabled && hexRe.test(r.hex))?.hex ||
         "";
       window.localStorage.setItem(
         "dw:landingSeed",
