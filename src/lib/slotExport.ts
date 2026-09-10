@@ -13,7 +13,11 @@ export type SlotExportConfig = {
   /** CTA click-through: URL or tracker macro (e.g. {clickurl}); empty = close. */
   ctaUrl?: string;
   bgImage: string;
-  symbols: string[];
+  /** `bonus` is shown in the win popup when this symbol lands the payline;
+   *  `enabled` (default true when omitted) restricts which symbols the win
+   *  RNG may land on — every symbol still spins, disabled ones just never
+   *  win. */
+  symbols: { symbol: string; bonus?: string; enabled?: boolean }[];
   charLeft: string;
   charRight: string;
 };
@@ -37,13 +41,18 @@ function darken(hex: string, amt: number): string {
 
 export function buildSlotHtml(cfg: SlotExportConfig): string {
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#818cf8";
-  const symbols = cfg.symbols.length >= 3 ? cfg.symbols : ["🍒", "💎", "7️⃣"];
+  const symbols =
+    cfg.symbols.length >= 3
+      ? cfg.symbols
+      : [{ symbol: "🍒" }, { symbol: "💎" }, { symbol: "7️⃣" }];
   const bg = cfg.bgImage
     ? `background:#0b0d12 url('${cfg.bgImage}') center/cover no-repeat;`
     : `background:radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${cfg.dark ? "#160d29" : "#ffe9a8"};`;
   const charImg = (src: string, side: "left" | "right") =>
     src ? `<img class="char ${side}" src="${src}" alt=""/>` : "";
-  const symbolsJson = JSON.stringify(symbols);
+  const symbolsJson = JSON.stringify(symbols.map((s) => s.symbol));
+  const bonusesJson = JSON.stringify(symbols.map((s) => s.bonus || ""));
+  const eligibleJson = JSON.stringify(symbols.map((s) => s.enabled !== false));
 
   return `<!doctype html>
 <html lang="en">
@@ -113,7 +122,10 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
 <script>
 (function(){
   var syms=${symbolsJson};
+  var bonuses=${bonusesJson};
+  var elig=${eligibleJson};
   var len=syms.length, REELS=3, VISIBLE=3, BASE=24, REP=60;
+  var pool=[]; for(var pi=0;pi<len;pi++){ if(elig[pi]) pool.push(pi); } if(pool.length===0){ for(var pj=0;pj<len;pj++) pool.push(pj); }
   var DUR=[2.4,2.9,3.4];
   var reelsEl=document.getElementById('reels'), win=document.getElementById('window'), payline=document.getElementById('payline');
   var modal=document.getElementById('modal'), card=document.getElementById('card');
@@ -137,7 +149,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   }
   function spin(){
     if(spinning)return; spinning=true;
-    var winFlag=Math.random()<0.45; var winK=Math.floor(Math.random()*len);
+    var winFlag=Math.random()<0.45; var winK=pool[Math.floor(Math.random()*pool.length)];
     var targets=[]; for(var i=0;i<REELS;i++)targets.push(winFlag?winK:Math.floor(Math.random()*len));
     if(!winFlag&&targets[0]===targets[1]&&targets[1]===targets[2])targets[2]=(targets[2]+1)%len;
     for(var i=0;i<REELS;i++){
@@ -146,11 +158,15 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     }
     setTimeout(function(){
       for(var i=0;i<REELS;i++){ var np=BASE*len+mod(pos[i],len); strips[i].style.transition='none'; strips[i].style.transform='translateY('+((1-np)*cell)+'px)'; pos[i]=np; }
-      spinning=false; show(winFlag, syms[winFlag?winK:targets[0]]);
+      spinning=false; show(winFlag, syms[winFlag?winK:targets[0]], winFlag?winK:-1);
     }, DUR[REELS-1]*1000+250);
   }
-  function show(w, sym){
-    if(w){ card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big">'+sym+' '+sym+' '+sym+'</div><p>Three in a row — claim your bonus!</p><button id="claim">Claim bonus</button>'; }
+  function show(w, sym, idx){
+    if(w){
+      var bonus = idx>=0 ? bonuses[idx] : '';
+      var bonusLine = bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!';
+      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big">'+sym+' '+sym+' '+sym+'</div><p>'+bonusLine+'</p><button id="claim">Claim bonus</button>';
+    }
     else{ card.innerHTML='<button class="x" id="cx">&times;</button><h2>😅 Almost!</h2><p>No match this time — spin again, the jackpot is waiting!</p><button id="again">Spin again</button>'; }
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;

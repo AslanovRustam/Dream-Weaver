@@ -53,22 +53,33 @@ const GAP = 8;
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
 // Interactive slot machine. Spins three reels to a random outcome (or a forced
-// win) and reports {win, symbol} via onResult after the reels settle.
+// win) and reports {win, symbol, index} via onResult after the reels settle.
 export function SlotMachine({
   symbols,
+  winEligible,
   accent = "#818cf8",
   spinSignal = 0,
   forceWin,
   onResult,
 }: {
   symbols: string[];
+  /** Parallel array (same length as `symbols`) — which symbols the win RNG
+   *  may land the payline on. Omitted/mismatched length = every symbol is
+   *  eligible (unchanged default behaviour). All entries reels still show
+   *  and can land on a LOSS, this only restricts what counts as a WIN. */
+  winEligible?: boolean[];
   accent?: string;
   spinSignal?: number;
   forceWin?: boolean;
-  onResult?: (win: boolean, symbol: string) => void;
+  onResult?: (win: boolean, symbol: string, index: number) => void;
 }) {
   const syms = symbols.length >= 3 ? symbols : ["🍒", "💎", "7️⃣"];
   const len = syms.length;
+  const eligibleIdxs = (() => {
+    const flags = winEligible && winEligible.length === len ? winEligible : syms.map(() => true);
+    const idxs = flags.map((e, i) => (e ? i : -1)).filter((i) => i >= 0);
+    return idxs.length > 0 ? idxs : syms.map((_, i) => i); // never a dead machine
+  })();
   const [pos, setPos] = useState<number[]>(() => Array.from({ length: REELS }, (_, i) => BASE * len + i));
   const [dur, setDur] = useState<number[]>([0, 0, 0]);
   const [spinning, setSpinning] = useState(false);
@@ -100,7 +111,7 @@ export function SlotMachine({
   const spin = () => {
     if (spinning) return;
     const win = typeof forceWin === "boolean" ? forceWin : Math.random() < 0.45;
-    const winK = Math.floor(Math.random() * len);
+    const winK = eligibleIdxs[Math.floor(Math.random() * eligibleIdxs.length)];
     const targets = Array.from({ length: REELS }, (_, i) =>
       win ? winK : Math.floor(Math.random() * len),
     );
@@ -139,7 +150,8 @@ export function SlotMachine({
       setDur([0, 0, 0]);
       setPos(newPos.map((p) => BASE * len + mod(p, len)));
       setSpinning(false);
-      onResult?.(win, syms[win ? winK : targets[0]]);
+      const shownIdx = win ? winK : targets[0];
+      onResult?.(win, syms[shownIdx], win ? winK : -1);
     }, DUR[REELS - 1] * 1000 + 250);
   };
 

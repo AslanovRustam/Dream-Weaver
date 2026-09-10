@@ -17,7 +17,38 @@ import { SuggestButton } from "@/components/landing/SuggestButton";
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
 
-const DEFAULT_SYMBOLS = ["🍒", "💎", "7️⃣", "🔔", "⭐", "🍋", "🍇", "🧧"];
+// Each reel symbol carries its own bonus text (shown on a win) and an
+// `enabled` flag (default true when omitted) — same "may this drop?"
+// checkbox concept as the wheel's prize segments. Disabled symbols still
+// spin on the reels, they just never land the payline as a win.
+export type SlotSymbol = { symbol: string; bonus: string; enabled?: boolean };
+
+/** Accepts either the legacy plain-string symbol format (pre-bonus feature)
+ *  or the current { symbol, bonus, enabled } shape, from localStorage/seed
+ *  data of unknown provenance. */
+function normalizeSymbol(raw: unknown): SlotSymbol {
+  if (typeof raw === "string") return { symbol: raw, bonus: "", enabled: true };
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    return {
+      symbol: typeof r.symbol === "string" ? r.symbol : "⭐",
+      bonus: typeof r.bonus === "string" ? r.bonus : "",
+      enabled: typeof r.enabled === "boolean" ? r.enabled : true,
+    };
+  }
+  return { symbol: "⭐", bonus: "", enabled: true };
+}
+
+const DEFAULT_SYMBOLS: SlotSymbol[] = [
+  { symbol: "🍒", bonus: "", enabled: true },
+  { symbol: "💎", bonus: "", enabled: true },
+  { symbol: "7️⃣", bonus: "", enabled: true },
+  { symbol: "🔔", bonus: "", enabled: true },
+  { symbol: "⭐", bonus: "", enabled: true },
+  { symbol: "🍋", bonus: "", enabled: true },
+  { symbol: "🍇", bonus: "", enabled: true },
+  { symbol: "🧧", bonus: "", enabled: true },
+];
 
 // One-click themes: set background scene, character, accent and headline together
 // so the whole landing matches a single тематика.
@@ -97,8 +128,8 @@ export function SlotLandingApp() {
     right: "",
   });
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
-  const [symbols, setSymbols] = useState<string[]>(DEFAULT_SYMBOLS);
-  const [won, setWon] = useState<{ win: boolean; symbol: string } | null>(null);
+  const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
+  const [won, setWon] = useState<{ win: boolean; symbol: string; bonus: string } | null>(null);
   const [spinSignal, setSpinSignal] = useState(0);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
@@ -147,7 +178,7 @@ export function SlotLandingApp() {
           }));
         }
         if (Array.isArray(d.symbols) && d.symbols.length >= 3) {
-          setSymbols((d.symbols as unknown[]).map((s) => String(s)));
+          setSymbols((d.symbols as unknown[]).map(normalizeSymbol));
         }
       }
     } catch {
@@ -189,9 +220,10 @@ export function SlotLandingApp() {
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
       // AI-derived slot-reel symbols (6, themed to the banner) — replace the
-      // generic defaults outright when present.
+      // generic defaults outright when present. The analysis only writes
+      // emoji, not bonus amounts — the user fills bonus/enabled in afterward.
       if (Array.isArray(s.symbols) && s.symbols.length >= 3) {
-        setSymbols(s.symbols.map((x) => String(x)));
+        setSymbols(s.symbols.map((x) => ({ symbol: String(x), bonus: "", enabled: true })));
       }
       // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
       // AUTHORITATIVE, same reasoning as brand/brandLogo/accent above: always
@@ -283,11 +315,32 @@ export function SlotLandingApp() {
     setCharPrompts((p) => ({ ...p, left: t.char }));
   };
 
-  const setSymbol = (i: number, value: string) =>
-    setSymbols((s) => s.map((v, idx) => (idx === i ? value : v)));
-  const addSymbol = () => setSymbols((s) => (s.length < 12 ? [...s, "⭐"] : s));
+  const setSymbol = (i: number, patch: Partial<SlotSymbol>) =>
+    setSymbols((s) => s.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  const addSymbol = () =>
+    setSymbols((s) => (s.length < 12 ? [...s, { symbol: "⭐", bonus: "", enabled: true }] : s));
   const removeSymbol = (i: number) =>
     setSymbols((s) => (s.length > 3 ? s.filter((_, idx) => idx !== i) : s));
+
+  // "Забрать бонус" — navigate the visitor to the configured offer. A macro
+  // placeholder (e.g. {clickurl}) is meant to be substituted by the traffic
+  // source at serve time — it can't be resolved here in the builder preview,
+  // so we explain that instead of trying (and failing) to navigate to it.
+  const claimBonus = () => {
+    setWon(null);
+    const url = ctaUrl.trim();
+    if (!url) return;
+    if (/[{}]/.test(url)) {
+      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
+      return;
+    }
+    try {
+      const abs = new URL(url, window.location.origin).toString();
+      window.open(abs, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Некорректная ссылка в поле CTA");
+    }
+  };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
@@ -642,15 +695,33 @@ export function SlotLandingApp() {
               <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="mb-2 ds-caption">
+            Отмеченные ✓ символы могут выпасть игроку (три в ряд). Бонус — что покажем в попапе
+            при выигрыше именно на этом символе.
+          </p>
+          <div className="flex flex-col gap-2">
             {symbols.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
-                  className={`${inputCls} h-10 text-center text-lg`}
-                  value={s}
-                  onChange={(e) => setSymbol(i, e.target.value)}
+                  type="checkbox"
+                  checked={s.enabled !== false}
+                  onChange={(e) => setSymbol(i, { enabled: e.target.checked })}
+                  aria-label="Может выпасть"
+                  title="Может выпасть"
+                  className="h-5 w-5 shrink-0 cursor-pointer accent-[color:var(--color-accent-green,#9bff58)]"
+                />
+                <input
+                  className={`${inputCls} h-10 w-16 shrink-0 text-center text-lg`}
+                  value={s.symbol}
+                  onChange={(e) => setSymbol(i, { symbol: e.target.value })}
                   placeholder="🍒"
                   maxLength={4}
+                />
+                <input
+                  className={`${inputCls} h-10`}
+                  value={s.bonus}
+                  onChange={(e) => setSymbol(i, { bonus: e.target.value })}
+                  placeholder="Бонус (например, 50 FS)"
                 />
                 <button
                   type="button"
@@ -800,7 +871,15 @@ export function SlotLandingApp() {
               }`}
             >
               <div className="relative z-10 mx-auto flex h-full w-full max-w-[440px] items-center justify-center">
-                <SlotMachine symbols={symbols} accent={accent} spinSignal={spinSignal} onResult={(win, symbol) => setWon({ win, symbol })} />
+                <SlotMachine
+                  symbols={symbols.map((s) => s.symbol)}
+                  winEligible={symbols.map((s) => s.enabled !== false)}
+                  accent={accent}
+                  spinSignal={spinSignal}
+                  onResult={(win, symbol, index) =>
+                    setWon({ win, symbol, bonus: win && index >= 0 ? symbols[index]?.bonus || "" : "" })
+                  }
+                />
               </div>
             </div>
 
@@ -824,10 +903,21 @@ export function SlotLandingApp() {
                     <p className="mt-1 text-3xl">
                       {won.symbol} {won.symbol} {won.symbol}
                     </p>
-                    <p className="mt-1 text-sm text-[#475569]">Три в ряд — забирайте бонус!</p>
+                    <p className="mt-1 text-sm text-[#475569]">
+                      {won.bonus ? (
+                        <>
+                          Вы выиграли{" "}
+                          <span className="font-bold" style={{ color: accent }}>
+                            {won.bonus}
+                          </span>
+                        </>
+                      ) : (
+                        "Три в ряд — забирайте бонус!"
+                      )}
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setWon(null)}
+                      onClick={claimBonus}
                       className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
                       style={{ backgroundColor: accent }}
                     >
