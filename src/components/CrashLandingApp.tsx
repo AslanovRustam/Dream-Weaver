@@ -174,21 +174,31 @@ export function CrashLandingApp() {
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
       // AI-written prompts from the vision analysis (analyzeBannerForLanding) —
-      // replace the placeholder Сцена/фон text and fire off the actual
-      // generation immediately (not just prefill-and-wait): pass the fresh
-      // values directly rather than relying on the state just set above,
-      // which hasn't committed yet in this same effect tick.
-      const bgPrompt = typeof s.background_prompt === "string" ? s.background_prompt : "";
-      const charPrompt = typeof s.character_prompt === "string" ? s.character_prompt : "";
-      if (bgPrompt) setTheme(bgPrompt);
-      if (charPrompt) setCharPrompts((p) => ({ ...p, left: charPrompt }));
+      // AUTHORITATIVE, same reasoning as brand/brandLogo/accent above: always
+      // show what's actually about to be generated in these fields (falling
+      // back to the mechanic's own default text, never a stale leftover from
+      // a previous draft/session) rather than silently no-op when a field
+      // happens to come back empty. Fire off the actual generation
+      // immediately (not just prefill-and-wait): pass the fresh values
+      // directly rather than relying on the state just set here, which
+      // hasn't committed yet in this same effect tick.
+      const bannerHasCharacter = typeof s.character_prompt === "string" && s.character_prompt.length > 0;
+      const bgPrompt =
+        typeof s.background_prompt === "string" && s.background_prompt
+          ? s.background_prompt
+          : "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база";
+      const charPrompt = bannerHasCharacter
+        ? (s.character_prompt as string)
+        : "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль";
+      setTheme(bgPrompt);
+      setCharPrompts((p) => ({ ...p, left: charPrompt }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
         setBgImage(bannerImg); // instant preview while the real generation runs
         setBannerRef(bannerImg);
       }
-      if (bgPrompt) void generateBg(bgPrompt, bannerImg || undefined);
-      if (charPrompt) void generateCharacter("left", charPrompt, bannerImg || undefined);
+      void generateBg(bgPrompt, bannerImg || undefined);
+      if (bannerHasCharacter) void generateCharacter("left", charPrompt, bannerImg || undefined);
       window.localStorage.removeItem("dw:landingSeed");
       toast.success("Данные баннера перенесены — генерируем фон и персонажа…");
     } catch {
