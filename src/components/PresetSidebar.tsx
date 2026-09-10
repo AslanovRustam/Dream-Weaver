@@ -1087,6 +1087,142 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "COLOR: black base with gold/chrome accent only (max 2 dominant colors). " +
       "AVOID: bright cheerful palettes, cluttered center, unreadable ornate text, more than 2 dominant colors.",
   },
+  // ── Second pass over C:\claude\genGO\шаблоны — went through every remaining
+  //    reference image; these are the additional archetypes that were
+  //    genuinely new (real casino ads this time: Handikap, Hugobet, Tombet,
+  //    GG, Indibet, SosaBet). ──
+  {
+    id: "preset41",
+    fields: [FIELD_WIN_CALLOUT, FIELD_BONUS_BADGE],
+    name: "Слот-символ крупным планом",
+    description: "Гигантский глянцевый слот-символ в свете софитов, техно-акценты",
+    gradient: "linear-gradient(135deg,#020617,#0ea5e9,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#020617,#0ea5e9)",
+      "linear-gradient(160deg,#0b1220,#facc15)",
+      "linear-gradient(120deg,#0369a1,#fde047)",
+      "linear-gradient(140deg,#020617,#38bdf8)",
+    ],
+    isNew: true,
+    template:
+      "Create a premium slot-machine hero-symbol advertisement banner for {SUBJECT}. " +
+      "STYLE: a single giant glossy chrome-and-glass slot symbol (e.g. a lucky 7, bell or gem) rendered as a dimensional 3D object, radiant backlight beams, fine tech-particle sparkles, sleek modern casino-tech energy. " +
+      "COMPOSITION: the oversized slot symbol dominates the center of the frame as the sole hero element, radial light rays behind it, a bold bonus-percentage badge floating beside it. " +
+      "LIGHTING: cool blue rim light with a warm gold key light on the symbol's glossy surfaces, sharp specular highlights. " +
+      "TYPOGRAPHY & LAYOUT: bold headline above the symbol, supporting text and CTA below, all inside the central safe zone. " +
+      "COLOR: deep navy base with electric blue and gold accents (max 3 dominant colors). " +
+      "AVOID: flat lifeless symbol, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset42",
+    fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
+    name: "Королевский маскот",
+    description: "Маскот в короне на троне, монеты, бонус крупным планом",
+    gradient: "linear-gradient(135deg,#022c22,#15803d,#facc15)",
+    examples: [
+      "linear-gradient(135deg,#022c22,#15803d)",
+      "linear-gradient(160deg,#052e16,#facc15)",
+      "linear-gradient(120deg,#14532d,#fbbf24)",
+      "linear-gradient(140deg,#022c22,#22c55e)",
+    ],
+    isNew: true,
+    template:
+      "Create a regal mascot-character advertisement banner for {SUBJECT}. " +
+      "STYLE: a charismatic 3D-rendered animal or character mascot dressed in royal regalia (crown, fur-trimmed robe, jewelry) sitting confidently on an ornate gem-studded throne or standing in a commanding pose, surrounded by stacks of gold coins, premium storybook-royalty mood. " +
+      "COMPOSITION: the mascot fills the right or center of the frame as the hero; a bold bonus-percentage callout and headline occupy the opposite side; a slim feature/benefit strip runs along the bottom. " +
+      "LIGHTING: warm regal spotlight on the mascot and throne, soft glow on the gold coins. " +
+      "TYPOGRAPHY & LAYOUT: bold headline stacked to one side, a large bonus figure as a strong accent, short feature strip inside the bottom safe zone. " +
+      "COLOR: deep green or navy base with gold accent (max 3 dominant colors). " +
+      "AVOID: photorealistic real-brand mascots, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset43",
+    fields: [FIELD_CASINO_PROP],
+    name: "Флэт-промо",
+    description: "Флэт-цвет фон, промокод на телефоне, кости и фишки",
+    gradient: "linear-gradient(135deg,#f97316,#fb923c,#fed7aa)",
+    examples: [
+      "linear-gradient(135deg,#f97316,#fb923c)",
+      "linear-gradient(160deg,#ea580c,#fed7aa)",
+      "linear-gradient(120deg,#c2410c,#fdba74)",
+      "linear-gradient(140deg,#f97316,#fdba74)",
+    ],
+    isNew: true,
+    template:
+      "Create a clean flat-color promo advertisement banner for {SUBJECT}. " +
+      "STYLE: minimal flat-color studio flat-lay — a solid vivid background color with no scene or texture, a phone or card propped up showing a promo code, dice and casino chips arranged neatly beside it with soft studio shadows, bold minimal product-shot energy. " +
+      "COMPOSITION: a huge bold flat headline figure (bonus amount) at the top; the phone/promo-code card and the dice/chips flat-lay arranged in the lower half as the hero objects. " +
+      "LIGHTING: soft even studio lighting, clean soft shadows beneath each object, no dramatic effects. " +
+      "TYPOGRAPHY & LAYOUT: massive bold flat sans-serif headline at the top, a small promo-code label on the card itself, both inside the central safe zone. " +
+      "COLOR: one single vivid flat background color + black/white text (max 2 dominant colors). " +
+      "AVOID: busy backgrounds, gradients, textures, more than 2 dominant colors, unreadable small text.",
+  },
+  {
+    id: "preset44",
+    fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
+    name: "Витрина игр",
+    description: "Ведущая с телефоном и парящими карточками игр вокруг",
+    gradient: "linear-gradient(135deg,#020617,#1d4ed8,#38bdf8)",
+    examples: [
+      "linear-gradient(135deg,#020617,#1d4ed8)",
+      "linear-gradient(160deg,#0b1220,#38bdf8)",
+      "linear-gradient(120deg,#1e3a8a,#22d3ee)",
+      "linear-gradient(140deg,#020617,#2563eb)",
+    ],
+    isNew: true,
+    template:
+      "Create a games-showcase advertisement banner for {SUBJECT}. " +
+      "STYLE: an excited presenter holding a phone toward the camera, several glowing game-thumbnail cards fanned out floating around her in the air, a bright glowing ring of light beneath her feet, energetic premium casino-app-launch mood. " +
+      "COMPOSITION: the presenter centered holding the phone at chest height; 4-6 floating game-tile cards arranged in an arc around her upper body; a bold bonus-percentage headline anchored at the bottom. " +
+      "LIGHTING: cool blue key light with a warm rim light on the presenter, glowing highlights on the floating cards and ring. " +
+      "TYPOGRAPHY & LAYOUT: bold bonus headline and CTA along the bottom safe zone, floating cards kept clear of the presenter's face. " +
+      "COLOR: deep navy/blue base with one bright accent (max 3 dominant colors). " +
+      "AVOID: real branded game titles or logos on the cards, unreadable tiny card text, more than 3 dominant colors, cluttered corners.",
+  },
+  {
+    id: "preset45",
+    fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
+    name: "Курьер-бонус",
+    description: "Маскот доставляет бонус-посылку через дверной глазок",
+    gradient: "linear-gradient(135deg,#022c22,#166534,#4ade80)",
+    examples: [
+      "linear-gradient(135deg,#022c22,#166534)",
+      "linear-gradient(160deg,#052e16,#4ade80)",
+      "linear-gradient(120deg,#14532d,#22c55e)",
+      "linear-gradient(140deg,#022c22,#16a34a)",
+    ],
+    isNew: true,
+    template:
+      "Create a bonus-delivery advertisement banner for {SUBJECT}. " +
+      "STYLE: a friendly 3D-rendered mascot character in a branded jacket and sunglasses delivering a branded gift box, framed through a round door/peephole vignette with a blurred casino floor (slot machines, gaming tables) glowing behind; a branded delivery van visible in the background; playful premium mood. " +
+      "COMPOSITION: the mascot holding the gift box fills the center of the round frame; a bold glowing bonus-percentage badge sits to one side; a slim feature-icon strip runs along the very bottom outside the round frame. " +
+      "LIGHTING: warm interior glow from the casino floor behind, soft rim light on the mascot, subtle vignette darkening the round frame's edge. " +
+      "TYPOGRAPHY & LAYOUT: a short punchy headline (e.g. announcing a delivery/gift) near the bottom of the frame, a bold bonus figure as the accent, feature-icon strip and CTA in the bottom safe zone. " +
+      "COLOR: dark base with one bright accent color for the glow and badges (max 3 dominant colors). " +
+      "AVOID: photorealistic real-brand mascots, unreadable text, cluttered corners, more than 3 dominant colors.",
+  },
+  {
+    id: "preset46",
+    fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
+    name: "Витрина-приз",
+    description: "Приз в стеклянной витрине, промокод-баннер, свет подиума",
+    gradient: "linear-gradient(135deg,#0b0b0f,#f97316,#1c1917)",
+    examples: [
+      "linear-gradient(135deg,#0b0b0f,#f97316)",
+      "linear-gradient(160deg,#1c1917,#fb923c)",
+      "linear-gradient(120deg,#0b0b0f,#ea580c)",
+      "linear-gradient(140deg,#1c1917,#f97316)",
+    ],
+    isNew: true,
+    template:
+      "Create a museum-display prize advertisement banner for {SUBJECT}. " +
+      "STYLE: a glossy 3D glass-and-metal display case on a lit pedestal presenting a premium prize (a coin, chip or trophy) under dramatic museum-style spotlighting, subtle floor reflections, a bold promo-code banner tag above the case, a glowing runway-text strip along the ground. " +
+      "COMPOSITION: one or two display cases centered as the hero, pedestal bases anchored to the ground; the promo-code banner sits above them; the glowing floor text runs along the very bottom edge. " +
+      "LIGHTING: dramatic spotlight from above each case, soft reflections on the pedestal surface, dark surrounding vignette. " +
+      "TYPOGRAPHY & LAYOUT: the promo-code/headline banner is the dominant text element near the top, the glowing bottom strip is a secondary accent, both inside the central safe zone. " +
+      "COLOR: near-black base with one bright accent color (max 3 dominant colors). " +
+      "AVOID: cluttered background, unreadable text, more than 3 dominant colors, flat lifeless case.",
+  },
 ];
 
 // Generated 3:2 preview banners live in public/previews/<id>.png
@@ -1129,6 +1265,12 @@ export const CATEGORIES: Category[] = [
       "preset36",
       "preset38",
       "preset40",
+      "preset41",
+      "preset42",
+      "preset43",
+      "preset44",
+      "preset45",
+      "preset46",
     ],
   },
   {
