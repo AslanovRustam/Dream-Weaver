@@ -342,7 +342,7 @@ export function SlotMachine({
               textShadow: "0 1px 2px rgba(0,0,0,.5)",
             }}
           >
-            {spinning ? "…" : exhausted ? "Бонусы закончились" : "SPIN"}
+            {spinning ? "…" : "SPIN"}
           </button>
         </div>
       </div>

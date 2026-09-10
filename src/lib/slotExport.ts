@@ -136,6 +136,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   var attempts=${attemptsJson};
   var maxAttempts=attempts.length;
   var attemptsUsed=0;
+  var wonBonuses=[]; // every non-empty bonus collected so far, for the final summary
   var len=syms.length, REELS=3, VISIBLE=3, BASE=24, REP=60;
   var DUR=[2.4,2.9,3.4];
   var reelsEl=document.getElementById('reels'), win=document.getElementById('window'), payline=document.getElementById('payline');
@@ -147,7 +148,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   function updateAttemptsUi(){
     if(maxAttempts<=1){ attemptsInfo.hidden=true; }
     else{ attemptsInfo.hidden=false; attemptsInfo.textContent='Осталось попыток: '+Math.max(0,maxAttempts-attemptsUsed); }
-    if(exhausted()){ cta.disabled=true; cta.textContent='Бонусы закончились'; }
+    if(exhausted()){ cta.disabled=true; }
   }
   function build(){
     var w=win.clientWidth||300; cell=Math.floor((w-24-2*8)/REELS); if(cell<20)cell=20;
@@ -188,13 +189,21 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   function show(sym, symIdx, attemptIdx){
     var bonus = attempts[attemptIdx] || '';
     var isLast = attemptIdx>=maxAttempts-1;
-    var bonusLine = bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!';
+    if(bonus) wonBonuses.push(bonus);
     var img = symImgs[symIdx];
     var bigHtml = img
       ? new Array(3).fill('<img src="'+img+'" alt="" style="height:46px;width:46px;object-fit:contain;margin:0 4px">').join('')
       : sym+' '+sym+' '+sym;
+    var bonusLine;
+    if(isLast && wonBonuses.length>0){
+      bonusLine = '<p style="margin:4px 0 0">You won:</p><ul style="margin:4px 0 0;padding:0;list-style:none">'
+        + wonBonuses.map(function(b){ return '<li style="font-weight:800;color:${accent}">'+b+'</li>'; }).join('')
+        + '</ul>';
+    } else {
+      bonusLine = '<p>'+(bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!')+'</p>';
+    }
     var btnLabel = isLast ? 'Claim bonus' : 'Spin again';
-    card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div><p>'+bonusLine+'</p><button id="claim">'+btnLabel+'</button>';
+    card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div>'+bonusLine+'<button id="claim">'+btnLabel+'</button>';
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){

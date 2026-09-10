@@ -159,9 +159,24 @@ export function SlotLandingApp() {
   // source of truth since it also gates its own internal lever.
   const [attemptIndex, setAttemptIndex] = useState(0);
   const attemptIndexRef = useRef(0);
-  const [won, setWon] = useState<{ symbol: string; imageUrl?: string; bonus: string; isLast: boolean } | null>(
-    null,
-  );
+  // Every non-empty bonus text collected across the whole sequence so far —
+  // the FINAL win popup lists all of them together, not just the last one.
+  const wonBonusesRef = useRef<string[]>([]);
+  const [won, setWon] = useState<{
+    symbol: string;
+    imageUrl?: string;
+    bonus: string;
+    isLast: boolean;
+    allBonuses?: string[];
+  } | null>(null);
+  // Editing the attempt count mid-session (add/remove a step) starts the
+  // sequence over — remount SlotMachine (key below) to reset its own
+  // internal spin counter too.
+  useEffect(() => {
+    attemptIndexRef.current = 0;
+    wonBonusesRef.current = [];
+    setAttemptIndex(0);
+  }, [attempts.length]);
   const [spinSignal, setSpinSignal] = useState(0);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
@@ -374,12 +389,6 @@ export function SlotLandingApp() {
     setTheme(t.bg);
     setCharPrompts((p) => ({ ...p, left: t.char }));
   };
-
-  const setSymbol = (i: number, patch: Partial<SlotSymbol>) =>
-    setSymbols((s) => s.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
-  const addSymbol = () => setSymbols((s) => (s.length < 12 ? [...s, { symbol: "⭐" }] : s));
-  const removeSymbol = (i: number) =>
-    setSymbols((s) => (s.length > 3 ? s.filter((_, idx) => idx !== i) : s));
 
   // Bonus sequence — arbitrary length, one guaranteed-win bonus text each.
   const setAttemptBonus = (i: number, bonus: string) =>
@@ -794,18 +803,11 @@ export function SlotLandingApp() {
           </div>
         </div>
 
-        {/* Symbols */}
+        {/* Symbols — purely a generated-icon set, no manual authoring: the
+            only control is "generate", the list below is a read-only
+            preview of whatever the reel currently shows. */}
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="ds-h4">Символы барабанов</label>
-            <button
-              type="button"
-              onClick={addSymbol}
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
-            >
-              <Plus className="h-3.5 w-3.5" /> Добавить
-            </button>
-          </div>
+          <label className="mb-2 block ds-h4">Символы барабанов</label>
           {/* AI-generated icon set: one call draws the whole grid, then we
               slice it into individual symbol images below. */}
           <div className="mb-3 rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
@@ -896,51 +898,22 @@ export function SlotLandingApp() {
 
           <p className="mb-2 ds-caption">
             Чисто визуальные — какой символ выпадет, не важно, любой считается выигрышем (см. «Бонусы по
-            попыткам» ниже).
+            попыткам» ниже). Текущий набор:
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
             {symbols.map((s, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div
+                key={i}
+                className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-black/20"
+              >
                 {s.imageUrl ? (
-                  <div className="relative h-10 w-14 shrink-0">
-                    <img
-                      src={s.imageUrl}
-                      alt=""
-                      className="h-10 w-14 rounded-md border border-border bg-black/10 object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSymbol(i, { imageUrl: undefined })}
-                      title="Убрать иконку, вернуть эмодзи"
-                      aria-label="Убрать иконку, вернуть эмодзи"
-                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-[9px] text-white"
-                    >
-                      ×
-                    </button>
-                  </div>
+                  <img src={s.imageUrl} alt="" className="h-full w-full object-contain" />
                 ) : (
-                  <input
-                    className={`${inputCls} h-10 w-16 shrink-0 text-center text-lg`}
-                    value={s.symbol}
-                    onChange={(e) => setSymbol(i, { symbol: e.target.value })}
-                    placeholder="🍒"
-                    maxLength={4}
-                  />
+                  <span className="text-xl">{s.symbol}</span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeSymbol(i)}
-                  aria-label="Удалить символ"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:border-[var(--status-error)]/50 hover:text-[var(--status-error)]"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
             ))}
           </div>
-          <p className="mt-1.5 ds-caption">
-            Эмодзи, короткий текст или сгенерированная ИИ иконка (сверху). Минимум 3 символа.
-          </p>
         </div>
 
         {/* Bonus sequence — arbitrary length, one guaranteed-win bonus per attempt */}
@@ -1125,6 +1098,7 @@ export function SlotLandingApp() {
             >
               <div className="relative z-10 mx-auto flex h-full w-full max-w-[440px] items-center justify-center">
                 <SlotMachine
+                  key={attempts.length}
                   symbols={symbols.map((s) => s.symbol)}
                   symbolImages={symbols.map((s) => s.imageUrl)}
                   forceWin
@@ -1140,11 +1114,15 @@ export function SlotLandingApp() {
                     // (onSpinsChange already incremented it when this spin
                     // STARTED, well before this onResult fires).
                     const idx = attemptIndexRef.current - 1;
+                    const isLast = idx >= attempts.length - 1;
+                    const bonus = attempts[idx] || "";
+                    if (bonus) wonBonusesRef.current = [...wonBonusesRef.current, bonus];
                     setWon({
                       symbol,
                       imageUrl: index >= 0 ? symbols[index]?.imageUrl : undefined,
-                      bonus: attempts[idx] || "",
-                      isLast: idx >= attempts.length - 1,
+                      bonus,
+                      isLast,
+                      allBonuses: isLast ? wonBonusesRef.current : undefined,
                     });
                   }}
                 />
@@ -1158,7 +1136,7 @@ export function SlotLandingApp() {
               className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
-              {attemptIndex >= attempts.length ? "Бонусы закончились" : ctaText || "SPIN"}
+              {ctaText || "SPIN"}
             </button>
             {attempts.length > 1 && attemptIndex > 0 && attemptIndex < attempts.length ? (
               <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">
@@ -1184,18 +1162,31 @@ export function SlotLandingApp() {
                     {won.symbol} {won.symbol} {won.symbol}
                   </p>
                 )}
-                <p className="mt-1 text-sm text-[#475569]">
-                  {won.bonus ? (
-                    <>
-                      Вы выиграли{" "}
-                      <span className="font-bold" style={{ color: accent }}>
-                        {won.bonus}
-                      </span>
-                    </>
-                  ) : (
-                    "Три в ряд — забирайте бонус!"
-                  )}
-                </p>
+                {won.isLast && won.allBonuses && won.allBonuses.length > 0 ? (
+                  <div className="mt-1 text-sm text-[#475569]">
+                    <p>Вы выиграли:</p>
+                    <ul className="mt-1 flex flex-col gap-0.5">
+                      {won.allBonuses.map((b, i) => (
+                        <li key={i} className="font-bold" style={{ color: accent }}>
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-[#475569]">
+                    {won.bonus ? (
+                      <>
+                        Вы выиграли{" "}
+                        <span className="font-bold" style={{ color: accent }}>
+                          {won.bonus}
+                        </span>
+                      </>
+                    ) : (
+                      "Три в ряд — забирайте бонус!"
+                    )}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1209,7 +1200,7 @@ export function SlotLandingApp() {
                   className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
                   style={{ backgroundColor: accent }}
                 >
-                  {won.isLast ? "Забрать бонус" : "Крутить ещё"}
+                  {won.isLast ? "Получить бонус" : "Крутить ещё"}
                 </button>
                 <button
                   type="button"
