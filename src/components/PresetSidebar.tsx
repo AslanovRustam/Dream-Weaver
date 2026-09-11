@@ -1398,12 +1398,7 @@ export function PresetSidebar({ value, onChange }: Props) {
   const [catMenuOpen, setCatMenuOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [draftCategory, setDraftCategory] = useState("all");
-  // Sort order for the tiles inside each category. "popular" keeps the authored
-  // order; "new" floats presets flagged isNew to the top. Mirrors Sibrik's
-  // "Популярне / Найновіші" gallery sort.
-  const [sortBy, setSortBy] = useState<"popular" | "new">("popular");
-  // Gallery layout: 2-per-row (compact default), 1-per-row (bigger preview),
-  // or a list with a small thumbnail + full name/description text visible.
+  // Gallery layout: 2-per-row (compact default) or 1-per-row (bigger preview).
   const [viewMode, setViewMode] = useState<PresetLayout>("grid2");
 
   const q = query.trim().toLowerCase();
@@ -1457,14 +1452,10 @@ export function PresetSidebar({ value, onChange }: Props) {
               p.name.toLowerCase().includes(q) ||
               p.description.toLowerCase().includes(q),
           );
-        const sorted =
-          sortBy === "new"
-            ? [...presets].sort((a, b) => Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)))
-            : presets;
-        return { ...cat, presets: sorted };
+        return { ...cat, presets };
       })
       .filter((cat) => cat.presets.length > 0);
-  }, [q, categoryFilter, sortBy]);
+  }, [q, categoryFilter]);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1570,31 +1561,7 @@ export function PresetSidebar({ value, onChange }: Props) {
           </div>
         )}
       </div>
-      <div className="flex items-center gap-1.5 px-4 pb-1 pt-0.5">
-        <span className="ds-caption shrink-0">Сортировка</span>
-        <div className="ml-auto flex rounded-lg border border-border p-0.5">
-          {(
-            [
-              ["popular", "Популярные"],
-              ["new", "Новые"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setSortBy(id)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                sortBy === id
-                  ? "bg-white/10 text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 px-4 pb-1.5 pt-0.5">
+      <div className="flex items-center gap-1.5 px-4 pb-1.5 pt-2">
         <span className="ds-caption shrink-0">Вид</span>
         <div className="ml-auto flex rounded-lg border border-border p-0.5">
           {(
