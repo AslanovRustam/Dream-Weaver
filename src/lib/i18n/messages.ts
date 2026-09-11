@@ -49,6 +49,7 @@ const ru = {
       account: "Аккаунт",
       history: "История",
       help: "Помощь и поддержка",
+      legal: "Правовая информация",
       admin: "Админ-панель",
       signOut: "Выйти",
     },
@@ -122,6 +123,7 @@ export type Messages = {
       account: string;
       history: string;
       help: string;
+      legal: string;
       admin: string;
       signOut: string;
     };
@@ -182,6 +184,7 @@ const en: Messages = {
       account: "Account",
       history: "History",
       help: "Help & support",
+      legal: "Legal",
       admin: "Admin panel",
       signOut: "Sign out",
     },
@@ -267,6 +270,7 @@ const uk: Messages = {
       account: "Акаунт",
       history: "Історія",
       help: "Допомога і підтримка",
+      legal: "Правова інформація",
       admin: "Адмін-панель",
       signOut: "Вийти",
     },

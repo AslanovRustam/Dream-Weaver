@@ -24,6 +24,7 @@ import {
   Loader2,
   LogOut,
   Pencil,
+  Scale,
   ShieldCheck,
   Sparkles,
   User as UserIcon,
@@ -512,6 +513,15 @@ export function AppHeader() {
                 <Link href="/help">
                   <HelpCircle className="mr-2 h-4 w-4" />
                   {t("header.profile.help")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="text-foreground focus:bg-white/10 focus:text-foreground"
+              >
+                <Link href="/legal">
+                  <Scale className="mr-2 h-4 w-4" />
+                  {t("header.profile.legal")}
                 </Link>
               </DropdownMenuItem>
               {isAdmin ? (
