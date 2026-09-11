@@ -1,6 +1,7 @@
-// One-off: generate a 3:2 preview banner per template via OpenAI images, save
-// to public/previews/<id>.png. Skips ids that already have a file so it can be
-// re-run until all are done. Usage:
+// One-off: generate a 3:2 preview banner per template via OpenAI's images API
+// (gpt-image-2.5-sunburst, OpenAI-direct — same engine as the real banner
+// master), save to public/previews/<id>.png. Skips ids that already have a
+// file so it can be re-run until all are done. Usage:
 //   node scripts/gen-previews.mjs            # all missing
 //   node scripts/gen-previews.mjs preset6    # only this id (test)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -11,12 +12,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const OUT_DIR = join(ROOT, "public", "previews");
 
-// --- read OPENROUTER_API_KEY from .env.local (the OpenAI key is invalid; the
-//     OpenRouter key works and hosts the same image models) ---
+// --- read OPENAI_API_KEY from .env.local (OpenAI-direct — same engine as
+//     the actual banner master generation, so previews represent real output) ---
 const env = readFileSync(join(ROOT, ".env.local"), "utf8");
-const KEY = (env.match(/^OPENROUTER_API_KEY=(.+)$/m) || [])[1]?.trim();
-if (!KEY) throw new Error("OPENROUTER_API_KEY not found in .env.local");
-const MODELS = ["openai/gpt-5.4-image-2", "google/gemini-3.1-flash-image"];
+const KEY = (env.match(/^OPENAI_API_KEY=(.+)$/m) || [])[1]?.trim();
+if (!KEY) throw new Error("OPENAI_API_KEY not found in .env.local");
+const MODEL = "gpt-image-2.5-sunburst";
 
 const SUFFIX =
   " Format: 3:2 landscape advertising banner. Render a bold English headline and a clear call-to-action button; ALL in-image text must be in correct English. Keep every text, number, logo and key element within the central 60% safe zone. High-contrast, clean, premium, highly readable. Avoid gibberish/scrambled text, clutter, and more than 3 dominant colors.";
@@ -73,45 +74,28 @@ const todo = ITEMS.filter((it) => !only || it.id === only);
 
 if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 
-function extractImage(msg) {
-  const first = msg?.images?.[0];
-  if (first) {
-    if (typeof first === "string") return first;
-    const iu = first.image_url;
-    if (typeof iu === "string") return iu;
-    if (iu && typeof iu === "object" && "url" in iu) return iu.url;
-  }
-  if (typeof msg?.content === "string") {
-    const m = msg.content.match(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/);
-    if (m) return m[0];
-  }
-  return undefined;
-}
-
-async function gen(item, model) {
+async function gen(item) {
   const prompt = `${item.style} Advertise: ${item.subject}.${SUFFIX}`;
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${KEY}`,
-      "HTTP-Referer": "https://dream-weaver-studio.local",
-      "X-Title": "Dream Weaver Studio",
     },
     body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image", "text"],
-      image_config: { aspect_ratio: "3:2" },
-      aspect_ratio: "3:2",
+      model: MODEL,
+      prompt,
+      size: "1536x1024", // 3:2, matches the banner-master default canvas
+      quality: "medium",
+      n: 1,
+      moderation: "low",
     }),
   });
   const text = await res.text();
   if (!res.ok) return { ok: false, status: res.status, detail: text.slice(0, 300) };
   const data = JSON.parse(text);
-  const url = extractImage(data?.choices?.[0]?.message);
-  if (!url) return { ok: false, status: 200, detail: "no image in response" };
-  const b64 = url.includes(",") ? url.slice(url.indexOf(",") + 1) : url;
+  const b64 = data?.data?.[0]?.b64_json;
+  if (!b64) return { ok: false, status: 200, detail: "no image in response" };
   writeFileSync(join(OUT_DIR, `${item.id}.png`), Buffer.from(b64, "base64"));
   return { ok: true };
 }
@@ -123,12 +107,7 @@ for (const item of todo) {
     skipped++; console.log(`skip  ${item.id} (exists)`); continue;
   }
   process.stdout.write(`gen   ${item.id} — "${item.subject}" ... `);
-  let r;
-  for (const model of MODELS) {
-    r = await gen(item, model);
-    if (r.ok) break;
-    process.stdout.write(`[${model} ${r.status}] `);
-  }
+  const r = await gen(item);
   if (r.ok) { done++; console.log("OK"); }
   else { failed++; console.log(`FAIL ${r.status}: ${r.detail}`); }
 }

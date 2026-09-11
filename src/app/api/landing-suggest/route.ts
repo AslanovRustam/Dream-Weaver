@@ -1,6 +1,6 @@
 // Suggest text for a landing field based on the user's "Тематика" (theme).
-// A cheap gpt-4o-mini call via OpenRouter. Fills headline/CTA text, or writes an
-// image-generation prompt for the background / character.
+// A cheap gpt-4o-mini call, OpenAI-direct. Fills headline/CTA text, or writes
+// an image-generation prompt for the background / character.
 //
 // Body: { topic: string, field: "headline"|"cta"|"bg"|"character", mechanic?: string }
 // Response: { text: string }
@@ -70,29 +70,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unknown field" }, { status: 400 });
   }
 
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey) return Response.json({ error: "Нет ключа OpenRouter" }, { status: 500 });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
   const { system, user } = buildMessages(theme, field, mechanic);
   let content = "";
   let usageData: unknown = null;
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${orKey}`,
-        "HTTP-Referer": "https://dream-weaver-studio.local",
-        "X-Title": "Gen Go",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "gpt-4o-mini",
         temperature: 0.8,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        usage: { include: true },
       }),
     });
     if (!res.ok) {
@@ -112,7 +109,7 @@ export async function POST(request: Request) {
   const authed = await optionalUser(request);
   if (authed) {
     await recordUsage(authed.id, {
-      model: "openai/gpt-4o-mini",
+      model: "gpt-4o-mini",
       feature: `landing-suggest-${field}`,
       type: "llm",
       ...extractUsage(usageData),

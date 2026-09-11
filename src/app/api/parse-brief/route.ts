@@ -6,7 +6,7 @@
 import { BRIEF_SCHEMAS } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
 import { optionalUser } from "@/lib/auth-server";
-import { extractUsage, isOpenRouter, recordUsage } from "@/lib/usage";
+import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -109,14 +109,12 @@ export async function POST(request: Request) {
   const briefChars = brief.length;
   if (brief.length > MAX_BRIEF_CHARS) brief = brief.slice(0, MAX_BRIEF_CHARS);
 
-  // All LLM traffic goes through OpenRouter so every call returns real spend
-  // (usage.cost). OpenRouter carries the same models (openai/gpt-4o-mini).
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey) {
-    return Response.json({ error: "Нет ключа OpenRouter" }, { status: 500 });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
   }
   const providers = [
-    { url: "https://openrouter.ai/api/v1/chat/completions", key: orKey, model: "openai/gpt-4o-mini" },
+    { url: "https://api.openai.com/v1/chat/completions", key: apiKey, model: "gpt-4o-mini" },
   ];
 
   const fieldList = schema.fields
@@ -150,7 +148,6 @@ export async function POST(request: Request) {
             { role: "system", content: system },
             { role: "user", content: user },
           ],
-          ...(isOpenRouter(p.url) ? { usage: { include: true } } : {}),
         }),
       });
       if (!res.ok) {

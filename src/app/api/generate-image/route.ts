@@ -755,21 +755,17 @@ async function adaptPrompt(
     .filter(Boolean)
     .join("\n\n");
 
-  // adaptPrompt runs gpt-4o-mini through OpenRouter (openai/gpt-4o-mini) — the
-  // OpenAI-direct key is retired everywhere else, and using it here made the
-  // whole generic/style-preset path fail whenever that key was missing/expired.
-  void apiKey;
-  const orKey = process.env.OPENROUTER_API_KEY;
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  // adaptPrompt runs gpt-4o-mini OpenAI-direct — apiKey (OPENAI_API_KEY) is
+  // already required for the whole route to run at all (checked above this
+  // function's call site), so no OpenRouter fallback is needed here.
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${orKey}`,
-      "HTTP-Referer": "https://dream-weaver-studio.local",
-      "X-Title": "Gen Go",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "openai/gpt-4o-mini",
+      model: "gpt-4o-mini",
       temperature: 0.7,
       messages: [
         { role: "system", content: system },
@@ -796,18 +792,16 @@ async function adaptPrompt(
 async function analyzeLogo(dataUrl: string): Promise<{ hasText: boolean; wordmark: string }> {
   const fallback = { hasText: false, wordmark: "" };
   try {
-    const orKey = process.env.OPENROUTER_API_KEY;
-    if (!orKey) return fallback;
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return fallback;
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${orKey}`,
-        "HTTP-Referer": "https://dream-weaver-studio.local",
-        "X-Title": "Gen Go",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "gpt-4o-mini",
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -1637,114 +1631,66 @@ export async function POST(request: Request) {
           //   • RESIZE (i2i, source_image present): RESIZE_IMAGE_MODEL
           //     (gpt-image-2.5-flare) — fast/cheap, reframes the master into a
           //     source at the requested aspect; the client then crops exact tiles.
-          const requestedModel = (body.model || "").trim();
-          const orModel = "google/gemini-3.1-flash-image"; // retained for the (now dead) OpenRouter branch
-          void requestedModel;
+          // Both tiers run OpenAI-DIRECT via the native /v1/images API — we
+          // always send MASTER_IMAGE_MODEL/RESIZE_IMAGE_MODEL regardless of
+          // what the frontend's MODEL_IDS happens to say. For resize buckets
+          // we honour target_w/target_h so the model emits an image
+          // at-or-above the largest tile size in the bucket — all subsequent
+          // client-side scales are then pure downscales (no fidelity loss).
           const openAiModel = hasSourceImage ? RESIZE_IMAGE_MODEL : MASTER_IMAGE_MODEL;
-          // Always OpenAI-direct now. (isNano kept false so the legacy OpenRouter
-          // gemini branch below is bypassed; response parsing uses the OpenAI shape.)
-          const isNano = false;
           const requestedAspect = body.aspect_ratio || "1:1";
+          const size = openAiSizeFor(
+            requestedAspect,
+            Number(body.target_w) || undefined,
+            Number(body.target_h) || undefined,
+          );
+          const promptForOpenAI = promptWithRefs.slice(0, 4000);
 
-          if (isNano) {
-            // === nano-banana / Gemini path → OpenRouter chat completions ===
-            const orKey = process.env.OPENROUTER_API_KEY;
-            if (!orKey) {
-              return Response.json({ error: "OPENROUTER_API_KEY not configured" }, { status: 500 });
-            }
-            const promptForChat = [
-              promptWithRefs,
-              `\nFINAL OUTPUT — aspect ratio: ${requestedAspect}; quality preset: ${quality}.`,
-            ].join("");
-            const userContent: Array<Record<string, unknown>> = [
-              { type: "text", text: promptForChat.slice(0, 6000) },
-            ];
-            refs.forEach((r) => {
-              userContent.push({ type: "image_url", image_url: { url: r.dataUrl } });
+          if (refs.length > 0) {
+            // Image-to-image / multi-reference → /v1/images/edits with
+            // multipart form. OpenAI accepts up to 4 refs via image[].
+            const form = new FormData();
+            form.append("model", openAiModel);
+            form.append("prompt", promptForOpenAI);
+            form.append("size", size);
+            form.append("quality", quality);
+            form.append("output_format", "jpeg");
+            form.append("output_compression", "88");
+            form.append("n", "1");
+            // Relax OpenAI's built-in image moderation — the default ("auto")
+            // false-flags legit iGaming/casino creatives with a person as
+            // "sexual content". "low" keeps only the hard-blocked categories.
+            form.append("moderation", "low");
+            refs.forEach((r, i) => {
+              form.append(
+                refs.length > 1 ? "image[]" : "image",
+                r.blob,
+                `${r.role}-${i}.${r.ext}`,
+              );
             });
-
-            res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            res = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${apiKey}` },
+              body: form,
+            });
+          } else {
+            // Text-to-image → /v1/images/generations.
+            res = await fetch("https://api.openai.com/v1/images/generations", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${orKey}`,
-                "HTTP-Referer": "https://dream-weaver-studio.local",
-                "X-Title": "Gen Go",
+                Authorization: `Bearer ${apiKey}`,
               },
               body: JSON.stringify({
-                model: orModel,
-                messages: [{ role: "user", content: userContent }],
-                modalities: ["image", "text"],
-                image_config: { aspect_ratio: requestedAspect },
-                aspect_ratio: requestedAspect,
-                providerOptions: {
-                  google: { imageConfig: { aspectRatio: requestedAspect } },
-                },
-                // OpenRouter Usage Accounting → response.usage.cost (real USD).
-                usage: { include: true },
+                model: openAiModel,
+                prompt: promptForOpenAI,
+                size,
+                quality,
+                n: 1,
+                // Relax over-eager moderation (see edits branch above).
+                moderation: "low",
               }),
             });
-          } else {
-            // === master path → OpenAI direct ===
-            // We always send MASTER_IMAGE_MODEL (gpt-image-2.5-sunburst)
-            // regardless of what the frontend's MODEL_IDS happens to say.
-            // For resize buckets we honour target_w/target_h so the model
-            // emits an image at-or-above the largest tile size in the
-            // bucket — all subsequent client-side scales are then pure
-            // downscales (no fidelity loss).
-            const size = openAiSizeFor(
-              requestedAspect,
-              Number(body.target_w) || undefined,
-              Number(body.target_h) || undefined,
-            );
-            const promptForOpenAI = promptWithRefs.slice(0, 4000);
-
-            if (refs.length > 0) {
-              // Image-to-image / multi-reference → /v1/images/edits with
-              // multipart form. OpenAI accepts up to 4 refs via image[].
-              const form = new FormData();
-              form.append("model", openAiModel);
-              form.append("prompt", promptForOpenAI);
-              form.append("size", size);
-              form.append("quality", quality);
-              form.append("output_format", "jpeg");
-              form.append("output_compression", "88");
-              form.append("n", "1");
-              // Relax OpenAI's built-in image moderation — the default ("auto")
-              // false-flags legit iGaming/casino creatives with a person as
-              // "sexual content". "low" keeps only the hard-blocked categories.
-              form.append("moderation", "low");
-              refs.forEach((r, i) => {
-                form.append(
-                  refs.length > 1 ? "image[]" : "image",
-                  r.blob,
-                  `${r.role}-${i}.${r.ext}`,
-                );
-              });
-              res = await fetch("https://api.openai.com/v1/images/edits", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}` },
-                body: form,
-              });
-            } else {
-              // Text-to-image → /v1/images/generations.
-              res = await fetch("https://api.openai.com/v1/images/generations", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({
-                  model: openAiModel,
-                  prompt: promptForOpenAI,
-                  size,
-                  quality,
-                  n: 1,
-                  // Relax over-eager moderation (see edits branch above).
-                  moderation: "low",
-                }),
-              });
-            }
           }
 
           const text = await res.text();
@@ -1777,128 +1723,35 @@ export async function POST(request: Request) {
             );
           }
 
-          // Two response shapes — OpenAI's /v1/images/* returns
-          // { data: [{b64_json|url}] } while OpenRouter chat-completions
-          // returns { choices: [{message: {images, content}}] }. Branch
-          // on which path we just took.
+          // OpenAI's /v1/images/* returns { data: [{b64_json|url}] }.
           let image: string | undefined;
           let usage: Record<string, unknown> | null = null;
-          if (!isNano) {
-            // ---- OpenAI direct response ----
-            try {
-              const data = JSON.parse(text) as {
-                data?: Array<{ b64_json?: string; url?: string }>;
-                usage?: {
-                  input_tokens?: number;
-                  output_tokens?: number;
-                  total_tokens?: number;
-                  input_tokens_details?: { text_tokens?: number; image_tokens?: number };
-                };
-              };
-              const item = data.data?.[0];
-              image = item?.b64_json ? `data:image/jpeg;base64,${item.b64_json}` : item?.url;
-              const u = data.usage;
-              usage = {
-                provider: "openai",
-                model: openAiModel,
-                quality,
-                input_text_tokens: u?.input_tokens_details?.text_tokens ?? 0,
-                input_image_tokens: u?.input_tokens_details?.image_tokens ?? 0,
-                output_image_tokens: u?.output_tokens ?? 0,
-                input_tokens: u?.input_tokens ?? null,
-                total_tokens: u?.total_tokens ?? null,
-                cost_usd: null,
-              };
-            } catch (e) {
-              console.error("OpenAI response parse failed", e);
-            }
-          } else {
-            // ---- OpenRouter chat-completions response (nano-banana) ----
+          try {
             const data = JSON.parse(text) as {
-              choices?: Array<{
-                message?: {
-                  images?: Array<{ image_url?: { url?: string } | string }>;
-                  content?: unknown;
-                  image_url?: { url?: string } | string;
-                };
-              }>;
+              data?: Array<{ b64_json?: string; url?: string }>;
               usage?: {
-                prompt_tokens?: number;
-                completion_tokens?: number;
+                input_tokens?: number;
+                output_tokens?: number;
                 total_tokens?: number;
-                cost?: number;
+                input_tokens_details?: { text_tokens?: number; image_tokens?: number };
               };
             };
-            const msg = data.choices?.[0]?.message;
-
-            // 1. canonical OpenRouter: message.images[0].image_url.url
-            const firstImage = msg?.images?.[0];
-            if (firstImage) {
-              if (typeof firstImage === "object" && firstImage !== null) {
-                const iu = (firstImage as { image_url?: unknown }).image_url;
-                if (typeof iu === "string") image = iu;
-                else if (iu && typeof iu === "object" && "url" in iu) {
-                  image = (iu as { url?: string }).url;
-                }
-              } else if (typeof firstImage === "string") {
-                image = firstImage;
-              }
-            }
-
-            // 2. some providers stash image_url directly on the message
-            if (!image && msg?.image_url) {
-              const iu = msg.image_url;
-              image = typeof iu === "string" ? iu : iu?.url;
-            }
-
-            // 3. content array — OpenAI chat-style multimodal output
-            if (!image && Array.isArray(msg?.content)) {
-              for (const block of msg.content as Array<Record<string, unknown>>) {
-                if (!block) continue;
-                if (block.type === "image_url" || block.type === "image") {
-                  const iu = block.image_url;
-                  if (typeof iu === "string") {
-                    image = iu;
-                    break;
-                  }
-                  if (iu && typeof iu === "object" && "url" in (iu as object)) {
-                    image = (iu as { url?: string }).url;
-                    break;
-                  }
-                }
-                if (typeof block.image === "string") {
-                  image = block.image;
-                  break;
-                }
-              }
-            }
-
-            // 4. content as plain string with embedded dataURL
-            if (!image && typeof msg?.content === "string") {
-              const m = msg.content.match(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/);
-              if (m) image = m[0];
-            }
-
-            // If we still couldn't find it — log the structure so we can
-            // actually debug. Dump message keys + a slice of content.
-            if (!image && msg) {
-              console.error("Parser miss — message keys:", Object.keys(msg));
-              try {
-                console.error("message preview:", JSON.stringify(msg).slice(0, 800));
-              } catch {
-                /* circular or oversized — skip */
-              }
-            }
-
+            const item = data.data?.[0];
+            image = item?.b64_json ? `data:image/jpeg;base64,${item.b64_json}` : item?.url;
+            const u = data.usage;
             usage = {
-              provider: "openrouter",
-              model: orModel,
+              provider: "openai",
+              model: openAiModel,
               quality,
-              prompt_tokens: data.usage?.prompt_tokens ?? null,
-              completion_tokens: data.usage?.completion_tokens ?? null,
-              total_tokens: data.usage?.total_tokens ?? null,
-              cost_usd: data.usage?.cost ?? null,
+              input_text_tokens: u?.input_tokens_details?.text_tokens ?? 0,
+              input_image_tokens: u?.input_tokens_details?.image_tokens ?? 0,
+              output_image_tokens: u?.output_tokens ?? 0,
+              input_tokens: u?.input_tokens ?? null,
+              total_tokens: u?.total_tokens ?? null,
+              cost_usd: null,
             };
+          } catch (e) {
+            console.error("OpenAI response parse failed", e);
           }
           if (!image) {
             // Detect safety blocks. Three flavours:

@@ -1,19 +1,31 @@
 // Generate an email hero banner from the email brief.
 //
-// 1) An "art director" agent (gpt-4o-mini, system key) turns the brief into ONE
-//    image prompt — cinematic iGaming hero, and CRITICALLY: no text/letters/words
-//    in the image (numbers allowed), so the email stays easy to translate.
-// 2) An image model (OpenRouter) renders it. A logo can be passed as a style
-//    REFERENCE (never rendered as-is). "Overlay" mode is handled on the client.
+// 1) An "art director" agent (gpt-4o-mini, OpenAI-direct) turns the brief into
+//    ONE image prompt — cinematic iGaming hero, and CRITICALLY: no
+//    text/letters/words in the image (numbers allowed), so the email stays
+//    easy to translate.
+// 2) OpenAI's images API (gpt-image-2.5-flare) renders it. A logo/reference
+//    banner can be passed as a style REFERENCE (never rendered as-is) via
+//    the i2i /v1/images/edits path. "Overlay" mode is handled on the client.
+//
+// Also used (via presetTemplate/feature) by the wheel/slot/crash landing
+// builders for their AI background + character generation — same engine,
+// just a different prompt source.
 //
 // Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model? }
-// Response: { imageUrl (data URL), prompt, costUsd (real OpenRouter spend) }
+// Response: { imageUrl (data URL), prompt, costUsd }
 import { optionalUser } from "@/lib/auth-server";
-import { extractUsage, recordUsage } from "@/lib/usage";
+import { recordUsage } from "@/lib/usage";
+import { openAiSizeString } from "@/lib/imageSizes";
 
 export const runtime = "nodejs";
 // Landing/email hero images can also run on a slow model — allow up to 5 min.
 export const maxDuration = 300;
+
+// Same cheap/fast OpenAI-direct tier already used for resizes
+// (generate-image/route.ts's RESIZE_IMAGE_MODEL) — replaced the old
+// gemini-3.1-flash-image-preview OpenRouter path.
+const HERO_IMAGE_MODEL = "gpt-image-2.5-flare";
 
 type Body = {
   brand?: string;
@@ -41,14 +53,7 @@ const NO_TEXT =
   "ABSOLUTELY NO text, letters, words, captions, watermarks or logos anywhere in the image. " +
   "Numbers/digits are allowed. Leave clean negative space for text to be overlaid later.";
 
-async function composePrompt(brief: string): Promise<string> {
-  // Art-director LLM also goes through OpenRouter (single provider path).
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey) return "";
-  const providers = [
-    { url: "https://openrouter.ai/api/v1/chat/completions", key: orKey, model: "openai/gpt-4o-mini" },
-  ];
-
+async function composePrompt(brief: string, apiKey: string): Promise<string> {
   const system =
     "Ты — арт-директор. По брифу email-рассылки составь ОДИН промпт на английском для " +
     "генерации hero-баннера письма (тематика iGaming: казино/слоты/беттинг). Опиши сюжет, " +
@@ -57,56 +62,25 @@ async function composePrompt(brief: string): Promise<string> {
     NO_TEXT +
     " Верни ТОЛЬКО промпт, без пояснений и кавычек.";
 
-  for (const p of providers) {
-    try {
-      const res = await fetch(p.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${p.key}` },
-        body: JSON.stringify({
-          model: p.model,
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: brief.slice(0, 4000) },
-          ],
-        }),
-      });
-      if (!res.ok) continue;
-      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const out = data.choices?.[0]?.message?.content?.trim();
-      if (out) return out;
-    } catch {
-      /* try next provider */
-    }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.7,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: brief.slice(0, 4000) },
+        ],
+      }),
+    });
+    if (!res.ok) return "";
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  } catch {
+    return "";
   }
-  return "";
-}
-
-// Pull an image (data URL or http URL) out of an OpenRouter chat/completions body.
-function extractImage(data: unknown): string | null {
-  const msg = (data as { choices?: { message?: Record<string, unknown> }[] })?.choices?.[0]?.message;
-  if (!msg) return null;
-  const images = msg.images as Array<{ image_url?: { url?: string } | string }> | undefined;
-  if (Array.isArray(images) && images[0]) {
-    const iu = images[0].image_url;
-    const url = typeof iu === "string" ? iu : iu?.url;
-    if (url) return url;
-  }
-  const direct = msg.image_url as { url?: string } | string | undefined;
-  if (direct) return typeof direct === "string" ? direct : (direct.url ?? null);
-  if (typeof msg.content === "string") {
-    const m = msg.content.match(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/);
-    if (m) return m[0];
-  }
-  return null;
-}
-
-async function toDataUrl(url: string): Promise<string> {
-  if (url.startsWith("data:")) return url;
-  const r = await fetch(url);
-  const buf = Buffer.from(await r.arrayBuffer());
-  const ct = r.headers.get("content-type") || "image/png";
-  return `data:${ct};base64,${buf.toString("base64")}`;
 }
 
 export async function POST(request: Request) {
@@ -117,9 +91,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey) {
-    return Response.json({ error: "OPENROUTER_API_KEY not configured" }, { status: 500 });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
   }
 
   const brief = [
@@ -138,87 +112,116 @@ export async function POST(request: Request) {
   if (!preset && !brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
   const base = preset
     ? preset
-    : (await composePrompt(brief)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
+    : (await composePrompt(brief, apiKey)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
   const prompt = `${base}\n\n${NO_TEXT}`;
 
-  // Build the image request. A logo (reference mode) is added as an input image
-  // with an explicit instruction not to reproduce it.
-  const userContent: Array<Record<string, unknown>> = [{ type: "text", text: prompt.slice(0, 6000) }];
-  if (body.logoBase64 && body.logoMode === "reference") {
-    userContent.push({ type: "text", text: "Reference the brand's colours/mood from this logo, but do NOT draw the logo or any text." });
-    userContent.push({ type: "image_url", image_url: { url: body.logoBase64 } });
+  // Reference images (up to 4, per OpenAI's /v1/images/edits limit): the
+  // brand logo (style-only, never drawn) and/or a style-reference banner
+  // (palette/mood/lighting only, never its composition/text/logo).
+  const refs: { dataUrl: string; note: string }[] = [];
+  if (body.logoBase64 && body.logoMode === "reference" && body.logoBase64.startsWith("data:")) {
+    refs.push({
+      dataUrl: body.logoBase64,
+      note: "Reference the brand's colours/mood from this logo, but do NOT draw the logo or any text.",
+    });
   }
   if (body.styleReferenceImage && body.styleReferenceImage.startsWith("data:")) {
-    userContent.push({
-      type: "text",
-      text:
+    refs.push({
+      dataUrl: body.styleReferenceImage,
+      note:
         "STYLE REFERENCE: the attached image is an approved ad banner. Match its colour palette, " +
         "lighting and overall mood for this NEW background — do NOT reproduce its composition, " +
         "any person, text, logo or button.",
     });
-    userContent.push({ type: "image_url", image_url: { url: body.styleReferenceImage } });
   }
 
-  const model = (body.model || "").trim() || "google/gemini-3.1-flash-image-preview";
   const aspectRatio = (body.aspectRatio || "").trim() || "3:2";
-  let raw: string | null = null;
-  let detail = "";
-  let usageData: unknown = null;
+  const size = openAiSizeString(aspectRatio);
+  const fullPrompt = (prompt + (refs.length ? "\n\n" + refs.map((r) => r.note).join("\n") : "")).slice(
+    0,
+    4000,
+  );
+
+  let res: Response;
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${orKey}`,
-        "HTTP-Referer": "https://dream-weaver-studio.local",
-        "X-Title": "Gen Go",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: userContent }],
-        modalities: ["image", "text"],
-        image_config: { aspect_ratio: aspectRatio },
-        aspect_ratio: aspectRatio,
-        usage: { include: true },
-      }),
-    });
-    if (!res.ok) {
-      detail = (await res.text()).slice(0, 300);
+    if (refs.length > 0) {
+      const form = new FormData();
+      form.append("model", HERO_IMAGE_MODEL);
+      form.append("prompt", fullPrompt);
+      form.append("size", size);
+      form.append("quality", "medium");
+      form.append("n", "1");
+      // Relax over-eager moderation — legit iGaming creatives with a person
+      // are otherwise sometimes false-flagged as sexual content.
+      form.append("moderation", "low");
+      for (let i = 0; i < refs.length; i++) {
+        const r = refs[i];
+        const refResp = await fetch(r.dataUrl);
+        const refBuf = Buffer.from(await refResp.arrayBuffer());
+        const refType = r.dataUrl.match(/^data:([^;]+);/)?.[1] || "image/png";
+        form.append(refs.length > 1 ? "image[]" : "image", new Blob([refBuf], { type: refType }), `ref-${i}.png`);
+      }
+      res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
     } else {
-      const json = await res.json();
-      usageData = json;
-      raw = extractImage(json);
+      res = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: HERO_IMAGE_MODEL,
+          prompt: fullPrompt,
+          size,
+          quality: "medium",
+          n: 1,
+          moderation: "low",
+        }),
+      });
     }
   } catch (e) {
-    detail = e instanceof Error ? e.message : String(e);
-  }
-
-  if (!raw) {
-    return Response.json({ error: "Не удалось сгенерировать картинку", detail }, { status: 502 });
-  }
-
-  // Real per-generation cost (себестоимость) from OpenRouter usage accounting.
-  const usage = extractUsage(usageData);
-  // Per-user usage log (best-effort; only when the caller is signed in).
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, {
-      model,
-      feature: (body.feature || "").trim() || "hero-image",
-      type: "image",
-      ...usage,
-    });
-  }
-
-  let imageUrl: string;
-  try {
-    imageUrl = await toDataUrl(raw);
-  } catch (e) {
     return Response.json(
-      { error: "Не удалось загрузить картинку", detail: e instanceof Error ? e.message : String(e) },
+      { error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) },
       { status: 502 },
     );
   }
 
-  return Response.json({ imageUrl, prompt, costUsd: usage.costUsd });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text.slice(0, 300);
+    try {
+      msg = (JSON.parse(text) as { error?: { message?: string } }).error?.message || msg;
+    } catch {
+      /* not JSON */
+    }
+    const isFilter = /safety|moderation|content|rejected/i.test(msg);
+    return Response.json(
+      { error: isFilter ? "content_filter" : "Provider error", detail: msg },
+      { status: isFilter ? 422 : 502 },
+    );
+  }
+
+  let b64 = "";
+  try {
+    b64 = (JSON.parse(text) as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
+  } catch {
+    /* ignore */
+  }
+  if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
+  const imageUrl = `data:image/png;base64,${b64}`;
+
+  // Best-effort per-user log. OpenAI's images API returns no usage.cost, so we
+  // record the event with cost 0 (same convention as generate-character.ts).
+  const authed = await optionalUser(request);
+  if (authed) {
+    await recordUsage(authed.id, {
+      model: HERO_IMAGE_MODEL,
+      feature: (body.feature || "").trim() || "hero-image",
+      type: "image",
+      costUsd: 0,
+    });
+  }
+
+  return Response.json({ imageUrl, prompt, costUsd: 0 });
 }

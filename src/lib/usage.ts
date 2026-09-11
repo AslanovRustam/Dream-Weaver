@@ -1,10 +1,11 @@
-// Per-user AI usage logging for the OpenRouter-backed routes (LLM copy, brief
-// parsing, landing/email hero images). Writes one row per call into the existing
-// `public.generations` ledger so spend can be aggregated by user in $.
+// Per-user AI usage logging for the OpenAI-direct routes (LLM copy, brief
+// parsing, landing/email hero images, banner generation). Writes one row per
+// call into the existing `public.generations` ledger so spend can be
+// aggregated by user in $.
 //
-// Best-effort: logging never breaks the generation response. Cost ($) comes from
-// OpenRouter's Usage Accounting (`usage: { include: true }` → response.usage.cost);
-// on the OpenAI-direct fallback only token counts are available (cost = 0).
+// Best-effort: logging never breaks the generation response. OpenAI's chat/
+// images APIs return token counts but no per-request $ cost, so costUsd is
+// 0 unless the caller computes/passes an estimate itself.
 import { getAdminClient } from "./supabase/admin";
 
 export type UsageEntry = {
@@ -20,12 +21,9 @@ export type UsageEntry = {
   meta?: Record<string, unknown>;
 };
 
-/** True for an OpenRouter endpoint (only these return per-request `cost`). */
-export function isOpenRouter(url: string): boolean {
-  return url.includes("openrouter.ai");
-}
-
-/** Pull token counts + $ cost out of an OpenAI/OpenRouter chat/image response. */
+/** Pull token counts + $ cost out of an OpenAI-shaped chat/image response
+ *  (also tolerates an OpenRouter-shaped one, which the same field names and
+ *  an extra `usage.cost` come from, for any legacy caller still on it). */
 export function extractUsage(data: unknown): {
   promptTokens: number;
   completionTokens: number;
@@ -55,7 +53,7 @@ export async function recordUsage(userId: string, e: UsageEntry): Promise<void> 
       total_tokens: Math.round(e.totalTokens ?? (e.promptTokens ?? 0) + (e.completionTokens ?? 0)),
       cost_usd: e.costUsd ?? 0,
       cost_credits: 0,
-      meta: { feature: e.feature, source: "openrouter", ...(e.meta ?? {}) },
+      meta: { feature: e.feature, source: "openai", ...(e.meta ?? {}) },
     });
   } catch (err) {
     console.warn("recordUsage failed", err);
