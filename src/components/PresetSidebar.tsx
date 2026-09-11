@@ -1626,8 +1626,11 @@ export function PresetSidebar({ value, onChange }: Props) {
           <>
             {/* Category tabs — Gambling / Sport / etc. Exactly one showing at
                 a time, always expanded (no accordion click needed to see
-                templates). Only categories with current matches get a tab. */}
-            <div className="mb-2.5 flex gap-1.5 border-b border-border">
+                templates). Only categories with current matches get a tab.
+                Solid pill fill (not just an underline) so the active one
+                reads clearly at a glance — same lime-tint-on-dark pattern
+                as the sidebar's own active nav item. */}
+            <div className="mb-2.5 flex flex-wrap gap-1.5">
               {groups.map((cat) => {
                 const isActive = activeGroup?.id === cat.id;
                 return (
@@ -1636,14 +1639,14 @@ export function PresetSidebar({ value, onChange }: Props) {
                     type="button"
                     onClick={() => setActiveTab(cat.id)}
                     aria-selected={isActive}
-                    className={`-mb-px flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold transition ${
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
                       isActive
-                        ? "border-accent-green text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
+                        ? "border-accent-green/40 bg-[var(--lime-tint)] text-accent-green"
+                        : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
                     }`}
                   >
                     {cat.label}
-                    <span className="font-normal text-muted-foreground">
+                    <span className={isActive ? "font-normal text-accent-green/70" : "font-normal text-muted-foreground"}>
                       ({cat.presets.length})
                     </span>
                   </button>
