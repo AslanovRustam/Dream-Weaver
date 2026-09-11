@@ -30,7 +30,9 @@ export function CrashLandingApp() {
   const [headline, setHeadline] = useState("УСПЕЙ ЗАБРАТЬ!");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#ef4444");
-  const [dark, setDark] = useState(true);
+  // Landing is always dark — no light-mode toggle (kept as a const so the
+  // rest of the file, and the persisted draft shape, need no other changes).
+  const dark = true;
   const [ctaText, setCtaText] = useState("СТАРТ");
   const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(
@@ -101,7 +103,6 @@ export function CrashLandingApp() {
         if (typeof d.headline === "string") setHeadline(d.headline);
         if (typeof d.topic === "string") setTopic(d.topic);
         if (typeof d.accent === "string") setAccent(d.accent);
-        if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.maxAttempts === "number" && d.maxAttempts >= 0) setMaxAttempts(d.maxAttempts);
@@ -516,9 +517,8 @@ export function CrashLandingApp() {
             <SuggestButton topic={topic} field="headline" mechanic="crash" onFill={setHeadline} />
           </div>
         </Field>
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-          <Field label="Бренд">
-            {brandLogo ? (
+        <Field label="Бренд">
+          {brandLogo ? (
               <div className="flex h-11 items-center gap-2">
                 <img
                   src={brandLogo}
@@ -557,30 +557,8 @@ export function CrashLandingApp() {
                   />
                 </label>
               </div>
-            )}
-          </Field>
-          <div>
-            <label className="mb-2 block ds-h4">Тёмный</label>
-            <div className="flex h-11 items-center">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={dark}
-                aria-label="Тёмный фон"
-                onClick={() => setDark((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  dark ? "bg-accent-green" : "bg-white/15"
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    dark ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </Field>
 
         {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">

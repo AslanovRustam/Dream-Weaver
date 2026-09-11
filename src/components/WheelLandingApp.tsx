@@ -53,7 +53,9 @@ export function WheelLandingApp() {
   // Required "Тематика" — drives the ✨ AI suggestions for every field.
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#f97316");
-  const [dark, setDark] = useState(true);
+  // Landing is always dark — no light-mode toggle (kept as a const so the
+  // rest of the file, and the persisted draft shape, need no other changes).
+  const dark = true;
   const [ctaText, setCtaText] = useState("SPIN");
   // Click-through target for the CTA / "Claim bonus": a real URL or a tracker
   // macro/variable (e.g. {clickurl}) that the traffic source replaces.
@@ -109,7 +111,6 @@ export function WheelLandingApp() {
         if (typeof d.headline === "string") setHeadline(d.headline);
         if (typeof d.topic === "string") setTopic(d.topic);
         if (typeof d.accent === "string") setAccent(d.accent);
-        if (typeof d.dark === "boolean") setDark(d.dark);
         if (typeof d.ctaText === "string") setCtaText(d.ctaText);
         if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.theme === "string") setTheme(d.theme);
@@ -511,71 +512,48 @@ export function WheelLandingApp() {
             <SuggestButton topic={topic} field="headline" mechanic="wheel" onFill={setHeadline} />
           </div>
         </Field>
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-          <Field label="Бренд">
-            {brandLogo ? (
-              <div className="flex h-11 items-center gap-2">
-                <img
-                  src={brandLogo}
-                  alt=""
-                  className="h-9 w-auto max-w-[140px] rounded bg-white/5 object-contain p-1"
-                />
-                <button
-                  type="button"
-                  onClick={() => setBrandLogo("")}
-                  className="text-xs text-muted-foreground transition hover:text-foreground"
-                >
-                  Убрать лого
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  className={inputCls}
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  placeholder="Название или загрузите лого"
-                />
-                <label
-                  className="flex h-11 shrink-0 cursor-pointer items-center rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
-                  title="Загрузить PNG-лого"
-                >
-                  PNG
-                  <input
-                    type="file"
-                    accept="image/png,image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onLogoFile(f);
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-          </Field>
-          <div>
-            <label className="mb-2 block ds-h4">Тёмный</label>
-            <div className="flex h-11 items-center">
+        <Field label="Бренд">
+          {brandLogo ? (
+            <div className="flex h-11 items-center gap-2">
+              <img
+                src={brandLogo}
+                alt=""
+                className="h-9 w-auto max-w-[140px] rounded bg-white/5 object-contain p-1"
+              />
               <button
                 type="button"
-                role="switch"
-                aria-checked={dark}
-                aria-label="Тёмный фон"
-                onClick={() => setDark((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  dark ? "bg-accent-green" : "bg-white/15"
-                }`}
+                onClick={() => setBrandLogo("")}
+                className="text-xs text-muted-foreground transition hover:text-foreground"
               >
-                <span
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    dark ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
+                Убрать лого
               </button>
             </div>
-          </div>
-        </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                className={inputCls}
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="Название или загрузите лого"
+              />
+              <label
+                className="flex h-11 shrink-0 cursor-pointer items-center rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+                title="Загрузить PNG-лого"
+              >
+                PNG
+                <input
+                  type="file"
+                  accept="image/png,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onLogoFile(f);
+                  }}
+                />
+              </label>
+            </div>
+          )}
+        </Field>
 
         {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
