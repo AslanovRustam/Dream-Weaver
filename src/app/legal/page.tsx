@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Banknote,
@@ -17,7 +17,13 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DRAFT CONTENT. Every section below is boilerplate/placeholder text — it is
@@ -305,12 +311,10 @@ const LEGAL_SECTIONS: LegalSection[] = [
 
 export default function LegalPage() {
   const router = useRouter();
-  const [activeId, setActiveId] = useState(LEGAL_SECTIONS[0].id);
-  const active = LEGAL_SECTIONS.find((s) => s.id === activeId) ?? LEGAL_SECTIONS[0];
 
   useEffect(() => {
-    document.title = `${active.title} — GenGO`;
-  }, [active.title]);
+    document.title = "Правовая информация — GenGO";
+  }, []);
 
   const goBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -341,55 +345,42 @@ export default function LegalPage() {
             </p>
           </header>
 
-          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-            {/* Section nav — vertical list on desktop, horizontal scroll strip
-                on mobile. Same active-pill convention as the main sidebar. */}
-            <nav className="lg:sticky lg:top-20 lg:self-start">
-              <ul className="flex gap-1.5 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+          {/* Auto-accordion: opening a section closes whichever was open —
+              type="single" + collapsible, same primitive as the Help page's
+              FAQ. First section starts open so the page isn't empty. */}
+          <Card>
+            <CardContent className="pt-2">
+              <Accordion type="single" collapsible defaultValue={LEGAL_SECTIONS[0].id}>
                 {LEGAL_SECTIONS.map((s) => {
                   const Icon = s.icon;
-                  const isActive = s.id === activeId;
                   return (
-                    <li key={s.id} className="shrink-0 lg:shrink">
-                      <button
-                        type="button"
-                        onClick={() => setActiveId(s.id)}
-                        aria-current={isActive ? "page" : undefined}
-                        className={`flex h-10 w-full items-center gap-2.5 whitespace-nowrap rounded-lg px-3 text-left text-sm transition ${
-                          isActive
-                            ? "bg-[var(--lime-tint)] font-medium text-accent-green"
-                            : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                        }`}
-                      >
-                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-accent-green" : ""}`} />
-                        {s.label}
-                      </button>
-                    </li>
+                    <AccordionItem key={s.id} value={s.id} className="border-border last:border-0">
+                      <AccordionTrigger className="gap-3 text-[15px] font-medium hover:no-underline">
+                        <span className="flex flex-1 items-center gap-2.5">
+                          <Icon className="h-4 w-4 shrink-0 text-accent-green" />
+                          {s.title}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-5 pl-[26px] pr-6">
+                        {s.blocks.map((b, i) => (
+                          <div key={i}>
+                            {b.h ? <h3 className="ds-h4 mb-1.5">{b.h}</h3> : null}
+                            <div className="space-y-1.5">
+                              {b.p.map((line, j) => (
+                                <p key={j} className="text-sm leading-relaxed text-muted-foreground">
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
                   );
                 })}
-              </ul>
-            </nav>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{active.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {active.blocks.map((b, i) => (
-                  <div key={i}>
-                    {b.h ? <h3 className="ds-h4 mb-1.5">{b.h}</h3> : null}
-                    <div className="space-y-1.5">
-                      {b.p.map((line, j) => (
-                        <p key={j} className="text-sm leading-relaxed text-muted-foreground">
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+              </Accordion>
+            </CardContent>
+          </Card>
         </div>
       </AppShell>
     </div>
