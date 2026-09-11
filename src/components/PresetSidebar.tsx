@@ -1390,7 +1390,11 @@ const CATEGORY_OPTIONS = [
 
 export function PresetSidebar({ value, onChange }: Props) {
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Which category tab is showing. Falls back to the first category with
+  // matches (see `activeGroup` below) whenever the active one is filtered
+  // out by search/category-filter, without losing the user's actual pick —
+  // it's restored the moment that category has matches again.
+  const [activeTab, setActiveTab] = useState<string>(CATEGORIES[0]?.id ?? "");
   // Filter dropdown (opened from the funnel icon in the search input).
   // `categoryFilter` is the applied value; `draftCategory` is what the
   // panel is editing until "Применить" commits it.
@@ -1456,6 +1460,10 @@ export function PresetSidebar({ value, onChange }: Props) {
       })
       .filter((cat) => cat.presets.length > 0);
   }, [q, categoryFilter]);
+
+  // The tab actually shown: the user's pick if it still has matches,
+  // otherwise the first tab that does (e.g. mid-search).
+  const activeGroup = groups.find((g) => g.id === activeTab) ?? groups[0];
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1614,62 +1622,53 @@ export function PresetSidebar({ value, onChange }: Props) {
             )}
           </div>
         )}
-        <div className="flex flex-col gap-3">
-          {groups.map((cat) => {
-            // The category HEADER is the accordion toggle: collapsed shows only
-            // "Label (N)" + chevron — no preview card, so nothing reads as a
-            // pre-selected default. Expanded reveals the full grid of templates,
-            // so the user consciously sees there are several options and picks
-            // one. Search force-opens matching categories.
-            const isExpanded = searching || expanded[cat.id];
-            return (
-              <div
-                key={cat.id}
-                className="overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)]"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
-                  }
-                  aria-expanded={Boolean(isExpanded)}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/5"
-                >
-                  <span className="flex-1 truncate text-sm font-semibold">
+        {groups.length > 0 && (
+          <>
+            {/* Category tabs — Gambling / Sport / etc. Exactly one showing at
+                a time, always expanded (no accordion click needed to see
+                templates). Only categories with current matches get a tab. */}
+            <div className="mb-2.5 flex gap-1.5 border-b border-border">
+              {groups.map((cat) => {
+                const isActive = activeGroup?.id === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActiveTab(cat.id)}
+                    aria-selected={isActive}
+                    className={`-mb-px flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold transition ${
+                      isActive
+                        ? "border-accent-green text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
                     {cat.label}
-                    <span className="ml-1.5 font-normal text-muted-foreground">
+                    <span className="font-normal text-muted-foreground">
                       ({cat.presets.length})
                     </span>
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
+                  </button>
+                );
+              })}
+            </div>
+            {activeGroup && (
+              <div
+                className={`grid gap-2 ${
+                  viewMode === "grid1" ? "grid-cols-1" : "grid-cols-2"
+                }`}
+              >
+                {activeGroup.presets.map((p) => (
+                  <PresetTile
+                    key={p.id}
+                    preset={p}
+                    selected={value === p.id}
+                    onSelect={() => onChange(p.id)}
+                    layout={viewMode}
                   />
-                </button>
-                {isExpanded ? (
-                  <div className="border-t border-border p-2.5">
-                    <div
-                      className={`grid max-h-[52vh] gap-2 overflow-y-auto ${
-                        viewMode === "grid1" ? "grid-cols-1" : "grid-cols-2"
-                      }`}
-                    >
-                      {cat.presets.map((p) => (
-                        <PresetTile
-                          key={p.id}
-                          preset={p}
-                          selected={value === p.id}
-                          onSelect={() => onChange(p.id)}
-                          layout={viewMode}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
+                ))}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </>
+        )}
       </div>
     </aside>
     </TooltipProvider>
