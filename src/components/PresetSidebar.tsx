@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Filter, Grid2x2, LayoutList, Search, Square, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Grid2x2, Search, Square, X } from "lucide-react";
 import { MobileScrim } from "@/components/MobileScrim";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
@@ -1319,13 +1319,12 @@ type Props = {
   onChange: (id: string) => void;
 };
 
-// Three gallery layouts, picked via the "Вид" toggle:
+// Two gallery layouts, picked via the "Вид" toggle:
 // - "grid2": 2-per-row, thumbnail + truncated name (compact default).
 // - "grid1": 1-per-row, bigger thumbnail + full (non-truncated) name.
-// - "list":  small thumbnail beside the name + full description, nothing
-//   truncated — for scanning what each template actually does without
-//   hovering.
-type PresetLayout = "grid2" | "grid1" | "list";
+// (A third "list" row layout — small thumbnail + full description inline —
+// was tried and dropped: not wanted, full description stays tooltip-only.)
+type PresetLayout = "grid2" | "grid1";
 
 function PresetTile({
   preset,
@@ -1338,56 +1337,6 @@ function PresetTile({
   onSelect: () => void;
   layout: PresetLayout;
 }) {
-  if (layout === "list") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onSelect}
-            className={`group relative flex w-full shrink-0 items-start gap-3 overflow-hidden rounded-lg border p-3 text-left transition ${
-              selected
-                ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
-                : "border-border hover:bg-[var(--bg-surface-hover)]"
-            }`}
-          >
-            <div
-              className="aspect-[4/3] w-20 shrink-0 rounded-md bg-cover bg-center"
-              style={
-                preset.preview
-                  ? { backgroundImage: `url(${preset.preview})` }
-                  : { background: preset.gradient }
-              }
-            />
-            <div className="min-w-0 flex-1 py-0.5 pr-4">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <p className="text-sm font-semibold leading-snug text-foreground">
-                  {preset.name}
-                </p>
-                {preset.isNew && !selected && (
-                  <span className="shrink-0 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
-                    Новое
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {preset.description}
-              </p>
-            </div>
-            {selected && (
-              <span className="absolute right-2 top-2 shrink-0 rounded-full bg-accent-green p-0.5 text-on-accent">
-                <Check size={10} />
-              </span>
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[220px] text-left">
-          <p className="font-medium">{preset.name}</p>
-          <p className="mt-0.5 text-muted-foreground">{preset.description}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
 
   return (
     <Tooltip>
@@ -1652,7 +1601,6 @@ export function PresetSidebar({ value, onChange }: Props) {
             [
               ["grid2", "2 в ряд", Grid2x2],
               ["grid1", "1 в ряд", Square],
-              ["list", "Список", LayoutList],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -1735,12 +1683,8 @@ export function PresetSidebar({ value, onChange }: Props) {
                 {isExpanded ? (
                   <div className="border-t border-border p-2.5">
                     <div
-                      className={`max-h-[52vh] gap-2 overflow-y-auto ${
-                        viewMode === "list"
-                          ? "flex flex-col"
-                          : viewMode === "grid1"
-                            ? "grid grid-cols-1"
-                            : "grid grid-cols-2"
+                      className={`grid max-h-[52vh] gap-2 overflow-y-auto ${
+                        viewMode === "grid1" ? "grid-cols-1" : "grid-cols-2"
                       }`}
                     >
                       {cat.presets.map((p) => (
