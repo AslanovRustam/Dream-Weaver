@@ -579,7 +579,7 @@ function SubscriptionCard() {
 // Read-only account info. Email is changed by an administrator on request.
 // The support button is a placeholder — swap the mailto for the real channel
 // (email / Telegram) once it exists.
-const SUPPORT_HREF = "mailto:support@clickable.agency";
+const SUPPORT_HREF = "mailto:support@gen-go.ai";
 
 function AccountInfoCard({ email }: { email: string }) {
   return (

@@ -196,7 +196,7 @@ const FAQ_GROUPS: FaqGroup[] = [
   },
 ];
 
-const SUPPORT_EMAIL = "support@clickable.agency";
+const SUPPORT_EMAIL = "support@gen-go.ai";
 const TOPICS = ["Технический вопрос", "Оплата", "Предложение", "Другое"] as const;
 
 export default function HelpPage() {

@@ -24,7 +24,7 @@ import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-e
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
 // route here so a click is never a dead no-op.
-const SUPPORT_MAILTO = "mailto:support@clickable.agency?subject=Оплата%20тарифа%20Dream%20Weaver";
+const SUPPORT_MAILTO = "mailto:support@gen-go.ai?subject=Оплата%20тарифа%20Dream%20Weaver";
 
 type Audience = "individual" | "business";
 
