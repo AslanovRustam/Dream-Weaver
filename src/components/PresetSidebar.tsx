@@ -1345,35 +1345,37 @@ function PresetTile({
           <button
             type="button"
             onClick={onSelect}
-            className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-lg border p-2 text-left transition ${
+            className={`group relative flex w-full shrink-0 items-start gap-3 overflow-hidden rounded-lg border p-3 text-left transition ${
               selected
                 ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
                 : "border-border hover:bg-[var(--bg-surface-hover)]"
             }`}
           >
             <div
-              className="aspect-[4/3] w-16 shrink-0 rounded-md bg-cover bg-center"
+              className="aspect-[4/3] w-20 shrink-0 rounded-md bg-cover bg-center"
               style={
                 preset.preview
                   ? { backgroundImage: `url(${preset.preview})` }
                   : { background: preset.gradient }
               }
             />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-medium">{preset.name}</p>
+            <div className="min-w-0 flex-1 py-0.5 pr-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-semibold leading-snug text-foreground">
+                  {preset.name}
+                </p>
                 {preset.isNew && !selected && (
                   <span className="shrink-0 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
                     Новое
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {preset.description}
               </p>
             </div>
             {selected && (
-              <span className="absolute right-1.5 top-1.5 shrink-0 rounded-full bg-accent-green p-0.5 text-on-accent">
+              <span className="absolute right-2 top-2 shrink-0 rounded-full bg-accent-green p-0.5 text-on-accent">
                 <Check size={10} />
               </span>
             )}
