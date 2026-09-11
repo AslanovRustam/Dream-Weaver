@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Banknote,
+  Copyright,
   Cookie,
+  Dice5,
+  FileText,
   FileWarning,
   Gavel,
-  ScrollText,
   ShieldCheck,
-  Ticket,
-  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,7 +42,7 @@ const LEGAL_SECTIONS: LegalSection[] = [
   {
     id: "terms",
     label: "Условия использования",
-    icon: ScrollText,
+    icon: FileText,
     title: "Условия использования",
     blocks: [
       {
@@ -159,7 +159,7 @@ const LEGAL_SECTIONS: LegalSection[] = [
   {
     id: "gambling",
     label: "Гемблинг и возраст",
-    icon: Trophy,
+    icon: Dice5,
     title: "Возрастные ограничения и гемблинг-реклама",
     blocks: [
       {
@@ -190,7 +190,7 @@ const LEGAL_SECTIONS: LegalSection[] = [
   {
     id: "ip",
     label: "Товарные знаки и контент",
-    icon: FileWarning,
+    icon: Copyright,
     title: "Товарные знаки, авторские права и сгенерированный контент",
     blocks: [
       {
@@ -279,7 +279,7 @@ const LEGAL_SECTIONS: LegalSection[] = [
   {
     id: "dmca",
     label: "DMCA / Авторские права",
-    icon: Ticket,
+    icon: FileWarning,
     title: "DMCA и обращения по авторским правам",
     blocks: [
       {
@@ -340,18 +340,6 @@ export default function LegalPage() {
               Условия использования, конфиденциальность и другие юридические документы сервиса.
             </p>
           </header>
-
-          {/* Draft banner — deliberately loud, so nobody mistakes placeholder
-              copy for something already reviewed by a lawyer. */}
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-[color:var(--status-premium)]/30 bg-[color:var(--status-premium)]/10 p-3.5 text-sm text-[color:var(--status-premium)]">
-            <FileWarning className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              Черновик. Тексты ниже — демонстрационные заглушки, не являются юридической
-              консультацией и не проверены юристом. Перед публичным запуском каждый раздел должен
-              быть адаптирован под юрисдикцию регистрации компании и рынки, где показывается
-              реклама.
-            </p>
-          </div>
 
           <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             {/* Section nav — vertical list on desktop, horizontal scroll strip
