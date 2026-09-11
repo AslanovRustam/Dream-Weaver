@@ -1627,10 +1627,11 @@ export function PresetSidebar({ value, onChange }: Props) {
             {/* Category tabs — Gambling / Sport / etc. Exactly one showing at
                 a time, always expanded (no accordion click needed to see
                 templates). Only categories with current matches get a tab.
-                Solid pill fill (not just an underline) so the active one
-                reads clearly at a glance — same lime-tint-on-dark pattern
-                as the sidebar's own active nav item. */}
-            <div className="mb-2.5 flex flex-wrap gap-1.5">
+                One bordered strip split into equal segments (same
+                segmented-control pattern as the "Вид" toggle above) reads
+                as tabs and always fits, instead of separate pill buttons
+                that can overflow/wrap at the sidebar's real width. */}
+            <div className="mb-2.5 flex rounded-lg border border-border p-0.5">
               {groups.map((cat) => {
                 const isActive = activeGroup?.id === cat.id;
                 return (
@@ -1639,10 +1640,10 @@ export function PresetSidebar({ value, onChange }: Props) {
                     type="button"
                     onClick={() => setActiveTab(cat.id)}
                     aria-selected={isActive}
-                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                    className={`flex flex-1 items-center justify-center gap-1 truncate rounded-md px-2 py-1.5 text-xs font-semibold transition ${
                       isActive
-                        ? "border-accent-green/40 bg-[var(--lime-tint)] text-accent-green"
-                        : "border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+                        ? "bg-[var(--lime-tint)] text-accent-green"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {cat.label}
