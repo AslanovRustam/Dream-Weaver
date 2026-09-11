@@ -1688,43 +1688,14 @@ export function ImageGenApp() {
                   </div>
                 </div>
               )}
-              {/* Per-template custom fields — declarative dropdowns/checkboxes
-                  rendered generically from currentPreset.fields. */}
-              {advanced && currentPreset?.fields?.length ? (
-                <div className="flex flex-col gap-4">
-                  {currentPreset.fields.map((f) =>
-                    f.type === "select" ? (
-                      <div key={f.id}>
-                        <label className="mb-2 block ds-h4">{f.label}</label>
-                        <select
-                          value={(fieldValues[f.id] as string) ?? f.default ?? f.options[0]?.value}
-                          onChange={(e) =>
-                            setFieldValues((v) => ({ ...v, [f.id]: e.target.value }))
-                          }
-                          className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
-                        >
-                          {f.options.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div
-                        key={f.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3"
-                      >
-                        <p className="ds-h4">{f.label}</p>
-                        <ToggleSwitch
-                          enabled={Boolean(fieldValues[f.id] ?? f.default)}
-                          onToggle={(val) => setFieldValues((v) => ({ ...v, [f.id]: val }))}
-                        />
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : null}
+              {/* Per-template custom fields (creature/setting, bonus %, prop,
+                  win-callout, etc.) are intentionally NOT rendered here — the
+                  user found them unwanted clutter below "Человек в кадре".
+                  Each preset's `fields` still exist in PresetSidebar.tsx and
+                  compileTemplateOptions() still applies their declared
+                  DEFAULT values to the prompt (see the call below), so
+                  generation quality/behaviour is unchanged — only the manual
+                  per-template dropdowns/toggles are hidden. */}
 
               {/* Соотношение сторон, качество и модель скрыты из UI. Баннер-мастер
                   всегда генерится 1:1 (квадрат), ресайзы делаются уже из него. */}
