@@ -20,7 +20,7 @@ import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
 // toggled by a button and persisted. Grouped like Krea/Linear/Vercel side-nav;
 // the active item uses the design-system lime "Active" pill (--lime-tint).
-type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; soon?: boolean };
 
 // MVP: только эти разделы кликабельны (единый источник — lib/mvp). Остальное
 // серым «Скоро». Домой можно вернуться через логотип в шапке.
@@ -47,8 +47,11 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
   },
 ];
 
+// /settings ("Интеграции" — API keys/connections) isn't reachable yet (see
+// lib/mvp.ts), so it's flagged "Скоро" like the rest of the disabled sidebar
+// items — Help and Billing are real working pages and stay enabled.
 const FOOTER: NavItem[] = [
-  { href: "/settings", label: "Интеграции", icon: KeyRound },
+  { href: "/settings", label: "Интеграции", icon: KeyRound, soon: true },
   { href: "/help", label: "Помощь", icon: HelpCircle },
   { href: "/billing", label: "Тарифы", icon: Coins },
 ];
@@ -135,7 +138,12 @@ export function AppSidebar() {
         <ul className="flex flex-col gap-0.5">
           {FOOTER.map((item) => (
             <li key={item.href}>
-              <SidebarLink item={item} active={!!isActive(item)} collapsed={collapsed} />
+              <SidebarLink
+                item={item}
+                active={!!isActive(item)}
+                collapsed={collapsed}
+                soon={item.soon}
+              />
             </li>
           ))}
         </ul>
