@@ -2,7 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Loader2,
+  Monitor,
+  Pipette,
+  Plus,
+  Smartphone,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -542,14 +553,20 @@ export function WheelLandingApp() {
                 style={{ backgroundColor: t.accent }}
               />
             ))}
-            <input
-              type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
-              onChange={(e) => setAccent(e.target.value)}
-              aria-label="Свой цвет акцента"
-              title="Свой цвет"
-              className="h-8 w-8 cursor-pointer rounded-full border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-full [&::-webkit-color-swatch-wrapper]:p-0"
-            />
+            <div className="relative h-8 w-8 shrink-0">
+              <input
+                type="color"
+                value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
+                onChange={(e) => setAccent(e.target.value)}
+                aria-label="Свой цвет — открыть палитру"
+                title="Свой цвет"
+                className="h-8 w-8 cursor-pointer rounded-full border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-full [&::-webkit-color-swatch-wrapper]:p-0"
+              />
+              <Pipette
+                className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-white mix-blend-difference"
+                aria-hidden="true"
+              />
+            </div>
           </div>
           <p className="mt-1.5 ds-caption">
             Пресет задаёт ещё и фон, персонажа и заголовок под тему — затем сгенерируйте фон и персонажа. Или
