@@ -1226,11 +1226,18 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
 ];
 
-// Generated 3:2 preview banners live in public/previews/<id>.png
-// (see scripts/gen-previews.mjs). Attach each as its tile preview; presets
-// without a generated file keep their gradient fallback.
+// Generated 3:2 preview banners live in public/previews/<id>.{webp,png}
+// (see scripts/gen-previews.mjs — batches run through mid-2026 were hand
+// converted to .webp; the OpenAI-direct script run afterwards writes .png
+// straight from the API response, so newer ids need the other extension).
+// Attach each as its tile preview; presets without a generated file keep
+// their gradient fallback.
+const PNG_PREVIEW_IDS = new Set([
+  "preset36", "preset37", "preset38", "preset39", "preset40",
+  "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
+]);
 for (const p of PRESETS) {
-  if (!p.preview) p.preview = `/previews/${p.id}.webp`;
+  if (!p.preview) p.preview = `/previews/${p.id}.${PNG_PREVIEW_IDS.has(p.id) ? "png" : "webp"}`;
 }
 
 // Templates grouped into categories. Each category is an accordion: collapsed
