@@ -56,7 +56,6 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
   .char.left{left:-2%}.char.right{right:-2%}
   .col{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;height:100%;padding:22px 16px}
   .top{width:100%;display:flex;align-items:center;justify-content:space-between;font-weight:800}
-  .top .lang{background:rgba(0,0,0,.3);border-radius:999px;padding:2px 10px;font-size:11px;color:rgba(255,255,255,.85)}
   h1{margin-top:6px;text-align:center;font-size:clamp(26px,7vw,44px);font-weight:900;text-transform:uppercase;letter-spacing:-.01em;line-height:1;text-shadow:0 2px 0 var(--accent),0 4px 12px rgba(0,0,0,.5)}
   .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;gap:14px}
   .graph{position:relative;width:min(86vw,360px);aspect-ratio:10/9;border-radius:18px;border:2px solid ${accent}66;overflow:hidden;background:radial-gradient(130% 120% at 0% 100%, ${accent}22, transparent 62%),#0c0718;box-shadow:0 0 26px ${accent}44,0 14px 30px rgba(0,0,0,.5)}
@@ -91,7 +90,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
         cfg.brandLogo
           ? `<img src="${esc(cfg.brandLogo)}" alt="" style="height:26px;width:auto;max-width:45%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"/>`
           : `<span>${esc(cfg.brand || "LOGO")}</span>`
-      }<span class="lang">EN</span></div>
+      }</div>
       <h1>${esc(cfg.headline || "УСПЕЙ ЗАБРАТЬ!")}</h1>
       <div class="mid">
         <div class="graph" id="graph">

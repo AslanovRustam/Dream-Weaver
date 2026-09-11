@@ -1019,7 +1019,6 @@ export function SlotLandingApp() {
               ) : (
                 <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
               )}
-              <span className="rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-medium text-white/80">EN</span>
             </div>
 
             <h2
