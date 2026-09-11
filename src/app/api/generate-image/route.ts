@@ -28,7 +28,7 @@ const MIN_BALANCE_TO_GENERATE = 1;
 // Banner-master engine (OpenAI-direct). Was "gpt-image-2"; upgraded to
 // OpenAI's ChatGPT Images 2.5 "Sunburst" (released 2026-09-08) — sharper output
 // and precise edits, far cheaper (token-billed) and faster than gpt-image-2.
-// Resizes still run on gemini-flash via OpenRouter.
+// Resizes run on RESIZE_IMAGE_MODEL below (also OpenAI-direct, not Gemini).
 const MASTER_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 
 // Resize / reframe engine (OpenAI-direct, i2i via /v1/images/edits). ChatGPT
