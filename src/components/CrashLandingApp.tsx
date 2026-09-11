@@ -18,49 +18,6 @@ const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
 const ROCKET_PRICE = CRASH_ROCKET_PRICE_CREDITS;
 
-// One-click themes: set background scene, character, accent and headline together.
-const THEMES: {
-  id: string;
-  label: string;
-  accent: string;
-  headline: string;
-  bg: string;
-  char: string;
-}[] = [
-  {
-    id: "cyber",
-    label: "Киберпанк",
-    accent: "#ef4444",
-    headline: "УСПЕЙ ЗАБРАТЬ!",
-    bg: "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
-    char: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
-  },
-  {
-    id: "space",
-    label: "Космос",
-    accent: "#22d3ee",
-    headline: "TO THE MOON",
-    bg: "космос: звёздное небо, туманности, планеты, летящая ракета, неоновое сияние",
-    char: "мультяшный космонавт-маскот в скафандре, оптимистичная поза, большой шлем",
-  },
-  {
-    id: "vegas",
-    label: "Вегас",
-    accent: "#eab308",
-    headline: "CASH OUT NOW",
-    bg: "ночной Лас-Вегас: неоновые вывески, золотые огни, ретро-казино маркиза, блеск и роскошь",
-    char: "мультяшный крупье в смокинге с бабочкой, обаятельная уверенная поза",
-  },
-  {
-    id: "cartoon",
-    label: "Мультяшный",
-    accent: "#f97316",
-    headline: "CATCH THE WIN!",
-    bg: "яркий мультяшный лес: зелёные холмы, деревья, голубое небо с облаками, парящие золотые монеты",
-    char: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
-  },
-];
-
 export function CrashLandingApp() {
   const gen = useGeneration();
   const [brand, setBrand] = useState("LOGO");
@@ -316,13 +273,6 @@ export function CrashLandingApp() {
     }
   };
 
-  const applyTheme = (t: (typeof THEMES)[number]) => {
-    setAccent(t.accent);
-    setHeadline(t.headline);
-    setTheme(t.bg);
-    setCharPrompts((p) => ({ ...p, left: t.char }));
-  };
-
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
     const data = await res.json();
@@ -545,42 +495,19 @@ export function CrashLandingApp() {
         </div>
 
         <div>
-          <label className="mb-2 block ds-h4">Акцент</label>
-          <div className="flex flex-wrap items-center gap-2">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTheme(t)}
-                title={t.label}
-                aria-label={t.label}
-                className={`h-8 w-8 shrink-0 rounded-full border-2 transition ${
-                  accent.toLowerCase() === t.accent.toLowerCase()
-                    ? "border-white"
-                    : "border-transparent hover:border-white/40"
-                }`}
-                style={{ backgroundColor: t.accent }}
-              />
-            ))}
-            <div className="relative h-8 w-8 shrink-0">
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#ef4444"}
-                onChange={(e) => setAccent(e.target.value)}
-                aria-label="Свой цвет — открыть палитру"
-                title="Свой цвет"
-                className="h-8 w-8 cursor-pointer rounded-full border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-full [&::-webkit-color-swatch-wrapper]:p-0"
-              />
-              <Pipette
-                className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-white mix-blend-difference"
-                aria-hidden="true"
-              />
-            </div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <label className="ds-h4">Цветовая гамма</label>
+            <Pipette className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           </div>
-          <p className="mt-1.5 ds-caption">
-            Пресет задаёт ещё и фон, персонажа и заголовок под тему — затем сгенерируйте фон и персонажа. Или
-            выберите свой цвет справа.
-          </p>
+          <input
+            type="color"
+            value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#ef4444"}
+            onChange={(e) => setAccent(e.target.value)}
+            aria-label="Акцентный цвет"
+            title="Выбрать цвет"
+            className="h-10 w-10 cursor-pointer rounded-lg border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-[6px] [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-[6px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-[6px] [&::-webkit-color-swatch-wrapper]:p-0"
+          />
+          <p className="mt-1.5 ds-caption">Определяет акцентный цвет фона, кнопок и подсветки на лендинге.</p>
         </div>
 
         <Field label="Заголовок">

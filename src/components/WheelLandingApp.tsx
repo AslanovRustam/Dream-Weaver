@@ -38,58 +38,6 @@ const DEFAULT_PRIZES: WheelSegment[] = [
   { label: "TRY AGAIN" },
 ];
 
-// One-click themes: set background scene, character, accent and headline together
-// so the whole landing matches a single тематика.
-const THEMES: {
-  id: string;
-  label: string;
-  accent: string;
-  headline: string;
-  bg: string;
-  char: string;
-}[] = [
-  {
-    id: "cartoon",
-    label: "Мультяшный",
-    accent: "#f97316",
-    headline: "TRY YOUR LUCK!",
-    bg: "яркий мультяшный лес: зелёные холмы, деревья, голубое небо с облаками, парящие золотые монеты",
-    char: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
-  },
-  {
-    id: "beach",
-    label: "Пляж",
-    accent: "#06b6d4",
-    headline: "SPIN & WIN",
-    bg: "тропический пляж: золотой песок, пальмы, бирюзовое море, воздушные шары, яркое летнее солнце",
-    char: "мультяшный король-спасатель на пляже, корона, весёлый, шорты",
-  },
-  {
-    id: "paris",
-    label: "Париж",
-    accent: "#a855f7",
-    headline: "TENTEZ VOTRE CHANCE",
-    bg: "романтический Париж на закате: Эйфелева башня, античные колонны, виноградные лозы, тёплый золотой свет",
-    char: "мультяшный лис в парижском стиле, шарф-триколор, обаятельная поза",
-  },
-  {
-    id: "cyber",
-    label: "Киберпанк",
-    accent: "#8b5cf6",
-    headline: "WIN IN CRYPT",
-    bg: "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
-    char: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
-  },
-  {
-    id: "egypt",
-    label: "Египет",
-    accent: "#eab308",
-    headline: "BOOK OF RICHES",
-    bg: "древний Египет: золотые саркофаги, иероглифы на стенах, пирамиды вдали, тёплый песочный свет, богатство",
-    char: "мультяшный фараон-маскот, золотые украшения, уверенная поза",
-  },
-];
-
 export function WheelLandingApp() {
   const gen = useGeneration();
   const [brand, setBrand] = useState("LOGO");
@@ -314,13 +262,6 @@ export function WheelLandingApp() {
     return () => window.clearTimeout(id);
   }, [restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, chars, charPrompts, prizes]);
 
-  const applyTheme = (t: (typeof THEMES)[number]) => {
-    setAccent(t.accent);
-    setHeadline(t.headline);
-    setTheme(t.bg);
-    setCharPrompts((p) => ({ ...p, left: t.char }));
-  };
-
   const setPrize = (i: number, patch: Partial<WheelSegment>) =>
     setPrizes((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const addPrize = () => setPrizes((p) => (p.length < 12 ? [...p, { label: "Приз", enabled: true }] : p));
@@ -536,42 +477,19 @@ export function WheelLandingApp() {
         </header>
 
         <div>
-          <label className="mb-2 block ds-h4">Акцент</label>
-          <div className="flex flex-wrap items-center gap-2">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTheme(t)}
-                title={t.label}
-                aria-label={t.label}
-                className={`h-8 w-8 shrink-0 rounded-full border-2 transition ${
-                  accent.toLowerCase() === t.accent.toLowerCase()
-                    ? "border-white"
-                    : "border-transparent hover:border-white/40"
-                }`}
-                style={{ backgroundColor: t.accent }}
-              />
-            ))}
-            <div className="relative h-8 w-8 shrink-0">
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
-                onChange={(e) => setAccent(e.target.value)}
-                aria-label="Свой цвет — открыть палитру"
-                title="Свой цвет"
-                className="h-8 w-8 cursor-pointer rounded-full border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-full [&::-webkit-color-swatch-wrapper]:p-0"
-              />
-              <Pipette
-                className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-white mix-blend-difference"
-                aria-hidden="true"
-              />
-            </div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <label className="ds-h4">Цветовая гамма</label>
+            <Pipette className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           </div>
-          <p className="mt-1.5 ds-caption">
-            Пресет задаёт ещё и фон, персонажа и заголовок под тему — затем сгенерируйте фон и персонажа. Или
-            выберите свой цвет справа.
-          </p>
+          <input
+            type="color"
+            value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#f97316"}
+            onChange={(e) => setAccent(e.target.value)}
+            aria-label="Акцентный цвет"
+            title="Выбрать цвет"
+            className="h-10 w-10 cursor-pointer rounded-lg border border-border bg-elevated p-0 [&::-moz-color-swatch]:rounded-[6px] [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-[6px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:rounded-[6px] [&::-webkit-color-swatch-wrapper]:p-0"
+          />
+          <p className="mt-1.5 ds-caption">Определяет акцентный цвет фона, кнопок и подсветки на лендинге.</p>
         </div>
 
         <Field label="Тематика *">
