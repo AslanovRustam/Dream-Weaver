@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function BannerPage() {
   useEffect(() => {
-    document.title = "Баннер-генератор — Gen Go";
+    document.title = "Баннер-генератор — GenGO";
   }, []);
 
   // Public for guests — the whole configuration UI is browsable without an

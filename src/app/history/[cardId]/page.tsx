@@ -58,7 +58,7 @@ const PRESET_LABELS: Record<string, string> = {
 
 export default function HistoryCardPage() {
   useEffect(() => {
-    document.title = "История — Gen Go";
+    document.title = "История — GenGO";
   }, []);
 
   const router = useRouter();

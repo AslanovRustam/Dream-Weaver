@@ -205,7 +205,7 @@ export default function HelpPage() {
   const [openItems, setOpenItems] = useState<string[]>([]);
 
   useEffect(() => {
-    document.title = "Помощь и поддержка — Gen Go";
+    document.title = "Помощь и поддержка — GenGO";
   }, []);
 
   // Arriving at /help#contact (from the header "Написать в поддержку" or the Hub

@@ -382,7 +382,7 @@ export default function HubPage() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = "Gen Go";
+    document.title = "GenGO";
   }, []);
 
   // Public for guests: the Hub is the shop window. Data-loading effects below
@@ -578,7 +578,7 @@ export default function HubPage() {
             searchOpen ? "z-50" : ""
           }`}
         >
-          <p className="ds-overline ds-overline-accent">Gen Go Studio</p>
+          <p className="ds-overline ds-overline-accent">GenGO Studio</p>
           <h1 className="ds-h1 mt-2 sm:text-4xl">{greeting}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
             Опишите идею — соберём рекламный креатив. Баннеры, лендинги, видео и письма в одном

@@ -137,7 +137,7 @@ export default function AccountPage() {
   const router = useRouter();
   const goBack = useSmartBack("/banner");
   useEffect(() => {
-    document.title = "Аккаунт — Gen Go";
+    document.title = "Аккаунт — GenGO";
   }, []);
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { isGuest } = useAppRole();

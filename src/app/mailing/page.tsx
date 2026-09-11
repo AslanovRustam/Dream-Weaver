@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function MailingPage() {
   useEffect(() => {
-    document.title = "Кабинет рассылок — Gen Go";
+    document.title = "Кабинет рассылок — GenGO";
   }, []);
 
   const { loading } = useAuth();

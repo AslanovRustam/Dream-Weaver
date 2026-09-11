@@ -240,7 +240,7 @@ export function LandingGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Лендинг-генератор — Gen Go";
+    document.title = "Лендинг-генератор — GenGO";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);

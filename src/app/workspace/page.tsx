@@ -45,7 +45,7 @@ function pluralWs(n: number, one: string, few: string, many: string) {
 
 export default function WorkspacePage() {
   useEffect(() => {
-    document.title = "Мой Workspace — Gen Go";
+    document.title = "Мой Workspace — GenGO";
   }, []);
   const { isGuest } = useAppRole();
   const goBack = useSmartBack("/account");

@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function SettingsPage() {
   useEffect(() => {
-    document.title = "Интеграции — Gen Go";
+    document.title = "Интеграции — GenGO";
   }, []);
 
   const { loading } = useAuth();

@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function SlotPage() {
   useEffect(() => {
-    document.title = "Слот-машина — Gen Go";
+    document.title = "Слот-машина — GenGO";
   }, []);
 
   const { loading } = useAuth();

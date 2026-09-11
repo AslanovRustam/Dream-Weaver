@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function StatsPage() {
   useEffect(() => {
-    document.title = "Статистика — Gen Go";
+    document.title = "Статистика — GenGO";
   }, []);
 
   const { loading } = useAuth();

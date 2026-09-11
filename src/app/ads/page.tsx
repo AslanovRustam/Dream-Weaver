@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function AdsPage() {
   useEffect(() => {
-    document.title = "Рекламные кабинеты — Gen Go";
+    document.title = "Рекламные кабинеты — GenGO";
   }, []);
 
   const { loading } = useAuth();

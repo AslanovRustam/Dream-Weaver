@@ -205,7 +205,7 @@ export function VideoGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Конструктор видео — Gen Go";
+    document.title = "Конструктор видео — GenGO";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);

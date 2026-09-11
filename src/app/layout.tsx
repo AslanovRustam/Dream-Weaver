@@ -31,18 +31,18 @@ const DESCRIPTION =
   "Генерация рекламных креативов для iGaming: баннеры, лендинги, плейблы и видео — на базе ИИ.";
 
 export const metadata: Metadata = {
-  title: "Gen Go",
+  title: "GenGO",
   description: DESCRIPTION,
-  applicationName: "Gen Go",
+  applicationName: "GenGO",
   openGraph: {
-    title: "Gen Go",
+    title: "GenGO",
     description: DESCRIPTION,
     type: "website",
-    siteName: "Gen Go",
+    siteName: "GenGO",
   },
   twitter: {
     card: "summary",
-    title: "Gen Go",
+    title: "GenGO",
     description: DESCRIPTION,
   },
 };

@@ -174,7 +174,7 @@ export function PlayableGenApp() {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Плейбл-реклама — Gen Go";
+    document.title = "Плейбл-реклама — GenGO";
     const b = getBrandSettings();
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);

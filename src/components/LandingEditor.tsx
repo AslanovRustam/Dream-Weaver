@@ -102,7 +102,7 @@ export function LandingEditor({ id }: { id: string }) {
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
-    document.title = "Редактор лендинга — Gen Go";
+    document.title = "Редактор лендинга — GenGO";
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem(KEY(id)) : null;
       if (!raw) {

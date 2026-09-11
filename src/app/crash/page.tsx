@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function CrashPage() {
   useEffect(() => {
-    document.title = "Crash-игра — Gen Go";
+    document.title = "Crash-игра — GenGO";
   }, []);
 
   const { loading } = useAuth();

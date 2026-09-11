@@ -145,7 +145,7 @@ export default function BillingPage() {
   const [annual, setAnnual] = useState(true);
 
   useEffect(() => {
-    document.title = "Тарифы — Gen Go";
+    document.title = "Тарифы — GenGO";
   }, []);
 
   // Тарифы — публичная страница: показываем и без логина (гостю шапка

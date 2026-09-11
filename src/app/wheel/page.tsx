@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function WheelPage() {
   useEffect(() => {
-    document.title = "Колесо фортуны — Gen Go";
+    document.title = "Колесо фортуны — GenGO";
   }, []);
 
   const { loading } = useAuth();

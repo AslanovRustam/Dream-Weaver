@@ -14,7 +14,7 @@ import { useAppRole } from "@/lib/roles";
 
 export default function HistoryPage() {
   useEffect(() => {
-    document.title = "История — Gen Go";
+    document.title = "История — GenGO";
   }, []);
 
   const { loading } = useAuth();

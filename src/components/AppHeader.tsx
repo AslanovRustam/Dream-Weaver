@@ -607,7 +607,7 @@ export function AppHeader() {
   );
 }
 
-// Full wordmark on >=sm; just the MARK (no "Gen Go" text) on mobile so the
+// Full wordmark on >=sm; just the MARK (no "GenGO" text) on mobile so the
 // header stays compact. Both come from the same brand file — logo-mark.svg is
 // the viewBox-cropped mark of logo.svg.
 function LogoArt() {
@@ -615,7 +615,7 @@ function LogoArt() {
     <>
       <BrandLogo
         className="hidden h-7 sm:block"
-        fallback={<span className="text-base font-bold tracking-tight">Gen Go</span>}
+        fallback={<span className="text-base font-bold tracking-tight">GenGO</span>}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/logo-mark.svg" alt="" className="h-7 w-auto sm:hidden" draggable={false} />
