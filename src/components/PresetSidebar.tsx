@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Grid2x2, LayoutList, Search, Square, X } from "lucide-react";
 import { MobileScrim } from "@/components/MobileScrim";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
@@ -1319,17 +1319,74 @@ type Props = {
   onChange: (id: string) => void;
 };
 
-// Grid tile: thumbnail on top, name below — reads clearly as one of several
-// options in the expanded category grid (vs a single full-width "default").
+// Three gallery layouts, picked via the "Вид" toggle:
+// - "grid2": 2-per-row, thumbnail + truncated name (compact default).
+// - "grid1": 1-per-row, bigger thumbnail + full (non-truncated) name.
+// - "list":  small thumbnail beside the name + full description, nothing
+//   truncated — for scanning what each template actually does without
+//   hovering.
+type PresetLayout = "grid2" | "grid1" | "list";
+
 function PresetTile({
   preset,
   selected,
   onSelect,
+  layout,
 }: {
   preset: Preset;
   selected: boolean;
   onSelect: () => void;
+  layout: PresetLayout;
 }) {
+  if (layout === "list") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onSelect}
+            className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-lg border p-2 text-left transition ${
+              selected
+                ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+                : "border-border hover:bg-[var(--bg-surface-hover)]"
+            }`}
+          >
+            <div
+              className="aspect-[4/3] w-16 shrink-0 rounded-md bg-cover bg-center"
+              style={
+                preset.preview
+                  ? { backgroundImage: `url(${preset.preview})` }
+                  : { background: preset.gradient }
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-medium">{preset.name}</p>
+                {preset.isNew && !selected && (
+                  <span className="shrink-0 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
+                    Новое
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                {preset.description}
+              </p>
+            </div>
+            {selected && (
+              <span className="absolute right-1.5 top-1.5 shrink-0 rounded-full bg-accent-green p-0.5 text-on-accent">
+                <Check size={10} />
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] text-left">
+          <p className="font-medium">{preset.name}</p>
+          <p className="mt-0.5 text-muted-foreground">{preset.description}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -1343,14 +1400,18 @@ function PresetTile({
           }`}
         >
           <div
-            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+            className={`w-full rounded-md bg-cover bg-center ${
+              layout === "grid1" ? "aspect-[16/10]" : "aspect-[4/3]"
+            }`}
             style={
               preset.preview
                 ? { backgroundImage: `url(${preset.preview})` }
                 : { background: preset.gradient }
             }
           />
-          <p className="truncate text-xs font-medium">{preset.name}</p>
+          <p className={`text-xs font-medium ${layout === "grid1" ? "" : "truncate"}`}>
+            {preset.name}
+          </p>
           {preset.isNew && !selected && (
             <span className="absolute left-1.5 top-1.5 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
               Новое
@@ -1390,6 +1451,9 @@ export function PresetSidebar({ value, onChange }: Props) {
   // order; "new" floats presets flagged isNew to the top. Mirrors Sibrik's
   // "Популярне / Найновіші" gallery sort.
   const [sortBy, setSortBy] = useState<"popular" | "new">("popular");
+  // Gallery layout: 2-per-row (compact default), 1-per-row (bigger preview),
+  // or a list with a small thumbnail + full name/description text visible.
+  const [viewMode, setViewMode] = useState<PresetLayout>("grid2");
 
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
@@ -1579,6 +1643,34 @@ export function PresetSidebar({ value, onChange }: Props) {
           ))}
         </div>
       </div>
+      <div className="flex items-center gap-1.5 px-4 pb-1.5 pt-0.5">
+        <span className="ds-caption shrink-0">Вид</span>
+        <div className="ml-auto flex rounded-lg border border-border p-0.5">
+          {(
+            [
+              ["grid2", "2 в ряд", Grid2x2],
+              ["grid1", "1 в ряд", Square],
+              ["list", "Список", LayoutList],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setViewMode(id)}
+              aria-label={label}
+              aria-pressed={viewMode === id}
+              title={label}
+              className={`flex items-center justify-center rounded-md px-2 py-1 transition ${
+                viewMode === id
+                  ? "bg-white/10 text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon size={14} />
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto px-4 py-2">
         {groups.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
@@ -1640,13 +1732,22 @@ export function PresetSidebar({ value, onChange }: Props) {
                 </button>
                 {isExpanded ? (
                   <div className="border-t border-border p-2.5">
-                    <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto">
+                    <div
+                      className={`max-h-[52vh] gap-2 overflow-y-auto ${
+                        viewMode === "list"
+                          ? "flex flex-col"
+                          : viewMode === "grid1"
+                            ? "grid grid-cols-1"
+                            : "grid grid-cols-2"
+                      }`}
+                    >
                       {cat.presets.map((p) => (
                         <PresetTile
                           key={p.id}
                           preset={p}
                           selected={value === p.id}
                           onSelect={() => onChange(p.id)}
+                          layout={viewMode}
                         />
                       ))}
                     </div>
