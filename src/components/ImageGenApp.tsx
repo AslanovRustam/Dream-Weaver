@@ -1424,7 +1424,8 @@ export function ImageGenApp() {
                     value={bonusText}
                     onChange={setBonusText}
                     placeholder="+200% на первую ставку, Odds Boost 5.0…"
-                  maxLength={60}
+                    maxLength={60}
+                    hint="Если включено и оставить пустым — ИИ сам придумает бонус/коэффициент по теме."
                   />
 
                   <div className="rounded-xl border border-border bg-background/40 p-3">
@@ -1621,6 +1622,7 @@ export function ImageGenApp() {
                   onChange={setBannerText}
                   placeholder={isEventLikePreset ? "Пусто = ИИ сгенерирует" : "Летняя акция"}
                   maxLength={50}
+                  hint="Если включено и оставить пустым — ИИ сам придумает текст баннера по теме."
                 />
                 <OptionalField
                   label="Текст на кнопке"
@@ -1630,6 +1632,7 @@ export function ImageGenApp() {
                   onChange={setButtonText}
                   placeholder={isEventLikePreset ? "Пусто = ИИ сгенерирует" : "Купить"}
                   maxLength={24}
+                  hint="Если включено и оставить пустым — ИИ сам придумает текст кнопки."
                 />
               </div>
                 </>
@@ -1644,6 +1647,7 @@ export function ImageGenApp() {
                   onChange={setSubheadline}
                   placeholder="Пусто = ИИ сгенерирует 2–3 преимущества"
                   maxLength={120}
+                  hint="Если включено и оставить пустым — ИИ сам придумает 2–3 преимущества по теме."
                 />
               )}
 
@@ -2187,6 +2191,7 @@ function OptionalField({
   onChange,
   placeholder,
   maxLength,
+  hint,
 }: {
   label: string;
   enabled: boolean;
@@ -2195,6 +2200,9 @@ function OptionalField({
   onChange: (v: string) => void;
   placeholder?: string;
   maxLength?: number;
+  /** Caption shown under the field while it's enabled — clarifies that
+   *  leaving it empty is fine, the AI will fill it in on its own. */
+  hint?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-background/40 p-3">
@@ -2233,6 +2241,7 @@ function OptionalField({
           {value.length}/{maxLength}
         </p>
       ) : null}
+      {hint && enabled ? <p className="mt-1.5 ds-caption">{hint}</p> : null}
     </div>
   );
 }
