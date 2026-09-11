@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
 import { MobileScrim } from "@/components/MobileScrim";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 import presetEvent from "@/assets/preset-event.jpg";
@@ -1323,35 +1324,43 @@ function PresetTile({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
-        selected
-          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
-          : "border-border hover:bg-[var(--bg-surface-hover)]"
-      }`}
-    >
-      <div
-        className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-        style={
-          preset.preview
-            ? { backgroundImage: `url(${preset.preview})` }
-            : { background: preset.gradient }
-        }
-      />
-      <p className="truncate text-xs font-medium">{preset.name}</p>
-      {preset.isNew && !selected && (
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
-          Новое
-        </span>
-      )}
-      {selected && (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
-          <Check size={10} />
-        </span>
-      )}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+            selected
+              ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+              : "border-border hover:bg-[var(--bg-surface-hover)]"
+          }`}
+        >
+          <div
+            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+            style={
+              preset.preview
+                ? { backgroundImage: `url(${preset.preview})` }
+                : { background: preset.gradient }
+            }
+          />
+          <p className="truncate text-xs font-medium">{preset.name}</p>
+          {preset.isNew && !selected && (
+            <span className="absolute left-1.5 top-1.5 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
+              Новое
+            </span>
+          )}
+          {selected && (
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+              <Check size={10} />
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px] text-left">
+        <p className="font-medium">{preset.name}</p>
+        <p className="mt-0.5 text-muted-foreground">{preset.description}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -1436,6 +1445,7 @@ export function PresetSidebar({ value, onChange }: Props) {
   }, [q, categoryFilter, sortBy]);
 
   return (
+    <TooltipProvider delayDuration={200}>
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h4">Шаблоны</h2>
@@ -1641,5 +1651,6 @@ export function PresetSidebar({ value, onChange }: Props) {
         </div>
       </div>
     </aside>
+    </TooltipProvider>
   );
 }

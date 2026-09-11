@@ -29,6 +29,7 @@ import { CREATIVE_LANGUAGES, creativeLangShort } from "@/lib/creative-language";
 import { useGeneration } from "@/lib/generation-context";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   LANDING_SECTIONS,
   LANDING_TEMPLATE_CATEGORIES,
@@ -848,30 +849,38 @@ function TemplateTile({
   // Остальные скрыты из галереи целиком — см. LandingTemplateSidebar's
   // `groups` (фильтр по `interactive`), а не серятся здесь.
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
-        selected
-          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
-          : "border-border hover:bg-[var(--bg-surface-hover)]"
-      }`}
-    >
-      <div
-        className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-        style={
-          template.preview
-            ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
-            : { background: template.gradient }
-        }
-      />
-      <p className="truncate text-xs font-medium">{template.name}</p>
-      {selected && (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
-          <Check size={10} />
-        </span>
-      )}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+            selected
+              ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+              : "border-border hover:bg-[var(--bg-surface-hover)]"
+          }`}
+        >
+          <div
+            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+            style={
+              template.preview
+                ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
+                : { background: template.gradient }
+            }
+          />
+          <p className="truncate text-xs font-medium">{template.name}</p>
+          {selected && (
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+              <Check size={10} />
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px] text-left">
+        <p className="font-medium">{template.name}</p>
+        <p className="mt-0.5 text-muted-foreground">{template.description}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -964,6 +973,7 @@ function LandingTemplateSidebar({
   }, [q, categoryFilter]);
 
   return (
+    <TooltipProvider delayDuration={200}>
     <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:flex-[2] lg:rounded-2xl lg:border">
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h4">Шаблоны</h2>
@@ -1136,5 +1146,6 @@ function LandingTemplateSidebar({
         </div>
       </div>
     </aside>
+    </TooltipProvider>
   );
 }
