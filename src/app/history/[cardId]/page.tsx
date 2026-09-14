@@ -146,8 +146,6 @@ function CardBody() {
   };
 
   const remove = async () => {
-    // Moving to trash is reversible (restore below), so no confirm — just act +
-    // toast, matching История's list. Irreversible actions use the confirm modal.
     setBusy(true);
     try {
       await apiJson(`/api/history/${cardId}`, { method: "DELETE" });
@@ -200,7 +198,6 @@ function CardBody() {
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4">
-      {/* Sticky top bar */}
       <div className="sticky top-16 z-20 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <BackButton href="/history" />
 
@@ -272,7 +269,6 @@ function CardBody() {
         )}
       </div>
 
-      {/* Hero — master image at native aspect, capped at 70vh */}
       <section className="mb-6">
         <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
           Исходное изображение
@@ -305,7 +301,6 @@ function CardBody() {
         )}
       </section>
 
-      {/* Resizes — masonry grid, every tile keeps its true aspect */}
       <section>
         <div className="mb-2 flex items-baseline gap-2">
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">

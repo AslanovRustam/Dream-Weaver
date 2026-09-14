@@ -56,7 +56,6 @@ export const CRASH_ROCKET_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PE
 // once landing generation is wired into spend_credits.
 export const LANDING_FROM_BANNER_PRICE_CREDITS = 15;
 
-// Banner master price. Args kept for call-site compatibility.
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;
   quality?: BannerQuality;
@@ -81,8 +80,6 @@ export function formatCredits(n: number): string {
   return `${s} кр.`;
 }
 
-// Placeholder video cost — scales with duration. Real video pricing depends on
-// the (not-yet-chosen) provider and resolution, so this is deliberately coarse.
 const VIDEO_CREDITS_PER_SEC = 1;
 const VIDEO_MIN_CREDITS = 5;
 

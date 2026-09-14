@@ -22,8 +22,6 @@ import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 // the active item uses the design-system lime "Active" pill (--lime-tint).
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 
-// MVP: только эти разделы кликабельны (единый источник — lib/mvp). Остальное
-// серым «Скоро». Домой можно вернуться через логотип в шапке.
 const ENABLED_HREFS = MVP_ENABLED_ROUTES;
 
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
@@ -78,8 +76,6 @@ export function AppSidebar() {
   const isActive = (item: NavItem) =>
     item.exact ? pathname === item.href : pathname === item.href || pathname?.startsWith(item.href + "/");
 
-  // Render nothing until we know the persisted state, so the rail doesn't flip
-  // width on first paint.
   if (!ready) {
     return <aside className="hidden w-60 shrink-0 lg:block" aria-hidden />;
   }
@@ -90,7 +86,6 @@ export function AppSidebar() {
         collapsed ? "w-16" : "w-60"
       }`}
     >
-      {/* Toggle */}
       <div className={`flex items-center px-3 pt-3 ${collapsed ? "justify-center" : "justify-end"}`}>
         <button
           type="button"
@@ -103,7 +98,6 @@ export function AppSidebar() {
         </button>
       </div>
 
-      {/* Groups */}
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         {GROUPS.map((g, gi) => (
           <div key={gi} className={gi > 0 ? "mt-4" : ""}>
@@ -130,7 +124,6 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-border px-2 py-2">
         <ul className="flex flex-col gap-0.5">
           {FOOTER.map((item) => (
@@ -157,7 +150,6 @@ function SidebarLink({
 }) {
   const Icon = item.icon;
 
-  // MVP: disabled ("Скоро") — greyed out, not a link, no navigation.
   if (soon) {
     return (
       <div

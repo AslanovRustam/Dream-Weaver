@@ -25,22 +25,22 @@ export type Project = {
   id: string;
   type: ProjectType;
   name: string;
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
+  createdAt: string;
+  updatedAt: string;
   favorite: boolean;
-  deleted: boolean; // in trash
-  thumb?: string | null; // real preview image (banners)
+  deleted: boolean;
+  thumb?: string | null;
   gradient?: string; // fallback thumbnail
-  meta?: string; // small caption (e.g. "1080×1080", "6 сцен")
+  meta?: string;
   /** Whether this row came from the real backend (so mutations hit the API). */
   real?: boolean;
 };
 
 export type CreditTx = {
   id: string;
-  at: string; // ISO datetime
+  at: string;
   kind: "spend" | "topup";
-  amount: number; // positive magnitude; sign is derived from kind
+  amount: number;
   label: string;
   section?: ProjectType;
   projectId?: string;
@@ -66,8 +66,6 @@ function wsHash(s: string): number {
   return x;
 }
 function inWorkspaceSeed(projectId: string, seed: string): boolean {
-  // ~60% of projects per workspace — keeps every space populated while making
-  // the sets clearly different between workspaces.
   return wsHash(projectId + "|" + seed) % 10 < 6;
 }
 
@@ -104,7 +102,6 @@ export function getMockProjects(now = Date.now(), workspaceSeed?: string): Proje
     { id: "m-v3", type: "video", name: "Скринкаст: как получить бонус", ago: 8 * D, favorite: false, deleted: false, meta: "Видео · 0:32", grad: true },
     { id: "m-p3", type: "playable", name: "Скретч-карта — новогодний приз", ago: 10 * D, favorite: false, deleted: false, meta: "Плейбл · скретч", grad: true },
     { id: "m-b7", type: "banner", name: "Приветственный пакет казино", ago: 12 * D, favorite: false, deleted: false, thumb: presetWideAngle.src, meta: "1200×1200" },
-    // trash
     { id: "m-t1", type: "banner", name: "Черновик — старый баннер", ago: 1 * D, favorite: false, deleted: true, thumb: presetSport.src, meta: "1080×1080" },
     { id: "m-t2", type: "landing", name: "Тестовый лендинг", ago: 4 * D, favorite: false, deleted: true, meta: "Лендинг · 3 блока", grad: true },
   ];

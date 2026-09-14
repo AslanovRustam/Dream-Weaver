@@ -10,8 +10,6 @@ export function fmtCostUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-// Small "себестоимость" (self-cost) readout — the real OpenRouter spend for the
-// generations done in this session. Renders nothing until there is a cost.
 export function CostMeter({ total, className = "" }: { total: number; className?: string }) {
   if (!total || total <= 0) return null;
   return (

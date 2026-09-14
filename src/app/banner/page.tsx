@@ -12,8 +12,6 @@ export default function BannerPage() {
     document.title = "Баннер-генератор — GenGO";
   }, []);
 
-  // Public for guests — the whole configuration UI is browsable without an
-  // account; the gate fires only on "Сгенерировать" (see components/AuthGate).
   const { loading } = useAuth();
 
   if (loading) {

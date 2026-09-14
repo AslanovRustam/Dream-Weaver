@@ -79,7 +79,6 @@ export function refreshMe() {
     .catch(() => {});
 }
 
-// Balance at/below which the credits chip turns amber to nudge a top-up.
 const LOW_CREDIT_THRESHOLD = 20;
 
 type ProjectItem = { id: string; name: string; thumb: string | null; updated: string };
@@ -102,11 +101,7 @@ export function AppHeader() {
     null,
   );
 
-  // Project name (breadcrumb) + simulated autosave status. Persisted to
-  // localStorage so it survives the per-page remount of this header.
   const [projectName, setProjectName] = useState("");
-  // Mobile profile menu: controlled so a scrim overlay can sync with its open
-  // state; `notifOpen` drives the inline notifications accordion inside it.
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const {
@@ -116,8 +111,6 @@ export function AppHeader() {
     markAllRead: notifMarkAllRead,
   } = useNotifications();
   const { setActive: setActiveWorkspace } = useWorkspace();
-  // Pending guarded action for the unsaved-changes modal — either a navigation
-  // or a workspace switch. When set, the modal is open and confirming runs it.
   const [pending, setPending] = useState<
     { kind: "nav"; href: string } | { kind: "workspace"; id: string } | null
   >(null);
@@ -164,8 +157,6 @@ export function AppHeader() {
     };
   }, [isAuthenticated]);
 
-  // Warn before a hard navigation (refresh / tab close) while a section holds a
-  // freshly generated, not-yet-persisted result (playable / video).
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (getUnsavedWork() !== null) {
@@ -191,8 +182,6 @@ export function AppHeader() {
     me?.profile.email ||
     "John Doe";
   const displayEmail = me?.profile.email || "john.doe@example.com";
-  // User avatar: the uploaded photo (dw:avatar) if the user set one, else a
-  // neutral illustrative placeholder (see UserAvatar) — no stock-photo default.
   const [avatar, setAvatar] = useState<string | null>(null);
   useEffect(() => {
     const read = () => {
@@ -214,7 +203,6 @@ export function AppHeader() {
   // (the /api/me call is unauthenticated in the dev-bypass build).
   const creditsLabel = balance === null ? "8" : balance.toFixed(2).replace(/\.00$/, "");
 
-  // Autosave: persist the name on edit. No visible "saving" chrome anymore.
   const commitName = (v: string) => {
     setProjectName(v);
     if (typeof window !== "undefined") window.localStorage.setItem("dw:projectName", v);
@@ -243,10 +231,7 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
-      {/* The mobile scrim behind the profile menu (and every other dropdown) is
-          now provided by the shared <DropdownMenu> wrapper — see MobileScrim. */}
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
-        {/* LEFT: logo + breadcrumb + save + undo/redo */}
         <div className="flex min-w-0 items-center gap-3 sm:gap-5">
           {isHub ? (
             <Link
@@ -282,7 +267,6 @@ export function AppHeader() {
           ) : null}
         </div>
 
-        {/* RIGHT: generation → credits → notifications → help → projects → avatar */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
             <Link
@@ -297,7 +281,6 @@ export function AppHeader() {
 
           {!isHub ? <GenerationIndicator /> : null}
 
-          {/* Guests have no balance to show (spec: no credits for guests). */}
           {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
           {/* Workspace quick-switcher — icon only. Shown on every page (Hub
               included). Full management: /workspace. The language switcher now
@@ -308,12 +291,8 @@ export function AppHeader() {
               onCreate={() => requestNavigate("/workspace?new=1")}
             />
           ) : null}
-          {/* The rest of the toolbar is editor chrome — hidden on the Hub and
-              for guests (nothing there is usable without an account). */}
           {!isHub && !isGuest ? (
             <>
-              {/* Bell hidden on mobile — notifications live inside the profile
-                  menu there (see the mobile-only block in the avatar dropdown). */}
               <span className="max-sm:hidden sm:contents">
                 <NotificationsMenu />
               </span>
@@ -339,7 +318,6 @@ export function AppHeader() {
                 aria-label={t("header.profile.trigger")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
               >
-                {/* Visual avatar is smaller than the 44px tap target on mobile. */}
                 <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
               </button>
             </DropdownMenuTrigger>
@@ -409,7 +387,6 @@ export function AppHeader() {
                 <DropdownMenuSeparator className="bg-border" />
                 <DropdownMenuItem
                   onSelect={(e) => {
-                    // Keep the menu open; just toggle the inline section.
                     e.preventDefault();
                     setNotifOpen((o) => {
                       const next = !o;
@@ -583,8 +560,6 @@ export function AppHeader() {
         >
           <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
           <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
-          {/* One row on every breakpoint: cancel (secondary) + continue
-              (primary). Equal-width on mobile, content-width right-aligned on ≥sm. */}
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
@@ -623,7 +598,6 @@ function LogoArt() {
   );
 }
 
-// Guests get sign-in / sign-up instead of the credits chip + avatar menu.
 function GuestAuthButtons() {
   const t = useT();
   return (
@@ -643,8 +617,6 @@ function GuestAuthButtons() {
     </div>
   );
 }
-
-// ---- Left cluster -----------------------------------------------------------
 
 function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   const t = useT();
@@ -698,8 +670,6 @@ function ProjectNameEditor({ value, onCommit }: { value: string; onCommit: (v: s
   );
 }
 
-// ---- Right cluster ----------------------------------------------------------
-
 /**
  * Header chip that mirrors what's happening in the global generation
  * context.
@@ -742,8 +712,6 @@ function GenerationIndicator() {
             ? t("header.progress.done")
             : "";
 
-  // Tokens only — the error/success roles use the same --status-* variables as
-  // GenerationErrorCard / SettingsSection rather than raw Tailwind palettes.
   const tone =
     gen.status === "error"
       ? "border-[color:var(--status-error)]/40 bg-[color:var(--status-error)]/10 text-[color:var(--status-error)]"
@@ -831,7 +799,6 @@ function SectionSwitcher({
   onNavigate: (route: string) => void;
 }) {
   const t = useT();
-  // Per-account onboarding: scope the section-hint flag by user id (lib/onboarding).
   const { user } = useAuth();
   const userKey = user?.id ?? null;
   const current = sectionFromPath(pathname);
@@ -851,7 +818,6 @@ function SectionSwitcher({
 
   const go = (route: string) => {
     if (current && route === current.route) return;
-    // Navigation is guarded centrally in AppHeader (the unsaved-changes modal).
     onNavigate(route);
   };
 
@@ -904,7 +870,6 @@ function SectionSwitcher({
           const Icon = s.icon;
           const active = s.id === current?.id;
           const soon = !isSectionEnabled(s.id);
-          // MVP: disabled sections are greyed "Скоро" and cannot be selected.
           if (soon) {
             return (
               <DropdownMenuItem
@@ -963,7 +928,6 @@ function SectionSwitcher({
   );
 }
 
-// Icon per notification type. Falls back to the bell.
 function notifIcon(type: string): typeof Sparkles {
   switch (type) {
     case "credit_grant":
@@ -1062,7 +1026,6 @@ function ProjectsMenu() {
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Load the latest real projects from history the first time the menu opens.
   const load = () => {
     if (loaded) return;
     setLoaded(true);

@@ -13,7 +13,6 @@ export const UI_LOCALES: { code: Locale; label: string; short: string }[] = [
 
 export const DEFAULT_LOCALE: Locale = "ru";
 
-// localStorage key holding the chosen interface language.
 export const LOCALE_STORAGE_KEY = "dw:uiLang";
 
 export function isLocale(v: unknown): v is Locale {

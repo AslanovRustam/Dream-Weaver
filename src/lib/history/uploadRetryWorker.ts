@@ -52,7 +52,7 @@ import { uploadImage, type ImageFormat } from "../ftp/storage";
 
 const WORKER_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_ATTEMPTS = 100;
-const MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72 hours
+const MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const BATCH_SIZE = 20;
 
 const TEMP_DIR = join(tmpdir(), "dream-weaver-uploads");
@@ -263,7 +263,6 @@ async function tick(): Promise<void> {
   try {
     supa = getAdminClient();
   } catch (err) {
-    // Env not ready (likely during cold boot) — try again next tick.
     console.error("upload-retry-worker: admin client unavailable", err);
     return;
   }

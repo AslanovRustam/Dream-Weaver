@@ -30,7 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "../supabase/admin";
 import { deleteCardFiles } from "../ftp/storage";
 
-const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const BATCH_SIZE = 100;
 
 let workerStarted = false;
@@ -96,8 +96,6 @@ async function fetchExpiringCards(supa: SupabaseClient): Promise<ExpiringCard[]>
 }
 
 async function processCard(supa: SupabaseClient, card: ExpiringCard): Promise<void> {
-  // Pull every generations row tied to this card. We only care about
-  // ftp_path so we can erase the file.
   const { data: gens, error: genErr } = await supa
     .from("generations")
     .select("id, ftp_path")
@@ -184,8 +182,6 @@ async function tick(): Promise<void> {
 export function startRetentionWorker(): void {
   if (workerStarted) return;
   workerStarted = true;
-  // Fire one tick at boot so a long-running server that just came back
-  // up doesn't sit on a pile of expired cards for hours.
   void tick();
   workerTimer = setInterval(() => {
     void tick();

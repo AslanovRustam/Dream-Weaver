@@ -48,7 +48,6 @@ type LookupResult = {
 function looksLikeUrl(q: string): string | null {
   const s = q.trim();
   if (/^https?:\/\//i.test(s)) return s;
-  // Bare domain, e.g. "stripe.com" or "www.notion.com" — no scheme.
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(s) && !s.includes(" ")) return `https://${s}`;
   return null;
 }
@@ -132,8 +131,6 @@ export async function POST(request: Request) {
     return authErrorResponse(err);
   }
 
-  // Tight limit — this fans out into a web search + several third-party
-  // fetches per call, unlike the single-provider-call endpoints elsewhere.
   const rl = rateLimitResponse("brand-lookup", user.id, 10, 60_000);
   if (rl) return rl;
 
@@ -186,11 +183,11 @@ export async function POST(request: Request) {
     for (const c of candidates.slice(0, 6)) {
       try {
         const { buffer, mime } = await fetchPublicImage(c.url);
-        if (buffer.byteLength < 100) continue; // 1x1 tracking-pixel-style "icon"
+        if (buffer.byteLength < 100) continue;
         logoDataUrl = `data:${mime};base64,${buffer.toString("base64")}`;
         break;
       } catch {
-        continue; // try the next candidate
+        continue;
       }
     }
     if (!logoDataUrl) {
@@ -204,7 +201,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. ANALYSE — colour/style/logo-quality vision pass.
     const analysis = await analyzeLogoImage(logoDataUrl, siteName, apiKey);
 
     const result: LookupResult = {

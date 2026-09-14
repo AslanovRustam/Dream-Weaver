@@ -99,8 +99,6 @@ function LoginPageInner() {
       <div className="ds-aurora" aria-hidden />
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          {/* Same swappable logo as the header — shows the text wordmark until
-              public/brand/logo.svg exists, then the image. */}
           <BrandLogo
             className="mx-auto h-9"
             alt="GenGO"
@@ -126,8 +124,6 @@ function LoginPageInner() {
           </div>
         </div>
 
-        {/* ?mode=signup (used by the guest "Зарегистрироваться" CTAs) opens the
-            registration tab directly instead of dropping onto sign-in. */}
         <Tabs
           defaultValue={searchParams.get("mode") === "signup" ? "sign-up" : "sign-in"}
           className="w-full"
@@ -162,7 +158,6 @@ function GoogleButton({ redirectTo }: { redirectTo: string }) {
           setBusy(true);
           setErr("");
           const supa = getBrowserClient();
-          // Send user back to the current origin (Supabase handles ?code=...).
           const absoluteRedirect = new URL(redirectTo, window.location.origin).toString();
           const { error } = await supa.auth.signInWithOAuth({
             provider: "google",

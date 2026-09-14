@@ -19,7 +19,6 @@ import { recordUsage } from "@/lib/usage";
 import { openAiSizeString } from "@/lib/imageSizes";
 
 export const runtime = "nodejs";
-// Landing/email hero images can also run on a slow model — allow up to 5 min.
 export const maxDuration = 300;
 
 // Same cheap/fast OpenAI-direct tier already used for resizes
@@ -38,14 +37,8 @@ type Body = {
   // never reproduced as-is, never its text/logo/composition.
   styleReferenceImage?: string;
   model?: string;
-  // Optional: one of our banner-preset templates (with {SUBJECT} already filled).
-  // When present, its visual style drives the image instead of the free agent.
   presetTemplate?: string;
-  // Optional image aspect ratio (default "3:2"). Use e.g. "3:4" for a vertical
-  // character portrait.
   aspectRatio?: string;
-  // Optional usage tag for per-user spend breakdown (e.g. "email-hero",
-  // "landing-bg", "landing-character").
   feature?: string;
 };
 
@@ -211,8 +204,6 @@ export async function POST(request: Request) {
   if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
   const imageUrl = `data:image/png;base64,${b64}`;
 
-  // Best-effort per-user log. OpenAI's images API returns no usage.cost, so we
-  // record the event with cost 0 (same convention as generate-character.ts).
   const authed = await optionalUser(request);
   if (authed) {
     await recordUsage(authed.id, {

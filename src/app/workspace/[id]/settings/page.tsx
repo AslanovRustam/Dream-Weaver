@@ -21,8 +21,6 @@ import { Input } from "@/components/ui/input";
 import { useAppRole } from "@/lib/roles";
 import { useWorkspace } from "@/lib/workspace-context";
 
-// `short` is shown on mobile so all four options fit one row without wrapping;
-// the full `label` is used from ≥sm.
 const LANGS: { value: string; label: string; short: string }[] = [
   { value: "auto", label: "Авто", short: "Авто" },
   { value: "ru", label: "Русский", short: "RU" },
@@ -60,7 +58,6 @@ export default function WorkspaceSettingsPage() {
     document.title = ws ? `Настройки — ${ws.name}` : "Настройки пространства";
   }, [ws?.name]);
 
-  // Hydrate the form once the space is available (context loads after mount).
   useEffect(() => {
     if (!ws) return;
     setName(ws.name);
@@ -134,7 +131,6 @@ export default function WorkspaceSettingsPage() {
         </div>
       </header>
 
-      {/* 1 — Основная информация */}
       <section className="ds-card p-5 sm:p-6">
         <h2 className="ds-h4">Основная информация</h2>
         <p className="mt-1 ds-caption">Название и логотип пространства.</p>
@@ -181,7 +177,6 @@ export default function WorkspaceSettingsPage() {
         </div>
       </section>
 
-      {/* 2 — Brand Kit */}
       <section className="ds-card mt-4 p-5 sm:p-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Palette className="h-4 w-4 text-brand-violet" />
@@ -256,7 +251,6 @@ export default function WorkspaceSettingsPage() {
         </div>
       </section>
 
-      {/* Save / cancel for sections 1–2 */}
       <div className="mt-5 flex items-center justify-end gap-2">
         <button
           type="button"
@@ -275,7 +269,6 @@ export default function WorkspaceSettingsPage() {
         </button>
       </div>
 
-      {/* 3 — Danger zone (isolated at the bottom) */}
       <section className="mt-10 rounded-2xl border border-[color:var(--status-error)]/35 bg-[color:var(--status-error)]/[0.04] p-5 sm:p-6">
         <div className="flex items-center gap-2 text-[color:var(--status-error)]">
           <AlertTriangle className="h-4 w-4" />

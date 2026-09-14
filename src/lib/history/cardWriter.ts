@@ -23,8 +23,6 @@ import { logAudit, logSystem } from "../logger";
 import { polishCardName } from "./aiNaming";
 import { persistPendingBuffer } from "./uploadRetryWorker";
 
-// Keys whose values are base64 dataURLs (or could become huge). Stripped
-// from form_snapshot to keep the jsonb column lean and the search index fast.
 const DATA_URL_KEYS = new Set([
   "source_image",
   "brand_logo",
@@ -53,7 +51,6 @@ export function buildFormSnapshot(body: Record<string, unknown>): Record<string,
     } else if (typeof v === "number" || typeof v === "boolean") {
       snap[k] = v;
     } else {
-      // For objects/arrays — keep only if the JSON encoding is small
       try {
         const enc = JSON.stringify(v);
         if (enc.length <= 4000) snap[k] = v;
@@ -146,7 +143,7 @@ export interface RecordGenerationArgs {
   supa: SupabaseClient;
   userId: string;
   body: Record<string, unknown>;
-  image: string; // dataURL returned by provider
+  image: string;
   isMaster: boolean;
   usage: Record<string, unknown>;
   totalTokens: number;
@@ -222,8 +219,6 @@ export async function recordGenerationAndUpload(
       } else {
         cardId = card?.id ?? null;
         if (cardId) {
-          // Capture the narrowed (non-null) id so the deferred closures below
-          // keep `string` instead of widening back to `string | null`.
           const newCardId = cardId;
           void logAudit({
             supa,
@@ -238,7 +233,6 @@ export async function recordGenerationAndUpload(
               template_name: name,
             },
           });
-          // Notify the user their creative is ready (best-effort, fire-and-forget).
           void notify(userId, {
             type: "creative_ready",
             title: "Креатив готов",
@@ -283,8 +277,6 @@ export async function recordGenerationAndUpload(
             error: ownErr,
           });
         } else if (!ownRow) {
-          // Not the caller's card → refuse attachment. The generation is
-          // still recorded (under the caller) but stays unattached + un-uploaded.
           void logSystem({
             supa,
             level: "warn",
@@ -370,8 +362,6 @@ export async function recordGenerationAndUpload(
       });
     } else {
       generationId = gen?.id ?? null;
-      // Audit row for every gen attached to a card — useful when
-      // investigating "where did my credits go".
       if (cardId && generationId) {
         void logAudit({
           supa,
@@ -392,10 +382,7 @@ export async function recordGenerationAndUpload(
           },
         });
       }
-      // Fire-and-forget upload only if we have a card to attach to. Legacy
-      // rows (no card) skip FTP entirely.
       if (cardId && generationId && gen?.public_id) {
-        // Capture narrowed values so the deferred closure keeps `string`.
         const genId = generationId;
         const publicId = gen.public_id as string;
         runBackground(() =>

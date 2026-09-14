@@ -9,7 +9,6 @@ import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { imageCredits } from "@/lib/credit-estimate";
 
-// Email hero = one AI image generation.
 const IMG_PRICE = imageCredits(1);
 import {
   EMAIL_STYLES,
@@ -36,10 +35,9 @@ export function EmailGenApp() {
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
-  const [heroPreset, setHeroPreset] = useState(""); // "" = агент подберёт сам
+  const [heroPreset, setHeroPreset] = useState("");
   const [autofilling, setAutofilling] = useState(false);
 
-  // AI-fill the copy fields (via ChatGPT) — brand is left for the user to set.
   const autofill = async () => {
     setAutofilling(true);
     setGenError("");
@@ -59,7 +57,6 @@ export function EmailGenApp() {
       const steps = Array.isArray(f.steps) ? f.steps.map(String) : undefined;
       setDraft((d) => ({
         ...d,
-        // brand intentionally NOT filled — the user sets their own brand
         subject: str(f.subject) ?? d.subject,
         preheader: str(f.preheader) ?? d.preheader,
         heroTitle: str(f.heroTitle) ?? d.heroTitle,
@@ -87,7 +84,6 @@ export function EmailGenApp() {
   const onHeroFile = (file: File | null) => file && readAsDataUrl(file, "heroImage");
   const onLogoFile = (file: File | null) => file && readAsDataUrl(file, "logo");
 
-  // Composite the logo PNG on top of a generated image (client-side canvas).
   const overlayLogo = (baseUrl: string, logoUrl: string) =>
     new Promise<string>((resolve) => {
       const base = new Image();
@@ -118,14 +114,10 @@ export function EmailGenApp() {
       base.src = baseUrl;
     });
 
-  // Generate the hero banner: an agent composes a no-text prompt from the brief,
-  // an image model renders it; a logo is a reference or a PNG overlay.
   const generateHero = async () => {
     setGenning(true);
     setGenError("");
     try {
-      // A chosen banner preset drives the visual style; fill its {SUBJECT} from
-      // the email fields. Empty → the agent composes freely.
       let presetTemplate = "";
       if (heroPreset) {
         const p = PRESETS.find((x) => x.id === heroPreset);
@@ -172,7 +164,6 @@ export function EmailGenApp() {
     set("steps", s);
   };
 
-  // Apply brief-extracted fields (keys match EmailDraft) to the draft.
   const applyBrief = (fields: Record<string, string>) => {
     const allow: (keyof EmailDraft)[] = [
       "name",
@@ -197,7 +188,6 @@ export function EmailGenApp() {
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,420px)_1fr]">
-      {/* ── Form ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-5">
         <header>
           <p className="ds-overline text-accent-green">Email</p>
@@ -226,8 +216,6 @@ export function EmailGenApp() {
           onApply={applyBrief}
           onGenerate={(r) => {
             applyBrief(r.fields);
-            // Email has no separate AI backend — "generate" fills fields and
-            // uses the generation prompt as the body when none was extracted.
             if (!r.fields.body && r.generationPrompt) {
               setDraft((d) => ({ ...d, body: r.generationPrompt }));
             }
@@ -339,7 +327,6 @@ export function EmailGenApp() {
           </div>
         </div>
 
-        {/* Hero image + dark theme */}
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
@@ -393,7 +380,6 @@ export function EmailGenApp() {
           </div>
         </div>
 
-        {/* AI hero generation + logo */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <label className="mb-1.5 block ds-label">Шаблон баннера</label>
           <select
@@ -561,7 +547,6 @@ export function EmailGenApp() {
         ) : null}
       </div>
 
-      {/* ── Live email preview ───────────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center gap-2 ds-caption">
           <Mail className="h-4 w-4" /> Предпросмотр письма
@@ -572,7 +557,6 @@ export function EmailGenApp() {
   );
 }
 
-// Render **highlighted** spans in the accent colour (simple bold markdown).
 function renderMd(text: string, accent: string): React.ReactNode {
   return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
     const m = /^\*\*([^*]+)\*\*$/.exec(p);
@@ -588,8 +572,6 @@ function renderMd(text: string, accent: string): React.ReactNode {
 
 const PAYMENTS = ["VISA", "Mastercard", "Skrill", "NETELLER", "Yandex", "QIWI", "Trustly"];
 
-// Rich promo email template rendered live from the draft — dark iGaming look
-// (hero, big gradient CTAs, bonus steps, payments) or a clean light layout.
 function EmailPreview({ draft }: { draft: EmailDraft }) {
   const accent = /^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : "#22c55e";
   const dark = draft.dark;
@@ -611,15 +593,12 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-[#e9edf2] p-4 sm:p-6">
-      {/* Inbox meta */}
       <div className="mb-3 px-1">
         <p className="truncate text-sm font-semibold text-[#111827]">{draft.subject || "Без темы"}</p>
         <p className="truncate text-xs text-[#4b5563]">{draft.preheader}</p>
       </div>
 
-      {/* Email body */}
       <div className="mx-auto max-w-[500px] overflow-hidden rounded-2xl shadow-sm" style={{ background: bg }}>
-        {/* Hero */}
         {draft.heroImage ? (
           <img src={draft.heroImage} alt="" className="block h-auto w-full" draggable={false} />
         ) : (
@@ -637,7 +616,6 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
           </div>
         )}
 
-        {/* Headline + primary CTA */}
         <div className="px-6 pb-2 pt-6 text-center">
           <h2 className="text-2xl font-extrabold uppercase leading-tight" style={{ color: textMain }}>
             {renderMd(draft.heroTitle || "Заголовок акции", accent)}
@@ -650,13 +628,11 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
           {draft.ctaText ? <div className="mt-4">{<Cta label={draft.ctaText} />}</div> : null}
         </div>
 
-        {/* Body */}
         <div className="px-6 py-5">
           <p className="whitespace-pre-line text-center text-sm leading-relaxed" style={{ color: textMuted }}>
             {renderMd(draft.body || "Текст письма появится здесь.", accent)}
           </p>
 
-          {/* Bonus steps */}
           {draft.steps?.filter(Boolean).length ? (
             <div className="mt-5">
               <p className="mb-3 text-center text-sm font-extrabold uppercase" style={{ color: textMain }}>
@@ -683,7 +659,6 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
           {draft.bonusCtaText ? <div className="mt-5">{<Cta label={draft.bonusCtaText} />}</div> : null}
         </div>
 
-        {/* App + payments (dark promo only) */}
         <div className="px-6 pb-5" style={{ borderTop: `1px solid ${divider}` }}>
           <p className="mb-3 mt-4 text-center text-xs font-bold uppercase tracking-wide" style={{ color: textMuted }}>
             Download our mobile app
@@ -712,7 +687,6 @@ function EmailPreview({ draft }: { draft: EmailDraft }) {
             </div>
           </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 text-center" style={{ background: footerBg, borderTop: `1px solid ${divider}` }}>
           <p className="text-[11px] leading-relaxed" style={{ color: textMuted }}>
             {draft.footer}

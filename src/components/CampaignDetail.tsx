@@ -137,7 +137,6 @@ export function CampaignDetail() {
         </div>
       </header>
 
-      {/* KPI tiles */}
       <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {KPI_DEFS.map((k) => (
           <div key={k.key} className="ds-card rounded-xl p-4">
@@ -149,7 +148,6 @@ export function CampaignDetail() {
         ))}
       </section>
 
-      {/* Trend chart */}
       <section className="ds-card mt-4 rounded-2xl p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="ds-h4">Динамика</p>

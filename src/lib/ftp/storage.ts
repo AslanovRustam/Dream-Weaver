@@ -18,9 +18,9 @@ export type ImageKind = "master" | "resize";
 export type ImageFormat = "png" | "jpg";
 
 export interface UploadResult {
-  url: string; // public HTTPS URL
-  ftpPath: string; // absolute path on FTP server
-  filename: string; // bare filename
+  url: string;
+  ftpPath: string;
+  filename: string;
 }
 
 function getBasePath(): string {
@@ -53,7 +53,7 @@ function dateStamp(now = new Date()): string {
 }
 
 function randomSuffix(): string {
-  return randomBytes(4).toString("hex"); // 8 hex chars
+  return randomBytes(4).toString("hex");
 }
 
 export interface BuildPathArgs {

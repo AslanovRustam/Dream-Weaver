@@ -31,7 +31,7 @@ export async function POST(request: Request) {
               : msg.includes("forbidden")
                 ? 403
                 : msg.includes("grace_period_expired")
-                  ? 410 // Gone
+                  ? 410
                   : 500;
             console.error("restore_card rpc failed", error);
             return Response.json({ error: msg }, { status });

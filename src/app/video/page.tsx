@@ -6,7 +6,6 @@ import { VideoGenApp } from "@/components/VideoGenApp";
 import { useAuth } from "@/lib/auth-context";
 
 export default function VideoPage() {
-  // Public for guests — see components/AuthGate.
   const { loading } = useAuth();
 
   if (loading) {

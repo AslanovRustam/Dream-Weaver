@@ -22,7 +22,7 @@ function playReelRoll(ctx: Ctx, duration: number) {
   let t = 0;
   while (t < duration - 0.05) {
     tick(ctx, start + t);
-    t += 0.06; // steady mechanical roll
+    t += 0.06;
   }
 }
 function playWin(ctx: Ctx) {
@@ -43,17 +43,15 @@ function playWin(ctx: Ctx) {
 }
 
 const REELS = 3;
-const VISIBLE = 3; // rows in the window; the centre row is the payline
-const BASE = 24; // resting strip offset (cells)
-const REPEATS = 60; // total copies of the symbol list stacked in each reel
-const DUR = [2.4, 2.9, 3.4]; // per-reel spin seconds (staggered stops)
+const VISIBLE = 3;
+const BASE = 24;
+const REPEATS = 60;
+const DUR = [2.4, 2.9, 3.4];
 const PAD = 12;
 const GAP = 8;
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
-// Interactive slot machine. Spins three reels to a random outcome (or a forced
-// win) and reports {win, symbol, index} via onResult after the reels settle.
 export function SlotMachine({
   symbols,
   symbolImages,
@@ -118,7 +116,7 @@ export function SlotMachine({
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const CHROME = 122; // bulbs + payline rounding + SPIN lever + paddings around the reels
+    const CHROME = 122;
     const measure = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
@@ -166,7 +164,7 @@ export function SlotMachine({
     }
 
     const newPos = pos.map((p, i) => {
-      const spins = (4 + i) * len; // farther reels travel more turns
+      const spins = (4 + i) * len;
       const delta = mod(targets[i] - mod(p, len), len);
       return p + spins + delta;
     });
@@ -174,7 +172,6 @@ export function SlotMachine({
     setPos(newPos);
 
     window.setTimeout(() => {
-      // Normalise back into the resting range without animating (same symbol mod).
       setDur([0, 0, 0]);
       setPos(newPos.map((p) => BASE * len + mod(p, len)));
       setSpinning(false);
@@ -183,7 +180,6 @@ export function SlotMachine({
     }, DUR[REELS - 1] * 1000 + 250);
   };
 
-  // Spin when a parent bumps spinSignal (skip the initial value).
   const lastSignal = useRef(spinSignal);
   useEffect(() => {
     if (spinSignal !== lastSignal.current) {
@@ -197,7 +193,6 @@ export function SlotMachine({
 
   return (
     <div ref={wrapRef} className="relative mx-auto flex h-full w-full max-w-[420px] flex-col items-center justify-center select-none">
-      {/* Mute toggle */}
       <button
         type="button"
         onClick={() => setMuted((m) => !m)}
@@ -207,7 +202,6 @@ export function SlotMachine({
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
 
-      {/* Cabinet */}
       <div
         className="rounded-[20px] p-[3px]"
         style={{
@@ -219,7 +213,6 @@ export function SlotMachine({
           className="rounded-[18px] p-3"
           style={{ background: "linear-gradient(180deg, #1b1030, #0c0718)" }}
         >
-          {/* Marquee bulbs */}
           <div className="mb-2 flex justify-center gap-1.5">
             {Array.from({ length: 7 }).map((_, i) => (
               <span
@@ -230,7 +223,6 @@ export function SlotMachine({
             ))}
           </div>
 
-          {/* Reels window */}
           <div
             className="relative overflow-hidden rounded-xl"
             style={{
@@ -281,7 +273,6 @@ export function SlotMachine({
               ))}
             </div>
 
-            {/* Top/bottom fade for depth */}
             <div
               className="pointer-events-none absolute inset-x-0 top-0"
               style={{ height: cell, background: "linear-gradient(180deg, rgba(5,3,8,.95), transparent)" }}
@@ -291,7 +282,6 @@ export function SlotMachine({
               style={{ height: cell, background: "linear-gradient(0deg, rgba(5,3,8,.95), transparent)" }}
             />
 
-            {/* Payline (centre row) */}
             <div
               className="pointer-events-none absolute inset-x-1 z-10 rounded-md"
               style={{
@@ -301,7 +291,6 @@ export function SlotMachine({
                 boxShadow: `0 0 14px ${accent}aa, inset 0 0 12px ${accent}55`,
               }}
             />
-            {/* Payline arrows */}
             <div
               className="pointer-events-none absolute left-[-2px] z-10"
               style={{
@@ -326,7 +315,6 @@ export function SlotMachine({
             />
           </div>
 
-          {/* SPIN lever */}
           <button
             type="button"
             onClick={spin}

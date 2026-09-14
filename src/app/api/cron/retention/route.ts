@@ -14,12 +14,11 @@ import { logSystem } from "@/lib/logger";
 // basic-ftp opens raw sockets — must run on the Node.js runtime, never Edge.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Generous ceiling — a retention pass deletes FTP files for expired cards.
 export const maxDuration = 300;
 
 function isAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false; // fail closed if the secret isn't configured
+  if (!secret) return false;
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 

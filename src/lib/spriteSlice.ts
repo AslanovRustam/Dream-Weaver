@@ -47,7 +47,7 @@ export async function sliceIconGrid(imageDataUrl: string, cols: number, rows: nu
       try {
         return await trimTransparent(tile);
       } catch {
-        return tile; // trimming is best-effort — an untrimmed tile is still usable
+        return tile;
       }
     }),
   );

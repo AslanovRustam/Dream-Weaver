@@ -14,8 +14,6 @@ import {
   getStats,
 } from "@/lib/ads";
 
-// Hub band that ties the ad-accounts feature into the home page: a live 30-day
-// snapshot when cabinets are connected, or a connect CTA when none are.
 export function HubAdsPanel() {
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
   const [ready, setReady] = useState(false);
@@ -27,7 +25,6 @@ export function HubAdsPanel() {
 
   const stats = useMemo(() => getStats({ accounts, days: 30 }), [accounts]);
 
-  // Avoid a first-paint flash of the empty state before localStorage is read.
   if (!ready) return null;
 
   const connected = accounts.length > 0;
@@ -53,7 +50,6 @@ export function HubAdsPanel() {
 
       {connected ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-          {/* Live snapshot → Статистика */}
           <Link
             href="/stats"
             className="group relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] p-5 transition-all hover:-translate-y-0.5 hover:border-accent-green/60 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.35)]"
@@ -78,7 +74,6 @@ export function HubAdsPanel() {
             </span>
           </Link>
 
-          {/* Connected cabinets → /ads */}
           <Link
             href="/ads"
             className="group flex flex-col justify-between gap-4 rounded-2xl border border-border bg-[var(--bg-surface)] p-5 transition-all hover:-translate-y-0.5 hover:border-accent-green/60 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.35)]"
@@ -111,7 +106,6 @@ export function HubAdsPanel() {
           </Link>
         </div>
       ) : (
-        // Connect CTA when nothing is linked yet.
         <div className="flex flex-col items-start gap-5 overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-green/15 text-accent-green">
@@ -159,7 +153,6 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Lightweight inline sparkline (no chart lib on the Hub). Lime stroke + fade.
 function Sparkline({ values }: { values: number[] }) {
   if (values.length < 2) return null;
   const w = 100;

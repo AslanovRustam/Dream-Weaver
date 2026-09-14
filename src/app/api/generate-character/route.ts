@@ -13,11 +13,8 @@ import { optionalUser } from "@/lib/auth-server";
 import { recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
-// gpt-image can take ~20–30s per image; keep the function alive long enough.
 export const maxDuration = 300;
 
-// Same engine as the banner master (see generate-image/route.ts) — top
-// quality, token-billed, fast, and supports i2i edits for the reference path.
 const CHARACTER_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 
 type Body = { prompt?: string; reference_image?: string };
@@ -60,8 +57,6 @@ export async function POST(request: Request) {
   let res: Response;
   try {
     if (hasReference) {
-      // i2i via /v1/images/edits — the reference is a real input image, not
-      // just prose. Fetch/decode it into a Blob for the multipart form.
       const refResp = await fetch(reference);
       const refBuf = Buffer.from(await refResp.arrayBuffer());
       const refType = reference.match(/^data:([^;]+);/)?.[1] || "image/png";
@@ -129,8 +124,6 @@ export async function POST(request: Request) {
   if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
   const imageUrl = `data:image/png;base64,${b64}`;
 
-  // Best-effort per-user log. OpenAI's images API returns no usage.cost, so we
-  // record the event with cost 0 (the себестоимость readout can't reflect $).
   const authed = await optionalUser(request);
   if (authed) {
     await recordUsage(authed.id, {

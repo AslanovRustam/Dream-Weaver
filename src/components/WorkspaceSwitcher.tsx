@@ -32,7 +32,6 @@ export function WorkspaceSwitcher({
   const t = useT();
   const { workspaces, activeId, active, ready } = useWorkspace();
 
-  // Hidden until the store has loaded (and for guests, who have no spaces).
   if (!ready || workspaces.length === 0) return null;
 
   return (

@@ -52,7 +52,6 @@ export type PlayableInput = {
   ctaText: string;
   duration: "short" | "medium";
   ratio: string;
-  // mechanic-specific
   reels: number;
   slotSymbols: string[];
   wheelPrizes: string[];

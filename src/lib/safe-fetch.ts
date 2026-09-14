@@ -13,7 +13,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 
 export class UnsafeUrlError extends Error {}
@@ -37,27 +37,26 @@ export function isBlockedIp(ip: string): boolean {
     const p = ip.split(".").map(Number);
     if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
     const [a, b] = p;
-    if (a === 0 || a === 10 || a === 127) return true; // 0/8, 10/8, loopback
-    if (a === 169 && b === 254) return true; // link-local + 169.254.169.254 metadata
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
-    if (a === 192 && b === 168) return true; // 192.168/16
-    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 CGNAT
-    if (a >= 224) return true; // multicast / reserved
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a >= 224) return true;
     return false;
   }
   if (v === 6) {
     const lower = ip.toLowerCase();
-    if (lower === "::1" || lower === "::") return true; // loopback / unspecified
-    if (lower.startsWith("fe80")) return true; // link-local
-    if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // ULA fc00::/7
+    if (lower === "::1" || lower === "::") return true;
+    if (lower.startsWith("fe80")) return true;
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
     if (lower.startsWith("::ffff:")) {
-      // IPv4-mapped IPv6 → re-check the embedded v4.
       const v4 = lower.slice("::ffff:".length);
       if (isIP(v4) === 4) return isBlockedIp(v4);
     }
     return false;
   }
-  return true; // not a valid IP literal → block
+  return true;
 }
 
 /**
@@ -133,7 +132,7 @@ export async function safeFetchImage(raw: string): Promise<{ buffer: Buffer; mim
 // would just break normal sites (bare-domain→www, http→https are near-universal
 // redirects); blindly following redirects would let a same-origin-on-request-
 // #1 URL still bounce to an internal target on hop #2.
-const MAX_HTML_BYTES = 3 * 1024 * 1024; // 3 MB — plenty for a homepage <head>
+const MAX_HTML_BYTES = 3 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
 async function assertPublicHost(hostname: string): Promise<void> {

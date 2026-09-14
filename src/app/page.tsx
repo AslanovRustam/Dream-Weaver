@@ -73,12 +73,9 @@ const HUB_ANIM = `
 @media (prefers-reduced-motion: reduce) { .hub-in { animation: none; } }
 `;
 
-// Preset → category lookup for the showcase filter chips.
 const PRESET_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
 
-// Shared dark base for the three illustrated mocks so they read as one family
-// (the banner is a real image, tied in by the shared grade overlay in SectionTile).
 const PREVIEW_BASE = "bg-gradient-to-br from-[#141a2b] via-[#0d1120] to-[#0a0d15]";
 
 // Colourful, illustrative preview for each tool — NOT skeleton placeholders, so
@@ -143,7 +140,6 @@ function TilePreview({ sectionId }: { sectionId: string }) {
     );
   }
   if (sectionId === "email") {
-    // A mini email envelope mock: white card with a brand bar, hero and CTA.
     return (
       <div className={`flex h-full w-full items-center justify-center ${PREVIEW_BASE} p-5`}>
         <div className="w-full max-w-[220px] overflow-hidden rounded-lg bg-white shadow-lg">
@@ -165,7 +161,6 @@ function TilePreview({ sectionId }: { sectionId: string }) {
       </div>
     );
   }
-  // Landing — a colourful stylised landing mock (nav + hero + CTA + cards).
   return (
     <div className={`flex h-full w-full flex-col ${PREVIEW_BASE}`}>
       <div className="flex items-center justify-between px-4 pt-4">
@@ -193,11 +188,8 @@ function TilePreview({ sectionId }: { sectionId: string }) {
   );
 }
 
-// MVP: только эти инструменты доступны (единый источник — lib/mvp). Остальные
-// показываем серыми «Скоро», зайти в них нельзя (сайдбар/хаб/переключатель).
 const MVP_ENABLED = MVP_ENABLED_SECTION_IDS;
 
-// A quick-start tile: full-bleed preview with the section label + CTA overlaid.
 function SectionTile({
   section,
   featured,
@@ -210,7 +202,6 @@ function SectionTile({
   const Icon = section.icon;
   const soon = !MVP_ENABLED.has(section.id);
 
-  // Disabled ("Скоро") — greyed, not a button, no navigation.
   if (soon) {
     return (
       <div
@@ -306,8 +297,6 @@ function SectionTile({
       >
         <div className="w-full min-w-0">
           <div className="flex items-center gap-2.5">
-            {/* Accent icon chip: violet on the featured tile, lime on the rest —
-                a small brand pop that anchors the title's hierarchy. */}
             <span
               className={`flex shrink-0 items-center justify-center rounded-lg backdrop-blur-sm ${
                 featured
@@ -327,8 +316,6 @@ function SectionTile({
             {section.description}
           </p>
         </div>
-        {/* Primary CTA on every tile — solid lime that brightens and picks up a
-            lime glow on hover (single accent); the arrow nudges forward. */}
         <span
           className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:bg-[var(--accent-hover)] group-hover:shadow-glow-lime ${
             featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
@@ -344,7 +331,6 @@ function SectionTile({
   );
 }
 
-// Small thumbnail used by both the "recent" and "popular" horizontal rows.
 function Thumb({
   preview,
   gradient,
@@ -384,9 +370,6 @@ export default function HubPage() {
   useEffect(() => {
     document.title = "GenGO";
   }, []);
-
-  // Public for guests: the Hub is the shop window. Data-loading effects below
-  // stay gated on isAuthenticated, so a guest simply sees no personal blocks.
 
   // Best-effort name for the greeting. Fails silently (e.g. the dev-bypass build
   // where /api/me is unauthenticated) → generic greeting.
@@ -470,7 +453,6 @@ export default function HubPage() {
     };
   }, [loading, isAuthenticated, activeId]);
 
-  // Close the search dropdown on outside click.
   useEffect(() => {
     if (!searchFocused) return;
     const onDown = (e: MouseEvent) => {
@@ -483,7 +465,6 @@ export default function HubPage() {
   }, [searchFocused]);
 
   const q = query.trim().toLowerCase();
-  // MVP: search only surfaces templates for enabled tools (banner/landing).
   const templateResults = useMemo(
     () => searchTemplates(query, 24).filter((t) => MVP_ENABLED.has(t.sectionId)).slice(0, 6),
     [query],
@@ -503,7 +484,6 @@ export default function HubPage() {
     setSearchFocused(false);
     router.push(`/banner?card=${id}`);
   };
-  // Prompt-first hero → hand the idea to the banner generator (read on its mount).
   const submitHubPrompt = () => {
     const v = hubPrompt.trim();
     if (v) {
@@ -515,12 +495,9 @@ export default function HubPage() {
     }
     router.push("/banner");
   };
-  // Quick tool chips under the prompt bar.
   const TOOL_CHIPS = ["banner", "video", "landing", "playable", "email"]
     .map((id) => SECTION_BY_ID.get(id as Section["id"]))
     .filter((x): x is Section => Boolean(x));
-  // Media showcase — real preset-banner previews, each opens that preset,
-  // filterable by category chips.
   const BANNER_TEMPLATES = ALL_TEMPLATES.filter((t) => t.sectionId === "banner" && t.preview);
   const SHOWCASE = (
     showcaseCat === "all"
@@ -537,8 +514,6 @@ export default function HubPage() {
   }
 
   const bannerSection = SECTION_BY_ID.get("banner")!;
-  // The quick-start grid is for the generative tools only. Ads/stats/mailing are
-  // management surfaces and live in their own bands below.
   const CREATE_IDS = new Set(["landing", "playable", "video", "email"]);
   const otherSections = SECTIONS.filter((s) => CREATE_IDS.has(s.id));
   const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
@@ -568,7 +543,6 @@ export default function HubPage() {
       </div>
 
       <div className="relative mx-auto max-w-6xl px-4 py-6 sm:py-8">
-        {/* ── Greeting + search ─────────────────────────────────────────── */}
         {/* .hub-in animates transform with fill-mode:both, which leaves this
             element owning a stacking context forever — so the search dropdown
             inside it can only rise above the tiles if the WHOLE hero is lifted
@@ -585,7 +559,6 @@ export default function HubPage() {
             месте.
           </p>
 
-          {/* Prompt-first: type an idea → the banner generator opens prefilled. */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -613,7 +586,6 @@ export default function HubPage() {
             </div>
           </form>
 
-          {/* Tool quick chips */}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {TOOL_CHIPS.map((sc) => {
               const Icon = sc.icon;
@@ -649,8 +621,6 @@ export default function HubPage() {
 
           <p className="mx-auto mt-7 max-w-md ds-caption">Или найдите готовый шаблон</p>
 
-          {/* Same shared scrim every other dropdown in the product uses — here
-              on desktop too, so the results separate from the tiles behind. */}
           <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
           <div ref={searchRef} className="relative mt-4 text-left">
             <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 shadow-[0_8px_28px_-18px_rgba(0,0,0,0.8)] transition focus-within:border-accent-green focus-within:shadow-[0_0_0_4px_rgba(198,255,61,0.10)] focus-within:ring-1 focus-within:ring-accent-green">
@@ -763,15 +733,11 @@ export default function HubPage() {
             ) : null}
           </div>
 
-          {/* First-visit nudge — fills the space that "Недавние проекты" takes
-              for returning users, and points at the tools right below it. */}
           {showOnboarding ? (
             <div
               className="hub-in mt-5 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
               style={{ "--d": "90ms" } as React.CSSProperties}
             >
-              {/* Single-accent lime icon tile (the system's feature-icon tile) —
-                  no two-tone gradient, which isn't a system pattern for icons. */}
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
                 <Sparkles className="h-4 w-4" />
               </span>
@@ -785,13 +751,10 @@ export default function HubPage() {
           ) : null}
         </div>
 
-        {/* ── Quick start (asymmetric: banner featured) ─────────────────── */}
         {/* Large bottom margin sets a clear break before "Недавние проекты"
             (primary action → secondary content). A compact top margin and a
             shorter grid keep all four tiles inside the first desktop viewport. */}
         <div className="mt-6 mb-16 sm:mt-6 sm:mb-20">
-          {/* The banner column is deliberately wider (1.35fr) — it is the primary
-              tool; the other three share the remaining space as secondary. */}
           <div className="grid grid-cols-1 gap-4 lg:h-[420px] lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2">
             <div
               className="hub-in lg:col-start-1 lg:row-span-2"
@@ -808,8 +771,6 @@ export default function HubPage() {
                 key={s.id}
                 style={{ "--d": `${170 + i * 55}ms` } as React.CSSProperties}
                 className={`hub-in ${
-                  // 2×2 grid of generative tools beside the featured banner:
-                  // landing c2r1, playable c3r1, video c2r2, email c3r2.
                   i === 0
                     ? "lg:col-start-2 lg:row-start-1"
                     : i === 1
@@ -825,7 +786,6 @@ export default function HubPage() {
           </div>
         </div>
 
-        {/* ── Витрина примеров: real preset previews → open in the generator ─ */}
         <section className="hub-in mt-14" style={{ "--d": "220ms" } as React.CSSProperties}>
           <div className="mb-4 flex items-end justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -887,15 +847,13 @@ export default function HubPage() {
           </div>
         </section>
 
-        {/* MVP: реклама и рассылки — «Скоро», вход скрыт на время демо.
+        {/* MVP: ads and mailings are «Скоро» (coming soon) — entry points hidden
+        for the demo.
         <HubAdsPanel />
         <HubMailingPanel /> */}
 
-        {/* ── Recent projects (only when the user has some) ─────────────── */}
         {recent.length > 0 ? (
           <section className="hub-in mt-12" style={{ "--d": "300ms" } as React.CSSProperties}>
-            {/* System section header: feature icon in a lime-tinted tile +
-                overline label above the heading. */}
             <div className="mb-4 flex items-center gap-3">
               <span className="ds-feature-icon h-9 w-9 shrink-0">
                 <Clock className="h-4 w-4" />
@@ -940,7 +898,6 @@ export default function HubPage() {
           </section>
         ) : null}
 
-        {/* ── Popular templates (MOCK — see lib/hubTemplates) ───────────── */}
         <section className="hub-in mt-12" style={{ "--d": "340ms" } as React.CSSProperties}>
           <div className="mb-4 flex items-center gap-3">
             <span className="ds-feature-icon h-9 w-9 shrink-0">
@@ -987,7 +944,6 @@ export default function HubPage() {
           </div>
         </section>
 
-        {/* ── Help / support entry, surfaced on the Hub ─────────────────── */}
         <section
           className="hub-in mb-2 mt-12"
           style={{ "--d": "380ms" } as React.CSSProperties}
@@ -1004,8 +960,6 @@ export default function HubPage() {
                 </p>
               </div>
             </div>
-            {/* Full-width stacked buttons on mobile (same pattern as the Help
-                page); inline auto-width row from sm up. */}
             <div className="flex w-full shrink-0 flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap">
               <Link
                 href="/help"

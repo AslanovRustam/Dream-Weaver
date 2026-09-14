@@ -69,7 +69,6 @@ const TYPE_PLURAL: Record<ProjectType, string> = {
 // the FavToggle component are kept intact — flip to true to bring it back.
 const SHOW_FAVORITES = false;
 
-// ── main ────────────────────────────────────────────────────────────────────
 export function HistoryApp() {
   const router = useRouter();
   const goBack = useSmartBack("/account");
@@ -77,7 +76,6 @@ export function HistoryApp() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-4 pb-24 sm:py-8">
-      {/* Header: back → previous screen (entry-aware), title, tabs */}
       <BackButton onClick={goBack} className="-ml-2 mb-4" />
       <h1 className="ds-h1 sm:text-3xl">История</h1>
 
@@ -113,12 +111,11 @@ export function HistoryApp() {
   );
 }
 
-// ── Tab 1: projects ───────────────────────────────────────────────────────────
 function ProjectsTab() {
   const router = useRouter();
   const { user } = useAuth();
   const { activeId, workspaces } = useWorkspace();
-  const [projects, setProjects] = useState<Project[] | null>(null); // null = loading
+  const [projects, setProjects] = useState<Project[] | null>(null);
   const [q, setQ] = useState("");
   const [type, setType] = useState<ProjectType | "all">("all");
   const [sort, setSort] = useState<SortKey>("new");
@@ -126,7 +123,7 @@ function ProjectsTab() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [bucket, setBucket] = useState<"active" | "trash">("active");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [visible, setVisible] = useState(12); // client-side pagination (infinite scroll)
+  const [visible, setVisible] = useState(12);
   const [filterSheet, setFilterSheet] = useState(false);
 
   // Load projects for the ACTIVE workspace. Real banners when available are
@@ -177,7 +174,6 @@ function ProjectsTab() {
     return list;
   }, [projects, q, type, favoritesOnly, bucket, sort]);
 
-  // Reset pagination + selection when filters change.
   useEffect(() => {
     setVisible(12);
     setSelected(new Set());
@@ -185,7 +181,6 @@ function ProjectsTab() {
 
   const page = filtered.slice(0, visible);
 
-  // Infinite scroll.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -200,7 +195,6 @@ function ProjectsTab() {
     return () => obs.disconnect();
   }, [filtered.length]);
 
-  // Mutations (optimistic; fire real API for real items, best-effort).
   const patch = (id: string, fn: (p: Project) => Project) =>
     setProjects((prev) => (prev ? prev.map((p) => (p.id === id ? fn(p) : p)) : prev));
 
@@ -213,7 +207,6 @@ function ProjectsTab() {
     if (!clean) return;
     const target = projects?.find((x) => x.id === id);
     patch(id, (x) => ({ ...x, name: clean }));
-    // Persist for real cards (was local-only, so renames reverted on reload).
     if (target?.real) apiJson(`/api/history/${id}`, { method: "PATCH", json: { name: clean } }).catch(() => {});
   };
   const duplicate = (p: Project) => {
@@ -232,12 +225,9 @@ function ProjectsTab() {
   };
   const restore = (p: Project) => {
     patch(p.id, (x) => ({ ...x, deleted: false }));
-    // Persist for real cards (restore endpoint takes one card_id).
     if (p.real) apiJson("/api/history/restore", { method: "POST", json: { card_id: p.id } }).catch(() => {});
     toast.success("Восстановлено");
   };
-  // Permanent delete has no backend endpoint yet (only soft bulk-delete +
-  // restore exist), so this stays local until one lands.
   const hardDelete = (p: Project) => {
     setProjects((prev) => (prev ? prev.filter((x) => x.id !== p.id) : prev));
     setSelected((s) => { const n = new Set(s); n.delete(p.id); return n; });
@@ -261,7 +251,6 @@ function ProjectsTab() {
       toast("Открытие проектов этого типа скоро — пока доступны баннеры");
       return;
     }
-    // Mock/demo cards: just open the matching generator fresh.
     router.push(SECTION_BY_ID.get(p.type)!.route);
   };
   // Read-only card detail (hero + resizes). Banner-only for now, which is also
@@ -274,13 +263,10 @@ function ProjectsTab() {
     const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
     setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: true } : p)) : prev));
     setSelected(new Set());
-    // Persist for real cards (was optimistic-only, so a bulk trash reverted on reload).
     if (realIds.length) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: realIds } }).catch(() => {});
     toast(`Перемещено в корзину: ${ids.size}`);
   };
 
-  // Trash-bucket bulk actions (the bar previously offered only "В корзину" even
-  // inside the trash, where it was a no-op).
   const confirm = useConfirm();
 
   const bulkRestore = () => {
@@ -288,7 +274,6 @@ function ProjectsTab() {
     const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
     setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: false } : p)) : prev));
     setSelected(new Set());
-    // Restore endpoint takes one card_id — fire per real card.
     realIds.forEach((id) =>
       apiJson("/api/history/restore", { method: "POST", json: { card_id: id } }).catch(() => {}),
     );
@@ -300,17 +285,15 @@ function ProjectsTab() {
     const ids = new Set(selected);
     setProjects((prev) => (prev ? prev.filter((p) => !ids.has(p.id)) : prev));
     setSelected(new Set());
-    // No permanent-delete endpoint yet — local only.
     toast(`Удалено навсегда: ${ids.size}`);
   };
 
   const isMobile = useIsMobile();
   const activeFilters = (type !== "all" ? 1 : 0) + (SHOW_FAVORITES && favoritesOnly ? 1 : 0) + (bucket === "trash" ? 1 : 0);
-  const effectiveView: ViewMode = isMobile ? "list" : view; // mobile is always list
+  const effectiveView: ViewMode = isMobile ? "list" : view;
 
   return (
     <div>
-      {/* Controls */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -351,7 +334,6 @@ function ProjectsTab() {
           </button>
         </div>
 
-        {/* Desktop inline controls */}
         <div className="hidden items-center gap-3 sm:flex">
           <TypePills type={type} onType={setType} />
           <div className="ml-auto flex items-center gap-2">
@@ -363,7 +345,6 @@ function ProjectsTab() {
         </div>
       </div>
 
-      {/* Body */}
       {projects === null ? (
         <div className="py-20 text-center text-sm text-muted-foreground">Загрузка…</div>
       ) : filtered.length === 0 ? (
@@ -399,14 +380,11 @@ function ProjectsTab() {
         </>
       )}
 
-      {/* Bulk bar */}
       {selected.size > 0 ? (
         <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
           <div className="flex items-center gap-2 rounded-full border border-border bg-popover px-3 py-2 shadow-xl">
             <span className="px-1 text-sm">Выделено: {selected.size}</span>
             {bucket === "trash" ? (
-              // In the trash bucket the useful bulk actions are restore and
-              // permanent delete — not another "В корзину" (which was a no-op).
               <>
                 <button
                   type="button"
@@ -441,7 +419,6 @@ function ProjectsTab() {
         </div>
       ) : null}
 
-      {/* Mobile filter sheet */}
       <BottomSheet open={filterSheet} onClose={() => setFilterSheet(false)} title="Фильтры и сортировка">
         <div className="flex flex-col gap-5">
           <SheetGroup label="Тип">
@@ -490,7 +467,6 @@ function toggleSel(setSelected: React.Dispatch<React.SetStateAction<Set<string>>
   });
 }
 
-// Shared preview (image / gradient / video play overlay) + type chip.
 export function Preview({ p, rounded }: { p: Project; rounded: string }) {
   const Icon = SECTION_BY_ID.get(p.type)!.icon;
   return (
@@ -566,8 +542,6 @@ function ProjectListRow({ p, selected, onSelect, actions }: { p: Project; select
       >
         <Check className="h-3.5 w-3.5" />
       </span>
-      {/* Thumb is a compact 48px square on mobile (48×64 on ≥sm) so the name band
-          keeps more width on narrow screens without crushing photo previews. */}
       <button type="button" onClick={() => actions.openProject(p)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left sm:gap-3">
         <span className="block h-12 w-12 shrink-0 sm:w-16">
           <Preview p={p} rounded="h-full w-full rounded-md" />
@@ -614,7 +588,6 @@ function EditableName({ p, editing, setEditing, onRename }: { p: Project; editin
   return <p className="truncate text-sm font-medium leading-tight">{p.name}</p>;
 }
 
-// ⋯ menu — desktop anchored popover + mobile bottom sheet, one open state.
 function RowMenu({ p, onRename, actions }: { p: Project; onRename: () => void; actions: CardActions }) {
   const confirm = useConfirm();
   const inTrash = p.deleted;
@@ -676,8 +649,6 @@ function ProjectsEmpty({ bucket, filtered }: { bucket: "active" | "trash"; filte
   }
   return (
     <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center">
-      {/* Violet anticipation accent, consistent with the generators' empty
-          states; the lime lives on the CTA below. */}
       <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:var(--violet-tint)] text-brand-violet shadow-glow-violet">
         <LayoutGrid className="h-7 w-7" />
       </span>
@@ -735,7 +706,6 @@ function mapCreditRow(r: CreditTxRow): CreditTx {
   };
 }
 
-// ── Tab 2: credits ────────────────────────────────────────────────────────────
 function CreditsTab() {
   const router = useRouter();
   const { user } = useAuth();
@@ -781,7 +751,6 @@ function CreditsTab() {
 
   return (
     <div>
-      {/* Summary */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -810,7 +779,6 @@ function CreditsTab() {
         </div>
       </div>
 
-      {/* Filter */}
       <div className="mt-5 flex items-center gap-1.5">
         {(
           [
@@ -830,7 +798,6 @@ function CreditsTab() {
         ))}
       </div>
 
-      {/* List */}
       {loading ? (
         <div className="mt-6 rounded-2xl border border-dashed border-border py-16 text-center ds-caption">
           Загрузка…
@@ -884,7 +851,6 @@ function CreditRow({ t, onProject }: { t: CreditTx; onProject?: () => void }) {
   );
 }
 
-// ── small controls ────────────────────────────────────────────────────────────
 export function TypePills({ type, onType, wrap }: { type: ProjectType | "all"; onType: (v: ProjectType | "all") => void; wrap?: boolean }) {
   const base = "min-h-9 rounded-lg px-3 text-sm font-medium transition";
   return (
@@ -982,9 +948,6 @@ function BucketToggle({ bucket, onBucket, full }: { bucket: "active" | "trash"; 
     </div>
   );
 }
-
-// BottomSheet now lives in @/components/ui/bottom-sheet (shared with
-// RowActionMenu); imported above.
 
 function SheetGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (

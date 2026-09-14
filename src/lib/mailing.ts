@@ -19,29 +19,27 @@ export interface EmailDraft {
   subject: string;
   preheader: string;
   brand: string;
-  brandMode: "text" | "logo"; // show brand as text name or as an uploaded logo
+  brandMode: "text" | "logo";
   style: EmailStyle;
-  accent: string; // hex — drives CTA gradient + **highlights**
-  dark: boolean; // dark iGaming promo look vs light
-  heroImage: string; // data URL (optional hero banner)
-  logo: string; // data URL (brand logo)
-  logoMode: "reference" | "overlay"; // logo as generation reference or PNG overlay
+  accent: string;
+  dark: boolean;
+  heroImage: string;
+  logo: string;
+  logoMode: "reference" | "overlay";
   heroTitle: string;
   heroSubtitle: string;
-  body: string; // supports **bold accent** markers
-  steps: string[]; // "how to claim the bonus" steps
-  ctaText: string; // primary CTA (e.g. PLAY NOW)
+  body: string;
+  steps: string[];
+  ctaText: string;
   ctaUrl: string;
-  bonusCtaText: string; // secondary CTA (e.g. GET BONUS)
+  bonusCtaText: string;
   footer: string;
-  unsubscribeUrl: string; // link for the unsubscribe button
-  updatedAt: string; // ISO
+  unsubscribeUrl: string;
+  updatedAt: string;
 }
 
 const DRAFTS_KEY = "dw_email_drafts";
 
-// Empty draft — the constructor starts blank; "Заполнить автоматически" loads a
-// sample. A sensible theme/accent is kept so the empty preview isn't broken.
 export function newDraft(): EmailDraft {
   return {
     id: "draft_" + Math.random().toString(36).slice(2, 9),
@@ -69,7 +67,6 @@ export function newDraft(): EmailDraft {
   };
 }
 
-// Sample iGaming promo content for the "Заполнить автоматически" button.
 export function sampleDraft(id: string): EmailDraft {
   return {
     id,
@@ -133,8 +130,6 @@ export function deleteDraft(id: string): EmailDraft[] {
   return list;
 }
 
-// --- Audiences (static mock) -----------------------------------------------
-
 export interface Audience {
   id: string;
   name: string;
@@ -151,8 +146,6 @@ export const AUDIENCES: Audience[] = [
 
 export const AUDIENCE_BY_ID = new Map(AUDIENCES.map((a) => [a.id, a]));
 
-// --- Campaigns -------------------------------------------------------------
-
 export type CampaignStatus = "draft" | "scheduled" | "sent";
 
 export interface MailCampaign {
@@ -162,9 +155,8 @@ export interface MailCampaign {
   audienceId: string;
   status: CampaignStatus;
   recipients: number;
-  sentAt?: string; // ISO date
-  scheduledAt?: string; // local datetime string when status === "scheduled"
-  // Delivery stats (meaningful once sent).
+  sentAt?: string;
+  scheduledAt?: string;
   delivered: number;
   opens: number;
   clicks: number;
@@ -200,16 +192,15 @@ function seedSentStats(id: string, recipients: number): Pick<MailCampaign, "deli
   const r = rng(hash(id));
   const bounceRate = 0.005 + r() * 0.02;
   const delivered = Math.round(recipients * (1 - bounceRate));
-  const openRate = 0.18 + r() * 0.32; // 18–50%
+  const openRate = 0.18 + r() * 0.32;
   const opens = Math.round(delivered * openRate);
-  const ctor = 0.06 + r() * 0.16; // click-to-open
+  const ctor = 0.06 + r() * 0.16;
   const clicks = Math.round(opens * ctor);
   const unsub = Math.round(delivered * (0.001 + r() * 0.004));
   const bounce = recipients - delivered;
   return { delivered, opens, clicks, unsub, bounce };
 }
 
-// A few baseline "sent" campaigns so the cabinet isn't empty on first visit.
 const BASE_CAMPAIGNS: MailCampaign[] = [
   { seed: "Приветственный бонус — Все", audienceId: "all", dayAgo: 2, name: "Приветственный бонус 100%" },
   { seed: "VIP кэшбэк — VIP", audienceId: "vip", dayAgo: 5, name: "VIP-кэшбэк недели" },
@@ -319,15 +310,13 @@ export function processDueCampaigns(): void {
   if (changed) saveUserCampaigns(list);
 }
 
-// --- Overview stats --------------------------------------------------------
-
 export interface MailKpis {
   sent: number;
   delivered: number;
   opens: number;
   clicks: number;
-  openRate: number; // %
-  ctr: number; // % (clicks / delivered)
+  openRate: number;
+  ctr: number;
   unsub: number;
   bounce: number;
 }
@@ -354,7 +343,6 @@ export function getMailOverview(days: number): MailOverview {
     ctr: agg.delivered ? (agg.clicks / agg.delivered) * 100 : 0,
   };
 
-  // Seeded daily opens/clicks so the trend chart has shape.
   const series: MailOverview["series"] = [];
   const base = Math.max(1, Math.round(agg.opens / days));
   for (let i = days - 1; i >= 0; i--) {
@@ -366,8 +354,6 @@ export function getMailOverview(days: number): MailOverview {
   }
   return { totals, series };
 }
-
-// --- Formatting ------------------------------------------------------------
 
 export function fmtInt(n: number): string {
   return Math.round(n).toLocaleString("ru-RU");

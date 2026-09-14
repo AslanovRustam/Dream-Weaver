@@ -72,7 +72,7 @@ const sweep: ReturnType<typeof setInterval> = setInterval(() => {
 
 /** Per inbound image field. Blocks the "POST a 100 MB dataURL" OOM vector
  *  while staying generous for real masters/logos/screenshots. */
-export const MAX_DATAURL_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_DATAURL_BYTES = 20 * 1024 * 1024;
 
 /** Approximate decoded byte length of a `data:...;base64,XXXX` URL. */
 export function dataUrlByteLength(dataUrl: string): number {

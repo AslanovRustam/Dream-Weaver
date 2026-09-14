@@ -36,7 +36,6 @@ export type Preset = {
   fields?: TemplateField[];
 };
 
-// ---- Reusable field library (shared across templates) ----------------------
 const FIELD_SHOW_ODDS: TemplateField = {
   id: "showOdds",
   type: "checkbox",
@@ -61,8 +60,6 @@ const FIELD_SPORT: TemplateField = {
     { value: "esports", label: "Киберспорт", prompt: "Sport context: esports." },
   ],
 };
-// Reusable field library shared across presets. "Авто" options carry no prompt,
-// so they leave the template's own look untouched.
 const FIELD_MATCH_MOMENT: TemplateField = {
   id: "moment",
   type: "select",
@@ -520,8 +517,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       FIELD_BONUS_BADGE,
     ],
   },
-  // ── Betting-native templates (sportsbook domain) — plain `template` strings
-  //    routed through adaptPrompt like the others. ──
   {
     id: "preset16",
     fields: [FIELD_WIN_CALLOUT, FIELD_SHOW_ODDS],
@@ -748,8 +743,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "COLOR: dark base + betting green + lime accent. " +
       "AVOID: fake garbled numbers, cluttered corners, unreadable text.",
   },
-  // ── Top-10 most-bet-on sports — sport-specific betting banner templates.
-  //    Environments mirror the server SPORT_BG map for authenticity. ──
   {
     id: "preset26",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
@@ -1249,7 +1242,6 @@ type Category = {
   presetIds: string[];
 };
 
-// Mutually exclusive — every preset lives in exactly one category (no cross-listing).
 export const CATEGORIES: Category[] = [
   {
     id: "gambling",
@@ -1265,11 +1257,9 @@ export const CATEGORIES: Category[] = [
       "preset11",
       "preset12",
       "preset15",
-      // Moved from the retired "Betting" category: Событие, Приветственный бонус, Кэшаут.
       "preset3",
       "preset20",
       "preset25",
-      // New archetypes sourced from шаблоны/ (see comment above PRESETS entries).
       "preset36",
       "preset38",
       "preset40",
@@ -1297,7 +1287,6 @@ export const CATEGORIES: Category[] = [
       "preset32",
       "preset33",
       "preset35",
-      // Rest of the retired "Betting" category.
       "preset14",
       "preset16",
       "preset17",
@@ -1305,7 +1294,6 @@ export const CATEGORIES: Category[] = [
       "preset19",
       "preset23",
       "preset24",
-      // New archetypes sourced from шаблоны/ (see comment above PRESETS entries).
       "preset37",
       "preset39",
     ],
@@ -1402,7 +1390,6 @@ export function PresetSidebar({ value, onChange }: Props) {
   const [catMenuOpen, setCatMenuOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [draftCategory, setDraftCategory] = useState("all");
-  // Gallery layout: 2-per-row (compact default) or 1-per-row (bigger preview).
   const [viewMode, setViewMode] = useState<PresetLayout>("grid2");
 
   const q = query.trim().toLowerCase();
@@ -1428,7 +1415,6 @@ export function PresetSidebar({ value, onChange }: Props) {
     setCatMenuOpen(false);
   };
 
-  // Close the filter dropdown when clicking anywhere outside it.
   const filterRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!filterOpen) return;
@@ -1519,8 +1505,6 @@ export function PresetSidebar({ value, onChange }: Props) {
           </div>
         )}
 
-        {/* Mobile overlay behind the category dropdown (same shared pattern as
-            the header menus). Desktop keeps the plain popover. */}
         <MobileScrim open={filterOpen} onClose={closeFilter} />
         {filterOpen && (
           <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
@@ -1546,8 +1530,6 @@ export function PresetSidebar({ value, onChange }: Props) {
                           key={opt.id}
                           type="button"
                           onClick={() => {
-                            // Apply immediately on click (no separate "Применить"
-                            // step) — matches Canva/Abyssale-style instant filters.
                             setDraftCategory(opt.id);
                             setCategoryFilter(opt.id);
                             closeFilter();

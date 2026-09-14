@@ -52,7 +52,7 @@ export async function notifyLowBalanceIfNeeded(userId: string, balance: number):
       .eq("type", "low_balance")
       .gte("created_at", since)
       .limit(1);
-    if (recent && recent.length) return; // already nudged recently
+    if (recent && recent.length) return;
     await notify(userId, {
       type: "low_balance",
       title: "Мало кредитов",

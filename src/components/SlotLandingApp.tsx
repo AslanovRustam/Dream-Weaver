@@ -83,8 +83,6 @@ export function SlotLandingApp() {
   const [headline, setHeadline] = useState("SPIN TO WIN!");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#818cf8");
-  // Landing is always dark — no light-mode toggle (kept as a const so the
-  // rest of the file, and the persisted draft shape, need no other changes).
   const dark = true;
   const [ctaText, setCtaText] = useState("SPIN");
   const [ctaUrl, setCtaUrl] = useState("");
@@ -92,7 +90,6 @@ export function SlotLandingApp() {
     "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
   );
   const [bgImage, setBgImage] = useState("");
-  // Two independent, optional character slots — one on each side of the machine.
   const [chars, setChars] = useState<{ left: string; right: string }>({ left: "", right: "" });
   const [charPrompts, setCharPrompts] = useState<{ left: string; right: string }>({
     left: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
@@ -112,7 +109,6 @@ export function SlotLandingApp() {
     r.onload = () => setSymbolRef(String(r.result));
     r.readAsDataURL(f);
   };
-  // Ordered, guaranteed-win bonus sequence — see DEFAULT_ATTEMPTS above.
   const [attempts, setAttempts] = useState<string[]>(DEFAULT_ATTEMPTS);
   // Mirrors SlotMachine's own internal spin counter (via onSpinsChange) so
   // the external CTA button below the reel can disable/relabel itself once
@@ -120,8 +116,6 @@ export function SlotLandingApp() {
   // source of truth since it also gates its own internal lever.
   const [attemptIndex, setAttemptIndex] = useState(0);
   const attemptIndexRef = useRef(0);
-  // Every non-empty bonus text collected across the whole sequence so far —
-  // the FINAL win popup lists all of them together, not just the last one.
   const wonBonusesRef = useRef<string[]>([]);
   const [won, setWon] = useState<{
     symbol: string;
@@ -149,7 +143,6 @@ export function SlotLandingApp() {
   // banner's palette/mood instead of being invented from text alone.
   const [bannerRef, setBannerRef] = useState("");
 
-  // Persist the whole landing (config + generated images).
   const [restored, setRestored] = useState(false);
   // Mount-time hydration (draft restore + banner-seed override, below) must
   // run EXACTLY once. React StrictMode double-invokes effects in dev; without
@@ -269,7 +262,7 @@ export function SlotLandingApp() {
       setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
-        setBgImage(bannerImg); // instant preview while the real generation runs
+        setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
       void generateBg(bgPrompt, bannerImg || undefined);
@@ -343,7 +336,6 @@ export function SlotLandingApp() {
     attempts,
   ]);
 
-  // Bonus sequence — arbitrary length, one guaranteed-win bonus text each.
   const setAttemptBonus = (i: number, bonus: string) =>
     setAttempts((a) => a.map((v, idx) => (idx === i ? bonus : v)));
   const addAttempt = () => setAttempts((a) => (a.length < 20 ? [...a, ""] : a));
@@ -554,7 +546,6 @@ export function SlotLandingApp() {
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,400px)_1fr]">
-      {/* ── Config ─────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <header>
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -669,7 +660,6 @@ export function SlotLandingApp() {
           )}
         </Field>
 
-        {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
@@ -705,7 +695,6 @@ export function SlotLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
-        {/* Characters (optional) — up to two, one flanking each side */}
         <div className="rounded-xl border border-border bg-background/40 p-3">
           <label className="ds-h4">
             Персонажи{" "}
@@ -724,8 +713,6 @@ export function SlotLandingApp() {
             preview of whatever the reel currently shows. */}
         <div>
           <label className="mb-2 block ds-h4">Символы барабанов</label>
-          {/* AI-generated icon set: one call draws the whole grid, then we
-              slice it into individual symbol images below. */}
           <div className="mb-3 rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="ds-h4">Иконки символов (ИИ)</span>
@@ -832,7 +819,6 @@ export function SlotLandingApp() {
           </div>
         </div>
 
-        {/* Bonus sequence — arbitrary length, one guaranteed-win bonus per attempt */}
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="ds-h4">Бонусы по попыткам</label>
@@ -924,7 +910,6 @@ export function SlotLandingApp() {
         </button>
       </div>
 
-      {/* ── Live landing preview ───────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="ds-caption">Предпросмотр лендинга</p>
@@ -969,7 +954,6 @@ export function SlotLandingApp() {
               style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${dark ? "#160d29" : "#ffe9a8"}` }}
             />
           )}
-          {/* Darkening for legibility */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
 
           {/* Characters — anchored to the VIEWPORT bottom (crop bleeds off the edge). */}
@@ -1060,8 +1044,6 @@ export function SlotLandingApp() {
             ) : null}
           </div>
 
-          {/* Win modal — every spin is a guaranteed win; the bonus text and
-              button come from how many spins have happened, not the symbol. */}
           {won !== null ? (
             <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
               <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">

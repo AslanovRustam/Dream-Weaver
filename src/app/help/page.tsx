@@ -217,8 +217,6 @@ export default function HelpPage() {
     if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, []);
 
-  // Searching auto-expands every matching answer; clearing collapses them all.
-  // Computed from the source data (not derived render state) so it stays stable.
   useEffect(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
@@ -244,8 +242,6 @@ export default function HelpPage() {
   const noResults = q.length > 0 && filteredGroups.length === 0;
 
   const goBack = () => {
-    // "Назад" returns to the previous section; if the page was opened directly
-    // (no in-app history), fall back to the Hub instead of a dead click.
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/");
   };
@@ -256,8 +252,6 @@ export default function HelpPage() {
       <AppHeader />
       <AppShell>
 
-      {/* Decorative aurora + fading dot-grid, same brand backdrop as the Hub.
-          aria-hidden, no pointer events, sits behind content by DOM order. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-[440px] overflow-hidden"
@@ -269,7 +263,6 @@ export default function HelpPage() {
       <div className="relative mx-auto max-w-3xl px-4 pt-4 pb-6 sm:py-8">
         <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
-        {/* ── Hero: heading + knowledge-base search ─────────────────────────── */}
         <header className="text-center">
           <span className="ds-overline ds-overline-accent">Центр поддержки</span>
           <h1 className="ds-h1 mt-3">Как мы можем помочь?</h1>
@@ -302,7 +295,6 @@ export default function HelpPage() {
           </div>
         </header>
 
-        {/* ── FAQ ───────────────────────────────────────────────────────────── */}
         <section className="mt-10">
           <h2 className="ds-h3 mb-4">Частые вопросы</h2>
 
@@ -357,7 +349,6 @@ export default function HelpPage() {
           )}
         </section>
 
-        {/* ── Ways to reach support ─────────────────────────────────────────── */}
         <section id="contact" className="mt-10 scroll-mt-24">
           <h2 className="ds-h3 mb-1">Не нашли ответ?</h2>
           <p className="mb-4 text-sm text-muted-foreground">
@@ -387,7 +378,6 @@ export default function HelpPage() {
           </div>
         </section>
 
-        {/* ── Feedback form (mock submit) ───────────────────────────────────── */}
         <section className="mt-6 mb-4">
           <SupportForm />
         </section>
@@ -397,8 +387,6 @@ export default function HelpPage() {
   );
 }
 
-// A single "way to reach us" card. Available channels get a lime feature-icon
-// and a CTA; upcoming ones get a neutral icon and a "Скоро" pill instead.
 function ContactCard({
   icon: Icon,
   title,
@@ -506,7 +494,6 @@ function SupportForm() {
       return;
     }
     setStatus("sending");
-    // Simulated send. Swap for the real API call when the backend is ready.
     await new Promise((r) => setTimeout(r, 900));
     setStatus("sent");
   };
@@ -521,7 +508,6 @@ function SupportForm() {
       </CardHeader>
       <CardContent>
         {status === "sent" ? (
-          // ── Submission status ──────────────────────────────────────────────
           <div className="flex flex-col items-center py-4 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
               <CheckCircle2 className="h-6 w-6" />

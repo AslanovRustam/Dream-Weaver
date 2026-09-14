@@ -61,7 +61,6 @@ type Status = "idle" | "loading" | "done" | "error";
 
 const ACCENT = "#d4ff3d";
 
-// Shrinks an uploaded image to a data URL (mirrors the banner/landing handling).
 function compressImageFile(file: File | null, setter: (v: string) => void, maxPx = 256) {
   if (!file) return;
   const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
@@ -124,7 +123,6 @@ export function PlayableGenApp() {
   const [language, setLanguage] = useState("auto");
   const [alwaysWin, setAlwaysWin] = useState(true);
   const [ctaText, setCtaText] = useState("");
-  // Map brief-extracted fields into the playable form.
   const applyBrief = (f: Record<string, string>) => {
     if (f.subject) setOffer(f.subject);
     if (f.brand) setBrandName(f.brand);
@@ -133,7 +131,6 @@ export function PlayableGenApp() {
   const [duration, setDuration] = useState<"short" | "medium">("short");
   const [ratio, setRatio] = useState("9:16");
 
-  // mechanic-specific
   const [reels, setReels] = useState(3);
   const [customSymbols, setCustomSymbols] = useState(false);
   const [slotSymbols, setSlotSymbols] = useState<string[]>(["", "", ""]);
@@ -164,7 +161,6 @@ export function PlayableGenApp() {
       : { w: 1280, h: 800 },
   );
 
-  // Collapsible settings sections (accordion), shared pattern across generators.
   const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false, lang: false });
   const toggleSec = (id: keyof typeof openSec) => setOpenSec((p) => ({ ...p, [id]: !p[id] }));
 
@@ -181,8 +177,6 @@ export function PlayableGenApp() {
     setLanguage(b.language || "auto");
   }, []);
 
-  // Signal unsaved work (a typed offer or a generated result not yet saved) so
-  // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
     const dirty = offer.trim() !== "" || result !== null;
     setUnsavedWork(dirty ? "playable" : null);
@@ -191,7 +185,6 @@ export function PlayableGenApp() {
 
   const confirm = useConfirm();
 
-  // Track the viewport so the fullscreen playable can be scaled to fit it.
   useEffect(() => {
     const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener("resize", onResize);
@@ -229,7 +222,6 @@ export function PlayableGenApp() {
   const wheelCount = wheelPrizes.map((p) => p.trim()).filter(Boolean).length;
   const quizCount = quizAnswers.map((a) => a.trim()).filter(Boolean).length;
   const mechanicValid = mechanic === "wheel" ? wheelCount >= 2 : mechanic === "quiz" ? quizCount >= 2 : true;
-  // Guests keep the button enabled so pressing it opens the register modal.
   const canGenerate =
     isGuest || (offer.trim().length > 0 && mechanicValid && status !== "loading");
 
@@ -265,7 +257,6 @@ export function PlayableGenApp() {
   };
 
   const onGenerate = async () => {
-    // Guests may configure freely; generating needs an account.
     if (isGuest) {
       openGate();
       return;
@@ -303,7 +294,7 @@ export function PlayableGenApp() {
         quizCorrect,
         match3Moves,
       });
-      if (genCancelledRef.current) return; // cancelled while generating — drop it
+      if (genCancelledRef.current) return;
       setResult(res);
       setGenId((n) => n + 1);
       setStatus("done");
@@ -349,8 +340,6 @@ export function PlayableGenApp() {
   };
 
   const removeResult = async () => {
-    // Confirm before destroying a finished, unsaved creative — matches Banner
-    // and Landing; Playable was deleting on a single click.
     if (result && !(await confirm({ title: "Удалить готовый плейбл?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     setResult(null);
     setStatus("idle");
@@ -358,14 +347,11 @@ export function PlayableGenApp() {
     toast("Плейбл удалён");
   };
 
-  // Regenerate replaces a finished result — confirm first. First-time generation
-  // (no result yet) goes straight through onGenerate with no prompt.
   const regenerate = async () => {
     if (result && !(await confirm({ title: "Перегенерировать?", body: "Текущий плейбл будет заменён.", confirmLabel: "Перегенерировать" }))) return;
     onGenerate();
   };
 
-  // Preview frame size from the chosen ratio + device toggle.
   function frame() {
     const [rw, rh] = ratio.split(":").map(Number);
     if (rw === rh) {
@@ -401,7 +387,7 @@ export function PlayableGenApp() {
       baseW = Math.round((base * rw) / rh);
     }
     const availW = Math.max(1, vp.w - 32);
-    const availH = Math.max(1, vp.h - 88); // top bar + vertical padding
+    const availH = Math.max(1, vp.h - 88);
     const scale = Math.min(availW / baseW, availH / baseH);
     return { baseW, baseH, scale };
   }
@@ -416,12 +402,10 @@ export function PlayableGenApp() {
       <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Плейбл-реклама</h1>
 
-        {/* COLUMN 1 — mechanic picker */}
         <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
           <MechanicSidebar value={mechanic} onSelect={selectMechanic} />
         </div>
 
-        {/* COLUMN 2 — settings */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
@@ -523,8 +507,6 @@ export function PlayableGenApp() {
                 open={openSec.lang}
                 onToggle={() => toggleSec("lang")}
               >
-                {/* Язык ТЕКСТА в плейбле — локальная настройка раздела, не связана
-                    с языком интерфейса (тот переключается в шапке). */}
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
@@ -745,7 +727,6 @@ export function PlayableGenApp() {
                 open={openSec.format}
                 onToggle={() => toggleSec("format")}
               >
-              {/* Always-win toggle */}
               <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background/40 p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Результат всегда выигрышный</p>
@@ -754,7 +735,6 @@ export function PlayableGenApp() {
                 <Switch checked={alwaysWin} onChange={setAlwaysWin} />
               </div>
 
-              {/* CTA text */}
               <div className="mt-4">
                 <label className="mb-2 block ds-label">
                   Текст CTA на финальном экране{" "}
@@ -770,7 +750,6 @@ export function PlayableGenApp() {
                 />
               </div>
 
-              {/* Duration */}
               <div className="mt-4">
                 <label className="mb-2 block ds-label">Длительность взаимодействия</label>
                 <div className="flex gap-2">
@@ -791,7 +770,6 @@ export function PlayableGenApp() {
                 </div>
               </div>
 
-              {/* Aspect ratio */}
               <div className="mt-4">
                 <label className="mb-2 block ds-label">Соотношение сторон</label>
                 <div className="flex gap-2">
@@ -815,7 +793,6 @@ export function PlayableGenApp() {
             </div>
           </div>
 
-          {/* Mobile sticky primary */}
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
@@ -833,7 +810,6 @@ export function PlayableGenApp() {
           </div>
         </section>
 
-        {/* COLUMN 3 — result */}
         <div
           className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""
@@ -881,7 +857,6 @@ export function PlayableGenApp() {
             />
           ) : result ? (
             <div className="flex flex-col gap-3">
-              {/* Device toggle + ⋯ */}
               <div className="flex items-center justify-between gap-2">
                 <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
                   <button
@@ -963,7 +938,6 @@ export function PlayableGenApp() {
                 </div>
               </div>
 
-              {/* Interactive preview */}
               <div className="flex justify-center rounded-2xl border border-border bg-card p-3">
                 <div
                   className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl transition-all"
@@ -980,7 +954,6 @@ export function PlayableGenApp() {
                 </div>
               </div>
 
-              {/* Actions under preview */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -1071,8 +1044,6 @@ export function PlayableGenApp() {
   );
 }
 
-// ---- shared bits ------------------------------------------------------------
-
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -1143,8 +1114,6 @@ function IconUpload({
     </div>
   );
 }
-
-// ---- left column: mechanic picker with looped animated previews -------------
 
 const ANIM_CSS = `
 @keyframes pl-roll{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
@@ -1268,8 +1237,6 @@ function MechanicSidebar({
           fits), only the middle settings column scrolls. Mobile: full-screen
           tab, keep scrollable. */}
       <div className="flex-1 overflow-y-auto p-3 lg:overflow-hidden">
-        {/* Full-width vertical list on every breakpoint (consistent with the
-            other sections' template pickers — no horizontal carousel). */}
         <div className="flex flex-col gap-3">
           {shown.map((m) => {
             const active = value === m.id;

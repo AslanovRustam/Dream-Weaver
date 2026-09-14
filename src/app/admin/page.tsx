@@ -83,8 +83,6 @@ interface SettingFieldSpec {
   options?: string[];
 }
 
-// UI metadata for every supported app_settings key. Keys not listed
-// here render as a read-only text row with a "недокументировано" hint.
 const SETTING_SPECS: Record<string, SettingFieldSpec> = {
   retention_cards_months: {
     kind: "number",
@@ -370,7 +368,6 @@ function TemplatesTab() {
           Добавить шаблон
         </Button>
       </div>
-      {/* Editing is a desktop task (spec) — mobile is read-only. */}
       <p className="text-sm text-muted-foreground lg:hidden">
         Добавление и редактирование шаблонов доступно в десктопной версии.
       </p>
@@ -625,8 +622,6 @@ function OverviewTab() {
   );
 }
 
-// KPI tile, per the design system: overline label on top, then the big
-// tabular figure beneath it.
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[color:var(--border-subtle)] bg-card p-5">
@@ -645,7 +640,6 @@ function UsersTab() {
   const [target, setTarget] = useState<UserRow | null>(null);
   const [roleTarget, setRoleTarget] = useState<UserRow | null>(null);
 
-  // 300ms debounce so each keystroke doesn't smash the API.
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 300);
     return () => clearTimeout(t);
@@ -737,8 +731,6 @@ function UsersTab() {
                         <Button size="sm" variant="outline" onClick={() => setRoleTarget(u)}>
                           Роль
                         </Button>
-                        {/* The main operational action — lime so it doesn't get
-                            lost among the secondary row buttons. */}
                         <Button size="sm" onClick={() => setTarget(u)}>
                           Кредиты
                         </Button>
@@ -1009,8 +1001,6 @@ function PricingTab() {
       setRows(data.items);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
-      // Resolve rows on error so the "Загрузка…" text clears and the error
-      // shows alone (it was rendering underneath a stuck spinner).
       setRows([]);
     } finally {
       setLoading(false);
@@ -1026,7 +1016,6 @@ function PricingTab() {
     (rows ?? []).forEach((r) => {
       (out[r.model] ||= []).push(r);
     });
-    // Stable order within each model.
     const order = ["low", "medium", "high"];
     Object.values(out).forEach((arr) =>
       arr.sort((a, b) => order.indexOf(a.quality) - order.indexOf(b.quality)),
@@ -1134,7 +1123,6 @@ function SettingsTab() {
       setDraft(d);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Ошибка загрузки");
-      // Resolve rows on error so "Загрузка…" clears and the error shows alone.
       setRows([]);
     } finally {
       setLoading(false);
@@ -1289,7 +1277,6 @@ function SettingField({
   } else if (spec.kind === "string") {
     input = <Input value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />;
   } else {
-    // number / number_or_never
     input = (
       <Input
         type="number"
@@ -1724,7 +1711,6 @@ function TokensLogsView() {
 
   return (
     <div className="space-y-3">
-      {/* filters */}
       <div className="flex flex-wrap gap-2">
         <select
           value={msgFilter}
@@ -2406,7 +2392,6 @@ function UsageTab() {
   );
 }
 
-// Broadcast a system announcement to every user (POST /api/admin/notifications).
 function AnnouncementsTab() {
   const confirm = useConfirm();
   const [title, setTitle] = useState("");

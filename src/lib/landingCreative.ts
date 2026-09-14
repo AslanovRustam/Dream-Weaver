@@ -78,10 +78,10 @@ export async function trimTransparent(dataUrl: string): Promise<string> {
         }
       }
     }
-    if (maxX < minX || maxY < minY) return dataUrl; // fully transparent
+    if (maxX < minX || maxY < minY) return dataUrl;
     const cw = maxX - minX + 1;
     const ch = maxY - minY + 1;
-    if (cw === w && ch === h) return dataUrl; // already tight
+    if (cw === w && ch === h) return dataUrl;
     const out = document.createElement("canvas");
     out.width = cw;
     out.height = ch;
@@ -170,7 +170,6 @@ function removeBackgroundColorKey(dataUrl: string): Promise<string> {
       const d = imgData.data;
       const N = w * h;
 
-      // Backdrop colour = average of ALL border pixels (robust to a noisy corner).
       let br = 0,
         bg = 0,
         bb = 0,
@@ -194,7 +193,7 @@ function removeBackgroundColorKey(dataUrl: string): Promise<string> {
       bg /= cnt;
       bb /= cnt;
 
-      const THR = 64 * 64 * 3; // per-channel ~64 — kills vignette halo, keeps a contrasting character
+      const THR = 64 * 64 * 3;
       const dist2 = (i: number) => {
         const dr = d[i] - br,
           dg = d[i + 1] - bg,
@@ -202,7 +201,6 @@ function removeBackgroundColorKey(dataUrl: string): Promise<string> {
         return dr * dr + dg * dg + db * db;
       };
 
-      // Border flood-fill: remove connected background within THR.
       const visited = new Uint8Array(N);
       const stack: number[] = [];
       const seed = (p: number) => {
@@ -231,7 +229,6 @@ function removeBackgroundColorKey(dataUrl: string): Promise<string> {
         if (y < h - 1) seed(p + w);
       }
 
-      // Enclosed pockets (arm↔torso gaps) the border flood can't reach.
       for (let p = 0; p < N; p++) {
         const i = p * 4;
         if (d[i + 3] !== 0 && dist2(i) <= THR) d[i + 3] = 0;

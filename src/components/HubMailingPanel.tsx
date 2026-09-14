@@ -6,8 +6,6 @@ import { ArrowRight, Mail, Send } from "lucide-react";
 
 import { fmtInt, fmtPct, getDrafts, getMailOverview } from "@/lib/mailing";
 
-// Hub band for the email-mailing feature: a 30-day opens/clicks snapshot plus an
-// entry to the email generator.
 export function HubMailingPanel() {
   const [ready, setReady] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
@@ -41,7 +39,6 @@ export function HubMailingPanel() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-        {/* Snapshot → Кабинет рассылок */}
         <Link
           href="/mailing"
           className="group relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] p-5 transition-all hover:-translate-y-0.5 hover:border-accent-green/60 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.35)]"
@@ -66,7 +63,6 @@ export function HubMailingPanel() {
           </span>
         </Link>
 
-        {/* Compose entry → Генератор писем */}
         <Link
           href="/email"
           className="group flex flex-col justify-between gap-4 rounded-2xl border border-border bg-[var(--bg-surface)] p-5 transition-all hover:-translate-y-0.5 hover:border-accent-green/60 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.35)]"

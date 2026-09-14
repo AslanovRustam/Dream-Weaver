@@ -186,7 +186,6 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
     const preset = PRESETS.find((p) => p.id === payload.preset_id);
     const subject = payload.prompt.trim();
 
-    // apiFetch injects Authorization: Bearer <supabase access_token>.
     const res = await apiFetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -228,7 +227,6 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
         side_b_players: payload.side_b_players || "",
         quality: payload.quality || "medium",
         template_options: payload.template_options || "",
-        // Resize batch — only sent when present.
         source_image: payload.source_image,
         target_w: payload.target_w,
         target_h: payload.target_h,
@@ -273,12 +271,9 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
       }
       if (res.status === 422) {
         const detail = (data as { detail?: string }).detail || "";
-        // 422 from our server is always a provider content-policy block.
         throw new Error(CONTENT_FILTER_PREFIX + describeProviderError(detail, 422));
       }
       if (res.status === 400) {
-        // OpenAI returns 400 (not 422) for safety_violations=[sexual] on
-        // image edits. Detect by checking the detail string.
         const detail = (data as { detail?: string }).detail || "";
         const isSafetyBlock =
           detail.includes("safety_violations") ||
@@ -292,8 +287,6 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
       if (res.status === 502) {
         const errCode = String(data.error || "");
         const detail = (data as { detail?: string }).detail || errCode || "";
-        // Safety violation: OpenAI returns 400 to the server, server wraps
-        // it as 502. Detect by scanning the forwarded detail string.
         if (
           detail.includes("safety_violations") ||
           detail.includes("safety system") ||
@@ -301,14 +294,12 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
         ) {
           throw new Error(CONTENT_FILTER_PREFIX + describeProviderError(detail, 502));
         }
-        // No-image / generic provider errors get a clean message too.
         throw new Error(describeProviderError(detail, 502));
       }
       throw new Error(data.error ? String(data.error) : `HTTP ${res.status}`);
     }
     const elapsed = Date.now() - startedAt;
     const usage = data.usage ? { ...data.usage, elapsed_ms: elapsed } : null;
-    // Successful generation just spent credits — refresh the header chip.
     refreshMe();
     return {
       image: data.image,
@@ -376,8 +367,6 @@ export async function cropAndResize(
   let cropH = srcH;
 
   if (diff < 0.02) {
-    // Aspect already matches — full image, plain scale. Equivalent to
-    // Sharp's { fit: 'fill' }.
     cropW = srcW;
     cropH = srcH;
   } else {
@@ -396,7 +385,6 @@ export async function cropAndResize(
         : { width: Math.max(1, Math.round(longSide * targetAspect)), height: longSide };
 
     try {
-      // Convert normalised boost rects to source-pixel rects.
       const pixelBoost = (boost ?? []).map((b) => ({
         x: Math.round(b.x * srcW),
         y: Math.round(b.y * srcH),
@@ -417,7 +405,6 @@ export async function cropAndResize(
           ...(pixelBoost.length > 0 ? { boost: pixelBoost } : {}),
         } as unknown as Parameters<typeof smartcrop.crop>[1],
       );
-      // smartcrop's topCrop is given in SOURCE image coordinates.
       cropX = Math.max(0, Math.round(result.topCrop.x));
       cropY = Math.max(0, Math.round(result.topCrop.y));
       cropW = Math.min(srcW - cropX, Math.round(result.topCrop.width));

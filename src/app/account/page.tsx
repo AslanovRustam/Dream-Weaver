@@ -43,7 +43,6 @@ type Profile = {
 
 type MeResponse = { profile: Profile; is_super_admin: boolean };
 
-// Mobile splits the account into these three tabs; desktop keeps one scroll.
 type AccountTab = "credits" | "subscription" | "account";
 
 // Local dev build only: /api/me is unauthenticated there, so fall back to this
@@ -64,24 +63,18 @@ const DEV_ME: MeResponse = {
   is_super_admin: false,
 };
 
-// No stock-photo default: an empty avatar renders the neutral illustrative
-// placeholder (see UserAvatar). An uploaded photo (dw:avatar) overrides it.
 const AVATAR_URL = "";
 
-// Display name derived from the real profile (same convention as AppHeader).
 function displayName(p: Profile): string {
   return (
     p.nickname || [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email || "Пользователь"
   );
 }
 
-// Soft violet + lime aurora behind the page — the premium-trial backdrop.
-// Scoped to /account; see the PREMIUM SURFACES block in globals.css.
 function Aurora() {
   return <div className="ds-aurora" aria-hidden />;
 }
 
-// Avatar wrapped in a lime→violet gradient ring with a dual-colour glow.
 function AvatarRing({ src, size = "h-16 w-16" }: { src: string; size?: string }) {
   return (
     <span
@@ -145,10 +138,8 @@ export default function AccountPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Avatar is UI-only (no endpoint yet): mirrored to localStorage.
   const [avatar, setAvatar] = useState<string>(AVATAR_URL);
   const [editOpen, setEditOpen] = useState(false);
-  // Active tab in the mobile-only tabbed layout (Кредиты / Подписка / Аккаунт).
   const [accTab, setAccTab] = useState<AccountTab>("credits");
 
   useEffect(() => {
@@ -164,7 +155,6 @@ export default function AccountPage() {
     setAvatar(dataUrl);
     try {
       window.localStorage.setItem("dw:avatar", dataUrl);
-      // Let the header (and any other tab) pick up the new photo immediately.
       window.dispatchEvent(new Event("dw:avatar"));
     } catch {
       /* ignore quota errors */
@@ -173,7 +163,6 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    // Guests are shown the register wall below — no silent bounce to /login.
     if (!isAuthenticated) return;
     let cancelled = false;
     (async () => {
@@ -182,7 +171,6 @@ export default function AccountPage() {
         if (!cancelled) setMe(data);
       } catch (e) {
         if (cancelled) return;
-        // Dev build: render a mock profile instead of the error screen.
         if (DEV_BYPASS) setMe(DEV_ME);
         else setError(e instanceof ApiError ? e.message : "Не удалось загрузить профиль");
       } finally {
@@ -309,7 +297,6 @@ export default function AccountPage() {
           ) : null}
         </header>
 
-        {/* Mobile: 3 tabs (name above stays as the section header). */}
         <div className="sm:hidden">
           <AccountTabs active={accTab} onChange={setAccTab} />
           <div className="mt-5">
@@ -329,7 +316,6 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* Desktop: single-scroll layout (unchanged). */}
         <div className="hidden sm:block">
           <div className="mb-6 grid gap-6 md:grid-cols-2">
             <CreditsCard balance={me.profile.credits_balance} />
@@ -402,8 +388,6 @@ function EditProfileModal({
     }
   }, [open, profile, avatarUrl]);
 
-  // Field labels follow the app-wide ds-label convention (13px/500), same as
-  // every generator's settings fields and this page's own read-only Email row.
   const labelCls = "mb-2 block ds-label";
 
   const submit = async () => {
@@ -443,7 +427,6 @@ function EditProfileModal({
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-          {/* Avatar + upload */}
           <div className="flex items-center gap-4">
             <AvatarRing src={avatar} />
             <button
@@ -641,7 +624,6 @@ function PasswordCard() {
               method: "POST",
               json: { new_password: pw },
             });
-            // Refresh the session so subsequent calls use a fresh token.
             await getBrowserClient().auth.refreshSession();
             setMsg({ kind: "ok", text: "Пароль обновлён" });
             setPw("");
@@ -707,7 +689,6 @@ function PasswordCard() {
   );
 }
 
-// Balance at/below which the card nudges a top-up (mirrors the header chip).
 const LOW_CREDIT_THRESHOLD = 20;
 
 function CreditsCard({ balance }: { balance: number | string }) {
@@ -734,8 +715,6 @@ function CreditsCard({ balance }: { balance: number | string }) {
             <span className="ml-1.5 text-base font-normal text-muted-foreground">кр.</span>
           </p>
         </div>
-        {/* PRIMARY action — brand-gradient fill (lime→violet), the boldest CTA
-            on the screen. */}
         <Link
           href="/billing"
           className="ds-btn ds-btn-primary min-h-11 w-full shrink-0 gap-1.5 px-4 sm:w-auto"
@@ -765,12 +744,12 @@ function UsageHistoryCard() {
   // Swap `bars` for real per-day counts once the endpoint lands.
   const DAYS = 30;
   const bars = Array.from({ length: DAYS }, (_, i) => {
-    const jitter = (Math.abs(Math.sin(i * 12.9898) * 43758.5453)) % 1; // stable 0..1
-    const weekday = i % 7 < 5 ? 1 : 0.4; // weekdays busier than weekends
-    const trend = 0.45 + 0.4 * Math.sin((i / (DAYS - 1)) * Math.PI); // rise then ease
+    const jitter = (Math.abs(Math.sin(i * 12.9898) * 43758.5453)) % 1;
+    const weekday = i % 7 < 5 ? 1 : 0.4;
+    const trend = 0.45 + 0.4 * Math.sin((i / (DAYS - 1)) * Math.PI);
     let v = 0.12 + jitter * 0.72 * weekday * trend;
-    if (i === 8 || i === 17 || i === 24) v += 0.28; // standout busy days
-    if (i === 5 || i === 14 || i === 27) v = 0.05; // quiet days
+    if (i === 8 || i === 17 || i === 24) v += 0.28;
+    if (i === 5 || i === 14 || i === 27) v = 0.05;
     return Math.max(0.05, Math.min(1, v));
   });
   const peak = bars.reduce((m, v, i) => (v > bars[m] ? i : m), 0);
@@ -789,8 +768,6 @@ function UsageHistoryCard() {
         <span className="ds-overline">История использования</span>
       </div>
       <div className="mt-auto pt-6">
-        {/* Single accent per surface: violet card → violet bars. The busiest day
-            is highlighted (brighter violet + glow); the rest are muted violet. */}
         <div className="flex h-20 items-end gap-1">
           {bars.map((h, i) => (
             <span

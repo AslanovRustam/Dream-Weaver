@@ -39,7 +39,6 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const resolver = useRef<((v: boolean) => void) | null>(null);
 
   const confirm = useCallback<ConfirmFn>((options) => {
-    // If a confirm is somehow already open, resolve it negatively first.
     resolver.current?.(false);
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;
@@ -62,7 +61,6 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           {opts?.body ? (
             <p className="mt-2 text-sm text-muted-foreground">{opts.body}</p>
           ) : null}
-          {/* One row on every breakpoint — matches the unsaved-changes modal. */}
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"

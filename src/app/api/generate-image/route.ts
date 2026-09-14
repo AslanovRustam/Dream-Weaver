@@ -154,7 +154,6 @@ type Body = {
   quality?: "low" | "medium" | "high";
   /** Compiled per-template custom-field selections (CUSTOMISATION block). */
   template_options?: string;
-  // legacy
   prompt?: string;
 };
 
@@ -340,7 +339,6 @@ function eventPrompt(args: {
   }
   lines.push(`LAYOUT: ${layout}`);
 
-  // TEXT ON BANNER
   const isSpecificLang = language && language !== "auto" && LANG_LABELS[language];
   const renderInstr = (txt: string) =>
     isSpecificLang
@@ -462,7 +460,7 @@ function sportPrompt(args: {
   brandName: string;
   hasBrandLogo: boolean;
   sportType: string;
-  matchType: string; // national | clubs | individual | auto
+  matchType: string;
   sideAName: string;
   sideBName: string;
   hasSideALogo: boolean;
@@ -837,12 +835,9 @@ async function analyzeLogo(dataUrl: string): Promise<{ hasText: boolean; wordmar
 }
 
 export async function POST(request: Request) {
-        // Correlation id stitched through every log row this handler
-        // emits — makes /admin → Логи trivial to follow request-by-request.
         const requestId = newRequestId();
         const requestStartedAt = Date.now();
 
-        // ---- Auth & balance pre-flight ----
         let authedUser: Awaited<ReturnType<typeof requireUser>>;
         try {
           authedUser = await requireUser(request);
@@ -988,14 +983,10 @@ export async function POST(request: Request) {
         const location = (body.location || "").trim().slice(0, 120);
         const bonusText = (body.bonus_text || "").trim().slice(0, 200);
         const bonusEnabled = !!body.bonus_enabled;
-        // Resize-batch source. When present, this turns the request into an
-        // adaptation of an existing banner — subject becomes optional.
         const hasSourceImage = !!(body.source_image && body.source_image.startsWith("data:"));
 
         const effectiveSubject = subject || slotName;
 
-        // subject is normally required, but source_image-driven adaptations
-        // can rely on the master banner alone (and an optional aspect hint).
         if (!effectiveSubject && !template && !hasSourceImage) {
           return Response.json({ error: "subject is required" }, { status: 400 });
         }
@@ -1139,7 +1130,6 @@ export async function POST(request: Request) {
           fidelityItems.push(`  • ${label}: "${v}"${fidelityLengthHint(v)}`);
         };
 
-        // Common fields across all presets:
         if (body.banner_text_enabled === true) pushFidelity("HEADLINE", bannerText);
         if (body.button_text_enabled === true) pushFidelity("CTA BUTTON", buttonText);
         if (subheadlineEnabled) pushFidelity("SUBHEADLINE", subheadlineText);
@@ -1505,8 +1495,6 @@ export async function POST(request: Request) {
           ].join("\n");
         }
 
-        // STRICT global language enforcement — image models often ignore language
-        // hints buried inside long prompts, so we prepend AND append a hard rule.
         const langLabelStrict = LANG_LABELS[language];
         if (langLabelStrict) {
           const head = `STRICT LANGUAGE RULE: Every single piece of rendered, readable text inside the image — headline, subheadline, body copy, CTA button, badges, callouts, numbers with captions, stickers, watermarks — MUST be written in ${langLabelStrict}. Do NOT use English or any other language for any in-image text unless the brand name itself is in that language. This rule overrides any other language inference from the brand, subject, or template.\n\n`;
@@ -1533,7 +1521,6 @@ export async function POST(request: Request) {
           if (personEnabled) {
             finalPrompt = `${finalPrompt}\n\nPEOPLE: any person shown is an adult, FULLY CLOTHED in tasteful professional or smart-casual attire, in a natural non-sexual pose. No nudity, no lingerie/swimwear, no revealing or suggestive clothing, no sexualized framing or emphasis on the body.`;
           }
-          // Logo carries a wordmark → force exact reproduction of its lettering.
           if (logoTextDirective) {
             finalPrompt = `${finalPrompt}\n\n${logoTextDirective}`;
           }
@@ -1647,8 +1634,6 @@ export async function POST(request: Request) {
           const promptForOpenAI = promptWithRefs.slice(0, 4000);
 
           if (refs.length > 0) {
-            // Image-to-image / multi-reference → /v1/images/edits with
-            // multipart form. OpenAI accepts up to 4 refs via image[].
             const form = new FormData();
             form.append("model", openAiModel);
             form.append("prompt", promptForOpenAI);
@@ -1674,7 +1659,6 @@ export async function POST(request: Request) {
               body: form,
             });
           } else {
-            // Text-to-image → /v1/images/generations.
             res = await fetch("https://api.openai.com/v1/images/generations", {
               method: "POST",
               headers: {
@@ -1687,7 +1671,6 @@ export async function POST(request: Request) {
                 size,
                 quality,
                 n: 1,
-                // Relax over-eager moderation (see edits branch above).
                 moderation: "low",
               }),
             });
@@ -1696,8 +1679,6 @@ export async function POST(request: Request) {
           const text = await res.text();
           if (!res.ok) {
             console.error("Image provider error", res.status, text);
-            // Detect common OpenAI billing / quota errors so the admin
-            // can see them in system_logs rather than hunting server stdout.
             const isQuota =
               res.status === 429 &&
               (text.includes("insufficient_quota") || text.includes("exceeded your current quota"));
@@ -1723,7 +1704,6 @@ export async function POST(request: Request) {
             );
           }
 
-          // OpenAI's /v1/images/* returns { data: [{b64_json|url}] }.
           let image: string | undefined;
           let usage: Record<string, unknown> | null = null;
           try {
@@ -1790,8 +1770,6 @@ export async function POST(request: Request) {
                   (typeof refusal === "string" && refusal) ||
                   `Провайдер заблокировал генерацию по политике безопасности (${nfr || fr}). Попробуйте другую модель или измените описание (например уберите упоминания защищённых персонажей или брендов).`;
               } else if (hasNoImagesArray && contentIsString) {
-                // Silent safety filter. The model just talks instead of
-                // generating. Translate that into a clear user message.
                 const sample = String(msgContent).trim().slice(0, 200);
                 blockReason =
                   "Провайдер вернул только текст вместо картинки — обычно это срабатывание тихого фильтра безопасности (Google Gemini делает так с защищёнными персонажами, брендами и азартной тематикой). " +
@@ -1805,7 +1783,6 @@ export async function POST(request: Request) {
                   "Модель вернула пустой ответ (без картинки и без текста). Обычно это сбой на стороне провайдера. Попробуйте ещё раз через несколько секунд или уменьшите Quality.";
               }
 
-              // Always log finish_reason — it's the most useful hint.
               console.error("No image payload", {
                 finish_reason: fr,
                 native_finish_reason: nfr,
@@ -1813,7 +1790,6 @@ export async function POST(request: Request) {
                 preview: text.slice(0, 400),
               });
             } catch {
-              /* not JSON or unexpected shape — fall through */
               console.error("No image payload (unparseable)", text.slice(0, 500));
             }
 
@@ -1836,7 +1812,6 @@ export async function POST(request: Request) {
             if (!u) return 0;
             const direct = Number(u.total_tokens);
             if (Number.isFinite(direct) && direct > 0) return direct;
-            // gpt-image-2 path: sum the components if total wasn't provided.
             const inText = Number(u.input_text_tokens) || 0;
             const inImg = Number(u.input_image_tokens) || 0;
             const outImg = Number(u.output_image_tokens) || 0;
@@ -1858,8 +1833,6 @@ export async function POST(request: Request) {
             console.error("pricing lookup failed, falling back to default", e);
           }
 
-          // Always charge at least a token-sized minimum so the system
-          // can't be abused via zero-token responses.
           const rawCharge = Math.max(totalTokens, 1) * coefficient;
           const creditsCharged = Number(rawCharge.toFixed(4));
           const usageObj = (usage as Record<string, unknown>) || {};
@@ -1910,7 +1883,6 @@ export async function POST(request: Request) {
               });
             } else {
               newBalance = Number(spendResult);
-              // Nudge the user when the balance runs low (deduped 24h inside).
               if (Number.isFinite(newBalance)) {
                 void notifyLowBalanceIfNeeded(authedUser.id, newBalance as number);
               }

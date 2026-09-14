@@ -88,9 +88,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "LLM недоступен", detail }, { status: 502 });
   }
 
-  // Real per-generation cost (себестоимость) from OpenRouter usage accounting.
   const usage = extractUsage(usageData);
-  // Per-user usage log (best-effort; only when the caller is signed in).
   const authed = await optionalUser(request);
   if (authed) {
     await recordUsage(authed.id, { model: usedModel, feature: "email-content", type: "llm", ...usage });

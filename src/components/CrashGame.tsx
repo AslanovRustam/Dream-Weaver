@@ -58,12 +58,10 @@ export function CrashGame({
   const attemptsUsedRef = useRef(0);
   const exhausted = !!maxAttempts && attemptsUsed >= maxAttempts;
 
-  // setInterval (not requestAnimationFrame) so the multiplier keeps climbing even
-  // when the page/preview is not the foreground tab (rAF is frozen there).
   const start = () => {
-    if (maxAttempts && attemptsUsedRef.current >= maxAttempts) return; // out of tries
+    if (maxAttempts && attemptsUsedRef.current >= maxAttempts) return;
     window.clearInterval(timerRef.current);
-    crashAtRef.current = 2 + Math.random() * 8; // demo: usually reachable
+    crashAtRef.current = 2 + Math.random() * 8;
     startTsRef.current = performance.now();
     phaseRef.current = "running";
     multRef.current = 1;
@@ -111,7 +109,7 @@ export function CrashGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinSignal]);
 
-  const p = Math.min(1, (mult - 1) / 9); // 0..1 progress for the rocket/curve
+  const p = Math.min(1, (mult - 1) / 9);
   const multColor = phase === "crashed" ? "#f87171" : phase === "cashed" ? "#4ade80" : accent;
   const onBtn = phase === "running" ? cashOut : start;
   const btnLabel =
@@ -125,7 +123,6 @@ export function CrashGame({
 
   return (
     <div className="relative mx-auto flex w-full max-w-[420px] select-none flex-col">
-      {/* Graph */}
       <div
         className="relative w-full overflow-hidden rounded-2xl border"
         style={{
@@ -135,7 +132,6 @@ export function CrashGame({
           boxShadow: `0 0 26px ${accent}44, 0 14px 30px rgba(0,0,0,.5)`,
         }}
       >
-        {/* rising trail line */}
         <div
           className="pointer-events-none absolute bottom-0 left-0 origin-bottom-left"
           style={{
@@ -158,7 +154,7 @@ export function CrashGame({
             transform: (() => {
               const angle = trailAngleDeg(p);
               const rad = (angle * Math.PI) / 180;
-              const dist = p * 165; // % of the rocket's own box — matches the previous travel magnitude
+              const dist = p * 165;
               const dx = dist * Math.cos(rad);
               const dy = -dist * Math.sin(rad);
               return `translate(${dx}%, ${dy}%) rotate(${ROCKET_BASELINE_DEG - angle}deg)`;
@@ -172,7 +168,6 @@ export function CrashGame({
             "🚀"
           )}
         </div>
-        {/* multiplier */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span
             className="font-extrabold tabular-nums"

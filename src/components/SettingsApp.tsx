@@ -52,7 +52,6 @@ export function SettingsApp() {
         </p>
       </div>
 
-      {/* Ad platforms */}
       <Section title="Рекламные кабинеты" icon={<KeyRound className="h-4 w-4" />}>
         {AD_PLATFORMS.map((p) => (
           <div key={p.id} className="rounded-xl border border-border bg-background/40 p-3">
@@ -87,7 +86,6 @@ export function SettingsApp() {
         ))}
       </Section>
 
-      {/* ESP */}
       <Section title="Email-рассылки (ESP)" icon={<KeyRound className="h-4 w-4" />}>
         <Field label="Провайдер">
           <select

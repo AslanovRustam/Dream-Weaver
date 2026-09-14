@@ -23,7 +23,6 @@ export async function GET(request: Request) {
             .range(offset, offset + limit - 1);
 
           if (q) {
-            // ilike across the obvious text fields.
             const like = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`;
             query = query.or(
               `email.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},nickname.ilike.${like}`,

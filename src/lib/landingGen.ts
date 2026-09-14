@@ -181,7 +181,7 @@ export const LANDING_TEMPLATE_BY_ID = new Map(
 export function bannerPresetToVertical(preset: string): LandingVertical {
   if (preset === "preset4") return "sport";
   if (preset === "preset3") return "betting";
-  return "gambling"; // preset1 (wide-angle) / preset2 (slot) / default
+  return "gambling";
 }
 
 /** The primary (first) template accent for a vertical — used when the vertical
@@ -210,8 +210,6 @@ export type LandingResult = {
   html: string;
   generatedSections: LandingSectionId[];
 };
-
-// ---- editor: language versions + editable text fields ----------------------
 
 /** Languages the landing copy is actually translated into (drive the editor's
  *  language switcher / "add language"). Other creative languages fall back. */
@@ -276,7 +274,6 @@ export function defaultTextFor(input: LandingInput, field: LandingTextField): st
   }
 }
 
-// Per-field typography. Shared, reusable across every text block.
 export type TextStyle = { fontFamily?: string; fontSize?: number; fontWeight?: number };
 export type LandingTextStyles = Partial<Record<LandingTextField, TextStyle>>;
 
@@ -311,17 +308,15 @@ export function landingStylesCss(styles: LandingTextStyles): string {
   }).join("");
 }
 
-// ---- copy dictionaries ------------------------------------------------------
-
 type Copy = {
   heroHeadline: string;
   benefitsTitle: string;
-  benefits: [string, string][]; // [title, text]
+  benefits: [string, string][];
   howtoTitle: string;
   steps: [string, string][];
   trustTitle: string;
   badges: string[];
-  reviews: [string, string][]; // [name, text]
+  reviews: [string, string][];
   ctaTitle: string;
   ctaSub: string;
   age: string;
@@ -330,8 +325,6 @@ type Copy = {
 };
 
 function copyFor(vertical: LandingVertical, lang: string): Copy {
-  // Latin-script languages fall back to EN; uk keeps Ukrainian; everything
-  // else (ru, auto, es/de/fr/pl handled above) → ru.
   const base = lang === "en" ? "en" : lang === "uk" ? "uk" : "ru";
   const dict: Record<"ru" | "uk" | "en", Record<LandingVertical, Copy>> = {
     ru: {
@@ -587,8 +580,6 @@ function copyFor(vertical: LandingVertical, lang: string): Copy {
   return dict[base][vertical];
 }
 
-// ---- HTML builder -----------------------------------------------------------
-
 function esc(s: string): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -606,8 +597,6 @@ export function buildLandingHtml(
   const c = copyFor(input.vertical, input.language);
   const on = input.sections;
   const accent = /^#[0-9a-fA-F]{3,8}$/.test(input.accent) ? input.accent : "#38bdf8";
-  // Resolve editable text slots: an override (incl. empty string) wins over the
-  // generated/default value.
   const ov = (field: LandingTextField, fallback: string) =>
     overrides[field] !== undefined ? (overrides[field] as string) : fallback;
   const heroHeadline = ov("heroHeadline", c.heroHeadline);

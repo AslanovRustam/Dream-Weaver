@@ -1,15 +1,15 @@
 "use client";
 
-// /billing — тарифы / пополнение кредитов. Открывается из кнопки
-// «Пополнить» в личном кабинете. UI ONLY: оплата и логика начисления
-// кредитов не реализованы — кнопки CTA это заглушки (см. TODO в PlanCard).
+// /billing — plans and credit top-ups. Reached from the «Пополнить» button
+// in the account page. UI ONLY: payment and credit-granting logic are not
+// implemented — the CTA buttons are stubs (see the TODO in PlanCard).
 //
-// Раскладка по мотивам higgsfield.ai/pricing:
-//   • верхняя панель управления: слева переключатель «Индивидуальные /
-//     Бизнес», справа тумблер «Ежемесячно / Ежегодно» (годовой = −20%);
-//   • три тарифа карточками, средний выделен как «популярный»
-//     (лаймовый бордер + градиент + бейдж + лёгкое увеличение);
-//   • на годовой оплате под кнопкой — строка экономии за год.
+// Layout modelled on higgsfield.ai/pricing:
+//   • top control bar: an «Индивидуальные / Бизнес» switch on the left, an
+//     «Ежемесячно / Ежегодно» toggle on the right (annual = −20%);
+//   • three plan cards, the middle one flagged as the popular tier
+//     (lime border + gradient + badge + a slight scale-up);
+//   • on annual billing, a yearly-savings line under the button.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSmartBack } from "@/lib/use-back";
@@ -32,7 +32,6 @@ type Plan = {
   id: string;
   name: string;
   tagline: string;
-  // Цена в месяц при помесячной оплате. null = индивидуальная цена ("По запросу").
   monthly: number | null;
   credits: string;
   creditNotes: string[];
@@ -41,17 +40,15 @@ type Plan = {
   cta?: string;
 };
 
-// Реальная экономика кредитов (одна точка правды — credit-estimate.ts):
-// 1 баннер = одна генерация изображения, 1 ресайз = фиксированная ставка.
-const BANNER_CREDITS = estimateBannerCredits(); // rich banner model (~23 кр.)
-const RESIZE_CREDITS = RESIZE_CREDITS_PER_FORMAT; // 1.5 кр.
+const BANNER_CREDITS = estimateBannerCredits();
+const RESIZE_CREDITS = RESIZE_CREDITS_PER_FORMAT;
 const ru = (n: number) => Math.round(n).toLocaleString("ru-RU");
 const bannersNote = (credits: number) => `≈ ${ru(credits / BANNER_CREDITS)} баннеров`;
 const resizesNote = (credits: number) => `≈ ${ru(credits / RESIZE_CREDITS)} ресайзов`;
 
-// Годовая цена считается как monthly × 0.8 (скидка 20%). Средний тариф —
-// «популярный». Объёмы «≈ N баннеров/ресайзов» выводятся из реальных ставок
-// кредитов выше, поэтому всегда сходятся с ценами в билдерах.
+// The annual price is monthly × 0.8 (a 20% discount). The middle plan is the
+// popular one. The «≈ N баннеров/ресайзов» volumes are derived from the real
+// credit rates above, so they always agree with the prices in the builders.
 const INDIVIDUAL_PLANS: Plan[] = [
   {
     id: "start",
@@ -148,9 +145,6 @@ export default function BillingPage() {
     document.title = "Тарифы — GenGO";
   }, []);
 
-  // Тарифы — публичная страница: показываем и без логина (гостю шапка
-  // предложит войти, а CTA тарифов ведут на вход/поддержку).
-
   const plans = audience === "individual" ? INDIVIDUAL_PLANS : BUSINESS_PLANS;
 
   return (
@@ -169,8 +163,6 @@ export default function BillingPage() {
           </p>
         </div>
 
-        {/* Панель управления. Desktop: аудитория слева, период справа. Mobile:
-            период сверху, табы аудитории под ним (flex-col-reverse). */}
         <div className="mb-10 flex flex-col-reverse items-center justify-between gap-4 sm:flex-row">
           <Segmented
             value={audience}
@@ -231,8 +223,8 @@ function Segmented({
 }
 
 function PeriodSwitch({ annual, onChange }: { annual: boolean; onChange: (v: boolean) => void }) {
-  // Все три зоны кликабельны (лейбл «Ежемесячно», сам тумблер, лейбл
-  // «Ежегодно»), чтобы переключение срабатывало по любому нажатию.
+  // All three zones are clickable (the «Ежемесячно» label, the toggle itself,
+  // the «Ежегодно» label) so the switch responds to any of them.
   // Mobile: 3-column grid (1fr | toggle | 1fr) keeps the TOGGLE dead-centre on
   // screen even though the right side carries the extra "−20%" badge. Desktop:
   // plain inline-flex.
@@ -317,7 +309,6 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         </span>
       ) : null}
 
-      {/* Название + подзаголовок */}
       <div>
         <h2 className="text-xl font-semibold">{plan.name}</h2>
         {/* Taglines run one or two lines depending on the plan, which knocked
@@ -328,9 +319,9 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         <p className="mt-1 text-sm text-muted-foreground md:min-h-10">{plan.tagline}</p>
       </div>
 
-      {/* Блок кредитов. "/мес" всегда на второй строке, а min-h резервирует две
-          строки — так блок кредитов у всех карточек одной высоты и кнопки ниже
-          не прыгают. */}
+      {/* Credits block. "/мес" always sits on its own second line, and min-h
+          reserves two lines — that keeps the block the same height across cards
+          so the buttons below never jump. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div className="flex min-h-12 items-start gap-2">
           <Sparkles className="mt-1 h-4 w-4 shrink-0 text-accent-green" />
@@ -350,7 +341,6 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         </ul>
       </div>
 
-      {/* Цена — «в месяц» стоит рядом с суммой */}
       <div className="flex items-baseline gap-2">
         {annual && !custom ? (
           <span className="text-xl font-medium text-muted-foreground line-through">
@@ -363,7 +353,6 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         {!custom ? <span className="text-sm text-muted-foreground">в месяц</span> : null}
       </div>
 
-      {/* CTA + экономия за год (только на годовой оплате) */}
       <div className="space-y-3">
         {/* Payment isn't wired yet. Rather than a dead click: the enterprise
             plan opens a real support mailto; the rest acknowledge with a toast
@@ -397,11 +386,11 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
           );
         })()}
         {!custom ? (
-          // Слот экономии держит место, чтобы карточки не прыгали по высоте при
-          // переключении периода — но только на десктопе, где они стоят в ряд и
-          // выравниваются друг по другу. На мобильном карточки идут одна под
-          // другой, выравнивать нечего, и пустой слот читался бы дырой между
-          // кнопкой и списком, поэтому там он схлопывается.
+          // The savings slot reserves space so cards don't change height when the
+          // billing period is switched — but only on desktop, where they sit in a
+          // row and line up with each other. On mobile the cards stack, there is
+          // nothing to align, and an empty slot would read as a hole between the
+          // button and the list, so it collapses there.
           <div
             aria-hidden={!annual}
             className={`rounded-lg bg-white/[0.03] px-3 py-2 text-center text-xs ${
@@ -414,7 +403,6 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
         ) : null}
       </div>
 
-      {/* Состав тарифа */}
       <ul className="space-y-3 border-t border-border/60 pt-6">
         {plan.features.map((f) => (
           <li key={f.text} className="flex items-start gap-2.5 text-sm">
@@ -423,8 +411,6 @@ function PlanCard({ plan, annual }: { plan: Plan; annual: boolean }) {
             ) : (
               <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2.5} />
             )}
-            {/* Not-included features stay dimmer than included ones via the
-                muted colour (not opacity) so the text still passes WCAG AA. */}
             <span className={f.included ? "text-foreground" : "text-muted-foreground"}>
               {f.text}
             </span>

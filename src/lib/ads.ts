@@ -10,11 +10,11 @@ export type AdPlatformId = "meta" | "google" | "tiktok";
 
 export interface AdPlatform {
   id: AdPlatformId;
-  name: string; // full label, e.g. "Meta Ads"
-  short: string; // compact label, e.g. "Meta"
-  blurb: string; // one line describing the surface
-  color: string; // brand accent used on the platform tile
-  glyph: string; // single-char mark for the logo tile
+  name: string;
+  short: string;
+  blurb: string;
+  color: string;
+  glyph: string;
 }
 
 export const AD_PLATFORMS: AdPlatform[] = [
@@ -26,16 +26,14 @@ export const AD_PLATFORMS: AdPlatform[] = [
 export const PLATFORM_BY_ID = new Map(AD_PLATFORMS.map((p) => [p.id, p]));
 
 export interface AdAccount {
-  id: string; // stable key, e.g. "meta:act_5540192"
+  id: string;
   platform: AdPlatformId;
   name: string;
-  externalId: string; // the platform's own account id
+  externalId: string;
   currency: string;
   status: "active" | "paused";
-  connectedAt: string; // ISO
+  connectedAt: string;
 }
-
-// --- Connections (persisted, mock) -----------------------------------------
 
 const LS_KEY = "dw_ad_accounts";
 
@@ -111,10 +109,8 @@ export function isPlatformConnected(id: AdPlatformId): boolean {
   return getConnectedAccounts().some((a) => a.platform === id);
 }
 
-// --- Statistics (seeded mock) ----------------------------------------------
-
 export interface DayPoint {
-  date: string; // YYYY-MM-DD
+  date: string;
   spend: number;
   impressions: number;
   clicks: number;
@@ -126,10 +122,10 @@ export interface Kpis {
   impressions: number;
   clicks: number;
   conversions: number;
-  ctr: number; // %
-  cpc: number; // $
-  cpm: number; // $
-  cpa: number; // $
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  cpa: number;
 }
 
 export interface Campaign {
@@ -149,13 +145,11 @@ export interface Campaign {
 
 export interface StatsResult {
   totals: Kpis;
-  deltas: Partial<Record<keyof Kpis, number>>; // % vs previous equal-length period
+  deltas: Partial<Record<keyof Kpis, number>>;
   series: DayPoint[];
   campaigns: Campaign[];
 }
 
-// Deterministic hash + mulberry32 PRNG so a given (account, day) always yields
-// the same numbers across renders.
 function hash(str: string): number {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
@@ -173,7 +167,6 @@ function rng(seed: number) {
 
 const PLATFORM_SCALE: Record<AdPlatformId, number> = { meta: 1, google: 1.25, tiktok: 0.8 };
 
-// iGaming-flavoured campaign name pool, assigned per platform.
 const CAMPAIGN_POOL: Record<AdPlatformId, string[]> = {
   meta: ["Welcome Bonus — Broad", "Free Bet — Retarget", "Slots Lookalike 1%", "Cashback — Winback"],
   google: ["Brand — Search", "Casino — Generic", "App Installs — UAC", "Live Betting — DSA"],
@@ -186,16 +179,15 @@ function isoDay(offsetFromToday: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// One day's metrics for one account, seeded by account+date (+ optional campaign).
 function dayMetrics(seedKey: string, platform: AdPlatformId) {
   const r = rng(hash(seedKey));
   const scale = PLATFORM_SCALE[platform];
   const impressions = Math.round((18000 + r() * 62000) * scale);
-  const ctr = 0.9 + r() * 3.1; // %
+  const ctr = 0.9 + r() * 3.1;
   const clicks = Math.round((impressions * ctr) / 100);
-  const cpc = 0.18 + r() * 1.35; // $
+  const cpc = 0.18 + r() * 1.35;
   const spend = Math.round(clicks * cpc * 100) / 100;
-  const cvr = 2 + r() * 6; // %
+  const cvr = 2 + r() * 6;
   const conversions = Math.round((clicks * cvr) / 100);
   return { impressions, clicks, spend, conversions };
 }
@@ -243,7 +235,6 @@ export function getStats(opts: { accounts: AdAccount[]; days: number }): StatsRe
     return { totals: emptyKpis(), deltas: {}, series: [], campaigns: [] };
   }
 
-  // Daily series (oldest → newest) for the current period.
   const series: DayPoint[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const date = isoDay(i);
@@ -274,7 +265,6 @@ export function getStats(opts: { accounts: AdAccount[]; days: number }): StatsRe
     cpa: pct(totals.cpa, prevK.cpa),
   };
 
-  // Per-campaign aggregation over the same range.
   const campaigns: Campaign[] = [];
   for (const a of accounts) {
     const pool = CAMPAIGN_POOL[a.platform];
@@ -283,7 +273,6 @@ export function getStats(opts: { accounts: AdAccount[]; days: number }): StatsRe
       for (let i = 0; i < days; i++) {
         const date = isoDay(i);
         const m = dayMetrics(`${a.id}|${name}|${date}`, a.platform);
-        // Split each account's volume across its campaigns for realism.
         cacc.spend += m.spend / pool.length;
         cacc.impressions += Math.round(m.impressions / pool.length);
         cacc.clicks += Math.round(m.clicks / pool.length);
@@ -374,8 +363,6 @@ export function getCampaignDetail(
   };
   return { campaign, series, account };
 }
-
-// --- Formatting helpers -----------------------------------------------------
 
 export function fmtInt(n: number): string {
   return Math.round(n).toLocaleString("ru-RU");

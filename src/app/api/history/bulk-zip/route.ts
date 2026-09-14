@@ -21,7 +21,7 @@ import { rateLimitResponse } from "@/lib/request-guard";
 type Body = { card_ids?: string[] };
 
 const PARALLEL_FETCHES = 5;
-const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB per file safety net
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 function sanitizeFolderName(raw: string): string {
   return (
@@ -166,8 +166,6 @@ export async function POST(request: Request) {
 
           const supa = getUserClient(user.accessToken);
 
-          // Resolve every card and build the file plan up-front so we
-          // can fail fast if the user isn't allowed to see any of them.
           const allFiles: FileEntry[] = [];
           for (const id of ids) {
             const detail = await getHistoryCard(supa, id, user.id);

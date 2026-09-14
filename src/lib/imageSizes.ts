@@ -118,11 +118,9 @@ export function resolveCanvasSize(
   let m = entry.defaultM;
 
   if (targetW && targetH && targetW > 0 && targetH > 0) {
-    // Smallest m such that ra*m ≥ targetW and rb*m ≥ targetH.
     const mForW = Math.ceil(targetW / ra);
     const mForH = Math.ceil(targetH / rb);
     const mMin = Math.max(mForW, mForH, entry.defaultM);
-    // Round up to the next valid step.
     m = Math.ceil(mMin / step) * step;
   } else {
     // Master flow: ensure default is already step-aligned (it is for
@@ -133,14 +131,11 @@ export function resolveCanvasSize(
   let w = ra * m;
   let h = rb * m;
 
-  // Clamp to OpenAI limits. We shrink m by `step` until we fit.
   while ((w > OPENAI_MAX_EDGE || h > OPENAI_MAX_EDGE || w * h > OPENAI_MAX_PIXELS) && m > step) {
     m -= step;
     w = ra * m;
     h = rb * m;
   }
-  // Sanity floor: if even the smallest valid canvas exceeds the cap
-  // (shouldn't happen for any aspect we ship), fall back to 1024×1024.
   if (w > OPENAI_MAX_EDGE || h > OPENAI_MAX_EDGE) {
     return { w: 1024, h: 1024 };
   }

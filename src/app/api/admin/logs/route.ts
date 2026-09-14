@@ -41,8 +41,6 @@ export async function GET(request: Request) {
           const supa = getAdminClient();
 
           if (kind === "tokens") {
-            // Token-usage view: image-gen + ai-naming rows that carry
-            // token counts. Joined from system_logs; no separate table.
             const userId = url.searchParams.get("user_id");
             const msgFilter = url.searchParams.get("msg") || "";
             let q = supa
@@ -105,7 +103,6 @@ export async function GET(request: Request) {
             });
           }
 
-          // audit_logs
           let q = supa
             .from("audit_logs")
             .select(

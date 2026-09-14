@@ -106,8 +106,6 @@ export function EditorHistoryProvider({ children }: { children: ReactNode }) {
       record,
       reset,
     }),
-    // Re-derive the flags whenever the stacks change (bump() forces the render).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [undo, redo, register, record, reset, pastRef.current.length, futureRef.current.length],
   );
 

@@ -83,11 +83,9 @@ export function extractLogoCandidates(html: string, baseUrl: string): LogoCandid
     }
   }
 
-  // Last-resort default favicon path (works even with no <link rel="icon">).
   const fallback = resolve("/favicon.ico", baseUrl);
   if (fallback) out.push({ url: fallback, kind: "favicon.ico", score: 5 });
 
-  // De-dupe by URL, keep highest score, sort best-first.
   const byUrl = new Map<string, LogoCandidate>();
   for (const c of out) {
     const prev = byUrl.get(c.url);
