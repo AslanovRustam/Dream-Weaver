@@ -57,7 +57,7 @@ psql "postgresql://postgres:ВАШ_ПАРОЛЬ@ХОСТ:5432/postgres" -f supab
 #### Сценарий 1 — Чистый старт (рекомендую)
 - Пользователи регистрируются заново (Google/email) на новом проекте.
 - Триггер `on_auth_user_created` автоматически создаёт им `profiles` с балансом 0.
-- **Супер-админы** — по email в функции `is_super_admin()` (`kela@`, `skobelev@`, `skobelev.victor.v@gmail.com`, `aslanov@clickable.agency`). Как только эти почты входят — они админы. UUID не важен. (Список продублирован в `src/lib/auth-server.ts` — держите синхронно.)
+- **Супер-админы** — по email в функции `is_super_admin()` (`kela@`, `aslanov@clickable.agency`). Как только эти почты входят — они админы. UUID не важен. (Список продублирован в `src/lib/auth-server.ts` — держите синхронно.)
 - **Балансы**: админ начисляет заново через админку (значения — из `profiles_rows.csv`, колонка `credits_balance`).
 - История/генерации стартуют пустыми. **Данные profiles/generations/... НЕ импортируем.**
 

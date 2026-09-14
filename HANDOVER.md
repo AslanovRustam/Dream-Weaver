@@ -282,7 +282,7 @@ bun run scripts/check-api-calls.ts
 1. SQL `is_super_admin()` в миграции
 2. `src/lib/auth-server.ts → SUPER_ADMIN_EMAILS`
 
-Список: `kela@clickable.agency`, `skobelev@clickable.agency`. При добавлении — править оба.
+Список: `kela@clickable.agency`, `aslanov@clickable.agency`. При добавлении — править оба.
 
 ## 📊 Logging Categories
 

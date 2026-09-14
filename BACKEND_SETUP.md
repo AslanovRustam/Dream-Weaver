@@ -137,7 +137,7 @@ bun install
 Супер-админы определяются по email (хардкод в БД-функции `is_super_admin` и в `src/lib/auth-server.ts`):
 
 - `kela@clickable.agency`
-- `skobelev@clickable.agency`
+- `aslanov@clickable.agency`
 
 Чтобы добавить ещё — править оба места (массив и SQL-функцию).
 
@@ -162,5 +162,5 @@ bun install
   -- из SQL Editor под service_role
   update public.profiles
      set credits_balance = credits_balance + 1000
-   where email = 'skobelev@clickable.agency';
+   where email = 'you@example.com';
   ```

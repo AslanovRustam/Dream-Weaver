@@ -22,8 +22,6 @@ import {
 // Supabase (корпоративный проект на паузе). Убрать при возврате.
 export const SUPER_ADMIN_EMAILS = [
   "kela@clickable.agency",
-  "skobelev@clickable.agency",
-  "skobelev.victor.v@gmail.com",
   "aslanov@clickable.agency",
 ] as const;
 
