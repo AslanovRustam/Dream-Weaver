@@ -22,8 +22,6 @@ export type HubTemplate = {
   gradient?: string;
 };
 
-// Every template across the four tools, flattened. Order = banner → landing →
-// playable → video (matches SECTIONS), so search results feel predictable.
 export const ALL_TEMPLATES: HubTemplate[] = [
   ...PRESETS.map((p) => ({
     id: p.id,

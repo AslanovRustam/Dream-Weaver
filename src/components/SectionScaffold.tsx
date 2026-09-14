@@ -74,7 +74,6 @@ export function SectionScaffold({ section }: { section: Section }) {
     <div className="min-h-screen bg-background text-foreground">
       <AppHeader />
       <div className="flex flex-col p-0 lg:flex-row lg:gap-6 lg:p-3">
-        {/* COLUMN 1 — templates placeholder */}
         <aside
           className={`flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-[calc(100vh-2rem)] lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border ${
             mobileTab !== "templates" ? "max-lg:hidden" : ""
@@ -102,7 +101,6 @@ export function SectionScaffold({ section }: { section: Section }) {
           </div>
         </aside>
 
-        {/* COLUMN 2 — settings placeholder */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-[calc(100vh-2rem)] lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
@@ -130,7 +128,6 @@ export function SectionScaffold({ section }: { section: Section }) {
                 </div>
               </div>
 
-              {/* "Created from banner" prefilled brand block (landing only). */}
               {seed ? (
                 <div className="rounded-xl border border-accent-green/40 bg-accent-green/5 p-3">
                   <p className="mb-2 ds-h4">Данные бренда (из баннера)</p>
@@ -184,7 +181,6 @@ export function SectionScaffold({ section }: { section: Section }) {
               </div>
             </div>
           </div>
-          {/* Mobile sticky primary action */}
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
@@ -198,7 +194,6 @@ export function SectionScaffold({ section }: { section: Section }) {
           </div>
         </section>
 
-        {/* COLUMN 3 — result empty state */}
         <div
           className={`flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-[calc(100vh-2rem)] lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""

@@ -17,7 +17,6 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-// Walk a dot-path ("header.profile.account") into the message tree.
 function resolve(obj: unknown, path: string): unknown {
   return path.split(".").reduce<unknown>((acc, key) => {
     if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
@@ -33,8 +32,6 @@ function interpolate(template: string, vars?: Vars): string {
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  // Start from the default so server and first client render agree (no hydration
-  // mismatch); the stored choice is applied right after mount.
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
@@ -47,7 +44,6 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep <html lang> in sync so the document language matches the UI.
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
@@ -80,7 +76,6 @@ export function useLocale(): { locale: Locale; setLocale: (l: Locale) => void } 
   return { locale, setLocale };
 }
 
-// Structured access (arrays, nested objects) for the current locale.
 export function useMessages(): Messages {
   return useLocaleContext().messages;
 }

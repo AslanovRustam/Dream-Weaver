@@ -43,7 +43,7 @@ import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 export type GenerationStatus = "idle" | "master_running" | "batch_running" | "done" | "error";
 
 export type BatchTile = {
-  id: string; // unique key: `${w}x${h}`
+  id: string;
   size: SelectedSize;
   status: "queued" | "running" | "done" | "error";
   /** Tells the UI whether this tile is "free" (pure client-side scale
@@ -165,7 +165,6 @@ function sanitizeForStorage(s: GenerationStateSnapshot): GenerationStateSnapshot
   const stripPayload = (p: GeneratePayload | null): GeneratePayload | null => {
     if (!p) return null;
     const copy: GeneratePayload = { ...p };
-    // Drop all base64 dataURL fields so the snapshot stays small.
     const dataUrlKeys: Array<keyof GeneratePayload> = [
       "brand_logo",
       "slot_screenshot",
@@ -184,11 +183,8 @@ function sanitizeForStorage(s: GenerationStateSnapshot): GenerationStateSnapshot
   };
   return {
     ...s,
-    // imageUrl preserved as-is (dataURL or FTP URL — see header comment).
     imageUrl: s.imageUrl,
     lastPayload: stripPayload(s.lastPayload),
-    // Tiles: strip dataUrl, keep status + size so UI can show "done" badges
-    // and the user can click through to /history to see them in full.
     tiles: s.tiles.map((t) => ({ ...t, dataUrl: undefined })),
   };
 }
@@ -253,8 +249,6 @@ async function persistResizeTile(
 export function GenerationProvider({ children }: ProviderProps) {
   const [state, setState] = useState<GenerationStateSnapshot>(() => loadFromStorage() ?? INITIAL);
   const cancelRef = useRef(false);
-  // Live mirror of state so regenerateTile can read the current master/payload
-  // without being re-created (and re-memoised) on every state change.
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -269,7 +263,6 @@ export function GenerationProvider({ children }: ProviderProps) {
   const masterEpochRef = useRef(0);
   const sourceCacheRef = useRef<Map<string, string>>(new Map());
 
-  // Persist any changes so a hard reload restores recent state.
   useEffect(() => {
     saveToStorage(state);
   }, [state]);
@@ -338,8 +331,6 @@ export function GenerationProvider({ children }: ProviderProps) {
         cardId,
         lastUsage: usage ?? null,
         errorMsg: "",
-        // History restore passes the saved resizes here; a fresh master omits
-        // it and the grid clears (previous behaviour).
         tiles: tiles ?? [],
       });
     },
@@ -496,13 +487,12 @@ export function GenerationProvider({ children }: ProviderProps) {
         const planSizes = plan.targets.map((t) => sizeByKey.get(`${t.w}x${t.h}`)!);
         for (const s of planSizes) updateTile(`${s.w}x${s.h}`, { status: "running" });
 
-        // Resolve the SOURCE image for this plan.
         const isMicro = plan.detail !== "full";
         const cacheKey = cacheKeyFor(plan.ratio, plan.detail);
         let sourceUrl: string;
         const cached = reuseCache ? sourceCacheRef.current.get(cacheKey) : undefined;
         if (plan.ratio === masterRatio && !isMicro) {
-          sourceUrl = masterDataUrl; // free — crop straight from the master
+          sourceUrl = masterDataUrl;
         } else if (cached) {
           // Retry mode: a sibling in this exact bucket already succeeded this
           // session — reuse its source so the retried tile matches it instead
@@ -516,8 +506,6 @@ export function GenerationProvider({ children }: ProviderProps) {
             source_image: masterDataUrl,
             target_w: plan.source.w,
             target_h: plan.source.h,
-            // Micro sources use a stripped composition (see GROUP_TEMPLATES
-            // micro-*) and skip the master's detailed text facts.
             master_details: isMicro ? undefined : masterDetails ?? undefined,
             group_id: isMicro ? plan.detail : rep.group_id,
             skip_history_attach: true,
@@ -568,7 +556,6 @@ export function GenerationProvider({ children }: ProviderProps) {
         }
 
         if (cancelRef.current) break;
-        // Carve every exact tile out of the source.
         for (const s of planSizes) {
           if (cancelRef.current) break;
           const exact = await cropWithRetry(sourceUrl, s.w, s.h, masterDataUrl);
@@ -600,8 +587,6 @@ export function GenerationProvider({ children }: ProviderProps) {
       const masterRatio = snap.lastMasterRatio;
 
       updateTile(id, { status: "running", error: undefined });
-      // Keep the spinner on screen for a beat even when the work is an instant
-      // client-side scale — avoids a jarring one-frame flash.
       const minVisible = new Promise((r) => setTimeout(r, 400));
 
       const cropWithRetry = async (src: string, w: number, h: number, fallback: string) => {
@@ -631,11 +616,8 @@ export function GenerationProvider({ children }: ProviderProps) {
           }
         }
 
-        // Plan this single size → the flare source aspect + canvas.
         const plan = planResizes([{ w: tile.size.w, h: tile.size.h }])[0];
         let sourceForCrop = masterDataUrl;
-        // Source aspect differs from the (square) master → fresh flare i2i.
-        // Same aspect → crop straight from the master, no API.
         const isMicro = !!plan && plan.detail !== "full";
         // Regenerate a source when the aspect differs from the master, or when
         // this is a micro tile (which needs its own stripped composition even

@@ -9,7 +9,7 @@
 export type BannerSize = {
   w: number;
   h: number;
-  ratio: string; // "16:9" / "1:1" / "9:16" / ...
+  ratio: string;
   /** Optional human-readable hint shown after the dimensions. */
   label?: string;
   /** Id of the use-case group this size belongs to. Backfilled by buildGroupIndex().
@@ -84,18 +84,15 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Веб-баннеры — горизонтальные",
     subtitle: "Heroes, display-реклама, превью",
     sizes: [
-      // 3:2 family
       { w: 1500, h: 1000, ratio: "3:2" },
       { w: 1200, h: 800, ratio: "3:2" },
       { w: 900, h: 600, ratio: "3:2" },
       { w: 600, h: 400, ratio: "3:2" },
       { w: 300, h: 200, ratio: "3:2", label: "Small banner" },
-      // 4:3 family
       { w: 1280, h: 960, ratio: "4:3" },
       { w: 1024, h: 768, ratio: "4:3" },
       { w: 800, h: 600, ratio: "4:3" },
       { w: 640, h: 480, ratio: "4:3" },
-      // 5:4 family
       { w: 1500, h: 1200, ratio: "5:4" },
       { w: 1350, h: 1080, ratio: "5:4" },
       { w: 1080, h: 864, ratio: "5:4" },
@@ -110,13 +107,11 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Веб-баннеры — вертикальные",
     subtitle: "Сайдбары, мобильные блоки",
     sizes: [
-      // 2:3 family
       { w: 1000, h: 1500, ratio: "2:3" },
       { w: 800, h: 1200, ratio: "2:3" },
       { w: 600, h: 900, ratio: "2:3" },
       { w: 400, h: 600, ratio: "2:3" },
       { w: 200, h: 300, ratio: "2:3", label: "Small vertical" },
-      // 3:4 family (large + small — большие размеры это бывший Pinterest-блок)
       { w: 1080, h: 1440, ratio: "3:4" },
       { w: 960, h: 1280, ratio: "3:4" },
       { w: 768, h: 1024, ratio: "3:4" },
@@ -294,8 +289,6 @@ export const GROUP_TEMPLATES: Record<string, GroupTemplate> = {
       "VERTICAL SKYSCRAPER LAYOUT (very tall banner, will be cropped to narrow strips): keep EVERYTHING inside the CENTRAL VERTICAL COLUMN — the middle 60% of the width (from 20% to 80% horizontally). Stack logo (top), key visual (center), CTA button (bottom) along that central column. NOTHING important in the left 20% or right 20% — those get cropped away. Tall, stacked, legible.",
     boost: { x: 0.2, y: 0.02, width: 0.6, height: 0.96, weight: 1.0 },
   },
-  // Micro tiles — too small for a full layout. Stripped, shape-adapted
-  // compositions with ONE or TWO huge elements so they read at tiny scale.
   "micro-wide": {
     layout:
       "MICRO WIDE TILE (tiny thin horizontal banner — will be a thin strip): show ONLY two things on ONE horizontal line, vertically centered: the brand LOGO on the left and ONE very short element on the right — either a short CTA word or the offer number (e.g. '100%', 'БОНУС', 'PLAY'). HUGE, bold type. A simple bold on-brand background/gradient. NO headline, NO paragraph, NO scene detail, NO extra text. Everything in the central 60% height band.",

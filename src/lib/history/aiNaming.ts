@@ -103,8 +103,6 @@ export async function polishCardName(args: PolishCardNameArgs): Promise<void> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return;
 
-  // Honor admin kill-switch — admin panel exposes ai_naming_enabled as
-  // a boolean toggle for cost control.
   try {
     const { data: setting } = await supa
       .from("app_settings")
@@ -119,7 +117,6 @@ export async function polishCardName(args: PolishCardNameArgs): Promise<void> {
 
   const summary = summarizeBody(body);
   if (summary.fields.length === 0) {
-    // Nothing meaningful to summarize — keep template name, skip LLM call.
     return;
   }
 
@@ -167,9 +164,8 @@ export async function polishCardName(args: PolishCardNameArgs): Promise<void> {
 
     const raw = data.choices?.[0]?.message?.content ?? "";
     const name = sanitize(raw);
-    if (!name || name.length < 3) return; // gibberish, keep template
+    if (!name || name.length < 3) return;
 
-    // Pricing: try the pricing_coefficients row, fall back to a tiny default.
     let coefficient = FALLBACK_COEFFICIENT;
     try {
       const { data: price } = await supa

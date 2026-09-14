@@ -29,7 +29,6 @@ export function runBackground(task: () => Promise<unknown>): void {
     // Request scope (route handlers, server actions) — survives serverless.
     after(run);
   } catch {
-    // No request scope (workers / boot) — detached on a long-lived process.
     void run();
   }
 }

@@ -25,7 +25,6 @@ import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 
-// Background = gemini-flash (cheap). Character = OpenAI transparent PNG (richer).
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
 
@@ -41,8 +40,6 @@ const DEFAULT_PRIZES: WheelSegment[] = [
 export function WheelLandingApp() {
   const gen = useGeneration();
   const [brand, setBrand] = useState("LOGO");
-  // Optional uploaded brand logo (PNG/data URL). When set, it's shown instead of
-  // the brand text — both in the preview and the exported HTML.
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
     const r = new FileReader();
@@ -50,21 +47,15 @@ export function WheelLandingApp() {
     r.readAsDataURL(f);
   };
   const [headline, setHeadline] = useState("TRY YOUR LUCK!");
-  // Required "Тематика" — drives the ✨ AI suggestions for every field.
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#f97316");
-  // Landing is always dark — no light-mode toggle (kept as a const so the
-  // rest of the file, and the persisted draft shape, need no other changes).
   const dark = true;
   const [ctaText, setCtaText] = useState("SPIN");
-  // Click-through target for the CTA / "Claim bonus": a real URL or a tracker
-  // macro/variable (e.g. {clickurl}) that the traffic source replaces.
   const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(
     "мультяшный кролик-персонаж с бейсбольной битой на зелёных холмах, монеты и морковь, яркий casino-promo фон",
   );
   const [bgImage, setBgImage] = useState("");
-  // Two independent, optional character slots — one on each side of the wheel.
   const [chars, setChars] = useState<{ left: string; right: string }>({ left: "", right: "" });
   const [charPrompts, setCharPrompts] = useState<{ left: string; right: string }>({
     left: "мультяшный кролик-маскот с бейсбольной битой, дружелюбный, динамичная поза",
@@ -88,8 +79,6 @@ export function WheelLandingApp() {
   // banner's palette/mood instead of being invented from text alone.
   const [bannerRef, setBannerRef] = useState("");
 
-  // Persist the whole landing (config + generated images) so nothing is lost on
-  // reload or navigation.
   const [restored, setRestored] = useState(false);
   // Mount-time hydration (draft restore + banner-seed override, below) must
   // run EXACTLY once. React StrictMode double-invokes effects in dev; without
@@ -115,7 +104,6 @@ export function WheelLandingApp() {
         if (typeof d.ctaUrl === "string") setCtaUrl(d.ctaUrl);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
-        // Characters: new two-slot shape, with backward-compat for the old single slot.
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
         const cr = typeof d.charRight === "string" ? d.charRight : "";
         if (cl || cr) {
@@ -212,7 +200,7 @@ export function WheelLandingApp() {
       setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
-        setBgImage(bannerImg); // instant preview while the real generation runs
+        setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
       void generateBg(bgPrompt, bannerImg || undefined);
@@ -249,7 +237,6 @@ export function WheelLandingApp() {
       try {
         window.localStorage.setItem("dw_wheel_draft", JSON.stringify(data));
       } catch {
-        // Quota (large data URLs) — keep at least the config.
         try {
           window.localStorage.setItem(
             "dw_wheel_draft",
@@ -323,8 +310,6 @@ export function WheelLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      // A themed ENVIRONMENT/backdrop (not a hero banner): immersive scene with a
-      // clear central area for the wheel and no characters or central subject.
       setBgImage(
         await genImage({
           presetTemplate: bgPreset(useTheme),
@@ -443,7 +428,6 @@ export function WheelLandingApp() {
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,400px)_1fr]">
-      {/* ── Config ─────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <header>
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -555,7 +539,6 @@ export function WheelLandingApp() {
           )}
         </Field>
 
-        {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
@@ -591,7 +574,6 @@ export function WheelLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
-        {/* Characters (optional) — up to two, one flanking each side of the wheel */}
         <div className="rounded-xl border border-border bg-background/40 p-3">
           <label className="ds-h4">
             Персонажи{" "}
@@ -605,7 +587,6 @@ export function WheelLandingApp() {
           </div>
         </div>
 
-        {/* Prizes */}
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="ds-h4">Сектора колеса</label>
@@ -703,7 +684,6 @@ export function WheelLandingApp() {
         </button>
       </div>
 
-      {/* ── Live landing preview ───────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="ds-caption">Предпросмотр лендинга</p>
@@ -748,7 +728,6 @@ export function WheelLandingApp() {
               style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${dark ? "#160d29" : "#ffe9a8"}` }}
             />
           )}
-          {/* Darkening for legibility */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
 
           {/* Characters — anchored to the VIEWPORT bottom so the crop bleeds off the
@@ -812,7 +791,6 @@ export function WheelLandingApp() {
             </button>
           </div>
 
-          {/* Win / try-again modal */}
           {won !== null
             ? (() => {
                 const seg = prizes[won];

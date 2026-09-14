@@ -34,7 +34,6 @@ import { useWorkspace } from "@/lib/workspace-context";
 import { WorkspaceAvatar } from "@/components/WorkspaceAvatar";
 import type { Workspace } from "@/lib/workspaces";
 
-// Russian plural: 1 проект / 2 проекта / 5 проектов.
 function pluralWs(n: number, one: string, few: string, many: string) {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -96,8 +95,6 @@ function WorkspacesManager() {
   const [editing, setEditing] = useState<Workspace | null>(null);
   const [deleting, setDeleting] = useState<Workspace | null>(null);
 
-  // Opened from the header dropdown's "Создать пространство" (…?new=1): open the
-  // create form immediately, then strip the param so a refresh doesn't reopen it.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -111,8 +108,6 @@ function WorkspacesManager() {
   return (
     <>
       <div className="ds-card ds-card-glow-violet overflow-hidden">
-        {/* Header bar: count + create (create/rename/delete stay here, not in
-            the header quick-switcher). */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border-subtle)] px-4 py-3.5 sm:px-5">
           <p className="ds-caption">
             {workspaces.length} {pluralWs(workspaces.length, "пространство", "пространства", "пространств")}
@@ -130,8 +125,6 @@ function WorkspacesManager() {
           </button>
         </div>
 
-        {/* LIST view — full-width rows (not cards), dividers + custom scroll. On
-            mobile the row stacks so all three actions stay visible. */}
         <div className="max-h-[62vh] divide-y divide-[color:var(--border-subtle)] overflow-y-auto">
           {workspaces.map((w) => {
             const count = projectCount(w.id);
@@ -148,7 +141,6 @@ function WorkspacesManager() {
                   active ? "bg-[color:var(--brand-violet)]/[0.07]" : "hover:bg-white/[0.02]"
                 }`}
               >
-                {/* Left → open the workspace's own page (projects + brand kit). */}
                 <Link
                   href={`/workspace/${w.id}`}
                   className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-violet)]/50"
@@ -250,7 +242,6 @@ function WorkspacesManager() {
   );
 }
 
-// Create / rename a workspace — name (required) + optional logo (data URL).
 function WorkspaceFormModal({
   open,
   initial,
@@ -359,7 +350,6 @@ function WorkspaceFormModal({
   );
 }
 
-// Delete confirmation — warns that the projects inside are removed too.
 function DeleteWorkspaceModal({
   ws,
   count,

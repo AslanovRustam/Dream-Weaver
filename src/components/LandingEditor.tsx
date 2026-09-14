@@ -79,8 +79,6 @@ export function LandingEditor({ id }: { id: string }) {
   const [languages, setLanguages] = useState<string[]>([]);
   const [activeLang, setActiveLang] = useState("ru");
   const [overridesByLang, setOverridesByLang] = useState<Record<string, LandingTextOverrides>>({});
-  // Typography is shared across languages (a headline's font/size/weight is the
-  // same in every language version).
   const [stylesByField, setStylesByField] = useState<LandingTextStyles>({});
   const [styleField, setStyleField] = useState<LandingTextField | null>(null);
 
@@ -98,7 +96,6 @@ export function LandingEditor({ id }: { id: string }) {
     if (!loading && !isAuthenticated) router.push("/login");
   }, [loading, isAuthenticated, router]);
 
-  // Load the stashed project once.
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
@@ -120,8 +117,6 @@ export function LandingEditor({ id }: { id: string }) {
       setActiveLang(base[0]);
       setOverridesByLang(p.overridesByLang || {});
       setStylesByField(p.stylesByField || {});
-      // On phones the main preview defaults to the mobile version (the desktop
-      // version is viewed via the framed thumbnail → fullscreen zoom instead).
       if (typeof window !== "undefined" && window.innerWidth < 1024) setDevice("mobile");
     } catch {
       setMissing(true);
@@ -129,7 +124,6 @@ export function LandingEditor({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist edits back so a reload keeps them.
   useEffect(() => {
     if (!input) return;
     try {
@@ -262,8 +256,6 @@ export function LandingEditor({ id }: { id: string }) {
   const projectName = input?.brandName?.trim() || "Лендинг без названия";
   const showOrientation = device === "mobile";
 
-  // Preview frame sizing. Desktop = fills the area (landing shows desktop layout);
-  // mobile = a fixed device frame that scrolls internally.
   const frame =
     device === "desktop"
       ? { className: "h-full w-full max-w-[1200px]", style: undefined as CSSProperties | undefined }
@@ -273,7 +265,6 @@ export function LandingEditor({ id }: { id: string }) {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background text-foreground">
-      {/* Toolbar */}
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3 sm:px-4">
         <button
           type="button"
@@ -311,7 +302,6 @@ export function LandingEditor({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Preview controls */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:px-4">
         {/* Desktop: a real device toggle. Mobile: the preview IS the mobile
             version; the desktop version opens via a framed thumbnail → fullscreen
@@ -350,7 +340,6 @@ export function LandingEditor({ id }: { id: string }) {
         ) : null}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/* Language versions */}
           <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
             {languages.map((code) => (
               <button
@@ -410,7 +399,6 @@ export function LandingEditor({ id }: { id: string }) {
         />
       ) : null}
 
-      {/* Main: preview + desktop text panel */}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 items-start justify-center overflow-auto bg-[var(--bg-surface)] p-4">
           <div
@@ -433,7 +421,6 @@ export function LandingEditor({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Desktop text-edit side panel */}
         {editOpen ? (
           <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-panel lg:flex">
             <TextPanelHeader lang={activeLang} onClose={() => setEditOpen(false)} />
@@ -450,7 +437,6 @@ export function LandingEditor({ id }: { id: string }) {
         ) : null}
       </div>
 
-      {/* Mobile sticky actions */}
       <div className="flex shrink-0 gap-2 border-t border-border bg-panel p-3 lg:hidden">
         <button
           type="button"
@@ -470,8 +456,6 @@ export function LandingEditor({ id }: { id: string }) {
         </button>
       </div>
 
-      {/* Mobile bottom sheet for text editing (same overlay pattern as elsewhere,
-          gated at lg for the editor layout). */}
       <div
         aria-hidden={!editOpen}
         onClick={() => setEditOpen(false)}
@@ -496,15 +480,12 @@ export function LandingEditor({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Fullscreen desktop viewer (opened from the mobile thumbnail). */}
       {desktopFull ? (
         <DesktopZoomViewer html={html} onClose={() => setDesktopFull(false)} />
       ) : null}
     </div>
   );
 }
-
-// ---- small building blocks --------------------------------------------------
 
 function PillGroup({ children }: { children: ReactNode }) {
   return (
@@ -782,7 +763,6 @@ function TextStylePanel({
   );
 }
 
-// Small monitor-framed live thumbnail of the desktop version (mobile only).
 function DesktopThumb({ html }: { html: string }) {
   const W = 1280;
   const H = 800;
@@ -806,8 +786,6 @@ function DesktopThumb({ html }: { html: string }) {
   );
 }
 
-// Fullscreen desktop viewer with pinch-zoom + pan (honest desktop preview on a
-// phone, like viewing a desktop site in a mobile browser).
 function DesktopZoomViewer({ html, onClose }: { html: string; onClose: () => void }) {
   const W = 1280;
   const H = 2600;

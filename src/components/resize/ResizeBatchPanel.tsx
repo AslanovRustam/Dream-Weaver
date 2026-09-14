@@ -105,7 +105,6 @@ export function ResizeBatchPanel({
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
   const [selected, setSelected] = useState<Map<string, SelectedSize>>(new Map());
-  // "Запомнить выбор" — persist the chosen formats per account for next time.
   const [remember, setRemember] = useState(false);
   // All categories expanded by default so the user sees every format at once
   // (they can still collapse any group). The two web-banner data groups are
@@ -131,12 +130,10 @@ export function ResizeBatchPanel({
   // Which finished tile is open in the fullscreen viewer (null = none). Kept
   // separate from the modal so opening it never resets the batch/scroll.
   const [viewTile, setViewTile] = useState<BatchTile | null>(null);
-  // Tile pending a delete confirmation (null = no confirm shown).
   const [confirmDelete, setConfirmDelete] = useState<BatchTile | null>(null);
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
-  // Price is charged per SELECTED FORMAT (each resize costs the same flat 1.5 кр).
   const packageCredits = useMemo(() => resizeCredits(selected.size), [selected]);
 
   const total = tiles.length;
@@ -145,14 +142,11 @@ export function ResizeBatchPanel({
   const processed = doneCount + errorCount;
   const isRunning = batchStatus === "batch_running";
 
-  // Drive step transitions off the real batch status.
   useEffect(() => {
     if (isRunning) setPhase("generating");
     else if (total > 0 && processed === total) setPhase((p) => (p === "generating" ? "result" : p));
   }, [isRunning, total, processed]);
 
-  // Tick once a second while generating so the ETA counts down between
-  // individual file completions.
   useEffect(() => {
     if (phase !== "generating") return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
@@ -187,7 +181,6 @@ export function ResizeBatchPanel({
     effectivePhase === "select"
       ? "sm:h-[88vh] sm:max-h-[90vh] sm:w-[90vw] sm:max-w-6xl"
       : "sm:max-h-[85vh] sm:w-full sm:max-w-2xl";
-  // Full-screen on mobile: overrides Radix's centred/translated positioning.
   const mobileFullscreen =
     "max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none";
 
@@ -226,10 +219,8 @@ export function ResizeBatchPanel({
     });
   };
 
-  // ---- "Запомнить выбор": persist chosen formats per account ---------------
   const REMEMBER_KEY = "dw_resize_remember";
   const SELECTION_KEY = "dw_resize_selection";
-  // Load the saved preference + selection once on mount.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -250,7 +241,6 @@ export function ResizeBatchPanel({
       /* ignore */
     }
   }, []);
-  // While enabled, keep the saved selection synced with the current one.
   useEffect(() => {
     if (typeof window === "undefined" || !remember) return;
     try {
@@ -272,8 +262,6 @@ export function ResizeBatchPanel({
       return next;
     });
 
-  // The two web-banner data groups are merged into one "Баннеры для сайта"
-  // category that splits into Горизонтальные / Вертикальные subsections.
   type DisplaySubgroup = { title: string; sizes: BannerSize[] };
   type DisplayGroup = {
     id: string;
@@ -324,8 +312,6 @@ export function ResizeBatchPanel({
             onChange={() => toggleSize(s)}
             className="h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent-green,#9bff58)] max-sm:h-5 max-sm:w-5"
           />
-          {/* Named sizes: purpose = primary (foreground, lighter weight), pixels
-              = secondary (muted, right). Unnamed sizes: the pixels ARE the id. */}
           {s.label ? (
             <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
               <span
@@ -348,7 +334,6 @@ export function ResizeBatchPanel({
     );
   };
 
-  // Selected sizes in catalog order — predictable queue for the user.
   const orderedSelected = (): SelectedSize[] => {
     const ordered: SelectedSize[] = [];
     BANNER_SIZE_GROUPS.forEach((g) =>
@@ -379,7 +364,6 @@ export function ResizeBatchPanel({
     onLaunch(ordered);
   };
 
-  // Re-run only the sizes that errored (cheaper than a full re-generate).
   const retryFailed = () => {
     const failed = tiles.filter((t) => t.status === "error").map((t) => t.size);
     if (failed.length === 0) return;
@@ -452,8 +436,6 @@ export function ResizeBatchPanel({
   return (
     <div className="mt-3 flex justify-start gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
       {leadingButton}
-      {/* Trigger — compact secondary button (primary is the green "Сгенерировать").
-          On mobile it becomes the full-width sticky CTA for this screen. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -495,12 +477,9 @@ export function ResizeBatchPanel({
           }}
           className={`flex ${contentSize} ${mobileFullscreen} flex-col gap-0 rounded-2xl border border-border bg-panel p-0`}
         >
-          {/* ---------- STEP 1: SELECT ---------- */}
           {effectivePhase === "select" ? (
             <>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
-                {/* "Назад" closes the picker back to the banner — same single-exit
-                    pattern as the other screens (the "✕" is hidden). */}
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -518,7 +497,6 @@ export function ResizeBatchPanel({
                       </span>
                     ) : null}
                   </DialogTitle>
-                  {/* Top-right one-click maximum package — select/clear every format. */}
                   <button
                     type="button"
                     title="Выбрать все форматы (максимальный пакет)"
@@ -613,7 +591,6 @@ export function ResizeBatchPanel({
                 </p>
               ) : null}
               <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 max-sm:justify-stretch">
-                {/* Remember-my-choice — persists the ticked formats for next time. */}
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -662,7 +639,6 @@ export function ResizeBatchPanel({
             </>
           ) : null}
 
-          {/* ---------- STEP 2: GENERATING ---------- */}
           {effectivePhase === "generating" ? (
             <>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
@@ -701,7 +677,6 @@ export function ResizeBatchPanel({
             </>
           ) : null}
 
-          {/* ---------- STEP 3: RESULT ---------- */}
           {effectivePhase === "result" ? (
             <>
               <DialogHeader className="shrink-0 border-b border-border px-5 py-4 max-sm:px-3">
@@ -847,8 +822,6 @@ export function ResizeBatchPanel({
                               </>
                             ) : null}
 
-                            {/* "⋯" menu — round dark translucent, matching the
-                                master-preview overflow button. */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button
@@ -865,8 +838,6 @@ export function ResizeBatchPanel({
                                 sideOffset={8}
                                 className="w-52 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-56"
                               >
-                                {/* Download lives here on mobile only (the row
-                                    button is hidden < sm). Neutral action first. */}
                                 {t.status === "done" && t.dataUrl ? (
                                   <DropdownMenuItem
                                     onClick={() => {

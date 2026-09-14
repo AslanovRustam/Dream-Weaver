@@ -30,8 +30,6 @@ const TIPS: Record<string, { title: string; body: string }> = {
 };
 
 export function ToolCoachmark({ section }: { section: string }) {
-  // Per-account: scope the "seen" flag by user id so a different account on the
-  // same browser gets its own onboarding (see lib/onboarding).
   const { user } = useAuth();
   const userKey = user?.id ?? null;
   const [show, setShow] = useState(false);

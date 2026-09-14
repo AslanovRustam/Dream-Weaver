@@ -26,12 +26,9 @@ async function extractDocx(buf: Buffer): Promise<string> {
 }
 
 async function extractPdf(buf: Buffer): Promise<string> {
-  // Legacy build runs on the main thread in Node (no worker needed).
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const path = await import("node:path");
   const { pathToFileURL } = await import("node:url");
-  // Point pdf.js at its bundled standard fonts; without this many real-world
-  // PDFs throw "Ensure that the standardFontDataUrl API parameter is provided".
   const fontsDir =
     path.join(process.cwd(), "node_modules", "pdfjs-dist", "standard_fonts") + path.sep;
   const doc = await pdfjs.getDocument({
@@ -42,7 +39,6 @@ async function extractPdf(buf: Buffer): Promise<string> {
   }).promise;
   let text = "";
   for (let i = 1; i <= doc.numPages; i++) {
-    // Skip a page that fails rather than failing the whole document.
     try {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
@@ -73,7 +69,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unknown or unsupported product" }, { status: 400 });
   }
 
-  // Resolve the brief text from either raw text or an uploaded file.
   let brief = (body.text || "").trim();
   if (!brief && body.fileBase64) {
     const name = (body.fileName || "").toLowerCase();
@@ -152,7 +147,7 @@ export async function POST(request: Request) {
       });
       if (!res.ok) {
         lastDetail = (await res.text()).slice(0, 300);
-        continue; // try the next provider
+        continue;
       }
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       content = data.choices?.[0]?.message?.content ?? "";
@@ -182,7 +177,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "LLM returned non-JSON", detail: content.slice(0, 300) }, { status: 502 });
   }
 
-  // Keep only known keys; coerce to strings; validate enums.
   const fields: Record<string, string> = {};
   for (const f of schema.fields) {
     const raw = parsed.fields?.[f.key];

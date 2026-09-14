@@ -84,7 +84,6 @@ type MobileTab = "templates" | "settings" | "result";
 type Status = "idle" | "loading" | "done" | "error";
 type SectionId = "script" | "avatar" | "voice" | "scene" | "music" | "lang" | "brand";
 
-// Shrinks an uploaded image to a data URL (mirrors the other generators).
 function compressImageFile(file: File | null, setter: (v: string) => void, maxPx = 512) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
@@ -127,31 +126,25 @@ export function VideoGenApp() {
   const [sceneType, setSceneType] = useState<VideoSceneType>("ugc");
   const scene = VIDEO_SCENE_BY_ID.get(sceneType)!;
 
-  // UGC scene: uploaded product photo + chosen UGC style (Sibrik-style flow).
   const [product, setProduct] = useState("");
   const [ugcStyle, setUgcStyle] = useState(VIDEO_UGC_STYLES[0].id);
 
-  // Сценарий
   const [script, setScript] = useState("");
   const [topic, setTopic] = useState("");
   const [scriptBusy, setScriptBusy] = useState(false);
 
-  // Персонаж
   const [avatarId, setAvatarId] = useState("a1");
   const [avatarFilter, setAvatarFilter] = useState<AvatarStyle | "all">("all");
   const [customAvatar, setCustomAvatar] = useState("");
 
-  // Голос
   const [voiceId, setVoiceId] = useState("v1");
   const [voiceSample, setVoiceSample] = useState("");
   const [customVoice, setCustomVoice] = useState("");
 
-  // Сцена / фон
   const [backgroundId, setBackgroundId] = useState("studio");
   const [customBackground, setCustomBackground] = useState("");
   const [screencast, setScreencast] = useState("");
 
-  // Музыка и доп. элементы
   const [musicId, setMusicId] = useState("m1");
   const [musicMood, setMusicMood] = useState<MusicMood | "all">("all");
   const [musicSample, setMusicSample] = useState("");
@@ -159,10 +152,8 @@ export function VideoGenApp() {
   const [watermark, setWatermark] = useState(true);
   const [textOverlay, setTextOverlay] = useState("");
 
-  // Бренд / язык / формат
   const [brandName, setBrandName] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
-  // Map brief-extracted fields into the video form.
   const applyBrief = (f: Record<string, string>) => {
     if (f.subject) setScript(f.subject);
     if (f.brand) setBrandName(f.brand);
@@ -171,10 +162,9 @@ export function VideoGenApp() {
   const [extraLangs, setExtraLangs] = useState<string[]>([]);
   const [ratio, setRatio] = useState("9:16");
 
-  // Generation
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [progress, setProgress] = useState(0); // 0..1
+  const [progress, setProgress] = useState(0);
   const [stageIndex, setStageIndex] = useState(0);
   const [etaSec, setEtaSec] = useState(0);
   const [result, setResult] = useState<VideoResult | null>(null);
@@ -183,7 +173,6 @@ export function VideoGenApp() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("templates");
   const [genId, setGenId] = useState(0);
 
-  // Accordion: which sections are open. Script open by default.
   const [open, setOpen] = useState<Record<SectionId, boolean>>({
     script: true,
     avatar: false,
@@ -217,8 +206,6 @@ export function VideoGenApp() {
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
-  // Signal unsaved work (a typed topic or a generated result not yet saved) so
-  // the header / beforeunload can warn before the user leaves and loses it.
   useEffect(() => {
     // Dirty on the PRIMARY field (script) too, not just the optional topic
     // helper — otherwise a written script left leaving unguarded.
@@ -232,14 +219,11 @@ export function VideoGenApp() {
   const selectScene = (id: VideoSceneType) => {
     setSceneType(id);
     setMobileTab("settings");
-    // Auto-open the first relevant section for the chosen scene.
     setOpen((p) => ({ ...p, script: true }));
   };
 
-  // Guests keep the button enabled so pressing it opens the register modal.
   const canGenerate = isGuest || (script.trim().length > 0 && status !== "loading");
   const durationSec = estimateDurationSec(script || " ");
-  // PRELIMINARY credit estimate for the generate button (see lib/credit-estimate).
   const estCredits = estimateVideoCredits({ durationSec });
 
   const persistBrand = () => {
@@ -256,7 +240,6 @@ export function VideoGenApp() {
 
   const genScript = () => {
     setScriptBusy(true);
-    // Mock latency so the "AI is writing" feedback is visible.
     window.setTimeout(() => {
       setScript(generateVideoScript(topic, brandName, normalize(language)));
       setScriptBusy(false);
@@ -272,7 +255,6 @@ export function VideoGenApp() {
   };
 
   const onGenerate = () => {
-    // Guests may configure freely; generating needs an account.
     if (isGuest) {
       openGate();
       return;
@@ -323,16 +305,12 @@ export function VideoGenApp() {
     toast("Генерация отменена");
   };
 
-  // Regenerate replaces a finished video — confirm first. First-time generation
-  // (no result yet) goes straight through with no prompt.
   const regenerate = async () => {
     if (result && !(await confirm({ title: "Перегенерировать?", body: "Текущее видео будет заменено.", confirmLabel: "Перегенерировать" }))) return;
     onGenerate();
   };
 
   const removeResult = async () => {
-    // Confirm before destroying a finished, unsaved video — matches Banner /
-    // Landing; Video was deleting on a single click.
     if (result && !(await confirm({ title: "Удалить готовое видео?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     setResult(null);
     setStatus("idle");
@@ -368,7 +346,6 @@ export function VideoGenApp() {
   const avatar = VIDEO_AVATARS.find((a) => a.id === avatarId) ?? VIDEO_AVATARS[0];
   const bg = VIDEO_BACKGROUNDS.find((b) => b.id === backgroundId) ?? VIDEO_BACKGROUNDS[0];
 
-  // Which accordion sections are visible + a "done" flag (mobile step dots).
   const sectionList: { id: SectionId; title: string; show: boolean; done: boolean }[] = [
     { id: "script", title: "Сценарий", show: true, done: script.trim().length > 0 },
     { id: "avatar", title: "Персонаж / аватар", show: scene.needsAvatar, done: !!avatarId || !!customAvatar },
@@ -413,18 +390,15 @@ export function VideoGenApp() {
       <div className="flex flex-col p-0 lg:h-[calc(100vh-4rem-1px)] lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-3">
         <h1 className="sr-only">Конструктор видео</h1>
 
-        {/* COLUMN 1 — scene type picker */}
         <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
           <SceneTypeSidebar value={sceneType} onSelect={selectScene} />
         </div>
 
-        {/* COLUMN 2 — settings (accordion) */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
           }`}
         >
-          {/* Mobile-only header: back + step dots */}
           <div className="flex items-center gap-3 px-2 pb-2 pt-3 lg:hidden">
             <button
               type="button"
@@ -447,7 +421,6 @@ export function VideoGenApp() {
                   if (r.generationPrompt && !r.fields.subject) setScript(r.generationPrompt);
                 }}
               />
-              {/* ── Сценарий ─────────────────────────────────────────────── */}
               <SettingsSection
                 title="Сценарий"
                 icon={<Wand2 className="h-4 w-4 text-accent-green" />}
@@ -457,7 +430,6 @@ export function VideoGenApp() {
                 onToggle={() => toggle("script")}
               >
                 <div className="flex flex-col gap-3">
-                  {/* Generate-by-topic subpanel */}
                   <div className="rounded-lg border border-accent-green/30 bg-accent-green/5 p-2.5">
                     <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
                       <Sparkles className="h-3.5 w-3.5 text-accent-green" />
@@ -507,7 +479,6 @@ export function VideoGenApp() {
                 </div>
               </SettingsSection>
 
-              {/* ── Персонаж / аватар ────────────────────────────────────── */}
               {scene.needsAvatar ? (
                 <SettingsSection
                   title="Персонаж / аватар"
@@ -517,7 +488,6 @@ export function VideoGenApp() {
                   onToggle={() => toggle("avatar")}
                 >
                   <div className="flex flex-col gap-3">
-                    {/* Style filter */}
                     <div className="flex flex-wrap gap-1.5">
                       {VIDEO_AVATAR_STYLES.map((s) => (
                         <button
@@ -535,9 +505,7 @@ export function VideoGenApp() {
                       ))}
                     </div>
 
-                    {/* Avatar grid */}
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                      {/* Create-your-own tile */}
                       <button
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
@@ -611,7 +579,6 @@ export function VideoGenApp() {
                       (мок на этом этапе).
                     </p>
 
-                    {/* Simple appearance presets (stock avatars only) */}
                     {!customAvatar ? (
                       <div>
                         <label className="mb-1.5 block ds-label">Тон / стиль подачи</label>
@@ -634,7 +601,6 @@ export function VideoGenApp() {
                 </SettingsSection>
               ) : null}
 
-              {/* ── Голос ────────────────────────────────────────────────── */}
               <SettingsSection
                 title="Голос"
                 icon={<Mic className="h-4 w-4 text-accent-green" />}
@@ -696,7 +662,6 @@ export function VideoGenApp() {
                 </div>
               </SettingsSection>
 
-              {/* ── Сцена / фон · или · Продукт и стиль (UGC) ────────────── */}
               <SettingsSection
                 title={scene.needsProduct ? "Продукт и стиль" : "Сцена / фон"}
                 icon={<Clapperboard className="h-4 w-4 text-accent-green" />}
@@ -712,7 +677,6 @@ export function VideoGenApp() {
               >
                 {scene.needsProduct ? (
                   <div className="flex flex-col gap-4">
-                    {/* Product photo upload */}
                     <div>
                       <p className="mb-2 ds-label">Фото продукта</p>
                       <button
@@ -757,7 +721,6 @@ export function VideoGenApp() {
                       />
                     </div>
 
-                    {/* UGC style picker */}
                     <div>
                       <p className="mb-2 ds-label">Стиль UGC</p>
                       <div className="grid grid-cols-2 gap-2">
@@ -866,7 +829,6 @@ export function VideoGenApp() {
                 )}
               </SettingsSection>
 
-              {/* ── Музыка и доп. элементы ───────────────────────────────── */}
               <SettingsSection
                 title="Музыка и доп. элементы"
                 icon={<Music className="h-4 w-4 text-accent-green" />}
@@ -875,7 +837,6 @@ export function VideoGenApp() {
                 onToggle={() => toggle("music")}
               >
                 <div className="flex flex-col gap-3">
-                  {/* Mood filter */}
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -903,7 +864,6 @@ export function VideoGenApp() {
                       </button>
                     ))}
                   </div>
-                  {/* Track list */}
                   <div className="flex flex-col gap-1.5">
                     {VIDEO_MUSIC.filter(
                       (t) => t.id === "m0" || musicMood === "all" || t.mood === musicMood,
@@ -952,7 +912,6 @@ export function VideoGenApp() {
                     })}
                   </div>
 
-                  {/* Toggles */}
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/40 px-3 py-2.5">
                     <span className="flex items-center gap-2">
                       <Captions className="h-4 w-4 text-muted-foreground" />
@@ -989,7 +948,6 @@ export function VideoGenApp() {
                 </div>
               </SettingsSection>
 
-              {/* ── Язык ─────────────────────────────────────────────────── */}
               <SettingsSection
                 title="Язык"
                 icon={<Globe className="h-4 w-4 text-accent-green" />}
@@ -1044,7 +1002,6 @@ export function VideoGenApp() {
                 </div>
               </SettingsSection>
 
-              {/* ── Бренд и формат ───────────────────────────────────────── */}
               <SettingsSection
                 title="Бренд и формат"
                 icon={<Sparkles className="h-4 w-4 text-accent-green" />}
@@ -1119,7 +1076,6 @@ export function VideoGenApp() {
             </div>
           </div>
 
-          {/* Mobile sticky primary */}
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
@@ -1139,7 +1095,6 @@ export function VideoGenApp() {
           </div>
         </section>
 
-        {/* COLUMN 3 — result */}
         <div
           className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""
@@ -1191,7 +1146,6 @@ export function VideoGenApp() {
             />
           ) : result ? (
             <div className="flex flex-col gap-3">
-              {/* Device toggle + ⋯ */}
               <div className="flex items-center justify-between gap-2">
                 <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
                   <button
@@ -1253,7 +1207,6 @@ export function VideoGenApp() {
                 </DropdownMenu>
               </div>
 
-              {/* Player */}
               <div className="flex justify-center rounded-2xl border border-border bg-card p-3">
                 <MockVideoPlayer
                   key={`${genId}-${previewLang}-${ratio}-${previewMode}`}
@@ -1280,7 +1233,6 @@ export function VideoGenApp() {
                 />
               </div>
 
-              {/* Language version switcher */}
               {allLangs.length > 1 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="ds-caption mr-1">Версия:</span>
@@ -1304,7 +1256,6 @@ export function VideoGenApp() {
                 </div>
               ) : null}
 
-              {/* Actions */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -1341,14 +1292,10 @@ export function VideoGenApp() {
   );
 }
 
-// Resolve "auto" to a concrete language for mock text / labels. The generation
-// language is a local, per-section setting now, so "auto" simply defaults to ru.
 function normalize(lang: string): string {
   if (lang && lang !== "auto") return lang;
   return "ru";
 }
-
-// ---- shared bits ------------------------------------------------------------
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -1370,8 +1317,6 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-// A tiny "playing" indicator used for voice/music sample previews (audio is
-// mocked at this stage — this stands in for a real waveform).
 function Equalizer() {
   return (
     <span className="mt-1 flex items-end gap-0.5" aria-label="Воспроизведение">
@@ -1386,8 +1331,6 @@ function Equalizer() {
   );
 }
 
-// Accordion section card — the codebase's collapsible idiom (button + chevron).
-// Add-language dropdown for the multi-language versions row.
 function AddLangMenu({ current, onAdd }: { current: string[]; onAdd: (v: string) => void }) {
   const available = CREATIVE_LANGUAGES.filter((l) => l.value !== "auto" && !current.includes(l.value));
   if (available.length === 0) return null;
@@ -1421,8 +1364,6 @@ function AddLangMenu({ current, onAdd }: { current: string[]; onAdd: (v: string)
   );
 }
 
-// ---- mock video player ------------------------------------------------------
-
 function MockVideoPlayer({
   width,
   height,
@@ -1455,7 +1396,7 @@ function MockVideoPlayer({
   script: string;
 }) {
   const [playing, setPlaying] = useState(false);
-  const [t, setT] = useState(0); // seconds
+  const [t, setT] = useState(0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => () => {
@@ -1489,7 +1430,6 @@ function MockVideoPlayer({
   const showAvatarBig = sceneType === "talkinghead";
   const showAvatarCorner = sceneType === "overlay";
 
-  // Subtitle = the sentence at the current playback position.
   const sentences = script.split(/(?<=[.!?])\s+/).filter(Boolean);
   const subtitle = sentences.length
     ? sentences[Math.min(sentences.length - 1, Math.floor(frac * sentences.length))]
@@ -1503,12 +1443,10 @@ function MockVideoPlayer({
         className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-xl"
         style={{ aspectRatio: `${width} / ${height}`, background: isScreen ? "#0b0f17" : bgCss }}
       >
-        {/* Custom background image */}
         {bgImg && !isScreen ? (
           <img src={bgImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : null}
 
-        {/* Faux screen recording for screencast/overlay */}
         {isScreen ? (
           <div className="absolute inset-0 p-3">
             <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-white/10 bg-[#0e1420]">
@@ -1535,7 +1473,6 @@ function MockVideoPlayer({
           </div>
         ) : null}
 
-        {/* Big talking-head avatar */}
         {showAvatarBig ? (
           <div className="absolute inset-0 flex items-end justify-center">
             <img
@@ -1547,14 +1484,12 @@ function MockVideoPlayer({
           </div>
         ) : null}
 
-        {/* Corner avatar for overlay */}
         {showAvatarCorner ? (
           <div className="absolute bottom-3 right-3 h-20 w-20 overflow-hidden rounded-full border-2 border-accent-green shadow-lg sm:h-24 sm:w-24">
             <img src={avatarImg} alt="" className="h-full w-full object-cover" />
           </div>
         ) : null}
 
-        {/* Voiceover: waveform hint */}
         {sceneType === "voiceover" ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex items-end gap-1">
@@ -1572,12 +1507,10 @@ function MockVideoPlayer({
           </div>
         ) : null}
 
-        {/* Language badge */}
         <span className="absolute left-2 top-2 rounded-md bg-black/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white backdrop-blur">
           {creativeLangShort(lang)}
         </span>
 
-        {/* Watermark */}
         {watermark ? (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/40 px-1.5 py-1 backdrop-blur">
             {brandLogo ? (
@@ -1591,7 +1524,6 @@ function MockVideoPlayer({
           </span>
         ) : null}
 
-        {/* Text overlay hook */}
         {textOverlay.trim() ? (
           <div className="absolute inset-x-0 top-8 flex justify-center px-3">
             <span className="rounded-lg bg-accent-green px-2.5 py-1 text-center text-sm font-extrabold uppercase text-on-accent shadow-lg">
@@ -1600,7 +1532,6 @@ function MockVideoPlayer({
           </div>
         ) : null}
 
-        {/* Subtitles */}
         {subtitles && subtitle ? (
           <div className="absolute inset-x-0 bottom-12 flex justify-center px-4">
             <span className="rounded-md bg-black/65 px-2 py-1 text-center text-xs font-medium leading-snug text-white backdrop-blur">
@@ -1609,7 +1540,6 @@ function MockVideoPlayer({
           </div>
         ) : null}
 
-        {/* Center play button */}
         {!playing ? (
           <button
             type="button"
@@ -1623,7 +1553,6 @@ function MockVideoPlayer({
           </button>
         ) : null}
 
-        {/* Control bar */}
         <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6">
           <button
             type="button"
@@ -1643,8 +1572,6 @@ function MockVideoPlayer({
     </div>
   );
 }
-
-// ---- left column: scene-type picker with looped animated previews -----------
 
 const VG_ANIM_CSS = `
 @keyframes vg-eq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
@@ -1720,8 +1647,6 @@ function SceneTypeSidebar({
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h4">Тип сцены</h2>
       </div>
-      {/* Desktop: fixed (4 types fit, no internal scroll); mobile: full-width
-          vertical list that fills the step screen (clearer than a carousel). */}
       <div className="flex-1 overflow-y-auto p-3 lg:overflow-hidden">
         <div className="flex flex-col gap-3">
           {VIDEO_SCENE_TYPES.map((s) => {

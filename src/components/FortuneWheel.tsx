@@ -22,7 +22,6 @@ function sectorPath(cx: number, cy: number, r: number, start: number, end: numbe
   return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
 }
 
-// Blend a hex colour toward black by `amt` (0..1) for the alternating sectors.
 function darken(hex: string, amt: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
@@ -33,7 +32,6 @@ function darken(hex: string, amt: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// --- Synthesised sound (no audio files, via Web Audio) ---------------------
 type Ctx = AudioContext;
 function tick(ctx: Ctx, when: number) {
   const o = ctx.createOscillator();
@@ -53,7 +51,7 @@ function playTicks(ctx: Ctx, duration: number) {
   while (t < duration - 0.1) {
     tick(ctx, start + t);
     const frac = t / duration;
-    t += 0.035 + 0.33 * frac * frac; // intervals grow → decelerating clack
+    t += 0.035 + 0.33 * frac * frac;
   }
 }
 function playWin(ctx: Ctx) {
@@ -73,8 +71,6 @@ function playWin(ctx: Ctx) {
   });
 }
 
-// Interactive fortune wheel. Spins to a random segment (or a forced one) and
-// reports the winning index via onResult after the animation settles.
 export function FortuneWheel({
   segments,
   accent = "#f97316",
@@ -85,7 +81,7 @@ export function FortuneWheel({
   segments: WheelSegment[];
   accent?: string;
   forceIndex?: number;
-  spinSignal?: number; // increment to spin from a parent control
+  spinSignal?: number;
   onResult?: (index: number) => void;
 }) {
   const [rotation, setRotation] = useState(0);
@@ -104,7 +100,6 @@ export function FortuneWheel({
     const target =
       typeof forceIndex === "number" ? ((forceIndex % n) + n) % n : Math.floor(Math.random() * n);
     setSpinning(true);
-    // Sound (spin is a user gesture, so the context can start/resume).
     if (!muted) {
       try {
         type W = Window & { webkitAudioContext?: typeof AudioContext };
@@ -123,7 +118,7 @@ export function FortuneWheel({
     setRotation((prev) => {
       const base = prev - (prev % 360);
       const segCenter = (target + 0.5) * ang;
-      const need = (360 - segCenter) % 360; // bring segment centre under the top pointer
+      const need = (360 - segCenter) % 360;
       const jitter = (Math.random() - 0.5) * ang * 0.5;
       return base + 360 * 5 + need + jitter;
     });
@@ -133,7 +128,6 @@ export function FortuneWheel({
     }, 4200);
   };
 
-  // Spin when a parent bumps spinSignal (skip the initial 0).
   const lastSignal = useRef(spinSignal);
   useEffect(() => {
     if (spinSignal !== lastSignal.current) {
@@ -145,7 +139,6 @@ export function FortuneWheel({
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-full select-none">
-      {/* Mute toggle */}
       <button
         type="button"
         onClick={() => setMuted((m) => !m)}
@@ -155,7 +148,6 @@ export function FortuneWheel({
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
 
-      {/* Pointer */}
       <div
         className="absolute left-1/2 top-[-8px] z-20 -translate-x-1/2"
         style={{
@@ -169,7 +161,6 @@ export function FortuneWheel({
         aria-hidden
       />
 
-      {/* Rotating wheel (with accent glow) */}
       <div
         className="h-full w-full rounded-full"
         style={{
@@ -204,11 +195,9 @@ export function FortuneWheel({
             </filter>
           </defs>
 
-          {/* Golden rim + inner base */}
           <circle cx={cx} cy={cy} r={r} fill="url(#fw-rim)" />
           <circle cx={cx} cy={cy} r={r - 8} fill={darken(accent, 0.62)} />
 
-          {/* Sectors */}
           {segments.map((s, i) => {
             const start = i * ang;
             const end = (i + 1) * ang;
@@ -224,10 +213,8 @@ export function FortuneWheel({
             );
           })}
 
-          {/* Glossy sheen over the sectors */}
           <circle cx={cx} cy={cy} r={r - 12} fill="url(#fw-sheen)" pointerEvents="none" />
 
-          {/* Labels (above the sheen so they stay crisp) */}
           {segments.map((s, i) => {
             const mid = i * ang + ang / 2;
             const [tx, ty] = polar(cx, cy, r * 0.6, mid);
@@ -254,7 +241,6 @@ export function FortuneWheel({
             );
           })}
 
-          {/* Glowing rim dots */}
           <g filter="url(#fw-dotGlow)">
             {Array.from({ length: n }).map((_, i) => {
               const [dx, dy] = polar(cx, cy, r - 4, i * ang);
@@ -264,7 +250,6 @@ export function FortuneWheel({
         </svg>
       </div>
 
-      {/* Centre hub → click to spin */}
       <button
         type="button"
         onClick={spin}

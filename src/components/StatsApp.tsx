@@ -54,7 +54,6 @@ export function StatsApp() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const router = useRouter();
 
-  // Close the loop: open the banner generator prefilled for a campaign.
   const createBannerFor = (c: Campaign) => {
     const platform = PLATFORM_BY_ID.get(c.platform)?.name ?? c.platform;
     const brief = `Рекламный баннер для кампании «${c.name}» (${platform}).`;
@@ -142,7 +141,6 @@ export function StatsApp() {
     }
   };
 
-  // No accounts connected → send the user to the connect screen.
   if (accounts.length === 0) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8">
@@ -169,7 +167,6 @@ export function StatsApp() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <Header />
 
-      {/* Filters: accounts + date range */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {accounts.map((a) => {
@@ -206,7 +203,6 @@ export function StatsApp() {
         </div>
       </div>
 
-      {/* KPI tiles */}
       <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {KPI_DEFS.map((k) => (
           <KpiTile
@@ -218,7 +214,6 @@ export function StatsApp() {
         ))}
       </section>
 
-      {/* Trend chart */}
       <section className="ds-card mt-4 rounded-2xl p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="ds-h4">Динамика</p>
@@ -287,7 +282,6 @@ export function StatsApp() {
         </div>
       </section>
 
-      {/* Campaigns drill-down */}
       <section className="ds-card mt-4 overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between gap-3 p-5 pb-3">
           <p className="ds-h4">Кампании</p>

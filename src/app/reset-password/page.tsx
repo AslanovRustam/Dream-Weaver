@@ -24,8 +24,6 @@ export default function ResetPasswordPage() {
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(false);
 
-  // If user lands here without any session (e.g. direct visit), nudge them
-  // back to /login — there's nothing to reset.
   useEffect(() => {
     if (!loading && !session) {
       const t = setTimeout(() => router.push("/login"), 1500);

@@ -43,7 +43,6 @@ export function MailingApp() {
     setCampaigns(getCampaigns());
   };
   useEffect(() => {
-    // Flip any past-due scheduled campaigns to "sent" before listing.
     processDueCampaigns();
     refresh();
   }, []);
@@ -107,7 +106,6 @@ export function MailingApp() {
     downloadCsv("gengo-mailings", [header, ...rows]);
   };
 
-  // Minimum selectable datetime = now (local), for the schedule input.
   const minDateTime = (() => {
     const d = new Date();
     d.setSeconds(0, 0);
@@ -136,7 +134,6 @@ export function MailingApp() {
         </Link>
       </header>
 
-      {/* Date range */}
       <div className="mt-6 flex justify-end">
         <div className="flex rounded-lg border border-border p-0.5">
           {RANGES.map((r) => (
@@ -154,7 +151,6 @@ export function MailingApp() {
         </div>
       </div>
 
-      {/* KPI tiles */}
       <section className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi label="Отправлено" value={fmtInt(overview.totals.sent)} />
         <Kpi label="Доставлено" value={fmtInt(overview.totals.delivered)} />
@@ -164,7 +160,6 @@ export function MailingApp() {
         <Kpi label="CTR" value={fmtPct(overview.totals.ctr)} />
       </section>
 
-      {/* Trend + create side by side */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <section className="ds-card rounded-2xl p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -220,7 +215,6 @@ export function MailingApp() {
           </div>
         </section>
 
-        {/* Create a campaign */}
         <section className="ds-card flex flex-col gap-4 rounded-2xl p-5">
           <p className="ds-h4">Создать рассылку</p>
           {drafts.length === 0 ? (
@@ -269,7 +263,6 @@ export function MailingApp() {
                 <Users className="h-3.5 w-3.5" /> Получателей: {fmtInt(audience?.count ?? 0)}
               </p>
 
-              {/* When to send: now or scheduled */}
               <div className="flex rounded-lg border border-border p-0.5 text-xs">
                 {(
                   [
@@ -324,7 +317,6 @@ export function MailingApp() {
         </section>
       </div>
 
-      {/* Campaigns table */}
       <section className="ds-card mt-4 overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between gap-3 p-5 pb-3">
           <p className="ds-h4">Кампании</p>

@@ -60,8 +60,6 @@ export async function POST(request: Request) {
             return Response.json({ error: "Source card not found" }, { status: 404 });
           }
 
-          // Find the source's master generation so we can re-point the
-          // new card at the same FTP file.
           const supa = getAdminClient();
           const { data: master, error: masterErr } = await supa
             .from("generations")
@@ -91,7 +89,6 @@ export async function POST(request: Request) {
             .trim();
           const cloneName = (body.name || `${baseName} (новая категория)`).trim().slice(0, 120);
 
-          // Create the clone card.
           const { data: card, error: cardErr } = await supa
             .from("generation_cards")
             .insert({
@@ -115,7 +112,6 @@ export async function POST(request: Request) {
             return Response.json({ error: cardErr?.message || "clone failed" }, { status: 500 });
           }
 
-          // Create the master generation row pointing at the shared FTP file.
           const { data: gen, error: genErr } = await supa
             .from("generations")
             .insert({
@@ -174,7 +170,6 @@ export async function POST(request: Request) {
             },
           });
 
-          // Bump activity so the new card shows at the top of /history.
           try {
             await supa.rpc("touch_card_activity", { p_card_id: card.id });
           } catch (e) {

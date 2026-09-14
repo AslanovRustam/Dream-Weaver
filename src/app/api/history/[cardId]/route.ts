@@ -84,8 +84,6 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ cardId: s
     if (!data) {
       return Response.json({ error: "Card not found" }, { status: 404 });
     }
-    // Audit user-driven mutations of the card metadata. Useful for
-    // both "I didn't change this" investigations and ops dashboards.
     if ("name" in update) {
       void logAudit({
         user_id: user.id,

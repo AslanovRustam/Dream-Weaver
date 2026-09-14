@@ -74,7 +74,6 @@ const VERTICAL_LABEL: Record<LandingVertical, string> = {
   sport: "Sport",
 };
 
-// Shrinks an uploaded logo to a data URL (mirrors the banner's logo handling).
 function compressImageFile(file: File | null, setter: (v: string) => void, maxPx = 256) {
   if (!file) return;
   const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
@@ -143,7 +142,6 @@ function pruneLandingProjects() {
       if (k && k.startsWith(LANDING_PROJECT_PREFIX)) keys.push(k);
     }
     if (keys.length <= MAX_LANDING_PROJECTS) return;
-    // The id is a base36 timestamp — oldest first after numeric sort.
     keys.sort(
       (a, b) =>
         parseInt(a.slice(LANDING_PROJECT_PREFIX.length), 36) -
@@ -160,12 +158,9 @@ function pruneLandingProjects() {
 export function LandingGenApp() {
   const { isGuest, openGate } = useAuthGate();
   const [templateId, setTemplateId] = useState(() => {
-    // Deep-link from the Hub ("popular templates"): /landing?template=<id>
-    // opens with that template selected, skipping the category step.
     if (typeof window !== "undefined") {
       try {
         const fromUrl = new URLSearchParams(window.location.search).get("template");
-        // Only interactive templates are selectable in the MVP.
         if (fromUrl && LANDING_TEMPLATE_BY_ID.get(fromUrl)?.interactive) return fromUrl;
       } catch {
         /* ignore */
@@ -183,7 +178,6 @@ export function LandingGenApp() {
   const [sections, setSections] = useState<Record<LandingSectionId, boolean>>(ALL_ON);
   const [ctaText, setCtaText] = useState("");
   const [offerDetails, setOfferDetails] = useState("");
-  // Map brief-extracted fields into the landing form.
   const applyBrief = (f: Record<string, string>) => {
     if (f.subject) setSubject(f.subject);
     if (f.occasion) setOccasion(f.occasion);
@@ -208,8 +202,6 @@ export function LandingGenApp() {
     return "templates";
   });
 
-  // From-banner flow: vertical inherited from the banner (no template picker),
-  // the banner image reused as the Hero visual, brand block collapsed by default.
   const gen = useGeneration();
   const router = useRouter();
   const [fromBanner, setFromBanner] = useState(false);
@@ -236,8 +228,6 @@ export function LandingGenApp() {
   // and clobbers the seed-applied brand/language.
   const initedRef = useRef(false);
 
-  // Mount: title, brand defaults, global-language default, and the optional
-  // "create from banner" handoff.
   useEffect(() => {
     if (initedRef.current) return;
     initedRef.current = true;
@@ -268,7 +258,6 @@ export function LandingGenApp() {
         /* ignore malformed seed */
       }
     }
-    // Deep-linked with a template → jump straight to settings on mobile.
     try {
       if (new URLSearchParams(window.location.search).get("template")) {
         setMobileTab("settings");
@@ -281,7 +270,6 @@ export function LandingGenApp() {
   }, []);
 
   const selectTemplate = (t: LandingTemplate) => {
-    // Interactive templates (e.g. the fortune wheel) open their own builder.
     if (t.interactive === "wheel") {
       router.push("/wheel");
       return;
@@ -302,12 +290,9 @@ export function LandingGenApp() {
     setSections((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const sectionsOn = Object.values(sections).some(Boolean);
-  // Guests keep the button enabled so pressing it opens the register modal
-  // instead of looking broken (the handler gates on isGuest).
   const canGenerate =
     isGuest || (subject.trim().length > 0 && sectionsOn && status !== "loading");
 
-  // Collapsible settings sections (accordion), shared pattern across generators.
   const [openSec, setOpenSec] = useState({
     subject: true,
     occasion: false,
@@ -328,7 +313,6 @@ export function LandingGenApp() {
         { id: "structure", title: "Структура", done: sectionsOn },
         { id: "cta", title: "CTA и детали", done: true },
       ];
-  // In from-banner mode the vertical/accent come from the banner, not a template.
   const vertical = fromBanner ? bannerVertical : template.vertical;
   const accent = fromBanner ? accentForVertical(bannerVertical) : template.accent;
   const heroFromBanner = fromBanner && useBannerHero && Boolean(bannerImage);
@@ -345,10 +329,7 @@ export function LandingGenApp() {
     }
   };
 
-  // Generation moved to a dedicated editor page: stash the input and route to
-  // /landing/editor/<id>. Generation logic itself is unchanged.
   const onGenerate = () => {
-    // Guests may configure freely; generating needs an account.
     if (isGuest) {
       openGate();
       return;
@@ -386,7 +367,7 @@ export function LandingGenApp() {
           overridesByLang: {},
         }),
       );
-      pruneLandingProjects(); // keep storage bounded
+      pruneLandingProjects();
       router.push(`/landing/editor/${projectId}`);
     } catch {
       setStatus("idle");
@@ -412,7 +393,6 @@ export function LandingGenApp() {
           </div>
         ) : null}
 
-        {/* COLUMN 2 — settings (shown once a template is picked, or from-banner) */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             !(fromBanner || mobileTab === "settings") ? "!hidden" : ""
@@ -460,7 +440,6 @@ export function LandingGenApp() {
               />
               {fromBanner ? (
                 <>
-                  {/* Collapsed "brought from banner" summary — expand to edit. */}
                   <div className="overflow-hidden rounded-xl border border-accent-green/40 bg-accent-green/5">
                     <button
                       type="button"
@@ -570,7 +549,6 @@ export function LandingGenApp() {
                     ) : null}
                   </div>
 
-                  {/* Use the banner as the Hero visual (from-banner only). */}
                   <div className="rounded-xl border border-border bg-background/40 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -808,8 +786,6 @@ export function LandingGenApp() {
             </div>
           </div>
 
-          {/* Primary action — pinned to the bottom of the settings panel (result
-              now opens on a dedicated editor page, so this is the only CTA). */}
           <div className="shrink-0 border-t border-border bg-panel p-3">
             <button
               type="button"
@@ -831,8 +807,6 @@ export function LandingGenApp() {
   );
 }
 
-// ---- Left column ------------------------------------------------------------
-
 // Grid tile: gradient thumbnail on top, name below — reads clearly as one of
 // several options in the expanded category grid (mirrors the banner sidebar's
 // PresetTile). No single full-width "default" card.
@@ -845,9 +819,9 @@ function TemplateTile({
   selected: boolean;
   onSelect: () => void;
 }) {
-  // MVP: только интерактивные шаблоны (колесо / слот / краш) доступны.
-  // Остальные скрыты из галереи целиком — см. LandingTemplateSidebar's
-  // `groups` (фильтр по `interactive`), а не серятся здесь.
+  // MVP: only the interactive templates (wheel / slot / crash) are available.
+  // The rest are hidden from the gallery entirely — see LandingTemplateSidebar's
+  // `groups` (filtered on `interactive`); they are not greyed out here.
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -911,7 +885,6 @@ function LandingTemplateSidebar({
   onSelect: (t: LandingTemplate) => void;
 }) {
   const [query, setQuery] = useState("");
-  // Categories open by default so the gallery shows all tiles at a glance.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(LANDING_CATEGORIES_ACTIVE.map((c) => [c.id, true])),
   );
@@ -954,8 +927,6 @@ function LandingTemplateSidebar({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [filterOpen]);
 
-  // For each category resolve its templates filtered by search + applied
-  // category filter; hide categories with no matches.
   const groups = useMemo(() => {
     return LANDING_CATEGORIES_ACTIVE.filter(
       (cat) => categoryFilter === "all" || cat.id === categoryFilter,
@@ -1026,8 +997,6 @@ function LandingTemplateSidebar({
           </div>
         )}
 
-        {/* Mobile overlay behind the category dropdown (shared header pattern);
-            desktop keeps the plain popover. */}
         <MobileScrim open={filterOpen} onClose={closeFilter} />
         {filterOpen && (
           <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">

@@ -30,7 +30,6 @@ export async function POST(request: Request) {
     const ids = (profs ?? []).map((p) => (p as { id: string }).id).filter(Boolean);
     if (ids.length === 0) return Response.json({ ok: true, recipients: 0 });
 
-    // Insert in batches to keep each statement reasonable.
     let inserted = 0;
     for (let i = 0; i < ids.length; i += 500) {
       const rows = ids.slice(i, i + 500).map((uid) => ({

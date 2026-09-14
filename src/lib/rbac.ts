@@ -30,7 +30,6 @@ export type Tier = (typeof TIERS)[number];
 export const DEFAULT_ROLE: Role = "user";
 export const DEFAULT_TIER: Tier = "regular";
 
-// Rank for "can't act on someone at or above your level" guards.
 export const ROLE_RANK: Record<Role, number> = {
   user: 0,
   tester: 1,
@@ -40,8 +39,6 @@ export const ROLE_RANK: Record<Role, number> = {
   superadmin: 5,
 };
 
-// Granular powers checked at the server boundary. Keep names stable —
-// endpoints reference them.
 export const CAPABILITIES = [
   "users.view",
   "users.edit",
@@ -59,8 +56,6 @@ export const CAPABILITIES = [
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
-// Default role → capabilities. MINIMAL on purpose (it will be tuned a
-// lot). superadmin is special-cased to "everything" in can().
 export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
   user: [],
   tester: [],

@@ -127,14 +127,11 @@ function normaliseBannerTexts(raw: unknown): BannerTextItem[] {
 const sanitize = sanitizeVisionText;
 
 function parseLLMJson(raw: string): MasterDetails {
-  // Strip code fences if the model defied instructions.
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?/i, "")
     .replace(/```$/i, "")
     .trim();
-  // The model sometimes emits leading prose — find the first `{` and the
-  // matching last `}` and parse the slice.
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1) return EMPTY;
@@ -178,7 +175,6 @@ export async function POST(request: Request) {
         if (!apiKey) {
           return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
         }
-        // Vision pre-pass uses OpenAI direct (gpt-4o-mini is an OpenAI model).
 
         let body: Body;
         try {

@@ -11,8 +11,6 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      // Unchecked reads as a neutral outline; lime is reserved for the checked
-      // state, so a form of empty boxes no longer looks half-selected.
       "grid place-content-center peer h-4 w-4 shrink-0 rounded-sm border border-[color:var(--border-strong)] bg-elevated transition disabled:cursor-not-allowed disabled:opacity-40 data-[state=checked]:border-accent-green data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
       className,
     )}

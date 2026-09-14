@@ -8,7 +8,7 @@
 import { getBrowserClient } from "./supabase/browser";
 
 export type ApiInit = RequestInit & {
-  json?: unknown; // shortcut: pass an object, we set headers + stringify
+  json?: unknown;
 };
 
 async function authHeaders(): Promise<Record<string, string>> {

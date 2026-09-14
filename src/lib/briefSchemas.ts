@@ -6,7 +6,7 @@ import type { SectionId } from "@/lib/sections";
 export interface BriefField {
   key: string;
   label: string;
-  hint?: string; // guidance for the model
+  hint?: string;
   enum?: string[]; // if set, the value must be one of these
 }
 
@@ -68,7 +68,6 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
       { key: "ctaText", label: "Текст кнопки" },
     ],
   },
-  // Management sections have no brief-fillable form yet.
   ads: { genHint: "", fields: [] },
   stats: { genHint: "", fields: [] },
   mailing: { genHint: "", fields: [] },

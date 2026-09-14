@@ -43,7 +43,6 @@ export function ResizeResultsGrid({ tiles, isRunning, onCancel, onClear }: Props
     try {
       const zip = new JSZip();
       for (const t of ready) {
-        // Strip data: prefix, decode base64 → bytes for the archive.
         const m = (t.dataUrl as string).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
         if (!m) continue;
         const ext = m[1].toLowerCase() === "image/jpeg" ? "jpg" : m[1].split("/")[1] || "png";
@@ -68,8 +67,6 @@ export function ResizeResultsGrid({ tiles, isRunning, onCancel, onClear }: Props
       const a = document.createElement("a");
       a.href = url;
       a.download = `banners-${ready.length}sz-${firstHash}-${Date.now()}.zip`;
-      // Force the click to happen on a fully-attached element. Some
-      // browsers refuse anonymous a.click() when the node isn't in DOM.
       document.body.appendChild(a);
       a.click();
       // Defer revoking the blob URL until after the browser actually
@@ -156,8 +153,6 @@ function ResultTile({ tile }: { tile: BatchTile }) {
   const { size, status, kind, dataUrl, error } = tile;
   const aspect = size.w / size.h;
   const isApi = kind === "scale_from_bucket";
-  // We constrain the visual tile to a max box and let the image inside
-  // honour its true aspect ratio.
   const boxStyle: React.CSSProperties = {
     aspectRatio: `${size.w} / ${size.h}`,
   };

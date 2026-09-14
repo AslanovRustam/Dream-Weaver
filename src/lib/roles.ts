@@ -27,7 +27,7 @@ function readOverride(): AppRole | null {
     const v = window.localStorage.getItem(KEY);
     return v === "guest" || v === "user" || v === "admin" ? v : null;
   } catch {
-    return null; // storage blocked — behave as if unset
+    return null;
   }
 }
 
@@ -88,8 +88,6 @@ export function useAppRole(): AppRoleState {
       .then((r) => {
         if (cancelled) return;
         const role = r?.profile?.role;
-        // Any non-"user" staff role (support/moderator/admin/superadmin) opens
-        // the admin entry point; the panel itself re-checks capabilities.
         setStaff(Boolean(r?.is_super_admin) || (typeof role === "string" && role !== "user"));
       })
       .catch(() => {

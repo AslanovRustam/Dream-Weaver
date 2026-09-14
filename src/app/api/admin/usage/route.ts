@@ -58,7 +58,6 @@ export async function GET(request: Request) {
       a.byFeature[feature] = (a.byFeature[feature] ?? 0) + cost;
     }
 
-    // Attach emails.
     const ids = [...byUser.keys()];
     const emails = new Map<string, string>();
     if (ids.length) {

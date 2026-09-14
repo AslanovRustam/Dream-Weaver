@@ -7,8 +7,6 @@
 // render) driven purely on the client so the whole UX (progress, ETA, player,
 // multi-language versions) can be approved before a real engine exists.
 
-// ---- Scene types (left column) ---------------------------------------------
-
 export type VideoSceneType = "ugc" | "screencast" | "talkinghead" | "overlay" | "voiceover";
 
 export const VIDEO_SCENE_TYPES: {
@@ -68,8 +66,6 @@ export const VIDEO_SCENE_TYPES: {
   },
 ];
 
-// ---- UGC styles (Sibrik-style presets for the "аватар + продукт" scene) -----
-
 export type UgcStyle = {
   id: string;
   label: string;
@@ -87,8 +83,6 @@ export const VIDEO_UGC_STYLES: UgcStyle[] = [
 
 export const VIDEO_SCENE_BY_ID = new Map(VIDEO_SCENE_TYPES.map((s) => [s.id, s]));
 
-// ---- Avatar library (mock) --------------------------------------------------
-
 export type AvatarStyle = "casual" | "professional" | "genz";
 
 export const VIDEO_AVATAR_STYLES: { id: AvatarStyle | "all"; label: string }[] = [
@@ -100,7 +94,6 @@ export const VIDEO_AVATAR_STYLES: { id: AvatarStyle | "all"; label: string }[] =
 
 export type VideoAvatar = { id: string; name: string; style: AvatarStyle; img: string };
 
-// Placeholder faces (pravatar) — swapped for a real avatar library on integration.
 const avatarImg = (n: number) => `https://i.pravatar.cc/240?img=${n}`;
 
 export const VIDEO_AVATARS: VideoAvatar[] = [
@@ -117,8 +110,6 @@ export const VIDEO_AVATARS: VideoAvatar[] = [
   { id: "a11", name: "Том", style: "casual", img: avatarImg(59) },
   { id: "a12", name: "Ева", style: "genz", img: avatarImg(24) },
 ];
-
-// ---- Voice library (mock) ---------------------------------------------------
 
 export type VideoVoice = {
   id: string;
@@ -137,8 +128,6 @@ export const VIDEO_VOICES: VideoVoice[] = [
   { id: "v5", name: "Лев", gender: "male", tone: "casual", sample: "Молодой, живой" },
   { id: "v6", name: "Инна", gender: "female", tone: "professional", sample: "Тёплый, спокойный" },
 ];
-
-// ---- Music library (mock) ---------------------------------------------------
 
 export type MusicMood = "energetic" | "calm" | "drive";
 
@@ -159,8 +148,6 @@ export const VIDEO_MUSIC: VideoTrack[] = [
   { id: "m5", label: "Slow Motion", mood: "calm", durationSec: 34 },
 ];
 
-// ---- Backgrounds (presets for Talking Head / voiceover) ---------------------
-
 export type VideoBackground = { id: string; label: string; css: string; dark: boolean };
 
 export const VIDEO_BACKGROUNDS: VideoBackground[] = [
@@ -177,8 +164,6 @@ export const VIDEO_RATIOS: { id: string; label: string }[] = [
   { id: "16:9", label: "Ландшафт 16:9" },
   { id: "1:1", label: "Квадрат 1:1" },
 ];
-
-// ---- Simulated generation pipeline -----------------------------------------
 
 export const VIDEO_STAGES: { id: string; label: string; weight: number }[] = [
   { id: "script", label: "Обработка сценария", weight: 1 },
@@ -202,8 +187,6 @@ export function stageIndexForProgress(p: number): number {
   }
   return VIDEO_STAGES.length - 1;
 }
-
-// ---- Script auto-generation (mock, client-side) ----------------------------
 
 /** Cheap templated "AI" script — replaced by a real POST /api/video/script. */
 export function generateVideoScript(topic: string, brand: string, lang: string): string {
@@ -232,8 +215,6 @@ export function generateVideoScript(topic: string, brand: string, lang: string):
     `Переходите по ссылке и забирайте приветственный бонус прямо сейчас!`,
   ].join(" ");
 }
-
-// ---- Input / result shapes --------------------------------------------------
 
 export type VideoInput = {
   sceneType: VideoSceneType;

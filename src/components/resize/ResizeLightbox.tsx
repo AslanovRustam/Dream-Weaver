@@ -16,14 +16,11 @@ import type { BatchTile } from "@/lib/generation-context";
 
 export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: () => void }) {
   const [mounted, setMounted] = useState(false);
-  // Vertical drag offset for the mobile swipe-to-dismiss gesture.
   const [dragY, setDragY] = useState(0);
   const dragStart = useRef<number | null>(null);
 
   useEffect(() => setMounted(true), []);
 
-  // Close on Escape, but capture the event and stop it before Radix's dialog
-  // (which also listens for Escape) can react and tear down the whole modal.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -36,7 +33,6 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
     return () => document.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
-  // Lock body scroll while the lightbox is open.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -56,7 +52,6 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
   const onTouchMove = (e: React.TouchEvent) => {
     if (dragStart.current == null) return;
     const dy = e.touches[0].clientY - dragStart.current;
-    // Only track downward drags.
     setDragY(dy > 0 ? dy : 0);
   };
   const onTouchEnd = () => {
@@ -77,7 +72,6 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
       aria-modal="true"
       aria-label={caption}
     >
-      {/* Top bar: caption + close */}
       <div
         className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white sm:px-6"
         onClick={(e) => e.stopPropagation()}
@@ -93,7 +87,6 @@ export function ResizeLightbox({ tile, onClose }: { tile: BatchTile; onClose: ()
         </button>
       </div>
 
-      {/* Image stage */}
       <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-8 sm:px-6">
         {dataUrl ? (
           <img

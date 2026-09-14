@@ -11,7 +11,6 @@
  *  moderation block and decide whether to retry. Stripped before display. */
 export const CONTENT_FILTER_PREFIX = "[content_filter] ";
 
-// Human-readable names for OpenAI `safety_violations=[...]` categories.
 const SAFETY_CATEGORY_RU: Record<string, string> = {
   sexual: "сексуальный контент",
   sexual_minors: "сексуальный контент с участием несовершеннолетних",
@@ -55,12 +54,10 @@ export function describeProviderError(detail: string, status?: number): string {
   const d = detail || "";
   const low = d.toLowerCase();
 
-  // Billing / quota — actionable only by an admin.
   if (low.includes("insufficient_quota") || low.includes("exceeded your current quota")) {
     return "Недостаточно средств на API-ключе провайдера. Обратитесь к администратору.";
   }
 
-  // Moderation / safety block (OpenAI returns this as 400, we forward as 502).
   const isSafety =
     low.includes("safety_violations") ||
     low.includes("safety system") ||
@@ -79,12 +76,10 @@ export function describeProviderError(detail: string, status?: number): string {
     return `Запрос отклонён модерацией провайдера: ${what}. ${SWITCH_HINT}${tail}`;
   }
 
-  // Empty / refused model response.
   if (low.includes("no image payload") || low.includes("empty model response")) {
     return "Модель вернула пустой ответ. Попробуйте сгенерировать ещё раз через несколько секунд.";
   }
 
-  // Rate limit.
   if (status === 429 || low.includes("rate limit") || low.includes("too many requests")) {
     return "Превышен лимит запросов провайдера. Подождите немного и повторите.";
   }

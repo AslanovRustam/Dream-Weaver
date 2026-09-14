@@ -27,14 +27,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supa = getBrowserClient();
     let mounted = true;
 
-    // 1. Read whatever is in storage already (sync-ish via promise).
     supa.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       setLoading(false);
     });
 
-    // 2. Subscribe — Supabase auto-refreshes tokens and emits SIGNED_IN/OUT.
     const { data: sub } = supa.auth.onAuthStateChange((_event, newSession) => {
       if (!mounted) return;
       setSession(newSession);

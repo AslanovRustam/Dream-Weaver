@@ -24,7 +24,7 @@ export function GenerationProgress({
   subtitle?: string;
   stages?: ProgressStage[];
   stageIndex?: number;
-  progress?: number; // 0..1
+  progress?: number;
   etaSec?: number;
   onCancel?: () => void;
   footer?: string;

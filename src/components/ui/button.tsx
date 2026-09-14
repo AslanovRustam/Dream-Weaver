@@ -16,10 +16,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Primary: solid lime fill + lime glow on hover (single accent).
         default:
           "bg-accent-green text-[color:var(--text-on-accent)] hover:bg-[var(--accent-hover)] hover:shadow-glow-lime",
-        // Violet primary — solid violet fill + violet glow, for workspace/premium.
         violet: "ds-btn-violet",
         destructive: "bg-destructive text-white hover:bg-destructive/90",
         outline:

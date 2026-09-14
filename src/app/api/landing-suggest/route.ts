@@ -102,7 +102,6 @@ export async function POST(request: Request) {
     return Response.json({ error: e instanceof Error ? e.message : "Ошибка запроса" }, { status: 502 });
   }
 
-  // Strip stray wrapping quotes/backticks the model sometimes adds.
   const text = content.replace(/^["'`]+|["'`]+$/g, "").trim();
   if (!text) return Response.json({ error: "Пустой ответ" }, { status: 502 });
 

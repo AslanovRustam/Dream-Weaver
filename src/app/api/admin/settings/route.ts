@@ -113,8 +113,6 @@ export async function PUT(request: Request) {
             return Response.json({ error: "Too many items" }, { status: 400 });
           }
 
-          // Validate every item before persisting any of them — fail
-          // fast instead of half-applying.
           for (const it of items) {
             const key = (it.key || "").trim();
             if (!key) return Response.json({ error: "key required" }, { status: 400 });
@@ -143,8 +141,6 @@ export async function PUT(request: Request) {
             });
           }
 
-          // Re-read the full list so the client UI stays in sync with
-          // anything the trigger or another admin changed concurrently.
           const admin = getAdminClient();
           const { data } = await admin
             .from("app_settings")

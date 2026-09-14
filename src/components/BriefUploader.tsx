@@ -37,7 +37,6 @@ export function BriefUploader({
       else next.add(key);
       return next;
     });
-  // Only the fields the user kept ticked.
   const pickSelected = () =>
     Object.fromEntries(
       Object.entries(result?.fields ?? {}).filter(([k]) => selected.has(k)),
@@ -116,7 +115,6 @@ export function BriefUploader({
         </div>
       </div>
 
-      {/* Intake */}
       <div className="mt-3">
         <div className="mb-2 flex rounded-lg border border-border p-0.5 text-xs">
           {([["file", "Файл"], ["text", "Текст"]] as const).map(([m, label]) => (
@@ -200,7 +198,6 @@ export function BriefUploader({
         {error ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{error}</p> : null}
       </div>
 
-      {/* Result + two outcomes */}
       {result ? (
         <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
           <div className="flex items-center justify-between gap-2">

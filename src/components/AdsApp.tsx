@@ -24,8 +24,6 @@ export function AdsApp() {
   }, []);
 
   const connect = (id: AdPlatformId) => {
-    // BYO: connect the user's OWN cabinet using the token + account id they
-    // entered in Интеграции. Without them, point the user there.
     const c = getCredentials()[id];
     if (!c.token.trim() || !c.accountId.trim()) {
       setNeedCreds(id);
@@ -62,7 +60,6 @@ export function AdsApp() {
         </Link>
       </header>
 
-      {/* Platform cards */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {AD_PLATFORMS.map((p) => {
           const connected = connectedIds.has(p.id);
@@ -124,7 +121,6 @@ export function AdsApp() {
         })}
       </section>
 
-      {/* Connected accounts */}
       <section className="mt-10">
         <h2 className="ds-h3 mb-3">Подключённые кабинеты</h2>
         {accounts.length === 0 ? (

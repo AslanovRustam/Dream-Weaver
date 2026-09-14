@@ -23,7 +23,6 @@
  *      key content lives in the central safe zone, so it survives.
  */
 
-// ── flare / gpt-image canvas constraints ──────────────────────────────
 export const FLARE_MIN_PIXELS = 655_360;
 export const FLARE_MAX_PIXELS = 8_294_400;
 export const FLARE_MAX_EDGE = 3840;
@@ -151,18 +150,15 @@ export function sourceCanvasFor(
   // m must keep ra*m and rb*m divisible by 16.
   const step = lcm(FLARE_EDGE_STEP / gcd(ra, FLARE_EDGE_STEP), FLARE_EDGE_STEP / gcd(rb, FLARE_EDGE_STEP));
 
-  // Smallest m covering both needed edges.
   const mForW = Math.ceil(needW / ra);
   const mForH = Math.ceil(needH / rb);
   let m = Math.ceil(Math.max(mForW, mForH, 1) / step) * step;
 
-  // Bump up until the canvas meets the MIN pixel budget.
   while (ra * m * (rb * m) < FLARE_MIN_PIXELS) m += step;
 
   let w = ra * m;
   let h = rb * m;
 
-  // Shrink if we blew past the MAX caps (only possible for huge requests).
   while ((w > FLARE_MAX_EDGE || h > FLARE_MAX_EDGE || w * h > FLARE_MAX_PIXELS) && m > step) {
     m -= step;
     w = ra * m;
@@ -185,11 +181,9 @@ export function centerCrop(sourceW: number, sourceH: number, targetW: number, ta
   let cw: number;
   let ch: number;
   if (targetR > sourceR) {
-    // Target is wider → keep full width, trim height.
     cw = sourceW;
     ch = Math.round(sourceW / targetR);
   } else {
-    // Target is taller (or equal) → keep full height, trim width.
     ch = sourceH;
     cw = Math.round(sourceH * targetR);
   }
@@ -206,8 +200,6 @@ export function centerCrop(sourceW: number, sourceH: number, targetW: number, ta
  * source aspect, size each source to cover its members, and attach a crop.
  */
 export function planResizes(sizes: Target[]): SourcePlan[] {
-  // Bucket targets by canonical source ratio AND detail tier, so micro tiles
-  // get their own simplified source instead of a crop from the busy one.
   const buckets = new Map<
     string,
     { ra: number; rb: number; detail: DetailTier; items: Target[] }
@@ -230,7 +222,7 @@ export function planResizes(sizes: Target[]): SourcePlan[] {
     const needW = Math.max(...items.map((s) => s.w));
     const needH = Math.max(...items.map((s) => s.h));
     const source = sourceCanvasFor(ra, rb, needW, needH);
-    if (!source) continue; // physically impossible — skip (shouldn't happen)
+    if (!source) continue;
     const targets: PlannedTarget[] = items.map((s) => ({
       ...s,
       crop: centerCrop(source.w, source.h, s.w, s.h),
@@ -238,7 +230,6 @@ export function planResizes(sizes: Target[]): SourcePlan[] {
     }));
     plans.push({ ratio: `${ra}:${rb}`, detail, source, targets });
   }
-  // Stable order: landscape sources first by descending width, then portrait.
   plans.sort((a, b) => b.source.w / b.source.h - a.source.w / a.source.h);
   return plans;
 }

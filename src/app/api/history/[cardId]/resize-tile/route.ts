@@ -149,7 +149,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ cardId: st
       },
     });
 
-    // Touch card activity so this tile pulls the card up in /history.
     try {
       await supa.rpc("touch_card_activity", { p_card_id: cardId });
     } catch (e) {

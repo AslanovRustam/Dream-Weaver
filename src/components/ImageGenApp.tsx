@@ -48,7 +48,6 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
 
-// gpt-image-2 поддерживает расширенный набор соотношений
 const RATIOS_GPT = ["1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "4:5", "5:4"];
 const RATIOS_NANO = [
   "1:1",
@@ -109,9 +108,9 @@ type Status = "idle" | "loading" | "success" | "error";
 
 const SHOW_MOBILE_TABBAR = false;
 
-// DEV ONLY: показывает экран результата (баннер → одобрить → ресайзы) с
-// картинкой-заглушкой, без реальной генерации (она требует авторизации).
-// Поставь false, когда закончишь дорабатывать этот экран.
+// DEV ONLY: renders the result screen (banner → approve → resizes) with a
+// placeholder image, skipping real generation (which requires auth).
+// Set this back to false when you are done working on that screen.
 const DEV_PREVIEW_RESULT = false;
 const DEV_PREVIEW_IMAGE = "https://picsum.photos/seed/dwbanner/900/900";
 
@@ -124,8 +123,6 @@ export function ImageGenApp() {
   const { isGuest, openGate } = useAuthGate();
   const router = useRouter();
   const imageUrl = gen.imageUrl;
-  // A banner exists → we're on step 2 (choose resizes). Drives the step
-  // indicator and the "Назад" button. Accounts for the dev preview flag.
   const hasBanner = DEV_PREVIEW_RESULT || imageUrl !== null;
   const lastPayload = gen.lastPayload;
   const lastMasterRatio = gen.lastMasterRatio;
@@ -140,8 +137,6 @@ export function ImageGenApp() {
   const [preset, setPreset] = useState<string>(() => {
     if (typeof window === "undefined") return "preset1";
     try {
-      // Deep-link from the Hub ("popular templates"): /banner?preset=preset2
-      // wins over the persisted choice so a clicked template opens selected.
       const fromUrl = new URLSearchParams(window.location.search).get("preset");
       if (fromUrl && /^preset[1-4]$/.test(fromUrl)) return fromUrl;
       const stored = window.localStorage.getItem("dw_preset");
@@ -159,7 +154,6 @@ export function ImageGenApp() {
   const [personEnabled, setPersonEnabled] = useState(true);
   const [personGender, setPersonGender] = useState<"female" | "male">("female");
   const [prompt, setPrompt] = useState(() => {
-    // Prompt-first Hub hero hands the typed idea over via localStorage.
     if (typeof window === "undefined") return "";
     try {
       const seed = window.localStorage.getItem("dw_hub_prompt");
@@ -212,7 +206,6 @@ export function ImageGenApp() {
   const [eventText, setEventText] = useState("");
   const [subheadline, setSubheadline] = useState("");
   const [subheadlineEnabled, setSubheadlineEnabled] = useState(false);
-  // Per-template custom fields (declarative dropdowns/checkboxes on the preset).
   const [fieldValues, setFieldValues] = useState<Record<string, string | boolean>>({});
   // Brand color roles — primary / secondary / accent, each independently toggled.
   // Only enabled roles with a valid hex influence the banner palette; disabled or
@@ -226,8 +219,6 @@ export function ImageGenApp() {
   ]);
   const patchRole = (i: number, patch: Partial<{ enabled: boolean; hex: string }>) =>
     setColorRoles((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  // Simple vs advanced mode. Simple = only the template + the "Описание" field;
-  // everything else uses defaults. Persisted; defaults to simple.
   const [uiMode, setUiMode] = useState<"simple" | "advanced">(() => {
     if (typeof window === "undefined") return "simple";
     return window.localStorage.getItem("dw_ui_mode") === "advanced" ? "advanced" : "simple";
@@ -240,10 +231,7 @@ export function ImageGenApp() {
     }
   }, [uiMode]);
   const advanced = uiMode === "advanced";
-  // Deferred generation after a brief ("Сгенерировать продукт"): applying fields
-  // is async state, so we flag intent and fire once the prompt has landed.
   const [pendingBriefGen, setPendingBriefGen] = useState(false);
-  // Map brief-extracted fields into the banner form.
   const applyBrief = (f: Record<string, string>) => {
     if (f.prompt) setPrompt(f.prompt);
     if (f.brand) setBrandName(f.brand);
@@ -256,7 +244,6 @@ export function ImageGenApp() {
       setButtonTextEnabled(true);
     }
   };
-  // sport preset state
   const [sportType, setSportType] = useState("");
   const [matchType, setMatchType] = useState("auto");
   const [sideAName, setSideAName] = useState("");
@@ -419,7 +406,6 @@ export function ImageGenApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editSerialized]);
 
-  // Tick the elapsed-seconds counter while the master is generating.
   const masterLoading = status === "loading" || gen.status === "master_running";
   useEffect(() => {
     if (!masterLoading) {
@@ -468,7 +454,6 @@ export function ImageGenApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // load persisted brand settings
   useEffect(() => {
     const b = getBrandSettings();
     setBrandName(b.brand_name);
@@ -501,8 +486,6 @@ export function ImageGenApp() {
       /* localStorage unavailable — ignore */
     }
   }, [quality]);
-  // Persist preset + model so a remount after navigation restores the
-  // same form selection. Pairs with the useState initializers above.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -588,7 +571,6 @@ export function ImageGenApp() {
         }
         setRatio(derivedRatio);
 
-        // Text fields — overwrite only if the user hasn't typed anything.
         setPrompt((cur) => overwriteIfEmpty(cur, getStr("subject")));
         setBannerText((cur) => overwriteIfEmpty(cur, getStr("banner_text")));
         setButtonText((cur) => overwriteIfEmpty(cur, getStr("button_text")));
@@ -696,7 +678,6 @@ export function ImageGenApp() {
         // columns at once, so this is a no-op there).
         setMobileTab("result");
 
-        // Clean the URL so reload doesn't re-trigger.
         url.searchParams.delete("card");
         const cleaned = url.pathname + (url.search ? url.search : "") + url.hash;
         window.history.replaceState({}, "", cleaned);
@@ -708,7 +689,6 @@ export function ImageGenApp() {
     // Empty deps: runs once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // persist on change
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("brand_name", brandName);
@@ -731,8 +711,6 @@ export function ImageGenApp() {
     if (preset === loadedFromPreset) return;
     const oldCardId = loadedCardId;
     const newPreset = preset;
-    // Optimistically clear so a fast second preset change doesn't fire
-    // a second clone request before the first resolves.
     setLoadedCardId(null);
     setLoadedCardName(null);
     setLoadedFromPreset(null);
@@ -833,7 +811,6 @@ export function ImageGenApp() {
 
   const onLogoFile = (file: File | null) => compressImageFile(file, setBrandLogo, 256);
 
-  // PRELIMINARY credit estimate for the generate button (see lib/credit-estimate).
   const estCredits = useMemo(() => estimateBannerCredits({ model, quality }), [model, quality]);
   const currentPreset = PRESETS.find((p) => p.id === preset);
 
@@ -885,7 +862,7 @@ export function ImageGenApp() {
   useEffect(() => {
     if (!presetWatcherInitialized.current) {
       presetWatcherInitialized.current = true;
-      return; // first mount — preserve whatever context already holds
+      return;
     }
     if (loadedCardId) return; // history flow — clone-card handles it
     // Don't blow up a generation in flight just because the user
@@ -898,8 +875,6 @@ export function ImageGenApp() {
   }, [preset, model]);
 
   const onLaunchBatch = (sizes: SelectedSize[], opts?: { reuseCache?: boolean }) => {
-    // In dev preview there's no real master/payload — fall back to the
-    // placeholder image so the simulated batch can run for design work.
     const master = imageUrl ?? (DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : null);
     if (!master) return;
     void gen.runBatch({
@@ -971,8 +946,6 @@ export function ImageGenApp() {
   };
 
   const onGenerate = async () => {
-    // Guests may browse and configure freely, but generating needs an account.
-    // Gated here (not on the buttons) so "Перегенерировать" is covered too.
     if (isGuest) {
       openGate();
       return;
@@ -998,15 +971,10 @@ export function ImageGenApp() {
     }
     setStatus("loading");
     setErrorMsg("");
-    // On mobile, jump to the Результат pane so the user watches it generate.
     setMobileTab("result");
-    // A fresh master generation always starts a new card. The history
-    // banner clears so the UI doesn't lie about provenance.
     setLoadedCardId(null);
     setLoadedCardName(null);
     setLoadedFromPreset(null);
-    // Enabled color roles with a valid hex + per-template field selections are
-    // both folded into the one CUSTOMISATION channel (template_options).
     const activeColors = colorRoles.filter(
       (r) => r.enabled && /^#[0-9a-fA-F]{6}$/.test(r.hex),
     );
@@ -1023,7 +991,6 @@ export function ImageGenApp() {
     ]
       .filter(Boolean)
       .join(" ");
-    // Build the payload ONCE so we can both send it and remember it.
     const payload: GeneratePayload = {
       preset_id: preset,
       button_text: buttonTextEnabled ? buttonText : "",
@@ -1138,14 +1105,12 @@ export function ImageGenApp() {
       if (!ok) return;
     }
     setPreset(p);
-    // On mobile, picking a template advances to the settings screen.
     setMobileTab("settings");
   };
 
   return (
     <div className="bg-background text-foreground">
       <ToolCoachmark section="banner" />
-      {/* Settings icon hidden — настройки бренда доступны прямо в форме */}
 
       {/* Fill exactly the viewport below the sticky 4rem header so the columns
           never push the page into a scroll — the left templates column stays
@@ -1160,13 +1125,11 @@ export function ImageGenApp() {
           <PresetSidebar value={preset} onChange={changePreset} />
         </div>
 
-        {/* COLUMN 2 — settings panel. Every field stacked vertically. */}
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
           }`}
         >
-          {/* Mobile-only screen header: back to templates. */}
           <div className="px-2 pb-3 pt-3 lg:hidden">
             <button
               type="button"
@@ -1189,8 +1152,6 @@ export function ImageGenApp() {
                 }}
               />
 
-              {/* Simple / Advanced mode. Simple shows only the template's main
-                  field; advanced reveals brand, colors, texts, person, etc. */}
               <div className="flex w-full rounded-lg border border-border p-0.5">
                 {(
                   [
@@ -1493,7 +1454,6 @@ export function ImageGenApp() {
                   }}
                 />
                 <div className="flex items-start gap-3">
-                  {/* Small square optional logo uploader on the side */}
                   <div className="shrink-0">
                     {brandLogo ? (
                       <div className="relative h-16 w-16">
@@ -1531,7 +1491,6 @@ export function ImageGenApp() {
                     />
                     <p className="mt-1 text-center ds-caption">опц.</p>
                   </div>
-                  {/* Brand name */}
                   <div className="min-w-0 flex-1">
                     <input
                       type="text"
@@ -1592,8 +1551,6 @@ export function ImageGenApp() {
                 </div>
               </div>
 
-              {/* Языки — язык ТЕКСТА в креативе. Локальная настройка раздела,
-                  не связана с языком интерфейса (тот переключается в шапке). */}
               <div className="rounded-xl border border-border bg-background/40 p-3">
                 <p className="mb-2 ds-h4">Языки</p>
                 <select
@@ -1701,12 +1658,9 @@ export function ImageGenApp() {
                   generation quality/behaviour is unchanged — only the manual
                   per-template dropdowns/toggles are hidden. */}
 
-              {/* Соотношение сторон, качество и модель скрыты из UI. Баннер-мастер
-                  всегда генерится 1:1 (квадрат), ресайзы делаются уже из него. */}
             </div>
           </div>
 
-          {/* Mobile-only pinned primary: generate straight from settings. */}
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
@@ -1741,14 +1695,11 @@ export function ImageGenApp() {
           </div>
         </section>
 
-        {/* COLUMN 3 — generation area. Button on top, result below. */}
         <div
           className={`flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""
           }`}
         >
-          {/* Mobile-only screen header: back to settings. Hidden while the
-              master is actively generating (can't leave the loader). */}
           {status !== "loading" && gen.status !== "master_running" ? (
             <button
               type="button"
@@ -1872,9 +1823,7 @@ export function ImageGenApp() {
             </div>
           ) : null}
 
-          {/* Staged flow: idle → loading → result (approve) → resize (after approve) */}
           {(() => {
-            // DEV preview: force the result screen with a placeholder banner.
             const imageUrl = DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : gen.imageUrl;
             const lastPayload = DEV_PREVIEW_RESULT
               ? ({ preset_id: preset } as unknown as GeneratePayload)
@@ -1891,7 +1840,6 @@ export function ImageGenApp() {
             const portrait = rh > rw;
             const fitStyle = { aspectRatio: frameAspect, ...(portrait ? { height: "100%" } : { width: "100%" }) };
 
-            // 2. Loading — skeleton in the chosen aspect ratio
             if (isLoading) {
               return (
                 <div className="flex min-h-0 w-full flex-1 items-center justify-center">
@@ -1935,7 +1883,6 @@ export function ImageGenApp() {
               );
             }
 
-            // 3 & 4. Result — banner + approve/regenerate, resize appears after approve
             if (imageUrl) {
               return (
                 <div className="flex flex-col gap-6">
@@ -1957,8 +1904,6 @@ export function ImageGenApp() {
                         className="max-h-[360px] w-auto max-w-full cursor-zoom-in object-contain transition group-hover:opacity-90"
                       />
                     </button>
-                    {/* Overlay controls, top-right over the image: round dark
-                        translucent Download + "⋯" menu (reference-styled). */}
                     <div className="absolute right-2 top-2 flex items-center gap-2">
                       <button
                         type="button"
@@ -2111,8 +2056,6 @@ export function ImageGenApp() {
               );
             }
 
-            // 1. Empty state (idle) — a banner-shaped skeleton (in the chosen
-            // aspect ratio) so the user sees where the result will appear.
             return (
               <div className="flex min-h-0 w-full flex-1 items-center justify-center">
                 <div
@@ -2324,4 +2267,3 @@ function SlotUpload({
     </div>
   );
 }
-

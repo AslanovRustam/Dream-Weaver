@@ -43,8 +43,6 @@ export async function fetchNotifications(): Promise<void> {
     const data = await apiJson<{ items: AppNotification[]; unread: number }>("/api/notifications");
     set({ items: data.items ?? [], unread: data.unread ?? 0, loaded: true });
   } catch {
-    // Signed-out / transient — keep whatever we had, just mark loaded so the UI
-    // shows the empty state instead of a perpetual spinner.
     set({ loaded: true });
   } finally {
     inFlight = false;

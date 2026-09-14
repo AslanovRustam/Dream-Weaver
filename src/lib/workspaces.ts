@@ -16,16 +16,16 @@
  *  upcoming generator prefill and shown as swatches on the workspace page). */
 export type BrandKit = {
   brandName: string;
-  language: string; // "auto" | "ru" | "en" | "uk" | ...
-  colors: string[]; // hex strings, e.g. ["#c6ff3d", "#7b5cff"]
+  language: string;
+  colors: string[];
 };
 
 export type Workspace = {
   id: string;
   name: string;
-  logo: string | null; // data URL, optional
-  createdAt: string; // ISO
-  brandKit?: BrandKit; // optional; absent until the user fills it
+  logo: string | null;
+  createdAt: string;
+  brandKit?: BrandKit;
 };
 
 const K_WS = (uid: string | null) => `dw:workspaces:${uid || "anon"}`;
@@ -94,7 +94,6 @@ export function writeActiveWorkspaceId(uid: string | null, id: string): void {
   }
 }
 
-// ── Project → workspace tags (forward-compatible with a backend column) ──────
 export function readProjectMap(uid: string | null): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {

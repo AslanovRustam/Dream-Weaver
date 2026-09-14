@@ -18,8 +18,6 @@ import {
   type Capability,
 } from "./rbac";
 
-// TEMP (12.06.2026): личный gmail добавлен на время переезда на личный
-// Supabase (корпоративный проект на паузе). Убрать при возврате.
 export const SUPER_ADMIN_EMAILS = [
   "kela@clickable.agency",
   "aslanov@clickable.agency",

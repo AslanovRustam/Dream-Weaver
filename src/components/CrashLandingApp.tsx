@@ -30,8 +30,6 @@ export function CrashLandingApp() {
   const [headline, setHeadline] = useState("УСПЕЙ ЗАБРАТЬ!");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#ef4444");
-  // Landing is always dark — no light-mode toggle (kept as a const so the
-  // rest of the file, and the persisted draft shape, need no other changes).
   const dark = true;
   const [ctaText, setCtaText] = useState("СТАРТ");
   const [ctaUrl, setCtaUrl] = useState("");
@@ -187,7 +185,7 @@ export function CrashLandingApp() {
       setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
-        setBgImage(bannerImg); // instant preview while the real generation runs
+        setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
       void generateBg(bgPrompt, bannerImg || undefined);
@@ -445,7 +443,6 @@ export function CrashLandingApp() {
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,400px)_1fr]">
-      {/* ── Config ─────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <header>
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -560,7 +557,6 @@ export function CrashLandingApp() {
           )}
         </Field>
 
-        {/* AI background */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
@@ -596,7 +592,6 @@ export function CrashLandingApp() {
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
         </div>
 
-        {/* Characters (optional) */}
         <div className="rounded-xl border border-border bg-background/40 p-3">
           <label className="ds-h4">
             Персонажи{" "}
@@ -610,8 +605,6 @@ export function CrashLandingApp() {
           </div>
         </div>
 
-        {/* AI-generated rocket icon — replaces the plain 🚀 emoji on the
-            trail line with a premium, richly rendered one. */}
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="ds-h4">Иконка ракеты (ИИ)</span>
@@ -761,7 +754,6 @@ export function CrashLandingApp() {
         </button>
       </div>
 
-      {/* ── Live landing preview ───────────────────────────── */}
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="ds-caption">Предпросмотр лендинга</p>

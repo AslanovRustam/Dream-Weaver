@@ -54,7 +54,6 @@ export async function POST(request: Request) {
           });
           if (error) {
             console.error("admin_grant_credits rpc failed", error);
-            // Map known errors to readable HTTP status codes.
             const msg = error.message || "RPC failed";
             const status = msg.includes("user not found")
               ? 404
@@ -63,8 +62,6 @@ export async function POST(request: Request) {
                 : 500;
             return Response.json({ error: msg }, { status });
           }
-          // Notify the target user of a credit GRANT (positive delta only —
-          // revokes/clawbacks are silent).
           if (delta > 0) {
             await notify(userId, {
               type: "credit_grant",

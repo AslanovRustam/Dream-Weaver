@@ -15,12 +15,8 @@ import { optionalUser } from "@/lib/auth-server";
 import { recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
-// gpt-image can take ~20–30s per image; a grid is denser than a single
-// character, keep the function alive long enough.
 export const maxDuration = 300;
 
-// Same engine as the character/banner generators — top quality, token-billed,
-// supports i2i edits for the reference path.
 const SYMBOLS_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 
 // Always a 2-row grid: 6 → 3×2, 8 → 4×2. Fixed landscape canvas so both
@@ -80,8 +76,6 @@ export async function POST(request: Request) {
   let res: Response;
   try {
     if (hasReference) {
-      // i2i via /v1/images/edits — the reference is a real input image, not
-      // just prose. Fetch/decode it into a Blob for the multipart form.
       const refResp = await fetch(reference);
       const refBuf = Buffer.from(await refResp.arrayBuffer());
       const refType = reference.match(/^data:([^;]+);/)?.[1] || "image/png";
@@ -90,8 +84,6 @@ export async function POST(request: Request) {
       form.append("model", SYMBOLS_IMAGE_MODEL);
       form.append("prompt", full);
       form.append("size", GRID_SIZE);
-      // "high" (not "medium") — the premium glossy/gem material + specular
-      // highlight detail this feature aims for needs the extra fidelity.
       form.append("quality", "high");
       form.append("output_format", "png");
       form.append("background", "transparent");
@@ -151,8 +143,6 @@ export async function POST(request: Request) {
   if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
   const imageUrl = `data:image/png;base64,${b64}`;
 
-  // Best-effort per-user log. OpenAI's images API returns no usage.cost, so we
-  // record the event with cost 0 (the себестоимость readout can't reflect $).
   const authed = await optionalUser(request);
   if (authed) {
     await recordUsage(authed.id, {

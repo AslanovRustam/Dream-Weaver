@@ -105,8 +105,6 @@ export async function listHistoryCards(
     query = query.eq("is_favorite", true);
   }
   if (filters.q && filters.q.trim()) {
-    // Postgres FTS: textSearch matches against the search_tsv column.
-    // websearch type accepts plain user queries ("спорт лига").
     query = query.textSearch("search_tsv", filters.q.trim(), {
       type: "websearch",
       config: "russian",
@@ -125,7 +123,6 @@ export async function listHistoryCards(
 
   const cardIds = cards.map((c) => c.id);
 
-  // Pull all generations rows for these cards in one round-trip.
   const { data: gens, error: genErr } = await supa
     .from("generations")
     .select("id, card_id, is_master, image_url, upload_status, width, height")

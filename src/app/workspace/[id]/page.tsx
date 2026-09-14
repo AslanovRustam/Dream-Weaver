@@ -40,7 +40,6 @@ import {
 import { SECTION_BY_ID } from "@/lib/sections";
 import type { Workspace } from "@/lib/workspaces";
 
-// Languages offered for the brand kit (mirrors the generators' language field).
 const LANGS: { value: string; label: string }[] = [
   { value: "auto", label: "Авто" },
   { value: "ru", label: "Русский" },
@@ -49,7 +48,6 @@ const LANGS: { value: string; label: string }[] = [
 ];
 const langLabel = (v?: string) => LANGS.find((l) => l.value === v)?.label ?? "Авто";
 
-// Russian plural: 1 проект / 2 проекта / 5 проектов.
 function pluralProjects(n: number) {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -117,7 +115,6 @@ export default function WorkspaceDetailPage() {
     <Shell>
       <BackButton href="/workspace" className="-ml-2 mb-4" />
 
-      {/* Header: logo + name + activate/active + settings */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <WorkspaceAvatar ws={ws} size={56} />
@@ -161,15 +158,12 @@ export default function WorkspaceDetailPage() {
         </div>
       </header>
 
-      {/* Summary — compact metric cards */}
       <SummaryStats ws={ws} created={created} />
 
-      {/* Brand kit */}
       <div className="mt-4">
         <BrandKitCard ws={ws} onEdit={() => router.push(`/workspace/${ws.id}/settings`)} />
       </div>
 
-      {/* Projects */}
       <ProjectsSection
         ws={ws}
         onCreate={() => {
@@ -186,7 +180,6 @@ export default function WorkspaceDetailPage() {
   );
 }
 
-// Page chrome shared by every state (guest / loading / not-found / ready).
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen">
@@ -197,9 +190,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Summary: metric cards (project count / created / spent) ──────────────────
 function SummaryStats({ ws, created }: { ws: Workspace; created: string }) {
-  // Mock (workspace-seeded) until a backend stores the tag / usage log.
   const count = useMemo(
     () => getMockProjects(Date.now(), ws.id).filter((p) => !p.deleted).length,
     [ws.id],
@@ -261,9 +252,8 @@ function StatCard({
   );
 }
 
-// ── Brand kit ────────────────────────────────────────────────────────────────
 function BrandKitCard({ ws, onEdit }: { ws: Workspace; onEdit: () => void }) {
-  const [open, setOpen] = useState(true); // mobile accordion; always open on lg+
+  const [open, setOpen] = useState(true);
   const bk = ws.brandKit;
   const filled = !!(bk && (bk.brandName || (bk.colors && bk.colors.length) || bk.language));
 
@@ -324,8 +314,6 @@ function BrandKitCard({ ws, onEdit }: { ws: Workspace; onEdit: () => void }) {
             </BkField>
           </div>
         ) : (
-          // Empty state: no duplicate CTA — the single "Настроить" button lives
-          // next to the heading (above). Just the explanatory hint here.
           <p className="ds-caption">
             Задайте бренд, язык и цвета один раз — они подставятся по умолчанию в новые
             проекты этого клиента.
@@ -345,7 +333,6 @@ function BkField({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-// ── Projects ─────────────────────────────────────────────────────────────────
 function ProjectsSection({
   ws,
   onCreate,
@@ -358,7 +345,6 @@ function ProjectsSection({
   const [type, setType] = useState<ProjectType | "all">("all");
   const [raw, setRaw] = useState<Project[] | null>(null);
 
-  // Load in an effect so SSR/CSR time doesn't drift the relative dates.
   useEffect(() => {
     setRaw(getMockProjects(Date.now(), ws.id).filter((p) => !p.deleted));
   }, [ws.id]);
@@ -400,7 +386,6 @@ function ProjectsSection({
           <Loader2 className="h-5 w-5 animate-spin text-brand-violet" />
         </div>
       ) : total === 0 ? (
-        // Empty workspace — friendly first-project prompt.
         <div className="mt-2 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:var(--violet-tint)] text-brand-violet shadow-glow-violet">
             <LayoutGrid className="h-7 w-7" />
@@ -433,7 +418,6 @@ function ProjectsSection({
         </div>
       )}
 
-      {/* Mobile sticky primary action (desktop shows it inline with the tabs). */}
       {total > 0 ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:hidden">
           <button
@@ -450,8 +434,6 @@ function ProjectsSection({
   );
 }
 
-// Same card look as История's grid card (Preview + name + meta + relative date),
-// trimmed to open-on-click for this read-focused view.
 function WorkspaceProjectCard({ p, onOpen }: { p: Project; onOpen: () => void }) {
   return (
     <button
