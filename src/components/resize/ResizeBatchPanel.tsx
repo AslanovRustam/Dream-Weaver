@@ -147,6 +147,29 @@ export function ResizeBatchPanel({
     else if (total > 0 && processed === total) setPhase((p) => (p === "generating" ? "result" : p));
   }, [isRunning, total, processed]);
 
+  // Reopening a card (e.g. via /banner?card=<id>) restores its already-
+  // generated resizes into `tiles` with status:"done" straight away — but
+  // `phase`/`selected` here are local UI state that initializes blank on
+  // mount and was never derived from `tiles`, so the panel always opened on
+  // an empty "select" screen as if no resizes existed yet, even with 2 done
+  // tiles sitting in the shared generation context. Seed both, once, the
+  // first time done tiles show up: merge their sizes into `selected` (so the
+  // checkboxes reflect reality) and jump straight to "result" (so the user
+  // sees what's already there instead of being asked to pick again).
+  const hydratedFromTilesRef = useRef(false);
+  useEffect(() => {
+    if (hydratedFromTilesRef.current) return;
+    const doneTiles = tiles.filter((t) => t.status === "done");
+    if (doneTiles.length === 0) return;
+    hydratedFromTilesRef.current = true;
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const t of doneTiles) next.set(t.id, t.size);
+      return next;
+    });
+    setPhase((p) => (p === "select" ? "result" : p));
+  }, [tiles]);
+
   useEffect(() => {
     if (phase !== "generating") return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
