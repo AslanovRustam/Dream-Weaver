@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSmartBack } from "@/lib/use-back";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -510,6 +511,14 @@ export function Preview({ p, rounded }: { p: Project; rounded: string }) {
       <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-accent-green backdrop-blur" title={SECTION_BY_ID.get(p.type)!.title}>
         <Icon className="h-3.5 w-3.5" />
       </span>
+      {p.uploadFailed ? (
+        <span
+          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/20 text-[color:var(--status-premium)] backdrop-blur"
+          title="Загрузка на хранилище не удалась — файл потерян, нужно сгенерировать заново"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -1026,6 +1035,7 @@ function mapRealCards(items: unknown[]): Project[] {
       deleted: Boolean(c.deleted_at),
       thumb: (master?.image_url as string) || null,
       meta: w && h ? `${w}×${h}` : undefined,
+      uploadFailed: master?.upload_status === "failed",
       real: true,
     };
   });

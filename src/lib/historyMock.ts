@@ -32,6 +32,10 @@ export type Project = {
   thumb?: string | null; // real preview image (banners)
   gradient?: string; // fallback thumbnail
   meta?: string; // small caption (e.g. "1080×1080", "6 сцен")
+  /** Master's upload_status === "failed" — file couldn't be persisted to
+   *  storage and the retry worker gave up. Shows a warning badge on the
+   *  card since there's otherwise no visual difference from "no thumb". */
+  uploadFailed?: boolean;
   /** Whether this row came from the real backend (so mutations hit the API). */
   real?: boolean;
 };
@@ -87,6 +91,7 @@ export function getMockProjects(now = Date.now(), workspaceSeed?: string): Proje
     thumb?: string;
     meta?: string;
     grad?: boolean;
+    uploadFailed?: boolean;
   }> = [
     { id: "m-b1", type: "banner", name: "Новогодний экспресс", ago: 0.4 * H, favorite: true, deleted: false, thumb: presetEvent.src, meta: "1080×1080" },
     { id: "m-b2", type: "banner", name: "Слот «Book of Sun»", ago: 2 * H, favorite: false, deleted: false, thumb: presetSlotBanner.src, meta: "1200×628" },
@@ -117,6 +122,7 @@ export function getMockProjects(now = Date.now(), workspaceSeed?: string): Proje
     thumb: r.thumb ?? null,
     gradient: r.grad ? GRAD[r.type] : undefined,
     meta: r.meta,
+    uploadFailed: r.uploadFailed,
     updatedAt: iso(r.ago),
     createdAt: iso(r.ago + 2 * H),
     real: false,
