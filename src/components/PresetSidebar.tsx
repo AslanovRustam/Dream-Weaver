@@ -1381,6 +1381,53 @@ function PresetTile({
   );
 }
 
+// One thumbnail in the collapsed rail. No name label — there's no room at
+// 72px, so the tooltip carries the name/description instead.
+function RailTile({
+  preset,
+  selected,
+  onSelect,
+}: {
+  preset: Preset;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-current={selected ? "true" : undefined}
+          className={`relative w-12 shrink-0 overflow-hidden rounded-lg border p-0.5 transition ${
+            selected
+              ? "border-accent-green shadow-[0_0_20px_rgba(198,255,61,0.16)]"
+              : "border-transparent hover:border-border"
+          }`}
+        >
+          <div
+            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+            style={
+              preset.preview
+                ? { backgroundImage: `url(${preset.preview})` }
+                : { background: preset.gradient }
+            }
+          />
+          {selected ? (
+            <span className="absolute right-0.5 top-0.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+              <Check size={8} />
+            </span>
+          ) : null}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-[220px] text-left">
+        <p className="font-medium">{preset.name}</p>
+        <p className="mt-0.5 text-muted-foreground">{preset.description}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const CATEGORY_OPTIONS = [
   { id: "all", label: "Все категории" },
   ...CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
@@ -1485,6 +1532,19 @@ export function PresetSidebar({ value, onChange }: Props) {
   // Shown in the collapsed rail. Read straight from PRESETS (not `groups`),
   // so an active search/filter that hides the selected tile can't blank it.
   const selectedPreset = PRESET_BY_ID.get(value) ?? null;
+  // Rail strip: every OTHER template, in the same category order as the
+  // expanded gallery (the selected one is pinned above it). Deliberately
+  // ignores the search/category filter — the rail has no UI to clear one,
+  // so a stale filter must never hide templates from it.
+  const railPresets = useMemo(
+    () =>
+      CATEGORIES.flatMap((cat) =>
+        cat.presetIds
+          .map((id) => PRESET_BY_ID.get(id))
+          .filter((p): p is Preset => Boolean(p) && p!.id !== value),
+      ),
+    [value],
+  );
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1495,46 +1555,31 @@ export function PresetSidebar({ value, onChange }: Props) {
           : "lg:w-auto lg:min-w-[220px] lg:flex-[2]"
       }`}
     >
-      {/* Collapsed rail (desktop only) — expand button + the selected
-          template's thumbnail, so it stays obvious what's picked. */}
+      {/* Collapsed rail (desktop only) — expand button, the selected template
+          pinned on top (so it's always visible without scrolling), then every
+          other template below as a scrollable strip, so you can switch without
+          expanding the picker at all. */}
       {collapsed ? (
-        <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-3 lg:py-3">
+        <div className="hidden min-h-0 lg:flex lg:flex-col lg:items-center lg:py-3">
           <button
             type="button"
             onClick={toggleCollapsed}
             aria-label="Развернуть шаблоны"
             title="Развернуть шаблоны"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+            className="mb-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
           >
             <PanelLeftOpen className="h-5 w-5" />
           </button>
           {selectedPreset ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={toggleCollapsed}
-                  className="relative w-12 overflow-hidden rounded-lg border border-accent-green p-0.5 shadow-[0_0_20px_rgba(198,255,61,0.16)]"
-                >
-                  <div
-                    className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-                    style={
-                      selectedPreset.preview
-                        ? { backgroundImage: `url(${selectedPreset.preview})` }
-                        : { background: selectedPreset.gradient }
-                    }
-                  />
-                  <span className="absolute right-0.5 top-0.5 rounded-full bg-accent-green p-0.5 text-on-accent">
-                    <Check size={8} />
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[220px] text-left">
-                <p className="font-medium">{selectedPreset.name}</p>
-                <p className="mt-0.5 text-muted-foreground">{selectedPreset.description}</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="mb-2 shrink-0 border-b border-border pb-3">
+              <RailTile preset={selectedPreset} selected onSelect={() => onChange(selectedPreset.id)} />
+            </div>
           ) : null}
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto">
+            {railPresets.map((p) => (
+              <RailTile key={p.id} preset={p} selected={false} onSelect={() => onChange(p.id)} />
+            ))}
+          </div>
         </div>
       ) : null}
 
