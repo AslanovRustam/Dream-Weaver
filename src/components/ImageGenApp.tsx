@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   ArrowLeft,
+  ChevronDown,
   Download,
   Image as ImageIcon,
   LayoutGrid,
@@ -1152,28 +1153,6 @@ export function ImageGenApp() {
                 }}
               />
 
-              <div className="flex w-full rounded-lg border border-border p-0.5">
-                {(
-                  [
-                    ["simple", "Простой"],
-                    ["advanced", "Расширенный"],
-                  ] as const
-                ).map(([m, label]) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setUiMode(m)}
-                    className={`min-h-9 flex-1 rounded-md px-3 text-sm font-medium transition ${
-                      uiMode === m
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
               {!isSlotPreset && (
                 <div>
                   <label className="mb-2 block ds-h4">
@@ -1194,21 +1173,6 @@ export function ImageGenApp() {
                             ? "Например: турнир по покеру на новогодние праздники, призовой фонд $100k…"
                             : "Новинка, акция, скидка, ключевые преимущества, спецпредложение…"
                     }
-                  />
-                </div>
-              )}
-
-              {advanced && isEventLikePreset && (
-                <div>
-                  <label className="mb-2 block ds-h4">
-                    Событие / повод <span className="text-muted-foreground">(опционально)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={eventText}
-                    onChange={(e) => setEventText(e.target.value)}
-                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
-                    placeholder="Новый год, Пасха, День независимости, Black Friday…"
                   />
                 </div>
               )}
@@ -1252,6 +1216,39 @@ export function ImageGenApp() {
                   <p className="mt-2 ds-caption">
                     Скриншот станет ключевым визуалом, логотип будет размещён по правилам шаблона.
                   </p>
+                </div>
+              )}
+
+              {/* Advanced settings are a collapsible section right under the
+                  required field instead of a separate "Простой / Расширенный"
+                  mode switch: description filled + this closed = simple mode,
+                  opening it reveals every extra control below. */}
+              <button
+                type="button"
+                onClick={() => setUiMode(advanced ? "simple" : "advanced")}
+                aria-expanded={advanced}
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background/40 px-3 text-left transition hover:bg-white/5"
+              >
+                <span className="ds-h4">Расширенные настройки</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
+                    advanced ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {advanced && isEventLikePreset && (
+                <div>
+                  <label className="mb-2 block ds-h4">
+                    Событие / повод <span className="text-muted-foreground">(опционально)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={eventText}
+                    onChange={(e) => setEventText(e.target.value)}
+                    className="w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                    placeholder="Новый год, Пасха, День независимости, Black Friday…"
+                  />
                 </div>
               )}
 
