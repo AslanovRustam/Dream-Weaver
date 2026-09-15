@@ -709,7 +709,7 @@ export function SlotLandingApp() {
         <CollapsibleSection title="Символы барабанов">
           <div className="mb-3 rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="ds-h4">Иконки символов (ИИ)</span>
+              <span className="ds-h4">Иконки символов</span>
               <div className="flex rounded-lg border border-border p-0.5">
                 {([6, 8] as const).map((n) => (
                   <button

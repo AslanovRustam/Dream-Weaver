@@ -403,7 +403,7 @@ export function EmailGenApp() {
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {genning
               ? "Генерирую баннер…"
-              : `${draft.heroImage ? "Перегенерировать баннер" : "Сгенерировать баннер (ИИ)"} · ${IMG_PRICE}`}
+              : `${draft.heroImage ? "Перегенерировать баннер" : "Сгенерировать баннер"} · ${IMG_PRICE}`}
           </button>
           <p className="mt-2 ds-caption">
             Баннер заполняется автоматически по полям письма. На картинке не будет текста — только

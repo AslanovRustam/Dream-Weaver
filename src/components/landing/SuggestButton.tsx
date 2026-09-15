@@ -44,7 +44,7 @@ export function SuggestButton({
       type="button"
       onClick={run}
       disabled={!ready || loading}
-      title={ready ? "Предложить по тематике (ИИ)" : "Сначала заполните «Тематику»"}
+      title={ready ? "Предложить по тематике" : "Сначала заполните «Тематику»"}
       aria-label="Предложить по тематике"
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-accent-green transition hover:border-accent-green/50 hover:bg-accent-green/10 disabled:cursor-not-allowed disabled:opacity-40"
     >
