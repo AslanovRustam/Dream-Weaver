@@ -600,7 +600,7 @@ export function CrashLandingApp() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Иконка ракеты (ИИ)" tone="accent">
+        <CollapsibleSection title="Иконка ракеты" tone="accent">
           {rocketIcon ? (
             <div className="mb-2 flex justify-end">
               <button
