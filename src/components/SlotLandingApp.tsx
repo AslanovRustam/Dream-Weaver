@@ -25,6 +25,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -660,7 +661,7 @@ export function SlotLandingApp() {
           )}
         </Field>
 
-        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+        <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
               <textarea
@@ -693,26 +694,19 @@ export function SlotLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
-        </div>
+        </CollapsibleSection>
 
-        <div className="rounded-xl border border-border bg-background/40 p-3">
-          <label className="ds-h4">
-            Персонажи{" "}
-            <span className="ds-caption font-normal normal-case tracking-normal">
-              (опционально, по бокам машины)
-            </span>
-          </label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+        <CollapsibleSection title="Персонажи" hint="Опционально, по бокам машины">
+          <div className="grid grid-cols-2 gap-2">
             {renderCharSlot("left", "Слева")}
             {renderCharSlot("right", "Справа")}
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Symbols — purely a generated-icon set, no manual authoring: the
             only control is "generate", the list below is a read-only
             preview of whatever the reel currently shows. */}
-        <div>
-          <label className="mb-2 block ds-h4">Символы барабанов</label>
+        <CollapsibleSection title="Символы барабанов">
           <div className="mb-3 rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="ds-h4">Иконки символов (ИИ)</span>
@@ -817,24 +811,23 @@ export function SlotLandingApp() {
               </div>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="ds-h4">Бонусы по попыткам</label>
+        <CollapsibleSection title="Бонусы по попыткам">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <p className="ds-caption">
+              Каждая попытка — гарантированный выигрыш с указанным бонусом. После всех попыток, кроме
+              последней, кнопка — «Крутить ещё»; после последней — «Забрать бонус» (ведёт по ссылке
+              CTA ниже).
+            </p>
             <button
               type="button"
               onClick={addAttempt}
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
             >
-              <Plus className="h-3.5 w-3.5" /> Добавить попытку
+              <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
-          <p className="mb-2 ds-caption">
-            Каждая попытка — гарантированный выигрыш с указанным бонусом. После всех попыток, кроме
-            последней, кнопка — «Крутить ещё»; после последней — «Забрать бонус» (ведёт по ссылке CTA
-            ниже).
-          </p>
           <div className="flex flex-col gap-2">
             {attempts.map((bonus, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -862,7 +855,7 @@ export function SlotLandingApp() {
               </div>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
 
         <Field label="Кнопка">
           <div className="flex items-center gap-2">

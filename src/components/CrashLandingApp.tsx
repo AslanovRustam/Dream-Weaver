@@ -13,6 +13,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, CRASH_ROCKET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -557,7 +558,7 @@ export function CrashLandingApp() {
           )}
         </Field>
 
-        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+        <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
               <textarea
@@ -590,25 +591,18 @@ export function CrashLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
-        </div>
+        </CollapsibleSection>
 
-        <div className="rounded-xl border border-border bg-background/40 p-3">
-          <label className="ds-h4">
-            Персонажи{" "}
-            <span className="ds-caption font-normal normal-case tracking-normal">
-              (опционально, по бокам игры)
-            </span>
-          </label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+        <CollapsibleSection title="Персонажи" hint="Опционально, по бокам игры">
+          <div className="grid grid-cols-2 gap-2">
             {renderCharSlot("left", "Слева")}
             {renderCharSlot("right", "Справа")}
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="ds-h4">Иконка ракеты (ИИ)</span>
-            {rocketIcon ? (
+        <CollapsibleSection title="Иконка ракеты (ИИ)" tone="accent">
+          {rocketIcon ? (
+            <div className="mb-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setRocketIcon("")}
@@ -616,8 +610,8 @@ export function CrashLandingApp() {
               >
                 Вернуть эмодзи
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <textarea
             className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
             rows={2}
@@ -691,7 +685,7 @@ export function CrashLandingApp() {
             Без генерации используется эмодзи 🚀. Иконка всегда рисуется с наклоном как на линии — направление
             не собьётся.
           </p>
-        </div>
+        </CollapsibleSection>
 
         <Field label="Кнопка">
           <div className="flex items-center gap-2">

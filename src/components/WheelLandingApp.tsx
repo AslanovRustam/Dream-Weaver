@@ -24,6 +24,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -539,7 +540,7 @@ export function WheelLandingApp() {
           )}
         </Field>
 
-        <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
+        <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">
             <div className="flex items-start gap-2">
               <textarea
@@ -572,36 +573,29 @@ export function WheelLandingApp() {
             </button>
           ) : null}
           {genError ? <p className="mt-2 text-xs text-[color:var(--status-error)]">{genError}</p> : null}
-        </div>
+        </CollapsibleSection>
 
-        <div className="rounded-xl border border-border bg-background/40 p-3">
-          <label className="ds-h4">
-            Персонажи{" "}
-            <span className="ds-caption font-normal normal-case tracking-normal">
-              (опционально, по бокам колеса)
-            </span>
-          </label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+        <CollapsibleSection title="Персонажи" hint="Опционально, по бокам колеса">
+          <div className="grid grid-cols-2 gap-2">
             {renderCharSlot("left", "Слева")}
             {renderCharSlot("right", "Справа")}
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="ds-h4">Сектора колеса</label>
+        <CollapsibleSection title="Сектора колеса">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="ds-caption">
+              Отмеченные ✓ сектора могут выпасть игроку. Снимите галочку, чтобы исключить сектор из
+              розыгрыша — он останется на колесе, но никогда не станет призом.
+            </p>
             <button
               type="button"
               onClick={addPrize}
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-accent-green transition hover:text-[var(--accent-hover)]"
             >
               <Plus className="h-3.5 w-3.5" /> Добавить
             </button>
           </div>
-          <p className="mb-2 ds-caption">
-            Отмеченные ✓ сектора могут выпасть игроку. Снимите галочку, чтобы исключить сектор из
-            розыгрыша — он останется на колесе, но никогда не станет призом.
-          </p>
           <div className="flex flex-col gap-2">
             {prizes.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -636,7 +630,7 @@ export function WheelLandingApp() {
               </div>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
 
         <Field label="Кнопка">
           <div className="flex items-center gap-2">
