@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Loader2, Sparkles, Upload, Wand2, X } from "lucide-react";
+import { ChevronDown, FileText, Loader2, Sparkles, Upload, Wand2, X } from "lucide-react";
 
 import { BRIEF_SCHEMAS, type BriefResult } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
@@ -28,6 +28,10 @@ export function BriefUploader({
   const [result, setResult] = useState<BriefResult | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState(false);
+  // Collapsed by default — same pattern as the generator's "Расширенные
+  // настройки": the header row is the toggle, and nothing below it renders
+  // until the user actually wants to feed in a brief.
+  const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const toggleField = (key: string) =>
@@ -105,16 +109,26 @@ export function BriefUploader({
 
   return (
     <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-4">
-      <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
           <FileText className="h-4 w-4" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Загрузить ТЗ</p>
           <p className="ds-caption">ИИ прочитает бриф и заполнит поля или сгенерирует продукт.</p>
         </div>
-      </div>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
 
+      {open ? (
+        <>
       <div className="mt-3">
         <div className="mb-2 flex rounded-lg border border-border p-0.5 text-xs">
           {([["file", "Файл"], ["text", "Текст"]] as const).map(([m, label]) => (
@@ -272,6 +286,8 @@ export function BriefUploader({
             </button>
           </div>
         </div>
+      ) : null}
+        </>
       ) : null}
     </div>
   );
