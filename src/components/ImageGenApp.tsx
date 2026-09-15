@@ -220,9 +220,11 @@ export function ImageGenApp() {
   ]);
   const patchRole = (i: number, patch: Partial<{ enabled: boolean; hex: string }>) =>
     setColorRoles((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  // Advanced settings (the collapsible under the description) start OPEN —
+  // only an explicitly remembered "simple" collapses them.
   const [uiMode, setUiMode] = useState<"simple" | "advanced">(() => {
-    if (typeof window === "undefined") return "simple";
-    return window.localStorage.getItem("dw_ui_mode") === "advanced" ? "advanced" : "simple";
+    if (typeof window === "undefined") return "advanced";
+    return window.localStorage.getItem("dw_ui_mode") === "simple" ? "simple" : "advanced";
   });
   useEffect(() => {
     try {
@@ -1227,9 +1229,12 @@ export function ImageGenApp() {
                 type="button"
                 onClick={() => setUiMode(advanced ? "simple" : "advanced")}
                 aria-expanded={advanced}
-                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background/40 px-3 text-left transition hover:bg-white/5"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-left transition hover:bg-white/5"
               >
-                <span className="ds-h4">Расширенные настройки</span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1 ds-h4">Расширенные настройки</span>
                 <ChevronDown
                   className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
                     advanced ? "rotate-180" : ""
