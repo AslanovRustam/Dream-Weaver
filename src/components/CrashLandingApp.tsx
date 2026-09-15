@@ -612,17 +612,20 @@ export function CrashLandingApp() {
               </button>
             </div>
           ) : null}
-          <textarea
-            className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
-            rows={2}
-            value={rocketTheme}
-            onChange={(e) => setRocketTheme(e.target.value)}
-            placeholder={
-              topic
-                ? `По умолчанию — тематика лендинга: «${topic}»`
-                : "Тематика иконки (например: золотая ракета в стиле киберпанк)"
-            }
-          />
+          <div className="flex items-start gap-2">
+            <textarea
+              className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
+              rows={2}
+              value={rocketTheme}
+              onChange={(e) => setRocketTheme(e.target.value)}
+              placeholder={
+                topic
+                  ? `По умолчанию — тематика лендинга: «${topic}»`
+                  : "Тематика иконки (например: золотая ракета в стиле киберпанк)"
+              }
+            />
+            <SuggestButton topic={topic} field="icon" mechanic="crash" onFill={setRocketTheme} />
+          </div>
           <div className="mt-2 flex items-center gap-2">
             {rocketRef ? (
               <div className="relative h-9 w-9 shrink-0">

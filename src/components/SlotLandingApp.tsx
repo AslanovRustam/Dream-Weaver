@@ -727,17 +727,20 @@ export function SlotLandingApp() {
                 ))}
               </div>
             </div>
-            <textarea
-              className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
-              rows={2}
-              value={symbolTheme}
-              onChange={(e) => setSymbolTheme(e.target.value)}
-              placeholder={
-                topic
-                  ? `По умолчанию — тематика лендинга: «${topic}»`
-                  : "Тематика иконок (например: фрукты и самоцветы в стиле киберпанк)"
-              }
-            />
+            <div className="flex items-start gap-2">
+              <textarea
+                className={`${inputCls} min-h-[54px] resize-y py-2 text-xs`}
+                rows={2}
+                value={symbolTheme}
+                onChange={(e) => setSymbolTheme(e.target.value)}
+                placeholder={
+                  topic
+                    ? `По умолчанию — тематика лендинга: «${topic}»`
+                    : "Тематика иконок (например: фрукты и самоцветы в стиле киберпанк)"
+                }
+              />
+              <SuggestButton topic={topic} field="icon" mechanic="slot" onFill={setSymbolTheme} />
+            </div>
             <div className="mt-2 flex items-center gap-2">
               {symbolRef ? (
                 <div className="relative h-9 w-9 shrink-0">

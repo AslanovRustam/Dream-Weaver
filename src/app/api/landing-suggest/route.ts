@@ -2,14 +2,14 @@
 // A cheap gpt-4o-mini call, OpenAI-direct. Fills headline/CTA text, or writes
 // an image-generation prompt for the background / character.
 //
-// Body: { topic: string, field: "headline"|"cta"|"bg"|"character", mechanic?: string }
+// Body: { topic: string, field: "headline"|"cta"|"bg"|"character"|"icon", mechanic?: string }
 // Response: { text: string }
 import { optionalUser } from "@/lib/auth-server";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
-type Field = "headline" | "cta" | "bg" | "character";
+type Field = "headline" | "cta" | "bg" | "character" | "icon";
 type Body = { topic?: string; field?: Field; mechanic?: string };
 
 const MECH_LABEL: Record<string, string> = {
@@ -51,6 +51,26 @@ function buildMessages(theme: string, field: Field, mechanic: string) {
           "Do NOT mention render style, framing or background — that is added automatically. Return ONLY the character description.",
         user: `Landing mechanic: ${mech}. Theme / wishes: ${theme}`,
       };
+    // Icon prompts. The generators already pin down shape, angle, transparent
+    // background and slicing, so these only describe the SUBJECT and look.
+    case "icon":
+      return mechanic === "slot"
+        ? {
+            system:
+              "You are an art director. Write a concise (1 sentence) description IN ENGLISH of the visual theme for a SET " +
+              "of slot-machine symbol icons — what kind of objects they are, material/finish and palette, fitting the theme. " +
+              "Do NOT list individual symbols, and do NOT mention layout, grid, framing or background — that is added " +
+              "automatically. Return ONLY the theme description.",
+            user: `Theme / wishes: ${theme}`,
+          }
+        : {
+            system:
+              "You are an art director. Write a concise (1 sentence) description IN ENGLISH of a single ROCKET-like icon for " +
+              "a crash-game landing — what the object is, its material/finish and palette, fitting the theme. " +
+              "Do NOT mention angle, tilt, framing, trail or background — that is added automatically. " +
+              "Return ONLY the object description.",
+            user: `Theme / wishes: ${theme}`,
+          };
   }
 }
 
@@ -66,7 +86,7 @@ export async function POST(request: Request) {
   const field = body.field as Field;
   const mechanic = (body.mechanic || "").trim();
   if (!theme) return Response.json({ error: "Заполните тематику" }, { status: 400 });
-  if (!["headline", "cta", "bg", "character"].includes(field)) {
+  if (!["headline", "cta", "bg", "character", "icon"].includes(field)) {
     return Response.json({ error: "Unknown field" }, { status: 400 });
   }
 

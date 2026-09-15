@@ -15,7 +15,7 @@ export function SuggestButton({
   onFill,
 }: {
   topic: string;
-  field: "headline" | "cta" | "bg" | "character";
+  field: "headline" | "cta" | "bg" | "character" | "icon";
   mechanic: "wheel" | "slot" | "crash";
   onFill: (text: string) => void;
 }) {
