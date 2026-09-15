@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Filter, Grid2x2, Search, Square, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Filter,
+  Grid2x2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Square,
+  X,
+} from "lucide-react";
 import { MobileScrim } from "@/components/MobileScrim";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
@@ -1391,6 +1401,28 @@ export function PresetSidebar({ value, onChange }: Props) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [draftCategory, setDraftCategory] = useState("all");
   const [viewMode, setViewMode] = useState<PresetLayout>("grid2");
+  // Desktop-only collapse: folds the picker into a narrow rail that still
+  // shows WHICH template is selected (thumbnail + check), so the settings /
+  // result columns get the width back without losing that context. Mobile
+  // keeps the full picker — there it's its own full-screen tab.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem("dw_templates_collapsed") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        window.localStorage.setItem("dw_templates_collapsed", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
@@ -1450,12 +1482,76 @@ export function PresetSidebar({ value, onChange }: Props) {
   // The tab actually shown: the user's pick if it still has matches,
   // otherwise the first tab that does (e.g. mid-search).
   const activeGroup = groups.find((g) => g.id === activeTab) ?? groups[0];
+  // Shown in the collapsed rail. Read straight from PRESETS (not `groups`),
+  // so an active search/filter that hides the selected tile can't blank it.
+  const selectedPreset = PRESET_BY_ID.get(value) ?? null;
 
   return (
     <TooltipProvider delayDuration={200}>
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border">
-      <div className="border-b border-border px-4 py-2.5">
-        <h2 className="ds-h4">Шаблоны</h2>
+    <aside
+      className={`flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:rounded-2xl lg:border ${
+        collapsed
+          ? "lg:w-[72px] lg:min-w-0 lg:flex-none"
+          : "lg:w-auto lg:min-w-[220px] lg:flex-[2]"
+      }`}
+    >
+      {/* Collapsed rail (desktop only) — expand button + the selected
+          template's thumbnail, so it stays obvious what's picked. */}
+      {collapsed ? (
+        <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-3 lg:py-3">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label="Развернуть шаблоны"
+            title="Развернуть шаблоны"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
+          {selectedPreset ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleCollapsed}
+                  className="relative w-12 overflow-hidden rounded-lg border border-accent-green p-0.5 shadow-[0_0_20px_rgba(198,255,61,0.16)]"
+                >
+                  <div
+                    className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+                    style={
+                      selectedPreset.preview
+                        ? { backgroundImage: `url(${selectedPreset.preview})` }
+                        : { background: selectedPreset.gradient }
+                    }
+                  />
+                  <span className="absolute right-0.5 top-0.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+                    <Check size={8} />
+                  </span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[220px] text-left">
+                <p className="font-medium">{selectedPreset.name}</p>
+                <p className="mt-0.5 text-muted-foreground">{selectedPreset.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div
+        className={`flex min-h-0 flex-1 flex-col ${collapsed ? "lg:hidden" : ""}`}
+      >
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <h2 className="flex-1 ds-h4">Шаблоны</h2>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label="Свернуть шаблоны"
+          title="Свернуть шаблоны"
+          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground lg:flex"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </div>
       <div ref={filterRef} className="relative px-4 pb-2 pt-2">
         <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
@@ -1655,6 +1751,7 @@ export function PresetSidebar({ value, onChange }: Props) {
             )}
           </>
         )}
+      </div>
       </div>
     </aside>
     </TooltipProvider>
