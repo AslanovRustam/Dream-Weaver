@@ -119,10 +119,6 @@ export function BannerTemplateCatalog() {
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Выберите шаблон баннера
             </h2>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Сначала шаблон — потом описание, настройки и генерация. Сменить шаблон можно в любой
-              момент кнопкой «К шаблонам» в редакторе.
-            </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
             <div className="flex h-11 w-full items-center gap-2 rounded-lg border border-border bg-elevated px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green sm:w-72">
