@@ -116,8 +116,7 @@ export function BannerTemplateCatalog() {
         <h1 className="sr-only">Шаблоны баннеров</h1>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="ds-overline ds-overline-accent">Шаг 1 из 2 · Шаблон</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Выберите шаблон баннера
             </h2>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
