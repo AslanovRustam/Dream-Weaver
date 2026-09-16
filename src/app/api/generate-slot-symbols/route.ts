@@ -12,7 +12,7 @@
 //   instead of being invented from the text prompt alone.
 // Response: { imageUrl (data:image/png;base64,…), cols, rows, count, costUsd }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
-import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+import { rateLimitResponse, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
@@ -43,6 +43,8 @@ export async function POST(request: Request) {
   }
   const rl = await rateLimitResponse("generate-slot-symbols", user.id, 10, 60_000);
   if (rl) return rl;
+  const big = rejectLargeBody(request, 25 * 1024 * 1024);
+  if (big) return big;
 
   let body: Body;
   try {
@@ -50,13 +52,9 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  if (
-    typeof body.reference_image === "string" &&
-    body.reference_image.startsWith("data:") &&
-    dataUrlByteLength(body.reference_image) > MAX_DATAURL_BYTES
-  ) {
-    return Response.json({ error: "reference_image too large" }, { status: 413 });
-  }
+  // Size cap + magic bytes: the client's MIME/extension is never trusted.
+  const badRef = assertImageDataUrl("reference_image", body.reference_image);
+  if (badRef) return badRef;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });

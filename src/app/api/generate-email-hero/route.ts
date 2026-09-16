@@ -15,7 +15,7 @@
 // Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model? }
 // Response: { imageUrl (data URL), prompt, costUsd }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
-import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+import { rateLimitResponse, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
@@ -92,6 +92,8 @@ export async function POST(request: Request) {
   }
   const rl = await rateLimitResponse("generate-email-hero", user.id, 10, 60_000);
   if (rl) return rl;
+  const big = rejectLargeBody(request, 25 * 1024 * 1024);
+  if (big) return big;
 
   let body: Body;
   try {
@@ -99,13 +101,13 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  // Size cap + magic bytes: the client's MIME/extension is never trusted.
   for (const [k, v] of [
     ["logoBase64", body.logoBase64],
     ["styleReferenceImage", body.styleReferenceImage],
   ] as const) {
-    if (typeof v === "string" && v.startsWith("data:") && dataUrlByteLength(v) > MAX_DATAURL_BYTES) {
-      return Response.json({ error: `${k} too large` }, { status: 413 });
-    }
+    const bad = assertImageDataUrl(k, v);
+    if (bad) return bad;
   }
 
   const apiKey = process.env.OPENAI_API_KEY;

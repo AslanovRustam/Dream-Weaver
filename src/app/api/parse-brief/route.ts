@@ -6,7 +6,7 @@
 import { BRIEF_SCHEMAS } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
-import { rateLimitResponse } from "@/lib/request-guard";
+import { rateLimitResponse, rejectLargeBody, sniffDocument } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -73,6 +73,8 @@ export async function POST(request: Request) {
   }
   const rl = await rateLimitResponse("parse-brief", authedUser.id, 10, 60_000);
   if (rl) return rl;
+  const big = rejectLargeBody(request, 14 * 1024 * 1024);
+  if (big) return big;
 
   let body: Body;
   try {
@@ -106,15 +108,31 @@ export async function POST(request: Request) {
       return Response.json({ error: "Не удалось прочитать файл" }, { status: 400 });
     }
     try {
-      if (name.endsWith(".docx")) brief = await extractDocx(buf);
-      else if (name.endsWith(".pdf")) brief = await extractPdf(buf);
-      else if (name.endsWith(".txt") || name.endsWith(".md")) brief = buf.toString("utf8");
-      else if (name.endsWith(".doc"))
+      // The extension comes from the client; the bytes decide what actually
+      // gets handed to mammoth / pdfjs. Anything else must be valid UTF-8
+      // text (fatal decoder → the catch below → 422).
+      const kind = sniffDocument(buf);
+      const strictText = () => new TextDecoder("utf-8", { fatal: true }).decode(buf);
+      if (name.endsWith(".docx")) {
+        if (kind !== "docx") {
+          return Response.json({ error: "Файл не является .docx" }, { status: 415 });
+        }
+        brief = await extractDocx(buf);
+      } else if (name.endsWith(".pdf")) {
+        if (kind !== "pdf") {
+          return Response.json({ error: "Файл не является PDF" }, { status: 415 });
+        }
+        brief = await extractPdf(buf);
+      } else if (name.endsWith(".doc")) {
         return Response.json(
           { error: "Формат .doc не поддерживается — сохраните как .docx или вставьте текст" },
           { status: 415 },
         );
-      else brief = buf.toString("utf8");
+      } else if (kind) {
+        return Response.json({ error: "Расширение файла не совпадает с содержимым" }, { status: 415 });
+      } else {
+        brief = strictText();
+      }
     } catch (e) {
       return Response.json(
         { error: "Не удалось распознать файл", detail: e instanceof Error ? e.message : String(e) },

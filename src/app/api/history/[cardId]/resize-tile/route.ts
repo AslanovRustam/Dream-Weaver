@@ -26,7 +26,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { decodeDataUrl, uploadImage } from "@/lib/ftp/storage";
 import { persistPendingBuffer } from "@/lib/history/uploadRetryWorker";
 import { logAudit, logSystem } from "@/lib/logger";
-import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+import { rateLimitResponse, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 
 type Body = {
   image?: string;
@@ -71,9 +71,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ cardId: st
     if (payload.length < 200) {
       return Response.json({ error: "image payload empty or too small" }, { status: 400 });
     }
-    if (dataUrlByteLength(image) > MAX_DATAURL_BYTES) {
-      return Response.json({ error: "image too large" }, { status: 413 });
-    }
+    const badTile = assertImageDataUrl("image", image);
+    if (badTile) return badTile;
 
     // RLS: the user-scoped client will refuse to read someone
     // else's card. We need this check so we don't waste an FTP

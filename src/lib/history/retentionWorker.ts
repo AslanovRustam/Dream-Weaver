@@ -171,6 +171,18 @@ async function tick(): Promise<void> {
     } catch (err) {
       console.error("retention-worker: cleanup_expired_logs threw", err);
     }
+
+    // Shared rate-limit windows (migration 0010) older than a day are dead
+    // weight — every live window is minutes long. Best-effort: until 0010 is
+    // applied the RPC doesn't exist and this just logs.
+    try {
+      const { error } = await supa.rpc("rate_limits_prune");
+      if (error) {
+        console.error("retention-worker: rate_limits_prune failed", error);
+      }
+    } catch (err) {
+      console.error("retention-worker: rate_limits_prune threw", err);
+    }
   } catch (err) {
     console.error("retention-worker: tick crashed", err);
   }

@@ -27,7 +27,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { fetchPublicHtml, fetchPublicImage } from "@/lib/safe-fetch";
 import { extractLogoCandidates, extractSiteName } from "@/lib/brandExtract";
-import { rateLimitResponse } from "@/lib/request-guard";
+import { rateLimitResponse, sniffImageMime } from "@/lib/request-guard";
 import { sanitizeVisionText, VISION_VOCAB_RULE } from "@/lib/visionSafety";
 
 export const runtime = "nodejs";
@@ -182,8 +182,14 @@ export async function POST(request: Request) {
     let logoDataUrl = "";
     for (const c of candidates.slice(0, 6)) {
       try {
-        const { buffer, mime } = await fetchPublicImage(c.url);
+        const { buffer } = await fetchPublicImage(c.url);
         if (buffer.byteLength < 100) continue;
+        // Trust the bytes, not the remote content-type: the logo goes on to
+        // the vision model and later back through generate-image's raster-only
+        // check, so an SVG (or a mislabelled HTML page) must be skipped here,
+        // not handed downstream to fail there.
+        const mime = sniffImageMime(buffer);
+        if (!mime) continue;
         logoDataUrl = `data:${mime};base64,${buffer.toString("base64")}`;
         break;
       } catch {

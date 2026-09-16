@@ -6,7 +6,7 @@ import { notifyLowBalanceIfNeeded } from "@/lib/notifications";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
-import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES, acquireSlot } from "@/lib/request-guard";
+import { rateLimitResponse, MAX_DATAURL_BYTES, acquireSlot, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 
 export const runtime = "nodejs";
@@ -870,6 +870,9 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           );
         }
         slot.release = release;
+        // Six image fields × MAX_DATAURL_BYTES is the legitimate ceiling.
+        const big = rejectLargeBody(request, 6 * MAX_DATAURL_BYTES + 2 * 1024 * 1024);
+        if (big) return big;
 
         const supa = getAdminClient();
         const { data: profileRow, error: profileErr } = await supa
@@ -911,14 +914,11 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           "side_b_logo",
           "source_image",
         ] as const) {
-          const v = (body as Record<string, unknown>)[f];
-          if (
-            typeof v === "string" &&
-            v.startsWith("data:") &&
-            dataUrlByteLength(v) > MAX_DATAURL_BYTES
-          ) {
-            return Response.json({ error: `${f} too large` }, { status: 413 });
-          }
+          // Size cap + magic bytes. source_image may legitimately be an FTP
+          // URL here (history-loaded masters) — non-data: values pass through
+          // untouched and are materialised/validated further down.
+          const bad = assertImageDataUrl(f, (body as Record<string, unknown>)[f]);
+          if (bad) return bad;
         }
 
         // Resize batches initiated from a history-loaded master pass an

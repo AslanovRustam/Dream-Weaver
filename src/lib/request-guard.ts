@@ -152,3 +152,85 @@ export function dataUrlByteLength(dataUrl: string): number {
   const padding = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
   return Math.floor((b64.length * 3) / 4) - padding;
 }
+
+/**
+ * Cheap pre-parse guard on the declared request size. App Router route
+ * handlers have NO default body limit (the 4 MB cap is a Pages-API thing), so
+ * without this a route reads however many hundred MB a client sends before
+ * any of the per-field checks below can run. Chunked requests carry no
+ * content-length and pass through — the per-field caps still apply to them.
+ */
+export function rejectLargeBody(request: Request, maxBytes: number): Response | null {
+  const raw = request.headers.get("content-length");
+  if (!raw) return null;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > maxBytes) {
+    return Response.json(
+      { error: "payload_too_large", max_bytes: maxBytes },
+      { status: 413 },
+    );
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------
+// Content sniffing — never trust the client's MIME / extension
+// ---------------------------------------------------------------------
+
+export type SniffedImage = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+/** Identify a real raster image by its magic bytes, or null. */
+export function sniffImageMime(buf: Uint8Array): SniffedImage | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "image/gif";
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+/** Decode only the head of a base64 data URL — enough for magic bytes,
+ *  without materialising a 20 MB buffer just to look at 12 bytes. */
+function dataUrlHead(dataUrl: string, bytes = 32): Uint8Array {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return new Uint8Array(0);
+  // 4 base64 chars → 3 bytes; take a little extra and slice.
+  const chars = Math.ceil(bytes / 3) * 4 + 4;
+  return Buffer.from(dataUrl.slice(comma + 1, comma + 1 + chars), "base64").subarray(0, bytes);
+}
+
+/**
+ * Validate that a `data:image/...;base64,` field really holds PNG/JPEG/WebP/
+ * GIF bytes AND is within MAX_DATAURL_BYTES. Returns a ready 413/415 Response
+ * or null to proceed. Non-string / non-data: values are ignored (the caller
+ * decides whether the field is required).
+ */
+export function assertImageDataUrl(field: string, value: unknown): Response | null {
+  if (typeof value !== "string" || !value.startsWith("data:")) return null;
+  if (dataUrlByteLength(value) > MAX_DATAURL_BYTES) {
+    return Response.json({ error: `${field} too large` }, { status: 413 });
+  }
+  if (!sniffImageMime(dataUrlHead(value))) {
+    return Response.json(
+      { error: `${field} is not a PNG/JPEG/WebP/GIF image` },
+      { status: 415 },
+    );
+  }
+  return null;
+}
+
+/** Magic bytes of the two document formats parse-brief accepts. */
+export function sniffDocument(buf: Uint8Array): "docx" | "pdf" | null {
+  if (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) {
+    return "docx"; // ZIP container (OOXML)
+  }
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d) {
+    return "pdf"; // "%PDF-"
+  }
+  return null;
+}

@@ -5,7 +5,7 @@
 // Body: { topic: string, field: "headline"|"cta"|"bg"|"character"|"icon", mechanic?: string }
 // Response: { text: string }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
-import { rateLimitResponse } from "@/lib/request-guard";
+import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -89,6 +89,8 @@ export async function POST(request: Request) {
   }
   const rl = await rateLimitResponse("landing-suggest", authedUser.id, 20, 60_000);
   if (rl) return rl;
+  const big = rejectLargeBody(request, 256 * 1024);
+  if (big) return big;
 
   let body: Body;
   try {
