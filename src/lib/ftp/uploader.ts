@@ -31,8 +31,23 @@ function getFtpConfig(): FtpConfig {
     port: Number(process.env.FTP_PORT ?? 21),
     user,
     password,
-    secure: process.env.FTP_SECURE === "true",
+    // Secure by default. The old `=== "true"` check meant that an UNSET
+    // FTP_SECURE silently sent credentials and every uploaded file in the
+    // clear — which is exactly what happened in prod (the var was never set).
+    // Explicit FTPS (AUTH TLS on the normal port) is what the host supports;
+    // only an explicit FTP_SECURE=false opts out, and it warns.
+    secure: ftpSecure(),
   };
+}
+
+let warnedInsecure = false;
+function ftpSecure(): boolean {
+  if (process.env.FTP_SECURE !== "false") return true;
+  if (!warnedInsecure) {
+    warnedInsecure = true;
+    console.warn("[ftp] FTP_SECURE=false — credentials and uploads are sent in PLAINTEXT");
+  }
+  return false;
 }
 
 async function withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {

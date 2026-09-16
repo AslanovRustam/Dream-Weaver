@@ -14,7 +14,8 @@
 //
 // Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model? }
 // Response: { imageUrl (data URL), prompt, costUsd }
-import { optionalUser } from "@/lib/auth-server";
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
 import { recordUsage } from "@/lib/usage";
 import { openAiSizeString } from "@/lib/imageSizes";
 
@@ -77,11 +78,31 @@ async function composePrompt(brief: string, apiKey: string): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
+  // mandatory. This used to be `optionalUser` (never throws) with no limit —
+  // anyone who knew the URL could drain the key anonymously.
+  let user: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    user = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("generate-email-hero", user.id, 10, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  for (const [k, v] of [
+    ["logoBase64", body.logoBase64],
+    ["styleReferenceImage", body.styleReferenceImage],
+  ] as const) {
+    if (typeof v === "string" && v.startsWith("data:") && dataUrlByteLength(v) > MAX_DATAURL_BYTES) {
+      return Response.json({ error: `${k} too large` }, { status: 413 });
+    }
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -204,15 +225,12 @@ export async function POST(request: Request) {
   if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
   const imageUrl = `data:image/png;base64,${b64}`;
 
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, {
-      model: HERO_IMAGE_MODEL,
-      feature: (body.feature || "").trim() || "hero-image",
-      type: "image",
-      costUsd: 0,
-    });
-  }
+  await recordUsage(user.id, {
+    model: HERO_IMAGE_MODEL,
+    feature: (body.feature || "").trim() || "hero-image",
+    type: "image",
+    costUsd: 0,
+  });
 
   return Response.json({ imageUrl, prompt, costUsd: 0 });
 }

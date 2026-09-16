@@ -4,7 +4,8 @@
 //
 // Body: { topic: string, field: "headline"|"cta"|"bg"|"character"|"icon", mechanic?: string }
 // Response: { text: string }
-import { optionalUser } from "@/lib/auth-server";
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -75,6 +76,20 @@ function buildMessages(theme: string, field: Field, mechanic: string) {
 }
 
 export async function POST(request: Request) {
+  // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
+  // mandatory. This used to be `optionalUser` (never throws) with no limit —
+  // anyone who knew the URL could drain the key anonymously.
+  // Named `authedUser`, not `user` — buildMessages() below destructures a
+  // `user` (the prompt's user-role message) and would shadow it.
+  let authedUser: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    authedUser = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("landing-suggest", authedUser.id, 20, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -125,15 +140,12 @@ export async function POST(request: Request) {
   const text = content.replace(/^["'`]+|["'`]+$/g, "").trim();
   if (!text) return Response.json({ error: "Пустой ответ" }, { status: 502 });
 
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, {
-      model: "gpt-4o-mini",
-      feature: `landing-suggest-${field}`,
-      type: "llm",
-      ...extractUsage(usageData),
-    });
-  }
+  await recordUsage(authedUser.id, {
+    model: "gpt-4o-mini",
+    feature: `landing-suggest-${field}`,
+    type: "llm",
+    ...extractUsage(usageData),
+  });
 
   return Response.json({ text });
 }

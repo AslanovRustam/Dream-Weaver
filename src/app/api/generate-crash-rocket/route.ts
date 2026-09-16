@@ -10,7 +10,8 @@
 //   /v1/images/edits endpoint so the rocket echoes its palette/material
 //   instead of being invented from the text prompt alone.
 // Response: { imageUrl (data:image/png;base64,…), costUsd }
-import { optionalUser } from "@/lib/auth-server";
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
 import { recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -21,11 +22,30 @@ const ROCKET_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 type Body = { prompt?: string; reference_image?: string };
 
 export async function POST(request: Request) {
+  // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
+  // mandatory. This used to be `optionalUser` (never throws) with no limit —
+  // anyone who knew the URL could drain the key anonymously.
+  let user: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    user = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("generate-crash-rocket", user.id, 10, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  if (
+    typeof body.reference_image === "string" &&
+    body.reference_image.startsWith("data:") &&
+    dataUrlByteLength(body.reference_image) > MAX_DATAURL_BYTES
+  ) {
+    return Response.json({ error: "reference_image too large" }, { status: 413 });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -126,15 +146,12 @@ export async function POST(request: Request) {
   if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
   const imageUrl = `data:image/png;base64,${b64}`;
 
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, {
-      model: ROCKET_IMAGE_MODEL,
-      feature: "landing-crash-rocket",
-      type: "image",
-      costUsd: 0,
-    });
-  }
+  await recordUsage(user.id, {
+    model: ROCKET_IMAGE_MODEL,
+    feature: "landing-crash-rocket",
+    type: "image",
+    costUsd: 0,
+  });
 
   return Response.json({ imageUrl, costUsd: 0 });
 }

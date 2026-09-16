@@ -947,7 +947,7 @@ export function PlayableGenApp() {
                     key={`${genId}-${previewMode}`}
                     srcDoc={result.html}
                     title="Интерактивный плейбл"
-                    sandbox="allow-scripts allow-same-origin"
+                    sandbox="allow-scripts"
                     className="block w-full bg-black"
                     style={{ height: f.h, border: 0 }}
                   />
@@ -1026,7 +1026,7 @@ export function PlayableGenApp() {
                 key={`fs-${genId}`}
                 srcDoc={result.html}
                 title="Плейбл на весь экран"
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts"
                 className="block bg-black"
                 style={{
                   width: fs.baseW,

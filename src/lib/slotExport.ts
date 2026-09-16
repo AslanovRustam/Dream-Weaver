@@ -1,3 +1,4 @@
+import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
 // Build a self-contained HTML page for a slot-machine landing: background,
 // flanking characters, three spinning reels, SPIN button and a win / try-again
 // modal — all inline, no external assets.
@@ -53,13 +54,15 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
       : [{ symbol: "🍒" }, { symbol: "💎" }, { symbol: "7️⃣" }];
   const attempts = cfg.attempts.length > 0 ? cfg.attempts : [""];
   const bg = cfg.bgImage
-    ? `background:#0b0d12 url('${cfg.bgImage}') center/cover no-repeat;`
+    ? `background:#0b0d12 url('${cssUrl(cfg.bgImage)}') center/cover no-repeat;`
     : `background:radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${cfg.dark ? "#160d29" : "#ffe9a8"};`;
   const charImg = (src: string, side: "left" | "right") =>
-    src ? `<img class="char ${side}" src="${src}" alt=""/>` : "";
-  const symbolsJson = JSON.stringify(symbols.map((s) => s.symbol));
-  const imagesJson = JSON.stringify(symbols.map((s) => s.imageUrl || ""));
-  const attemptsJson = JSON.stringify(attempts);
+    src ? `<img class="char ${side}" src="${esc(src)}" alt=""/>` : "";
+  // All three land in card.innerHTML / <img src> inside the runtime, so they
+  // are pre-escaped here; embedJson keeps "</script>" out of the inline JS.
+  const symbolsJson = embedJson(symbols.map((s) => esc(s.symbol)));
+  const imagesJson = embedJson(symbols.map((s) => esc(s.imageUrl || "")));
+  const attemptsJson = embedJson(attempts.map((a) => esc(a)));
 
   return `<!doctype html>
 <html lang="en">
@@ -206,7 +209,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){
-      if(isLast){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } close(); }
+      if(isLast){ var u=${embedJson(safeCtaUrl(cfg.ctaUrl))}; if(u){ (window.top||window).location.href=u; return; } close(); }
       else { close(); spin(); }
     };
   }

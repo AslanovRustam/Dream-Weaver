@@ -5,10 +5,14 @@
 // Response: { fields: Record<string,string>, generationPrompt: string, briefChars: number }
 import { BRIEF_SCHEMAS } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
-import { optionalUser } from "@/lib/auth-server";
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
+
+const MAX_BRIEF_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_BRIEF_TEXT_CHARS = 200_000;
 
 const MAX_BRIEF_CHARS = 14000;
 
@@ -56,6 +60,20 @@ async function extractPdf(buf: Buffer): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
+  // mandatory. This used to be `optionalUser` (never throws) with no limit —
+  // anyone who knew the URL could drain the key anonymously.
+  // `authedUser`, not `user` — this file builds a `const user` prompt message
+  // further down and would shadow it.
+  let authedUser: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    authedUser = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("parse-brief", authedUser.id, 10, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -70,11 +88,19 @@ export async function POST(request: Request) {
   }
 
   let brief = (body.text || "").trim();
+  if (brief.length > MAX_BRIEF_TEXT_CHARS) {
+    return Response.json({ error: "Текст ТЗ слишком большой" }, { status: 413 });
+  }
   if (!brief && body.fileBase64) {
     const name = (body.fileName || "").toLowerCase();
     let buf: Buffer;
     try {
       const b64 = body.fileBase64.includes(",") ? body.fileBase64.split(",")[1] : body.fileBase64;
+      // Cap BEFORE decoding/parsing: mammoth/pdfjs run in-process on whatever
+      // arrives, and there is no framework-level body limit in the App Router.
+      if (Math.floor((b64.length * 3) / 4) > MAX_BRIEF_FILE_BYTES) {
+        return Response.json({ error: "Файл слишком большой (макс. 10 МБ)" }, { status: 413 });
+      }
       buf = Buffer.from(b64, "base64");
     } catch {
       return Response.json({ error: "Не удалось прочитать файл" }, { status: 400 });
@@ -165,10 +191,7 @@ export async function POST(request: Request) {
   }
 
   const usage = extractUsage(usageData);
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, { model: usedModel, feature: "parse-brief", type: "llm", ...usage });
-  }
+  await recordUsage(authedUser.id, { model: usedModel, feature: "parse-brief", type: "llm", ...usage });
 
   let parsed: { fields?: Record<string, unknown>; generationPrompt?: unknown };
   try {

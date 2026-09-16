@@ -1,3 +1,4 @@
+import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
 // Build a self-contained HTML page for a fortune-wheel landing: background,
 // flanking characters, spinning SVG wheel, SPIN button and a win / try-again
 // modal — all inline (images as data URLs), no external assets. Mirrors the
@@ -85,14 +86,18 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     .join("");
 
   const bg = cfg.bgImage
-    ? `background:#0b0d12 url('${cfg.bgImage}') center/cover no-repeat;`
+    ? `background:#0b0d12 url('${cssUrl(cfg.bgImage)}') center/cover no-repeat;`
     : `background:radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${cfg.dark ? "#160d29" : "#ffe9a8"};`;
   const charImg = (src: string, side: "left" | "right") =>
     src
-      ? `<img class="char ${side}" src="${src}" alt=""/>`
+      ? `<img class="char ${side}" src="${esc(src)}" alt=""/>`
       : "";
 
-  const prizesJson = JSON.stringify(prizes);
+  // Labels are pre-escaped here because the runtime below drops them into
+  // card.innerHTML verbatim; embedJson keeps "</script>" out of the inline JS.
+  const prizesJson = embedJson(
+    prizes.map((p) => ({ ...p, label: esc(p.label), sub: p.sub ? esc(p.sub) : p.sub })),
+  );
 
   return `<!doctype html>
 <html lang="en">
@@ -199,7 +204,7 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var again=document.getElementById('again'); if(again)again.onclick=function(){close();spin();};
-    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; } else { close(); } };
+    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${embedJson(safeCtaUrl(cfg.ctaUrl))}; if(u){ (window.top||window).location.href=u; } else { close(); } };
   }
   function close(){ modal.classList.remove('show'); }
   document.getElementById('hub').onclick=spin;

@@ -11,11 +11,25 @@
 //
 // Config (env): REMBG_URL (default http://127.0.0.1:7001),
 //               REMBG_MODEL (default birefnet-general-lite).
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+
 export const runtime = "nodejs";
 
 type Body = { image?: string };
 
 export async function POST(request: Request) {
+  // Proxies to the rembg service: unauthenticated, unlimited, uncapped input
+  // was a free compute/memory DoS vector.
+  let user: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    user = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("remove-bg", user.id, 30, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -26,6 +40,9 @@ export async function POST(request: Request) {
   const image = (body.image || "").trim();
   const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(image);
   if (!m) return Response.json({ error: "Ожидается data:image;base64 в поле image" }, { status: 400 });
+  if (dataUrlByteLength(image) > MAX_DATAURL_BYTES) {
+    return Response.json({ error: "image too large" }, { status: 413 });
+  }
   const mime = m[1];
   const bytes = Buffer.from(m[2], "base64");
 
@@ -44,6 +61,7 @@ export async function POST(request: Request) {
     const res = await fetch(`${base}/api/remove`, {
       method: "POST",
       body: form,
+      signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) {
       const detail = (await res.text().catch(() => "")).slice(0, 300);

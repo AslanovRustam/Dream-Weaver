@@ -5,7 +5,8 @@
 // Body: { topic?: string }
 // Response: { fields: { subject, preheader, heroTitle, heroSubtitle, body,
 //                       steps[3], ctaText, bonusCtaText, footer } }
-import { optionalUser } from "@/lib/auth-server";
+import { authErrorResponse, requireUser } from "@/lib/auth-server";
+import { rateLimitResponse } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -24,6 +25,20 @@ const FIELDS = [
 ] as const;
 
 export async function POST(request: Request) {
+  // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
+  // mandatory. This used to be `optionalUser` (never throws) with no limit —
+  // anyone who knew the URL could drain the key anonymously.
+  // `authedUser`, not `user` — this file builds a `const user` prompt message
+  // further down and would shadow it.
+  let authedUser: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    authedUser = await requireUser(request);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const rl = rateLimitResponse("generate-email-content", authedUser.id, 20, 60_000);
+  if (rl) return rl;
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -89,10 +104,7 @@ export async function POST(request: Request) {
   }
 
   const usage = extractUsage(usageData);
-  const authed = await optionalUser(request);
-  if (authed) {
-    await recordUsage(authed.id, { model: usedModel, feature: "email-content", type: "llm", ...usage });
-  }
+  await recordUsage(authedUser.id, { model: usedModel, feature: "email-content", type: "llm", ...usage });
 
   let parsed: Record<string, unknown>;
   try {

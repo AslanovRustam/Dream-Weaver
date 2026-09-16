@@ -1,3 +1,4 @@
+import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
 // Build a self-contained HTML page for a crash-game landing: background,
 // flanking characters, a rising multiplier with a rocket, a CASH OUT button and
 // a win / crash modal — all inline, no external assets.
@@ -34,10 +35,10 @@ function esc(s: string): string {
 export function buildCrashHtml(cfg: CrashExportConfig): string {
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#ef4444";
   const bg = cfg.bgImage
-    ? `background:#0b0d12 url('${cfg.bgImage}') center/cover no-repeat;`
+    ? `background:#0b0d12 url('${cssUrl(cfg.bgImage)}') center/cover no-repeat;`
     : `background:radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${cfg.dark ? "#160d29" : "#ffe9a8"};`;
   const charImg = (src: string, side: "left" | "right") =>
-    src ? `<img class="char ${side}" src="${src}" alt=""/>` : "";
+    src ? `<img class="char ${side}" src="${esc(src)}" alt=""/>` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -95,7 +96,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
       <div class="mid">
         <div class="graph" id="graph">
           <div class="trail" id="trail"></div>
-          <div class="rocket" id="rocket">${cfg.rocketImage ? `<img src="${cfg.rocketImage}" alt=""/>` : "🚀"}</div>
+          <div class="rocket" id="rocket">${cfg.rocketImage ? `<img src="${esc(cfg.rocketImage)}" alt=""/>` : "🚀"}</div>
           <div class="mult" id="mult">1.00x</div>
         </div>
         <button class="cash live" id="cash" type="button">ЗАБРАТЬ ×1.00</button>
@@ -107,8 +108,8 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
   </div>
 <script>
 (function(){
-  var ACCENT=${JSON.stringify(accent)};
-  var maxAttempts=${JSON.stringify(cfg.maxAttempts || 0)};
+  var ACCENT=${embedJson(accent)};
+  var maxAttempts=${embedJson(cfg.maxAttempts || 0)};
   var attemptsUsed=0;
   var mult=document.getElementById('mult'), rocket=document.getElementById('rocket'), trail=document.getElementById('trail');
   var btn=document.getElementById('cash'), cta=document.getElementById('cta'), attemptsInfo=document.getElementById('attemptsInfo');
@@ -150,7 +151,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
     else{ var canRetry=!exhausted(); card.innerHTML='<button class="x" id="cx">&times;</button><h2>💥 Разбилось на ×'+val+'</h2><p>Чуть не успел — попробуйте ещё раз и заберите вовремя!</p><button class="claim" id="claim"'+(canRetry?'':' disabled')+'>'+(canRetry?'Ещё раз':'Попытки закончились')+'</button>'; }
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx) cx.onclick=hide;
-    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ if(win){ var u=${JSON.stringify(cfg.ctaUrl || "")}; if(u){ (window.top||window).location.href=u; return; } hide(); } else { if(exhausted()) return; hide(); start(); } };
+    var claim=document.getElementById('claim'); if(claim) claim.onclick=function(){ if(win){ var u=${embedJson(safeCtaUrl(cfg.ctaUrl))}; if(u){ (window.top||window).location.href=u; return; } hide(); } else { if(exhausted()) return; hide(); start(); } };
   }
   function hide(){ modal.classList.remove('show'); }
   btn.addEventListener('click', function(){ if(phase==='running') cashOut(); else start(); });
