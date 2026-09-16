@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     return authErrorResponse(err);
   }
 
-  const rl = rateLimitResponse("brand-lookup", user.id, 10, 60_000);
+  const rl = await rateLimitResponse("brand-lookup", user.id, 10, 60_000);
   if (rl) return rl;
 
   const apiKey = process.env.OPENAI_API_KEY;

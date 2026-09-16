@@ -168,7 +168,7 @@ export async function POST(request: Request) {
           return authErrorResponse(err);
         }
 
-        const emRl = rateLimitResponse("extract-master", user.id, 30, 60_000);
+        const emRl = await rateLimitResponse("extract-master", user.id, 30, 60_000);
         if (emRl) return emRl;
 
         const apiKey = process.env.OPENAI_API_KEY;

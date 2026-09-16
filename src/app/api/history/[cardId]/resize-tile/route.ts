@@ -42,7 +42,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ cardId: st
     const user = await requireUser(request);
     const cardId = String(params.cardId);
 
-    const rtRl = rateLimitResponse("resize-tile", user.id, 120, 60_000);
+    const rtRl = await rateLimitResponse("resize-tile", user.id, 120, 60_000);
     if (rtRl) return rtRl;
 
     let body: Body;

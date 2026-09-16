@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return authErrorResponse(err);
   }
-  const rl = rateLimitResponse("generate-email-content", authedUser.id, 20, 60_000);
+  const rl = await rateLimitResponse("generate-email-content", authedUser.id, 20, 60_000);
   if (rl) return rl;
 
   let body: Body;

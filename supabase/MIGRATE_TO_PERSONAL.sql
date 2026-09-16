@@ -987,10 +987,11 @@ begin
 end;
 $$;
 
--- ======================= [TEMP-патч: личный админ] ====================
--- Пока нет доступа к корпоративной почте, супер-админом добавлен личный
--- gmail. УДАЛИТЬ этот блок (и правку в src/lib/auth-server.ts) при
--- возврате на корпоративный проект.
+-- ======================= [супер-админы] ===============================
+-- Единственный источник правды — этот allow-list (продублирован в
+-- src/lib/auth-server.ts SUPER_ADMIN_EMAILS; держите синхронно). Ранее
+-- здесь стоял «временный» блок с личным gmail — удалён 2026-09-16 вместе с
+-- отзывом прав у skobelev (см. миграцию 0008).
 create or replace function public.is_super_admin(p_email text)
 returns boolean
 language sql
@@ -998,24 +999,12 @@ stable
 as $$
   select lower(coalesce(p_email, '')) in (
     'kela@clickable.agency',
-    'skobelev@clickable.agency',
-    'skobelev.victor.v@gmail.com'
-  );
-$$;
--- ======================= [13.06.2026: +aslanov] =======================
--- aslanov@clickable.agency добавлен супер-админом (просмотр админки).
-create or replace function public.is_super_admin(p_email text)
-returns boolean
-language sql
-stable
-as $$
-  select lower(coalesce(p_email, '')) in (
-    'kela@clickable.agency',
-    'skobelev@clickable.agency',
-    'skobelev.victor.v@gmail.com',
     'aslanov@clickable.agency'
   );
 $$;
+-- ======================= [13.06.2026: +aslanov] =======================
+-- aslanov@clickable.agency добавлен супер-админом (просмотр админки) — уже
+-- входит в allow-list выше; отдельного переопределения больше нет.
 
 -- ======================= [0005_templates.sql] =======================
 -- Каталог шаблонов (вкладка админки «Шаблоны», /api/admin/templates).

@@ -16,6 +16,9 @@
 // Response: { imageUrl (data URL), prompt, costUsd }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+import { getAdminClient } from "@/lib/supabase/admin";
+import { chargeFlat, refundFlat } from "@/lib/billing";
+import { EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
 import { openAiSizeString } from "@/lib/imageSizes";
 
@@ -87,7 +90,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return authErrorResponse(err);
   }
-  const rl = rateLimitResponse("generate-email-hero", user.id, 10, 60_000);
+  const rl = await rateLimitResponse("generate-email-hero", user.id, 10, 60_000);
   if (rl) return rl;
 
   let body: Body;
@@ -156,6 +159,15 @@ export async function POST(request: Request) {
     4000,
   );
 
+  // Flat price is known up front, so: charge → call the provider → refund
+  // if the provider fails. A user who can't pay never triggers a paid call,
+  // and the company never eats a generation that isn't billed.
+  const billing = { feature: (body.feature || "").trim() || "hero-image", model: HERO_IMAGE_MODEL };
+  const supa = getAdminClient();
+  const charge = await chargeFlat(supa, user.id, EMAIL_HERO_PRICE_CREDITS, billing);
+  if (!charge.ok) return charge.response;
+  const refund = () => refundFlat(supa, user.id, EMAIL_HERO_PRICE_CREDITS, { ...billing, reason: "provider_failure" });
+
   let res: Response;
   try {
     if (refs.length > 0) {
@@ -195,6 +207,7 @@ export async function POST(request: Request) {
       });
     }
   } catch (e) {
+    await refund();
     return Response.json(
       { error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) },
       { status: 502 },
@@ -210,6 +223,7 @@ export async function POST(request: Request) {
       /* not JSON */
     }
     const isFilter = /safety|moderation|content|rejected/i.test(msg);
+    await refund();
     return Response.json(
       { error: isFilter ? "content_filter" : "Provider error", detail: msg },
       { status: isFilter ? 422 : 502 },
@@ -222,7 +236,10 @@ export async function POST(request: Request) {
   } catch {
     /* ignore */
   }
-  if (!b64) return Response.json({ error: "No image payload" }, { status: 502 });
+  if (!b64) {
+    await refund();
+    return Response.json({ error: "No image payload" }, { status: 502 });
+  }
   const imageUrl = `data:image/png;base64,${b64}`;
 
   await recordUsage(user.id, {
@@ -232,5 +249,5 @@ export async function POST(request: Request) {
     costUsd: 0,
   });
 
-  return Response.json({ imageUrl, prompt, costUsd: 0 });
+  return Response.json({ imageUrl, prompt, costUsd: 0, costCredits: EMAIL_HERO_PRICE_CREDITS, balance: charge.balance });
 }

@@ -6,7 +6,8 @@ import { notifyLowBalanceIfNeeded } from "@/lib/notifications";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
-import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES } from "@/lib/request-guard";
+import { rateLimitResponse, dataUrlByteLength, MAX_DATAURL_BYTES, acquireSlot } from "@/lib/request-guard";
+import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 
 export const runtime = "nodejs";
 // The master model (openai/gpt-5.4-image-2) can take ~2–3 min per banner, so
@@ -834,7 +835,18 @@ async function analyzeLogo(dataUrl: string): Promise<{ hasText: boolean; wordmar
   }
 }
 
+// Thin wrapper so the per-user in-flight slot taken inside is ALWAYS
+// released, whichever of the many return paths the handler takes.
 export async function POST(request: Request) {
+  const slot: { release?: () => void } = {};
+  try {
+    return await generateImage(request, slot);
+  } finally {
+    slot.release?.();
+  }
+}
+
+async function generateImage(request: Request, slot: { release?: () => void }) {
         const requestId = newRequestId();
         const requestStartedAt = Date.now();
 
@@ -845,8 +857,19 @@ export async function POST(request: Request) {
           return authErrorResponse(err);
         }
 
-        const genRl = rateLimitResponse("generate-image", authedUser.id, 30, 60_000);
+        const genRl = await rateLimitResponse("generate-image", authedUser.id, 30, 60_000);
         if (genRl) return genRl;
+        // The balance is read once per request below; N parallel requests all
+        // see the same number and all pass the pre-gate. Capping in-flight
+        // generations per user bounds that overspend window.
+        const release = acquireSlot("generate-image", authedUser.id, 4);
+        if (!release) {
+          return Response.json(
+            { error: "too_many_inflight", detail: "Дождитесь завершения текущих генераций" },
+            { status: 429, headers: { "retry-after": "5" } },
+          );
+        }
+        slot.release = release;
 
         const supa = getAdminClient();
         const { data: profileRow, error: profileErr } = await supa
@@ -984,6 +1007,17 @@ export async function POST(request: Request) {
         const bonusText = (body.bonus_text || "").trim().slice(0, 200);
         const bonusEnabled = !!body.bonus_enabled;
         const hasSourceImage = !!(body.source_image && body.source_image.startsWith("data:"));
+
+        // Pre-gate on the price the UI actually quotes, not on ">= 1 credit":
+        // the provider call is paid for BEFORE spend_credits runs, so a
+        // balance that can't cover this generation must be rejected up front.
+        const requiredCredits = hasSourceImage ? RESIZE_CREDITS_PER_FORMAT : estimateBannerCredits({ quality });
+        if (balanceBefore < requiredCredits) {
+          return Response.json(
+            { error: "insufficient_credits", balance: balanceBefore, required: requiredCredits },
+            { status: 402 },
+          );
+        }
 
         const effectiveSubject = subject || slotName;
 

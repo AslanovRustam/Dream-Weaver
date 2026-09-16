@@ -594,6 +594,7 @@ function AccountInfoCard({ email }: { email: string }) {
 // Next page: POSTs to /api/auth/change-password, then refreshes the Supabase
 // session so subsequent calls use a fresh token.
 function PasswordCard() {
+  const [current, setCurrent] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
@@ -622,28 +623,49 @@ function PasswordCard() {
           try {
             await apiJson("/api/auth/change-password", {
               method: "POST",
-              json: { new_password: pw },
+              json: { current_password: current, new_password: pw },
             });
             await getBrowserClient().auth.refreshSession();
             setMsg({ kind: "ok", text: "Пароль обновлён" });
+            setCurrent("");
             setPw("");
             setPw2("");
           } catch (e) {
-            // Server/Supabase messages here are raw English — only pass a
-            // message through if it's already Russian (e.g. the session-
-            // expired text), otherwise show a clear generic fallback.
+            // Server/Supabase messages here are raw English — map the codes
+            // the endpoint deliberately returns, pass a message through only
+            // if it's already Russian (e.g. the session-expired text), and
+            // otherwise show a clear generic fallback.
             const raw = e instanceof ApiError ? e.message : "";
             setMsg({
               kind: "err",
-              text: /[а-яА-Я]/.test(raw)
-                ? raw
-                : "Не удалось сменить пароль. Попробуйте ещё раз или обратитесь в поддержку.",
+              text: /wrong_current_password/.test(raw)
+                ? "Неверный текущий пароль"
+                : /current_password is required/.test(raw)
+                  ? "Введите текущий пароль"
+                  : /rate_limited/.test(raw)
+                    ? "Слишком много попыток — подождите 15 минут"
+                    : /[а-яА-Я]/.test(raw)
+                      ? raw
+                      : "Не удалось сменить пароль. Попробуйте ещё раз или обратитесь в поддержку.",
             });
           } finally {
             setBusy(false);
           }
         }}
       >
+        <div className="space-y-1.5">
+          <Label htmlFor="current-pw">Текущий пароль</Label>
+          <Input
+            id="current-pw"
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+          <p className="ds-caption">
+            Если входите только через Google и пароля ещё нет — оставьте пустым.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="new-pw">Новый пароль</Label>

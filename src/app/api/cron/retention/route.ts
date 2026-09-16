@@ -9,6 +9,8 @@
 // when the CRON_SECRET env var is set. We reject anything else so the
 // endpoint can't be triggered by the public.
 import { runRetentionOnce } from "@/lib/history/retentionWorker";
+import { timingSafeEqual } from "node:crypto";
+
 import { logSystem } from "@/lib/logger";
 
 // basic-ftp opens raw sockets — must run on the Node.js runtime, never Edge.
@@ -19,7 +21,11 @@ export const maxDuration = 300;
 function isAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
+  // Constant-time compare so the header check can't leak the secret byte by
+  // byte through response timing.
+  const given = Buffer.from(request.headers.get("authorization") ?? "", "utf8");
+  const expected = Buffer.from(`Bearer ${secret}`, "utf8");
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 export async function GET(request: Request) {

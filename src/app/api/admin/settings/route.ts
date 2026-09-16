@@ -80,9 +80,12 @@ export async function GET(request: Request) {
           // Settings are readable by any logged-in user so client code
           // can mirror server limits (e.g. bulk_zip_max_cards). Writes
           // are super-admin only.
-          await requireUser(request);
-          const admin = getAdminClient();
-          const { data, error } = await admin
+          const user = await requireUser(request);
+          // User-scoped client: the settings_select_auth RLS policy decides
+          // what a non-admin may read, instead of service_role handing over
+          // whatever lands in app_settings in the future.
+          const supa = getUserClient(user.accessToken);
+          const { data, error } = await supa
             .from("app_settings")
             .select("key, value, description, updated_at, updated_by")
             .order("key", { ascending: true });

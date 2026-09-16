@@ -141,7 +141,13 @@ export async function getUserRole(
       .single();
     if (!error && data) {
       const row = data as { role?: unknown; tier?: unknown };
-      return { role: normalizeRole(row.role), tier: normalizeTier(row.tier) };
+      let role = normalizeRole(row.role);
+      // The email allow-list is the ONLY source of truth for superadmin. A
+      // profiles.role of "superadmin" on any other email is either stale or
+      // tampered (the self-update hole closed by migration 0009) — cap it at
+      // admin rather than trusting the column.
+      if (role === "superadmin" && !isSuperAdminEmail(email ?? null)) role = "admin";
+      return { role, tier: normalizeTier(row.tier) };
     }
   } catch {
     // role/tier columns may not exist yet — fall through to bootstrap.

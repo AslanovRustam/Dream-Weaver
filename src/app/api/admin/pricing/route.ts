@@ -6,7 +6,7 @@
 //
 // credits charged per generation = total_tokens * coefficient
 // (we keep coefficients in the DB so the team can tune them without redeploy).
-import { authErrorResponse, requireCapability, requireUser } from "@/lib/auth-server";
+import { authErrorResponse, getUserClient, requireCapability, requireUser } from "@/lib/auth-server";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 type Item = { model?: string; quality?: string; coefficient?: number };
@@ -18,9 +18,9 @@ const ALLOWED_QUALITY = new Set(["low", "medium", "high"]);
       // already allows that — we just enforce auth at the API boundary.
       export async function GET(request: Request) {
         try {
-          await requireUser(request);
-          const admin = getAdminClient();
-          const { data, error } = await admin
+          const user = await requireUser(request);
+          const supa = getUserClient(user.accessToken);
+          const { data, error } = await supa
             .from("pricing_coefficients")
             .select("id,model,quality,coefficient,updated_at,updated_by")
             .order("model", { ascending: true })

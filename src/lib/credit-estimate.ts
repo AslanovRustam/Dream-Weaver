@@ -1,12 +1,16 @@
-// Credit price shown on the "Сгенерировать" buttons.
+// Credit prices shown on the "Сгенерировать" buttons — and, for the flat-price
+// generators (character / slot symbols / crash rocket / email hero), the
+// amount the server actually debits via src/lib/billing.ts.
 //
 // Pricing model (agreed with product): price = round(self-cost USD × 100).
-// Every image generation runs on the same model (gemini-3.1-flash-image via
-// OpenRouter) at a flat measured self-cost of ~$0.0685 per image, so one image
-// ≈ 6.85 credits. An action's price is round(images × 6.85) whole credits.
+// All generation is OpenAI-direct (gpt-image-2.5 sunburst/flare, gpt-4o-mini);
+// the OpenRouter path is gone. NOTE (security audit 2026-09-16): the measured
+// real cost of a banner master is ~$0.04, well below USD_PER_BANNER — the
+// constants below are the deliberate retail price, not the raw cost.
 //
-// The actual charge is still reconciled server-side from the real usage.cost;
-// this is the pre-click estimate the button shows.
+// The banner master is the exception: it is billed post-hoc from the
+// provider's token count × pricing_coefficients, and estimateBannerCredits()
+// is only the pre-click quote / pre-flight gate for it.
 
 export type BannerModelKey = "gpt" | "nano";
 export type BannerQuality = "low" | "medium" | "high";
@@ -55,6 +59,11 @@ export const CRASH_ROCKET_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PE
 // display number the product hasn't finalised. Replace with a real estimate
 // once landing generation is wired into spend_credits.
 export const LANDING_FROM_BANNER_PRICE_CREDITS = 15;
+
+// Email hero / landing background image — one cheap-model image. This is the
+// same number the builders already display next to their generate buttons
+// (`imageCredits(1)`); the server now actually debits it.
+export const EMAIL_HERO_PRICE_CREDITS = imageCredits(1);
 
 export function estimateBannerCredits(_args?: {
   model?: BannerModelKey;

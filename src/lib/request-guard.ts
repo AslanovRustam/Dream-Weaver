@@ -39,20 +39,90 @@ export function checkRate(
   return { ok: true, retryAfterSec: 0 };
 }
 
-/** Convenience wrapper for route handlers: returns a ready 429 Response
- *  when the (bucket,key) is over the limit, or null to proceed. */
-export function rateLimitResponse(
+function tooMany(retryAfterSec: number): Response {
+  return Response.json(
+    { error: "rate_limited", retry_after: retryAfterSec },
+    { status: 429, headers: { "retry-after": String(retryAfterSec) } },
+  );
+}
+
+/**
+ * Convenience wrapper for route handlers: returns a ready 429 Response when
+ * the (bucket,key) is over the limit, or null to proceed.
+ *
+ * Two tiers:
+ *   1. the in-process window above — free, and rejects a hammering client
+ *      before we touch the network;
+ *   2. the shared `rate_limit_hit` RPC (migration 0010) — the counter that
+ *      actually holds across restarts/deploys and multiple Node instances.
+ *      Without it the limit silently became `limit × instances` and reset to
+ *      zero on every deploy.
+ * If the RPC is unavailable (migration not applied, DB hiccup) we log and fall
+ * back to tier 1 only — availability over strictness, since every bucket is
+ * keyed by an authenticated user id, not by IP.
+ */
+export async function rateLimitResponse(
   bucket: string,
   key: string,
   limit: number,
   windowMs: number,
-): Response | null {
-  const r = checkRate(bucket, key, limit, windowMs);
-  if (r.ok) return null;
-  return Response.json(
-    { error: "rate_limited", retry_after: r.retryAfterSec },
-    { status: 429, headers: { "retry-after": String(r.retryAfterSec) } },
-  );
+): Promise<Response | null> {
+  const local = checkRate(bucket, key, limit, windowMs);
+  if (!local.ok) return tooMany(local.retryAfterSec);
+
+  try {
+    const { getAdminClient } = await import("@/lib/supabase/admin");
+    const { data, error } = await getAdminClient().rpc("rate_limit_hit", {
+      p_bucket: bucket,
+      p_key: key,
+      p_limit: limit,
+      p_window_ms: windowMs,
+    });
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { allowed?: boolean; retry_after_sec?: number }
+      | null
+      | undefined;
+    if (row && row.allowed === false) {
+      return tooMany(Math.max(1, Number(row.retry_after_sec ?? 1)));
+    }
+  } catch (err) {
+    if (!warnedSharedLimiter) {
+      warnedSharedLimiter = true;
+      console.warn(
+        "[rate-limit] shared counter unavailable, using in-process window only:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+  return null;
+}
+let warnedSharedLimiter = false;
+
+// ---------------------------------------------------------------------
+// In-flight concurrency cap
+// ---------------------------------------------------------------------
+// The rate limiter bounds calls per minute; this bounds calls at the SAME
+// moment. generate-image reads the balance once per request, so N parallel
+// requests all see the same balance and all pass the pre-gate — capping
+// in-flight work per user is what actually limits that overspend window.
+const inflight = new Map<string, number>();
+
+/** Try to take a slot for (bucket,key). Returns a release() to call in a
+ *  `finally`, or null when `max` slots are already in use. */
+export function acquireSlot(bucket: string, key: string, max: number): (() => void) | null {
+  const k = `${bucket}:${key}`;
+  const n = inflight.get(k) ?? 0;
+  if (n >= max) return null;
+  inflight.set(k, n + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const c = (inflight.get(k) ?? 1) - 1;
+    if (c <= 0) inflight.delete(k);
+    else inflight.set(k, c);
+  };
 }
 
 // Periodic sweep so the maps don't grow unbounded (esp. with per-IP keys).

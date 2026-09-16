@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return authErrorResponse(err);
   }
-  const rl = rateLimitResponse("remove-bg", user.id, 30, 60_000);
+  const rl = await rateLimitResponse("remove-bg", user.id, 30, 60_000);
   if (rl) return rl;
 
   let body: Body;

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
         const auth = await requireUser(request);
         if (auth instanceof Response) return auth;
 
-        const fmRl = rateLimitResponse("fetch-master", auth.id, 30, 60_000);
+        const fmRl = await rateLimitResponse("fetch-master", auth.id, 30, 60_000);
         if (fmRl) return fmRl;
 
         let url: string;

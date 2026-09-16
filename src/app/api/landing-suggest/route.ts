@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return authErrorResponse(err);
   }
-  const rl = rateLimitResponse("landing-suggest", authedUser.id, 20, 60_000);
+  const rl = await rateLimitResponse("landing-suggest", authedUser.id, 20, 60_000);
   if (rl) return rl;
 
   let body: Body;

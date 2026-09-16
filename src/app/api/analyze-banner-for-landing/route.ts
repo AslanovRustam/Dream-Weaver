@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     return authErrorResponse(err);
   }
 
-  const rl = rateLimitResponse("analyze-banner-for-landing", user.id, 20, 60_000);
+  const rl = await rateLimitResponse("analyze-banner-for-landing", user.id, 20, 60_000);
   if (rl) return rl;
 
   const apiKey = process.env.OPENAI_API_KEY;

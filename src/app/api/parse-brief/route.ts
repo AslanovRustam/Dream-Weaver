@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return authErrorResponse(err);
   }
-  const rl = rateLimitResponse("parse-brief", authedUser.id, 10, 60_000);
+  const rl = await rateLimitResponse("parse-brief", authedUser.id, 10, 60_000);
   if (rl) return rl;
 
   let body: Body;

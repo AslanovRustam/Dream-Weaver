@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         try {
           const user = await requireUser(request);
 
-          const bzRl = rateLimitResponse("bulk-zip", user.id, 6, 60_000);
+          const bzRl = await rateLimitResponse("bulk-zip", user.id, 6, 60_000);
           if (bzRl) return bzRl;
 
           let body: Body;
@@ -187,7 +187,15 @@ export async function POST(request: Request) {
           const skipped: string[] = [];
 
           await runWithConcurrency(allFiles, PARALLEL_FETCHES, async (entry) => {
-            const res = await fetch(entry.url);
+            // These URLs are written server-side from the FTP upload path, but
+            // pin them to our own public base anyway and never wait forever
+            // on the host — one slow/dead image must not hang the whole zip.
+            const base = process.env.FTP_BASE_URL;
+            if (base && !entry.url.startsWith(base)) {
+              skipped.push(entry.path);
+              return;
+            }
+            const res = await fetch(entry.url, { signal: AbortSignal.timeout(30_000) });
             if (!res.ok) {
               skipped.push(entry.path);
               return;
