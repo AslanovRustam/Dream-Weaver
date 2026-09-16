@@ -1,76 +1,88 @@
 "use client";
 
 // Full-page banner template catalog (/banner/templates) — the entry point of
-// the banner generator, mirroring the landing flow: pick a template first,
-// then land in the editor (/banner?preset=<id>). This is the ONLY place with
-// template search + category filtering; the in-editor PresetSidebar just
+// the banner generator. Same look as the landing generator's template panel
+// (LandingTemplateSidebar): "Шаблоны" header, search box with a funnel
+// category filter, accordion categories, preview+name tiles. This is the ONLY
+// place with template search + filtering; the in-editor PresetSidebar just
 // switches between templates and links back here.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, Search, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Search, X } from "lucide-react";
 
+import { MobileScrim } from "@/components/MobileScrim";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CATEGORIES, PRESETS, type Preset } from "@/components/PresetSidebar";
 
 const PRESET_BY_ID = new Map(PRESETS.map((p) => [p.id, p]));
 
-const TABS = [{ id: "all", label: "Все" }, ...CATEGORIES.map((c) => ({ id: c.id, label: c.label }))];
+const CATEGORY_OPTIONS = [
+  { id: "all", label: "Все категории" },
+  ...CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+];
 
 function CatalogTile({
   preset,
-  current,
-  onPick,
+  selected,
+  onSelect,
 }: {
   preset: Preset;
-  current: boolean;
-  onPick: () => void;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-        current
-          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
-          : "border-border hover:border-accent-green/40 hover:bg-[var(--bg-surface-hover)]"
-      }`}
-    >
-      <div
-        className="aspect-[4/3] w-full bg-cover bg-center"
-        style={
-          preset.preview
-            ? { backgroundImage: `url(${preset.preview})`, backgroundColor: "#0b0d12" }
-            : { background: preset.gradient }
-        }
-      />
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <p className="text-sm font-medium leading-snug">{preset.name}</p>
-        <p className="line-clamp-2 ds-caption">{preset.description}</p>
-        <span className="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-medium text-accent-green opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-          {current ? "Открыть" : "Выбрать"}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </span>
-      </div>
-      {preset.isNew && !current ? (
-        <span className="absolute left-2 top-2 rounded-full bg-accent-green px-2 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-on-accent">
-          Новое
-        </span>
-      ) : null}
-      {current ? (
-        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-accent-green px-2 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-on-accent">
-          <Check className="h-3 w-3" />
-          Текущий
-        </span>
-      ) : null}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
+            selected
+              ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+              : "border-border hover:bg-[var(--bg-surface-hover)]"
+          }`}
+        >
+          <div
+            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
+            style={
+              preset.preview
+                ? { backgroundImage: `url(${preset.preview})`, backgroundColor: "#0b0d12" }
+                : { background: preset.gradient }
+            }
+          />
+          <p className="truncate text-xs font-medium">{preset.name}</p>
+          {preset.isNew && !selected && (
+            <span className="absolute left-1.5 top-1.5 rounded-full bg-accent-green px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-on-accent">
+              Новое
+            </span>
+          )}
+          {selected && (
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
+              <Check size={10} />
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px] text-left">
+        <p className="font-medium">{preset.name}</p>
+        <p className="mt-0.5 text-muted-foreground">{preset.description}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
 export function BannerTemplateCatalog() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<string>("all");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
+  );
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [draftCategory, setDraftCategory] = useState("all");
   // The template the editor is currently on (persisted by ImageGenApp) —
-  // marked so the user sees where they'd land if they just go "back".
+  // shown as the selected tile, like the landing panel marks its pick.
   const [currentId, setCurrentId] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -82,10 +94,40 @@ export function BannerTemplateCatalog() {
   }, []);
 
   const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const filterActive = categoryFilter !== "all";
+  const draftLabel =
+    CATEGORY_OPTIONS.find((o) => o.id === draftCategory)?.label ?? "Все категории";
+  const appliedLabel = CATEGORY_OPTIONS.find((o) => o.id === categoryFilter)?.label ?? "";
+
+  const closeFilter = () => {
+    setFilterOpen(false);
+    setCatMenuOpen(false);
+  };
+  const clearFilter = () => {
+    setCategoryFilter("all");
+    setDraftCategory("all");
+    closeFilter();
+  };
+  const openFilter = () => {
+    setDraftCategory(categoryFilter);
+    setFilterOpen((o) => !o);
+    setCatMenuOpen(false);
+  };
+
+  const filterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) closeFilter();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [filterOpen]);
 
   const groups = useMemo(
     () =>
-      CATEGORIES.filter((cat) => tab === "all" || cat.id === tab)
+      CATEGORIES.filter((cat) => categoryFilter === "all" || cat.id === categoryFilter)
         .map((cat) => ({
           ...cat,
           presets: cat.presetIds
@@ -97,9 +139,8 @@ export function BannerTemplateCatalog() {
             ),
         }))
         .filter((cat) => cat.presets.length > 0),
-    [q, tab],
+    [q, categoryFilter],
   );
-  const total = groups.reduce((n, g) => n + g.presets.length, 0);
 
   const pick = (p: Preset) => {
     try {
@@ -111,103 +152,183 @@ export function BannerTemplateCatalog() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground">
-      <div className="mx-auto w-full max-w-7xl px-4 pt-4 pb-12 sm:px-6 sm:pt-8">
+    <TooltipProvider delayDuration={200}>
+      <div className="flex w-full flex-col bg-background text-foreground lg:h-[calc(100vh-4rem-1px)] lg:p-3">
         <h1 className="sr-only">Шаблоны баннеров</h1>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Выберите шаблон баннера
-            </h2>
+        <aside className="flex min-h-0 w-full flex-1 flex-col overflow-hidden border-border bg-panel lg:rounded-2xl lg:border">
+          <div className="border-b border-border px-4 py-2.5">
+            <h2 className="ds-h4">Шаблоны</h2>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
-            <div className="flex h-11 w-full items-center gap-2 rounded-lg border border-border bg-elevated px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green sm:w-72">
-              <Search size={16} className="shrink-0 text-muted-foreground" />
+          <div ref={filterRef} className="relative px-4 pb-2 pt-2">
+            <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
+              <Search size={16} className="shrink-0 text-foreground/70" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Поиск по шаблонам"
-                aria-label="Поиск по шаблонам"
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
               />
-              {query ? (
+              <button
+                type="button"
+                onClick={openFilter}
+                aria-label="Фильтр"
+                aria-expanded={filterOpen}
+                className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${
+                  filterActive || filterOpen
+                    ? "text-accent-green"
+                    : "text-foreground/70 hover:text-foreground"
+                }`}
+              >
+                <Filter size={16} />
+                {filterActive && (
+                  <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent-green" />
+                )}
+              </button>
+            </div>
+
+            {filterActive && (
+              <div className="mt-2 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="Очистить поиск"
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground"
+                  onClick={clearFilter}
+                  className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-xs text-foreground transition hover:bg-white/10"
                 >
-                  <X size={14} />
+                  {appliedLabel}
+                  <X size={12} className="text-muted-foreground" />
                 </button>
-              ) : null}
-            </div>
-            <div className="flex rounded-lg border border-border p-0.5">
-              {TABS.map((t) => {
-                const active = tab === t.id;
-                return (
+                <button
+                  type="button"
+                  onClick={clearFilter}
+                  className="text-xs text-muted-foreground transition hover:text-foreground"
+                >
+                  Очистить
+                </button>
+              </div>
+            )}
+
+            <MobileScrim open={filterOpen} onClose={closeFilter} />
+            {filterOpen && (
+              <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl sm:left-auto sm:w-72">
+                <p className="mb-2 ds-h4">Категория</p>
+                <div className="relative">
                   <button
-                    key={t.id}
                     type="button"
-                    onClick={() => setTab(t.id)}
-                    aria-pressed={active}
-                    className={`flex min-h-9 flex-1 items-center justify-center rounded-md px-3 text-xs font-semibold transition sm:flex-none ${
-                      active
-                        ? "bg-[var(--lime-tint)] text-accent-green"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    onClick={() => setCatMenuOpen((o) => !o)}
+                    className="flex w-full items-center justify-between rounded-lg border border-border bg-white/5 px-3 py-2 text-sm transition hover:bg-white/10"
                   >
-                    {t.label}
+                    <span>{draftLabel}</span>
+                    <ChevronDown
+                      size={16}
+                      className={`text-muted-foreground transition ${catMenuOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
+                  {catMenuOpen && (
+                    <div className="mt-1 overflow-hidden rounded-lg border border-border bg-card">
+                      {CATEGORY_OPTIONS.map((opt) => {
+                        const active = draftCategory === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setDraftCategory(opt.id);
+                              setCategoryFilter(opt.id);
+                              closeFilter();
+                            }}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
+                              active
+                                ? "bg-accent-green/15 text-accent-green"
+                                : "text-foreground hover:bg-white/10"
+                            }`}
+                          >
+                            {opt.label}
+                            {active && <Check size={14} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-2">
+            {groups.length === 0 && (
+              <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
+                <Search className="h-7 w-7 text-muted-foreground/40" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
+                  <p className="ds-caption">
+                    {q
+                      ? `По запросу «${query.trim()}» шаблонов нет`
+                      : "В этой категории пока нет шаблонов"}
+                  </p>
+                </div>
+                {(searching || filterActive) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      clearFilter();
+                    }}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-white/5"
+                  >
+                    Сбросить
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex flex-col gap-3">
+              {groups.map((cat) => {
+                const isExpanded = searching || expanded[cat.id];
+                return (
+                  <div
+                    key={cat.id}
+                    className="overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpanded((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))
+                      }
+                      aria-expanded={Boolean(isExpanded)}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-white/5"
+                    >
+                      <span className="flex-1 truncate text-sm font-semibold">
+                        {cat.label}
+                        <span className="ml-1.5 font-normal text-muted-foreground">
+                          ({cat.presets.length})
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                    {isExpanded ? (
+                      <div className="border-t border-border p-2.5">
+                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+                          {cat.presets.map((p) => (
+                            <CatalogTile
+                              key={p.id}
+                              preset={p}
+                              selected={p.id === currentId}
+                              onSelect={() => pick(p)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
           </div>
-        </div>
-
-        {total === 0 ? (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <Search className="h-8 w-8 text-muted-foreground/40" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Ничего не найдено</p>
-              <p className="ds-caption">
-                {q ? `По запросу «${query.trim()}» шаблонов нет` : "В этой категории пока нет шаблонов"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setTab("all");
-              }}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs transition hover:bg-white/5"
-            >
-              Сбросить
-            </button>
-          </div>
-        ) : (
-          <div className="mt-6 flex flex-col gap-8">
-            {groups.map((g) => (
-              <section key={g.id}>
-                <div className="mb-3 flex items-baseline gap-2">
-                  <h3 className="ds-h4">{g.label}</h3>
-                  <span className="ds-caption tabular-nums">{g.presets.length}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                  {g.presets.map((p) => (
-                    <CatalogTile
-                      key={p.id}
-                      preset={p}
-                      current={p.id === currentId}
-                      onPick={() => pick(p)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+        </aside>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
