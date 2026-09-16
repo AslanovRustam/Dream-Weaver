@@ -40,7 +40,7 @@ import { BackButton } from "@/components/BackButton";
 import { RowActionMenu, type RowAction } from "@/components/RowActionMenu";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useConfirm } from "@/components/ui/confirm";
-import { SECTION_BY_ID, type SectionId } from "@/lib/sections";
+import { SECTION_BY_ID, sectionEntryRoute, type SectionId } from "@/lib/sections";
 import { apiJson } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -252,7 +252,7 @@ function ProjectsTab() {
       toast("Открытие проектов этого типа скоро — пока доступны баннеры");
       return;
     }
-    router.push(SECTION_BY_ID.get(p.type)!.route);
+    router.push(sectionEntryRoute(SECTION_BY_ID.get(p.type)!));
   };
   // Read-only card detail (hero + resizes). Banner-only for now, which is also
   // the only entry point into /history/[cardId] — that page was otherwise

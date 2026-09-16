@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   Check,
-  ChevronDown,
-  Filter,
   Grid2x2,
+  LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
-  Search,
   Square,
-  X,
 } from "lucide-react";
-import { MobileScrim } from "@/components/MobileScrim";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import presetWideAngle from "@/assets/preset-wide-angle.jpg";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
@@ -1428,25 +1426,17 @@ function RailTile({
   );
 }
 
-const CATEGORY_OPTIONS = [
-  { id: "all", label: "Все категории" },
-  ...CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
-];
+// Search + category filtering live on the full-page catalog
+// (/banner/templates, see BannerTemplateCatalog). This in-editor sidebar only
+// switches between templates and links back to the catalog.
+export const BANNER_TEMPLATES_ROUTE = "/banner/templates";
 
 export function PresetSidebar({ value, onChange }: Props) {
-  const [query, setQuery] = useState("");
-  // Which category tab is showing. Falls back to the first category with
-  // matches (see `activeGroup` below) whenever the active one is filtered
-  // out by search/category-filter, without losing the user's actual pick —
-  // it's restored the moment that category has matches again.
-  const [activeTab, setActiveTab] = useState<string>(CATEGORIES[0]?.id ?? "");
-  // Filter dropdown (opened from the funnel icon in the search input).
-  // `categoryFilter` is the applied value; `draftCategory` is what the
-  // panel is editing until "Применить" commits it.
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [catMenuOpen, setCatMenuOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [draftCategory, setDraftCategory] = useState("all");
+  // Which category tab is showing. Opens on the tab that contains the
+  // selected template, so coming from the catalog shows the right group.
+  const [activeTab, setActiveTab] = useState<string>(
+    () => CATEGORIES.find((c) => c.presetIds.includes(value))?.id ?? CATEGORIES[0]?.id ?? "",
+  );
   const [viewMode, setViewMode] = useState<PresetLayout>("grid2");
   // Desktop-only collapse: folds the picker into a narrow rail that still
   // shows WHICH template is selected (thumbnail + check), so the settings /
@@ -1471,71 +1461,24 @@ export function PresetSidebar({ value, onChange }: Props) {
       return next;
     });
 
-  const q = query.trim().toLowerCase();
-  const searching = q.length > 0;
-  const filterActive = categoryFilter !== "all";
-  const draftLabel =
-    CATEGORY_OPTIONS.find((o) => o.id === draftCategory)?.label ?? "Все категории";
-  const appliedLabel = CATEGORY_OPTIONS.find((o) => o.id === categoryFilter)?.label ?? "";
-
-  const clearFilter = () => {
-    setCategoryFilter("all");
-    setDraftCategory("all");
-    closeFilter();
-  };
-
-  const openFilter = () => {
-    setDraftCategory(categoryFilter);
-    setFilterOpen((o) => !o);
-    setCatMenuOpen(false);
-  };
-  const closeFilter = () => {
-    setFilterOpen(false);
-    setCatMenuOpen(false);
-  };
-
-  const filterRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!filterOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        closeFilter();
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [filterOpen]);
-
-  // For each category, resolve its presets (in defined order) and filter by the
-  // current search query + the applied category filter. Categories with no
-  // matches (or excluded by the filter) are hidden entirely.
-  const groups = useMemo(() => {
-    return CATEGORIES.filter((cat) => categoryFilter === "all" || cat.id === categoryFilter)
-      .map((cat) => {
-        const presets = cat.presetIds
+  // For each category, resolve its presets (in defined order). Categories
+  // with nothing in them are hidden entirely.
+  const groups = useMemo(
+    () =>
+      CATEGORIES.map((cat) => ({
+        ...cat,
+        presets: cat.presetIds
           .map((id) => PRESET_BY_ID.get(id))
-          .filter((p): p is Preset => Boolean(p))
-          .filter(
-            (p) =>
-              !q ||
-              p.name.toLowerCase().includes(q) ||
-              p.description.toLowerCase().includes(q),
-          );
-        return { ...cat, presets };
-      })
-      .filter((cat) => cat.presets.length > 0);
-  }, [q, categoryFilter]);
+          .filter((p): p is Preset => Boolean(p)),
+      })).filter((cat) => cat.presets.length > 0),
+    [],
+  );
 
-  // The tab actually shown: the user's pick if it still has matches,
-  // otherwise the first tab that does (e.g. mid-search).
   const activeGroup = groups.find((g) => g.id === activeTab) ?? groups[0];
-  // Shown in the collapsed rail. Read straight from PRESETS (not `groups`),
-  // so an active search/filter that hides the selected tile can't blank it.
+  // Shown in the collapsed rail.
   const selectedPreset = PRESET_BY_ID.get(value) ?? null;
   // Rail strip: every OTHER template, in the same category order as the
-  // expanded gallery (the selected one is pinned above it). Deliberately
-  // ignores the search/category filter — the rail has no UI to clear one,
-  // so a stale filter must never hide templates from it.
+  // expanded gallery (the selected one is pinned above it).
   const railPresets = useMemo(
     () =>
       CATEGORIES.flatMap((cat) =>
@@ -1570,6 +1513,18 @@ export function PresetSidebar({ value, onChange }: Props) {
           >
             <PanelLeftOpen className="h-5 w-5" />
           </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href={BANNER_TEMPLATES_ROUTE}
+                aria-label="К шаблонам"
+                className="mb-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+              >
+                <LayoutGrid className="h-5 w-5" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">К шаблонам</TooltipContent>
+          </Tooltip>
           {selectedPreset ? (
             <div className="mb-2 shrink-0 border-b border-border pb-3">
               <RailTile preset={selectedPreset} selected onSelect={() => onChange(selectedPreset.id)} />
@@ -1598,99 +1553,16 @@ export function PresetSidebar({ value, onChange }: Props) {
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
-      <div ref={filterRef} className="relative px-4 pb-2 pt-2">
-        <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
-          <Search size={16} className="shrink-0 text-foreground/70" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по шаблонам"
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-foreground/70 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={openFilter}
-            aria-label="Фильтр"
-            aria-expanded={filterOpen}
-            className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${
-              filterActive || filterOpen
-                ? "text-accent-green"
-                : "text-foreground/70 hover:text-foreground"
-            }`}
-          >
-            <Filter size={16} />
-            {filterActive && (
-              <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent-green" />
-            )}
-          </button>
-        </div>
-
-        {filterActive && (
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={clearFilter}
-              className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-xs text-foreground transition hover:bg-white/10"
-            >
-              {appliedLabel}
-              <X size={12} className="text-muted-foreground" />
-            </button>
-            <button
-              type="button"
-              onClick={clearFilter}
-              className="text-xs text-muted-foreground transition hover:text-foreground"
-            >
-              Очистить
-            </button>
-          </div>
-        )}
-
-        <MobileScrim open={filterOpen} onClose={closeFilter} />
-        {filterOpen && (
-          <div className="absolute left-4 right-4 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-foreground shadow-xl">
-              <p className="mb-2 ds-h4">Категория</p>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setCatMenuOpen((o) => !o)}
-                  className="flex w-full items-center justify-between rounded-lg border border-border bg-white/5 px-3 py-2 text-sm transition hover:bg-white/10"
-                >
-                  <span>{draftLabel}</span>
-                  <ChevronDown
-                    size={16}
-                    className={`text-muted-foreground transition ${catMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {catMenuOpen && (
-                  <div className="mt-1 overflow-hidden rounded-lg border border-border bg-card">
-                    {CATEGORY_OPTIONS.map((opt) => {
-                      const active = draftCategory === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => {
-                            setDraftCategory(opt.id);
-                            setCategoryFilter(opt.id);
-                            closeFilter();
-                          }}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition ${
-                            active
-                              ? "bg-accent-green/15 text-accent-green"
-                              : "text-foreground hover:bg-white/10"
-                          }`}
-                        >
-                          {opt.label}
-                          {active && <Check size={14} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-          </div>
-        )}
+      {/* Where the search box used to be: the way back to the full-page
+          catalog (the only place with search + filters now). */}
+      <div className="px-4 pb-2 pt-2">
+        <Link
+          href={BANNER_TEMPLATES_ROUTE}
+          className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition hover:border-accent-green/40 hover:bg-white/5"
+        >
+          <ArrowLeft size={16} className="shrink-0 text-accent-green" />
+          <span className="min-w-0 flex-1 truncate">К шаблонам</span>
+        </Link>
       </div>
       <div className="flex items-center gap-1.5 px-4 pb-1.5 pt-2">
         <span className="ds-caption shrink-0">Вид</span>
@@ -1720,36 +1592,11 @@ export function PresetSidebar({ value, onChange }: Props) {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-2">
-        {groups.length === 0 && (
-          <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
-            <Search className="h-7 w-7 text-muted-foreground/40" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Ничего не найдено</p>
-              <p className="ds-caption">
-                {q
-                  ? `По запросу «${query.trim()}» шаблонов нет`
-                  : "В этой категории пока нет шаблонов"}
-              </p>
-            </div>
-            {(searching || filterActive) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  clearFilter();
-                }}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground transition hover:bg-white/5"
-              >
-                Сбросить
-              </button>
-            )}
-          </div>
-        )}
         {groups.length > 0 && (
           <>
             {/* Category tabs — Gambling / Sport / etc. Exactly one showing at
                 a time, always expanded (no accordion click needed to see
-                templates). Only categories with current matches get a tab.
+                templates).
                 One bordered strip split into equal segments (same
                 segmented-control pattern as the "Вид" toggle above) reads
                 as tabs and always fits, instead of separate pill buttons

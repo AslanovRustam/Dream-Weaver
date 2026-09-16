@@ -19,7 +19,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { MobileScrim } from "@/components/MobileScrim";
 import { CATEGORIES } from "@/components/PresetSidebar";
-import { SECTIONS, SECTION_BY_ID, type Section } from "@/lib/sections";
+import { SECTIONS, SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
 import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
@@ -609,7 +609,7 @@ export default function HubPage() {
               return (
                 <Link
                   key={sc.id}
-                  href={sc.route}
+                  href={sectionEntryRoute(sc)}
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-white/[0.03] px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/40 hover:text-foreground"
                 >
                   <Icon className="h-3.5 w-3.5 text-accent-green" />
@@ -763,7 +763,7 @@ export default function HubPage() {
               <SectionTile
                 section={bannerSection}
                 featured
-                onOpen={() => router.push(bannerSection.route)}
+                onOpen={() => router.push(sectionEntryRoute(bannerSection))}
               />
             </div>
             {otherSections.map((s, i) => (
@@ -780,7 +780,7 @@ export default function HubPage() {
                         : "lg:col-start-3 lg:row-start-2"
                 }`}
               >
-                <SectionTile section={s} onOpen={() => router.push(s.route)} />
+                <SectionTile section={s} onOpen={() => router.push(sectionEntryRoute(s))} />
               </div>
             ))}
           </div>
@@ -798,7 +798,7 @@ export default function HubPage() {
               </div>
             </div>
             <Link
-              href="/banner"
+              href="/banner/templates"
               className="hidden shrink-0 items-center gap-1 text-sm font-medium text-accent-green transition hover:text-[var(--accent-hover)] sm:inline-flex"
             >
               Все шаблоны

@@ -45,7 +45,7 @@ import { useAppRole } from "@/lib/roles";
 import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { useNotifications, relativeTime } from "@/lib/notifications-client";
-import { SECTIONS, sectionFromPath } from "@/lib/sections";
+import { SECTIONS, sectionEntryRoute, sectionFromPath } from "@/lib/sections";
 import { isSectionEnabled } from "@/lib/mvp";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
@@ -901,7 +901,7 @@ function SectionSwitcher({
           return (
             <DropdownMenuItem
               key={s.id}
-              onClick={() => go(s.route)}
+              onClick={() => go(sectionEntryRoute(s))}
               className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
                 active ? "bg-white/5" : ""
               }`}

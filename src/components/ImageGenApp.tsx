@@ -138,10 +138,11 @@ export function ImageGenApp() {
   const [preset, setPreset] = useState<string>(() => {
     if (typeof window === "undefined") return "preset1";
     try {
+      const known = (id: string | null): id is string => !!id && PRESETS.some((p) => p.id === id);
       const fromUrl = new URLSearchParams(window.location.search).get("preset");
-      if (fromUrl && /^preset[1-4]$/.test(fromUrl)) return fromUrl;
+      if (known(fromUrl)) return fromUrl;
       const stored = window.localStorage.getItem("dw_preset");
-      if (stored && /^preset[1-4]$/.test(stored)) return stored;
+      if (known(stored)) return stored;
     } catch {
       /* localStorage blocked — fall back */
     }

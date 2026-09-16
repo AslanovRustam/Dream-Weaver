@@ -25,6 +25,9 @@ export type SectionId =
   | "mailing";
 
 export type Section = {
+  /** Where "open this section" links go when it differs from `route` (e.g.
+   *  the banner's template catalog). Deep-links (?card=…) keep using `route`. */
+  entryRoute?: string;
   id: SectionId;
   route: string;
   title: string;
@@ -43,6 +46,7 @@ export const SECTIONS: Section[] = [
   {
     id: "banner",
     route: "/banner",
+    entryRoute: "/banner/templates",
     title: "Баннер-генератор",
     description: "Статичные баннеры для соцсетей, ставок и рекламы",
     cta: "Создать баннер",
@@ -127,6 +131,11 @@ export const SECTIONS: Section[] = [
 export const SECTION_BY_ID = new Map(SECTIONS.map((s) => [s.id, s]));
 
 /** Resolve the current section from a pathname (null on Hub / non-tool pages). */
+/** The URL a nav link / hub tile should open for this section. */
+export function sectionEntryRoute(s: Section): string {
+  return s.entryRoute ?? s.route;
+}
+
 export function sectionFromPath(pathname: string | null): Section | null {
   if (!pathname) return null;
   return SECTIONS.find((s) => pathname === s.route || pathname.startsWith(s.route + "/")) ?? null;

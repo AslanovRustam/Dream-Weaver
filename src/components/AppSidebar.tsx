@@ -14,19 +14,28 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { SECTION_BY_ID } from "@/lib/sections";
+import { SECTION_BY_ID, sectionEntryRoute } from "@/lib/sections";
 import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
 // toggled by a button and persisted. Grouped like Krea/Linear/Vercel side-nav;
 // the active item uses the design-system lime "Active" pill (--lime-tint).
-type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; soon?: boolean };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+  soon?: boolean;
+  /** Route prefix that counts as "this item is active" when it differs from
+   *  `href` (the banner links to its catalog but owns all of /banner). */
+  match?: string;
+};
 
 const ENABLED_HREFS = MVP_ENABLED_ROUTES;
 
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
   const sec = SECTION_BY_ID.get(id)!;
-  return { href: sec.route, label: sec.title, icon: sec.icon };
+  return { href: sectionEntryRoute(sec), match: sec.route, label: sec.title, icon: sec.icon };
 };
 
 const GROUPS: { title?: string; items: NavItem[] }[] = [
@@ -76,8 +85,10 @@ export function AppSidebar() {
     });
   };
 
-  const isActive = (item: NavItem) =>
-    item.exact ? pathname === item.href : pathname === item.href || pathname?.startsWith(item.href + "/");
+  const isActive = (item: NavItem) => {
+    const base = item.match ?? item.href;
+    return item.exact ? pathname === base : pathname === base || pathname?.startsWith(base + "/");
+  };
 
   if (!ready) {
     return <aside className="hidden w-60 shrink-0 lg:block" aria-hidden />;
@@ -118,7 +129,7 @@ export function AppSidebar() {
                     item={item}
                     active={!!isActive(item)}
                     collapsed={collapsed}
-                    soon={!ENABLED_HREFS.has(item.href)}
+                    soon={!ENABLED_HREFS.has(item.match ?? item.href)}
                   />
                 </li>
               ))}
