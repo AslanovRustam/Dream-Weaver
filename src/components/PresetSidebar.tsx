@@ -19,127 +19,23 @@ import presetSport from "@/assets/preset-sport.jpg";
 // A preset lists the fields it wants; the UI renders them generically and the
 // chosen values are compiled into a CUSTOMISATION prompt block (see
 // compileTemplateOptions). Adding/editing options is pure data, no new UI code.
-export type TemplateField =
-  | {
-      id: string;
-      type: "select";
-      label: string;
-      options: { value: string; label: string; prompt?: string }[];
-      default?: string;
-    }
-  | { id: string; type: "checkbox"; label: string; prompt: string; default?: boolean };
+// Field definitions + the Preset type live in src/lib/templateFields.ts.
+import {
+  FIELD_BONUS_BADGE,
+  FIELD_CASINO_PROP,
+  FIELD_JACKPOT_TIER,
+  FIELD_MATCH_MOMENT,
+  FIELD_ODDS_MULT,
+  FIELD_SHOW_ODDS,
+  FIELD_SPORT,
+  FIELD_TIME_OF_DAY,
+  FIELD_WIN_CALLOUT,
+  type Preset,
+  type TemplateField,
+} from "@/lib/templateFields";
+import { PRESETS_BATCH_3 } from "@/lib/presetsBatch3";
 
-export type Preset = {
-  id: string;
-  name: string;
-  description: string;
-  gradient: string;
-  preview?: string;
-  examples: string[];
-  template?: string;
-  /** Shows a lime "Новое" badge on the tile and floats the preset to the top
-   *  under the "Сначала новые" sort. */
-  isNew?: boolean;
-  /** Optional custom fields (dropdowns / checkboxes) shown for this template. */
-  fields?: TemplateField[];
-};
-
-const FIELD_SHOW_ODDS: TemplateField = {
-  id: "showOdds",
-  type: "checkbox",
-  label: "Показать коэффициент",
-  prompt: "Include a prominent sample betting odds accent.",
-};
-const FIELD_BONUS_BADGE: TemplateField = {
-  id: "bonusBadge",
-  type: "checkbox",
-  label: "Бейдж-оффер",
-  prompt: "Add a bold bonus/offer badge inside the central safe zone.",
-};
-const FIELD_SPORT: TemplateField = {
-  id: "sport",
-  type: "select",
-  label: "Вид спорта",
-  default: "football",
-  options: [
-    { value: "football", label: "Футбол", prompt: "Sport context: football (soccer)." },
-    { value: "basketball", label: "Баскетбол", prompt: "Sport context: basketball." },
-    { value: "tennis", label: "Теннис", prompt: "Sport context: tennis." },
-    { value: "esports", label: "Киберспорт", prompt: "Sport context: esports." },
-  ],
-};
-const FIELD_MATCH_MOMENT: TemplateField = {
-  id: "moment",
-  type: "select",
-  label: "Момент",
-  default: "action",
-  options: [
-    { value: "action", label: "Экшн", prompt: "Capture a dynamic mid-action moment." },
-    { value: "start", label: "Старт", prompt: "Depict the start / kickoff moment." },
-    { value: "win", label: "Победный момент", prompt: "Depict a triumphant victory moment." },
-  ],
-};
-const FIELD_TIME_OF_DAY: TemplateField = {
-  id: "timeOfDay",
-  type: "select",
-  label: "Время суток",
-  default: "auto",
-  options: [
-    { value: "auto", label: "Авто" },
-    { value: "day", label: "День", prompt: "Daytime setting." },
-    { value: "night", label: "Ночь (софиты)", prompt: "Night setting under bright floodlights." },
-    { value: "dusk", label: "Закат", prompt: "Dusk / golden-hour setting." },
-  ],
-};
-const FIELD_CASINO_PROP: TemplateField = {
-  id: "prop",
-  type: "select",
-  label: "Реквизит",
-  default: "auto",
-  options: [
-    { value: "auto", label: "Авто" },
-    { value: "coins", label: "Монеты", prompt: "Feature flying gold coins." },
-    { value: "chips", label: "Фишки", prompt: "Feature casino chips." },
-    { value: "cards", label: "Карты", prompt: "Feature playing cards." },
-    { value: "diamonds", label: "Бриллианты", prompt: "Feature sparkling diamonds and gems." },
-  ],
-};
-const FIELD_WIN_CALLOUT: TemplateField = {
-  id: "callout",
-  type: "select",
-  label: "Плашка выигрыша",
-  default: "auto",
-  options: [
-    { value: "auto", label: "Авто" },
-    { value: "win", label: "WIN!", prompt: "Include a bold WIN! callout." },
-    { value: "big", label: "BIG WIN", prompt: "Include a BIG WIN callout." },
-    { value: "jackpot", label: "JACKPOT", prompt: "Include a JACKPOT callout." },
-    { value: "mega", label: "MEGA WIN", prompt: "Include a MEGA WIN callout." },
-  ],
-};
-const FIELD_JACKPOT_TIER: TemplateField = {
-  id: "jackpotTier",
-  type: "select",
-  label: "Тир джекпота",
-  default: "mega",
-  options: [
-    { value: "mega", label: "Mega", prompt: "Headline a Mega jackpot tier." },
-    { value: "grand", label: "Grand", prompt: "Headline a Grand jackpot tier." },
-    { value: "daily", label: "Daily", prompt: "Headline a Daily jackpot tier." },
-  ],
-};
-const FIELD_ODDS_MULT: TemplateField = {
-  id: "oddsMult",
-  type: "select",
-  label: "Множитель",
-  default: "x50",
-  options: [
-    { value: "x10", label: "×10", prompt: "Headline a ×10 odds multiplier." },
-    { value: "x25", label: "×25", prompt: "Headline a ×25 odds multiplier." },
-    { value: "x50", label: "×50", prompt: "Headline a ×50 odds multiplier." },
-    { value: "x100", label: "×100", prompt: "Headline a ×100 odds multiplier." },
-  ],
-};
+export type { Preset, TemplateField };
 
 /** Compile the user's field selections into a single CUSTOMISATION instruction
  *  string appended to the generation prompt. Empty when nothing meaningful. */
@@ -274,7 +170,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(140deg,#0b0b0f,#ef4444)",
     ],
     template: "MARTIAL_ARTS_PRESET",
-    isNew: true,
   },
   // ── Style/effect templates (Higgsfield-inspired) — plain `template` strings
   //    that flow through the generic adaptPrompt rewrite. Each swaps only the
@@ -291,7 +186,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#7c2d12,#fbbf24)",
       "linear-gradient(140deg,#0b0b0f,#f97316)",
     ],
-    isNew: true,
     template:
       "Create a high-energy casino/gambling advertisement banner for {SUBJECT}. " +
       "STYLE: explosive big-win moment — a burst of gold coins, casino chips and confetti flying toward the camera, volumetric light rays, sparks, glowing particles, dramatic depth of field. " +
@@ -313,7 +207,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#3b0764,#06b6d4)",
       "linear-gradient(140deg,#020617,#a855f7)",
     ],
-    isNew: true,
     template:
       "Create a cyberpunk neon advertisement banner for {SUBJECT}. " +
       "STYLE: ultraviolet neon aesthetic — glowing purple and cyan light, holographic UI panels, laser grid, wet reflective floor, volumetric haze, glassmorphism, high-tech energy. " +
@@ -335,7 +228,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#052e16,#fbbf24)",
       "linear-gradient(140deg,#0b0b0f,#15803d)",
     ],
-    isNew: true,
     template:
       "Create a premium casino roulette advertisement banner for {SUBJECT}. " +
       "STYLE: dynamic spinning roulette wheel — glossy red/black pockets, a bright ball caught mid-spin with motion blur, green felt table, chips and a gold rim, dramatic depth of field, cinematic casino energy. " +
@@ -357,7 +249,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#3b0764,#f472b6)",
       "linear-gradient(140deg,#0f172a,#fb7185)",
     ],
-    isNew: true,
     template:
       "Create a retro 80s–90s Las Vegas / vaporwave advertisement banner for {SUBJECT}. " +
       "STYLE: nostalgic vaporwave — chrome 3D lettering, sunset gradient (magenta→purple→orange), palm-tree silhouettes, retro marquee light bulbs, subtle VHS grain and scanlines, grid horizon. " +
@@ -379,7 +270,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1c1917,#eab308)",
       "linear-gradient(140deg,#000000,#facc15)",
     ],
-    isNew: true,
     template:
       "Create a luxury black-and-gold VIP casino advertisement banner for {SUBJECT}. " +
       "STYLE: cinematic noir premium — deep blacks, gold accents, dramatic single-source lighting, soft smoke, elegant high-roller mood, gold-foil details, film-noir shadows. " +
@@ -401,7 +291,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#f59e0b,#dc2626)",
       "linear-gradient(140deg,#1e3a8a,#fbbf24)",
     ],
-    isNew: true,
     template:
       "Create a comic-book pop-art advertisement banner for {SUBJECT}. " +
       "STYLE: bold comic pop-art — thick black ink outlines, Ben-Day halftone dots, vivid primary colors, dynamic action lines, a burst/star callout, optional speech bubble. " +
@@ -423,7 +312,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#450a0a,#eab308)",
       "linear-gradient(140deg,#0b0b0f,#b91c1c)",
     ],
-    isNew: true,
     template:
       "Create a cinematic poker advertisement banner for {SUBJECT}. " +
       "STYLE: dramatic poker-noir — a winning hand of cards (e.g. a royal flush) and tall stacks of casino chips shot macro on a dark felt table, moody low-key lighting, cigar smoke haze, gold accents, high-stakes cinematic mood. " +
@@ -445,7 +333,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#0f172a,#38bdf8)",
       "linear-gradient(140deg,#020617,#3b82f6)",
     ],
-    isNew: true,
     template:
       "Create a sports-betting holographic data-board advertisement banner for {SUBJECT}. " +
       "STYLE: futuristic HUD / data-viz — glowing holographic odds, stat bars and line graphs, translucent UI panels, tracking reticles, a stadium/arena backdrop with floodlights and haze. " +
@@ -467,7 +354,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1f2937,#a3e635)",
       "linear-gradient(140deg,#0f172a,#fb7185)",
     ],
-    isNew: true,
     template:
       "Create an urban street-graffiti advertisement banner for {SUBJECT}. " +
       "STYLE: raw streetwear energy — spray-paint textures, graffiti tags and throw-ups on a concrete wall, dripping paint, stencil marks, torn poster layers, gritty grain, bold hype aesthetic. " +
@@ -488,7 +374,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#312e81,#a855f7)",
       "linear-gradient(140deg,#0f172a,#eab308)",
     ],
-    isNew: true,
     template:
       "Create an epic fantasy slot advertisement banner for {SUBJECT}. " +
       "STYLE: mythic fantasy realm — glowing magical runes, treasure hoards, dragons or mystical creatures, enchanted particles and embers, ornate carved gold frame, dramatic sword-and-sorcery mood. " +
@@ -537,7 +422,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#fbbf24)",
       "linear-gradient(140deg,#0b0b0f,#22c55e)",
     ],
-    isNew: true,
     template:
       "Create a sports-betting WIN advertisement banner for {SUBJECT}. " +
       "STYLE: winning-moment energy — a glowing bet slip / ticket marked as WON, cash and coins raining, green confirmation glow, celebration sparks, stadium bokeh. " +
@@ -559,7 +443,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#450a0a,#ef4444)",
       "linear-gradient(140deg,#0b0b0f,#f97316)",
     ],
-    isNew: true,
     template:
       "Create a LIVE in-play sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: real-time broadcast energy — a pulsing red LIVE badge, an in-play odds ticker, motion-blurred action, floodlit stadium, dynamic camera feel, HUD score strip. " +
@@ -581,7 +464,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#22d3ee)",
       "linear-gradient(140deg,#0b1220,#3b82f6)",
     ],
-    isNew: true,
     template:
       "Create an accumulator (parlay) sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: combo-bet energy — a chain of linked selections building up to one huge total-odds multiplier, glowing connectors, ticket stack, ascending arrow, electric momentum. " +
@@ -602,7 +484,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#38bdf8)",
       "linear-gradient(140deg,#020617,#3b82f6)",
     ],
-    isNew: true,
     template:
       "Create an ODDS BOOST sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: high-voltage boost — a boosted odds figure with lightning bolts, electric sparks, an upward 'boosted from → to' motif, energetic glow, charged atmosphere. " +
@@ -649,7 +530,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#3b0764,#fbbf24)",
       "linear-gradient(140deg,#1e1b4b,#a855f7)",
     ],
-    isNew: true,
     template:
       "Create a welcome-bonus / free-bet sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: gift-and-reward energy — a glowing gift box or free-bet token spilling coins, a bold bonus percentage callout, ribbons, sparkles, premium promo mood. " +
@@ -697,7 +577,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#134e4a,#facc15)",
       "linear-gradient(140deg,#042f2e,#14b8a6)",
     ],
-    isNew: true,
     template:
       "Create a toto / lottery betting advertisement banner for {SUBJECT}. " +
       "STYLE: jackpot-draw energy — bouncing numbered lottery balls, lucky numbers, a glowing prize-pool figure, sparkles and confetti, hopeful bright mood. " +
@@ -719,7 +598,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#ef4444)",
       "linear-gradient(140deg,#020617,#2563eb)",
     ],
-    isNew: true,
     template:
       "Create a rivalry / derby sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: emblem clash — two large stylized team crests or national flags facing off across a central VS divider, sparks at the clash point, dramatic split warm-vs-cool sides, arena atmosphere. NO human faces — symbolism only. " +
@@ -741,7 +619,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#22c55e)",
       "linear-gradient(140deg,#0b0b0f,#4ade80)",
     ],
-    isNew: true,
     template:
       "Create a CASH OUT sports-betting advertisement banner for {SUBJECT}. " +
       "STYLE: secure-your-winnings energy — a glowing green CASH OUT button being pressed, a bet slip converting to guaranteed cash, upward secured-profit motif, coins, reassuring premium feel. " +
@@ -763,7 +640,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#f1f5f9)",
       "linear-gradient(140deg,#052e16,#4ade80)",
     ],
-    isNew: true,
     template:
       "Create a premium football (soccer) sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a stadium with floodlights, packed stands blurred in the background, green pitch tint, atmospheric smoke. " +
@@ -785,7 +661,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#7c2d12,#fb923c)",
       "linear-gradient(140deg,#0b0b0f,#f97316)",
     ],
-    isNew: true,
     template:
       "Create a premium basketball sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: an indoor arena with reflective hardwood court, dramatic spotlight beams, blurred crowd silhouette. " +
@@ -807,7 +682,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#e2e8f0)",
       "linear-gradient(140deg,#0b1220,#3b82f6)",
     ],
-    isNew: true,
     template:
       "Create a premium American football (NFL-style) sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: an NFL-style stadium with end-zone lights and atmospheric haze. " +
@@ -829,7 +703,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#22d3ee)",
       "linear-gradient(140deg,#0b1220,#84cc16)",
     ],
-    isNew: true,
     template:
       "Create a premium tennis sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a tennis court (hard/clay/grass) with stadium stands and atmospheric depth. " +
@@ -851,7 +724,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#134e4a,#fbbf24)",
       "linear-gradient(140deg,#052e16,#14b8a6)",
     ],
-    isNew: true,
     template:
       "Create a premium cricket sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a cricket field with stadium floodlights and atmospheric depth. " +
@@ -873,7 +745,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#7f1d1d,#f1f5f9)",
       "linear-gradient(140deg,#0b1220,#ef4444)",
     ],
-    isNew: true,
     template:
       "Create a premium baseball (MLB-style) sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a baseball diamond with stadium lights at dusk. " +
@@ -895,7 +766,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#075985,#bae6fd)",
       "linear-gradient(140deg,#0b1220,#38bdf8)",
     ],
-    isNew: true,
     template:
       "Create a premium ice hockey (NHL-style) sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: an ice rink with frost particles, arena boards, cold blue ice glow and atmospheric mist. " +
@@ -917,7 +787,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#fbbf24)",
       "linear-gradient(140deg,#052e16,#22c55e)",
     ],
-    isNew: true,
     template:
       "Create a premium horse-racing sports-betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a racetrack with turf, rails and grandstand, dramatic finish-line atmosphere, dust and motion. " +
@@ -938,7 +807,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#3b0764,#06b6d4)",
       "linear-gradient(140deg,#0f0524,#7c3aed)",
     ],
-    isNew: true,
     template:
       "Create a premium esports betting advertisement banner for {SUBJECT}. " +
       "ENVIRONMENT: a dark esports arena with massive LED screens, neon RGB stage lighting, stage smoke and holographic UI. " +
@@ -991,7 +859,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#78350f,#fbbf24)",
       "linear-gradient(140deg,#1c1400,#f97316)",
     ],
-    isNew: true,
     template:
       "Create a bold hero-subject advertisement banner for {SUBJECT}. " +
       "STYLE: oversized background wordmark typography filling most of the frame, with the hero subject standing sharply in front of it in full detail and dramatic studio lighting; premium editorial-poster energy. " +
@@ -1013,7 +880,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#450a0a,#ef4444)",
       "linear-gradient(140deg,#1a0000,#dc2626)",
     ],
-    isNew: true,
     template:
       "Create a gritty street-poster event advertisement banner for {SUBJECT}. " +
       "STYLE: raw grunge event-flyer aesthetic — halftone texture, torn-paper edges, high-contrast duotone photo treatment, distressed grain, punchy underground-club energy. " +
@@ -1035,7 +901,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#16a34a,#fde047)",
       "linear-gradient(140deg,#f97316,#4ade80)",
     ],
-    isNew: true,
     template:
       "Create a playful 3D mascot-character advertisement banner for {SUBJECT}. " +
       "STYLE: glossy inflated 3D bubble-letter headline bursting apart, an expressive cartoon mascot character with a funny exaggerated face reacting to the splash/explosion, ice cubes or sparkle particles, juicy energetic commercial-mascot mood. " +
@@ -1057,7 +922,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#0284c7,#fbbf24)",
       "linear-gradient(140deg,#0ea5e9,#f59e0b)",
     ],
-    isNew: true,
     template:
       "Create a dynamic lifestyle-action advertisement banner for {SUBJECT}. " +
       "STYLE: energetic ultra-wide fisheye action photography — a smiling subject in motion (skating, running, celebrating) holds a phone/app screen up toward the camera lens, urban environment blurred behind with motion energy, bright natural daylight, authentic UGC-style excitement. " +
@@ -1079,7 +943,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1c1917,#eab308)",
       "linear-gradient(140deg,#000000,#d4af37)",
     ],
-    isNew: true,
     template:
       "Create a VIP invitation-poster advertisement banner for {SUBJECT}. " +
       "STYLE: opulent formal invitation poster — a glowing gold crown resting on a fanned hand of premium playing cards, sparkling light particles, engraved ornamental gold frame border running along all edges, exclusive high-roller ceremony mood. " +
@@ -1105,7 +968,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#0369a1,#fde047)",
       "linear-gradient(140deg,#020617,#38bdf8)",
     ],
-    isNew: true,
     template:
       "Create a premium slot-machine hero-symbol advertisement banner for {SUBJECT}. " +
       "STYLE: a single giant glossy chrome-and-glass slot symbol (e.g. a lucky 7, bell or gem) rendered as a dimensional 3D object, radiant backlight beams, fine tech-particle sparkles, sleek modern casino-tech energy. " +
@@ -1127,7 +989,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#fbbf24)",
       "linear-gradient(140deg,#022c22,#22c55e)",
     ],
-    isNew: true,
     template:
       "Create a regal mascot-character advertisement banner for {SUBJECT}. " +
       "STYLE: a charismatic 3D-rendered animal or character mascot dressed in royal regalia (crown, fur-trimmed robe, jewelry) sitting confidently on an ornate gem-studded throne or standing in a commanding pose, surrounded by stacks of gold coins, premium storybook-royalty mood. " +
@@ -1149,7 +1010,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#c2410c,#fdba74)",
       "linear-gradient(140deg,#f97316,#fdba74)",
     ],
-    isNew: true,
     template:
       "Create a clean flat-color promo advertisement banner for {SUBJECT}. " +
       "STYLE: minimal flat-color studio flat-lay — a solid vivid background color with no scene or texture, a phone or card propped up showing a promo code, dice and casino chips arranged neatly beside it with soft studio shadows, bold minimal product-shot energy. " +
@@ -1171,7 +1031,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#1e3a8a,#22d3ee)",
       "linear-gradient(140deg,#020617,#2563eb)",
     ],
-    isNew: true,
     template:
       "Create a games-showcase advertisement banner for {SUBJECT}. " +
       "STYLE: an excited presenter holding a phone toward the camera, several glowing game-thumbnail cards fanned out floating around her in the air, a bright glowing ring of light beneath her feet, energetic premium casino-app-launch mood. " +
@@ -1193,7 +1052,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#14532d,#22c55e)",
       "linear-gradient(140deg,#022c22,#16a34a)",
     ],
-    isNew: true,
     template:
       "Create a bonus-delivery advertisement banner for {SUBJECT}. " +
       "STYLE: a friendly 3D-rendered mascot character in a branded jacket and sunglasses delivering a branded gift box, framed through a round door/peephole vignette with a blurred casino floor (slot machines, gaming tables) glowing behind; a branded delivery van visible in the background; playful premium mood. " +
@@ -1215,7 +1073,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "linear-gradient(120deg,#0b0b0f,#ea580c)",
       "linear-gradient(140deg,#1c1917,#f97316)",
     ],
-    isNew: true,
     template:
       "Create a museum-display prize advertisement banner for {SUBJECT}. " +
       "STYLE: a glossy 3D glass-and-metal display case on a lit pedestal presenting a premium prize (a coin, chip or trophy) under dramatic museum-style spotlighting, subtle floor reflections, a bold promo-code banner tag above the case, a glowing runway-text strip along the ground. " +
@@ -1225,6 +1082,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
       "COLOR: near-black base with one bright accent color (max 3 dominant colors). " +
       "AVOID: cluttered background, unreadable text, more than 3 dominant colors, flat lifeless case.",
   },
+  // preset47–preset101 — third batch (Sep 2026), see src/lib/presetsBatch3.ts.
+  ...PRESETS_BATCH_3,
 ];
 
 // Generated 3:2 preview banners live in public/previews/<id>.{webp,png}
@@ -1236,6 +1095,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
 const PNG_PREVIEW_IDS = new Set([
   "preset36", "preset37", "preset38", "preset39", "preset40",
   "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
+  ...PRESETS_BATCH_3.map((p) => p.id),
 ]);
 for (const p of PRESETS) {
   if (!p.preview) p.preview = `/previews/${p.id}.${PNG_PREVIEW_IDS.has(p.id) ? "png" : "webp"}`;
@@ -1277,6 +1137,7 @@ export const CATEGORIES: Category[] = [
       "preset44",
       "preset45",
       "preset46",
+      "preset47", "preset48", "preset49", "preset50", "preset51", "preset52", "preset53", "preset54", "preset56", "preset57", "preset58", "preset60", "preset61", "preset62", "preset63", "preset64", "preset66", "preset67", "preset68", "preset69", "preset70", "preset72", "preset73", "preset74", "preset75", "preset77", "preset78", "preset80", "preset83", "preset84", "preset85", "preset87", "preset88", "preset89", "preset90", "preset91", "preset93", "preset94", "preset95", "preset96", "preset97", "preset98", "preset99", "preset100", "preset101",
     ],
   },
   {
@@ -1304,6 +1165,7 @@ export const CATEGORIES: Category[] = [
       "preset24",
       "preset37",
       "preset39",
+      "preset59", "preset55", "preset65", "preset71", "preset76", "preset79", "preset81", "preset82", "preset86", "preset92",
     ],
   },
 ];
