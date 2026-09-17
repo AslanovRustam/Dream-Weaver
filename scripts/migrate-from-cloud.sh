@@ -40,6 +40,24 @@ union all select 'generation_cards', count(*) from public.generation_cards
 union all select 'credit_transactions', count(*) from public.credit_transactions
 order by 1;"
 
+say "2.5/7 Проверка, что целевая база чистая"
+EXISTING=$(docker exec "$DB" psql -U postgres -d postgres -tAc "select count(*) from auth.users")
+if [ "${EXISTING:-0}" != "0" ]; then
+  echo "  В целевой auth.users уже ${EXISTING} записей."
+  if [ "${WIPE:-0}" = "1" ]; then
+    echo "  WIPE=1 -> чищу auth.users и auth.identities"
+    docker exec "$DB" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "
+      SET session_replication_role = replica;
+      delete from auth.identities;
+      delete from auth.users;"
+  else
+    docker exec "$DB" psql -U postgres -d postgres -c       "select id, email, created_at from auth.users order by created_at;"
+    die "целевая база не пуста. Это обычно тестовые входы, созданные при проверке OAuth.
+     Проверьте список выше и, если данные не нужны, повторите запуск так:
+       WIPE=1 bash $0"
+  fi
+fi
+
 say "3/7 Дамп пользователей (auth.users, auth.identities)"
 dex pg_dump "$CLOUD_URI" --data-only --no-owner \
     --table=auth.users --table=auth.identities -f /tmp/auth_data.sql
@@ -47,6 +65,9 @@ docker exec "$DB" sh -c 'ls -lh /tmp/auth_data.sql'
 
 say "4/7 Дамп схемы public (структура + данные)"
 dex pg_dump "$CLOUD_URI" --schema=public --no-owner -f /tmp/public.sql
+# Схема public существует в любой новой базе, поэтому CREATE SCHEMA из дампа
+# гарантированно упадёт с "schema already exists" и откатит всю транзакцию.
+docker exec "$DB" sed -i '/^CREATE SCHEMA public;$/d' /tmp/public.sql
 docker exec "$DB" sh -c 'ls -lh /tmp/public.sql'
 
 say "5/7 Восстановление: сначала пользователи, затем public"

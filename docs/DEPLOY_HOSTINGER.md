@@ -319,7 +319,23 @@ DASHBOARD_PASSWORD=<длинный пароль с буквами и цифра�
 
 `SITE_URL` и `ADDITIONAL_REDIRECT_URLS` обязаны совпадать с доменом приложения: код строит редиректы от `window.location.origin`, и GoTrue отклонит всё, чего нет в allow-list.
 
-После правки — **Redeploy** сервиса.
+⚠️ **Переменных Google в шаблоне мало прописать — их нужно ещё пробросить.** Сервис `auth` в compose перечисляет только `GOTRUE_EXTERNAL_EMAIL_ENABLED`, `..._PHONE_ENABLED` и `..._ANONYMOUS_USERS_ENABLED`; всё остальное до контейнера не доходит, и провайдер молча остаётся выключенным. Откройте **General → Compose File** и допишите в блок `environment:` сервиса `auth`:
+
+```yaml
+      # Google OAuth — в шаблон Dokploy не входит, добавлено вручную
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOTRUE_EXTERNAL_GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID:-}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOTRUE_EXTERNAL_GOOGLE_SECRET:-}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI:-}
+```
+
+После правки — **Redeploy** сервиса. Проверка, что провайдер действительно включился:
+
+```bash
+curl -sS "https://sb.gen-go.ai/auth/v1/settings" -H "apikey: <ANON_KEY>" | grep -o '"google":[a-z]*'
+```
+
+Ответ `"google":true` — готово, `false` — переменные всё ещё не доходят.
 
 ### 5.4 Забрать ключи
 
@@ -329,11 +345,15 @@ DASHBOARD_PASSWORD=<длинный пароль с буквами и цифра�
 
 ### 5.5 Закрыть Studio
 
-Studio — это полный доступ к вашей базе через браузер. Во вкладке **Advanced → Security** включите basic auth для домена Studio, а ещё лучше — не выдавайте Studio публичный домен вообще и ходите в него через SSH-туннель:
+Studio — это полный доступ к базе через браузер, и шаблон отдаёт его на **корне** домена Supabase: `https://sb.gen-go.ai/`.
+
+Хорошая новость — Kong уже закрывает его basic-аутентификацией (`WWW-Authenticate: Basic realm="service"`), логин и пароль берутся из `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD`. Проверить:
 
 ```bash
-ssh -L 3001:localhost:3000 deploy@<IP>     # порт Studio внутри стека
+curl -sSI https://sb.gen-go.ai/ | grep -i www-authenticate   # ожидаем Basic realm="service"
 ```
+
+Если строки нет — Studio открыт всему интернету, и это надо чинить немедленно. Для паранойи можно дополнительно ограничить доступ по IP в **Advanced → Security**.
 
 ---
 
@@ -399,7 +419,22 @@ select count(*) from public.profiles p
 select tablename, rowsecurity from pg_tables where schemaname='public';
 ```
 
-Отдельно убедитесь, что на месте таблицы из всех 7 миграций — в частности `templates` (0005) и `notifications` (0007). Если шаблонная база оказалась старше, накатите недостающие миграции вручную из `supabase/migrations/`.
+⚠️ **Дамп из облака почти наверняка отстаёт от репозитория.** На практике в облаке не оказалось ни `notifications` (0007), ни `admin_set_user_role`/`refund_credits` (0010) — миграции туда просто не накатывали. Поэтому после восстановления прогоните ВСЕ миграции, которых нет в дампе, по порядку:
+
+```bash
+DB=$(docker ps --format '{{.Names}}' | grep -E 'supabase.*-db-[0-9]+$' | head -1)
+for m in 0006_rbac_role_tier 0007_notifications 0008_revoke_skobelev_admin \
+         0009_lock_profiles_privileged_columns 0010_billing_refund_ratelimit_roles; do
+  curl -fsSL "https://raw.githubusercontent.com/AslanovRustam/Dream-Weaver/main/supabase/migrations/$m.sql" -o "/tmp/$m.sql"
+  docker cp "/tmp/$m.sql" "$DB:/tmp/$m.sql"
+  docker exec "$DB" psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f "/tmp/$m.sql" \
+    && echo ">>> OK: $m" || echo ">>> FAILED: $m"
+done
+```
+
+Именно `-U supabase_admin`: у `postgres` в свежих образах Supabase нет superuser, и часть миграций упрётся в `permission denied`.
+
+`0009` — критический фикс эскалации привилегий (без него пользователь может сам себе выставить `role='admin'`), так что применять до того, как пускать людей. Перечень миграций сверяйте с `supabase/migrations/` — он растёт.
 
 ---
 
@@ -553,7 +588,9 @@ CMD ["node", "server.js"]
 Проверяйте по порядку, каждый пункт опирается на предыдущий:
 
 - [ ] `https://gen-go.ai` открывается, сертификат валиден
-- [ ] `https://sb.gen-go.ai/auth/v1/health` отвечает
+- [ ] `curl -H "apikey: <ANON_KEY>" https://sb.gen-go.ai/auth/v1/health` → `200` и версия GoTrue
+      (без заголовка `apikey` Kong отдаёт `401 "No API key found in request"` — это тоже признак, что шлюз жив)
+- [ ] `curl -sS https://sb.gen-go.ai/auth/v1/settings -H "apikey: <ANON_KEY>"` → `"google":true`, `"email":true`
 - [ ] Регистрация нового пользователя → **письмо приходит** (проверка SMTP)
 - [ ] Вход по email и паролю **старым** аккаунтом (проверка переноса bcrypt-хешей)
 - [ ] Вход через Google (проверка OAuth redirect)
@@ -601,9 +638,25 @@ crontab -e
 # 0 4 * * * /home/deploy/backup-db.sh >> /home/deploy/backups/cron.log 2>&1
 ```
 
-**2) Volume Backups в Dokploy (дополнительный):** панель умеет выгружать именованные Docker-тома в S3. Учтите: безопасный режим останавливает контейнер на время копирования, то есть это короткий простой. Ставьте на ночь и воспринимайте как «снимок на случай катастрофы», а не как ежедневный бэкап.
+**2) Volume Backups в Dokploy — здесь НЕ работают.** Панель умеет выгружать в S3 только *именованные* Docker-тома, а шаблон Supabase хранит и базу, и файлы в bind-mount'ах (`../files/volumes/db/data`, `../files/volumes/storage`). Единственные named-тома в стеке — `db-config` и `deno-cache`, в них ничего ценного нет.
+
+Поэтому логический дамп из пункта 1 — не «дополнительная мера», а единственный бэкап базы. Файлы storage (если начнёте им пользоваться) придётся архивировать отдельно, например `tar` по тому же cron.
 
 **Раз в квартал проверяйте восстановление.** Непроверенный бэкап — не бэкап.
+
+⚠️ Проверять только в **отдельном контейнере**. Дамп `pg_dumpall` содержит `\connect postgres`, поэтому попытка залить его в соседнюю базу того же сервера переключит сессию на боевую базу и польёт данные туда:
+
+```bash
+docker run -d --name restore-test -e POSTGRES_PASSWORD=test supabase/postgres:17.6.1.136
+sleep 20
+zcat /root/backups/db-*.sql.gz | docker exec -i restore-test psql -U postgres -d postgres > /tmp/restore.log 2>&1
+docker exec restore-test psql -U postgres -d postgres -c \
+  "select 'profiles' t, count(*) from public.profiles
+   union all select 'auth.users', count(*) from auth.users;"
+docker rm -f restore-test
+```
+
+Первичные ключи обычно спасают от дублей при такой ошибке (`COPY` падает на конфликте), но полагаться на это не стоит.
 
 ### Мониторинг
 
