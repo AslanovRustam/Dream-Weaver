@@ -5,11 +5,11 @@
 Итоговая схема:
 
 ```
-                    ┌──────────── Hostinger VPS KVM 4 (Ubuntu + Dokploy) ─────────┐
+                    ┌─── GenGo.vps · KVM 2 · 187.77.94.160 (Ubuntu + Dokploy) ───┐
 Интернет ──443──►   │  Traefik (авто-TLS, ставится с Dokploy)                     │
-                    │    ├── app.example.com  → контейнер приложения      :3000   │
-                    │    ├── sb.example.com   → Kong (Supabase API)       :8000   │
-                    │    └── panel.example.com→ панель Dokploy            :3000   │
+                    │    ├── gen-go.ai        → контейнер приложения      :3000  │
+                    │    ├── sb.gen-go.ai     → Kong (Supabase API)       :8000  │
+                    │    └── panel.gen-go.ai  → панель Dokploy            :3000  │
                     │                                                             │
                     │  Compose-стек Supabase: postgres, auth(GoTrue), postgrest,  │
                     │      realtime, storage, kong, studio, imgproxy, meta        │
@@ -28,7 +28,7 @@
 
 | Что | Зачем | Статус |
 |---|---|---|
-| VPS **KVM 4** (4 vCPU / 16 GB / 200 GB) — $14.99/мес | Supabase просит 4 ядра и 8 ГБ+, плюс Dokploy, приложение и сборка | обязательно |
+| VPS от **KVM 2** (2 vCPU / 8 GB); комфортно — KVM 4 | Supabase просит 4 ядра и 8 ГБ+, плюс Dokploy, приложение и сборка | ✅ есть |
 | Домен + доступ к DNS | Три поддомена: приложение, Supabase, панель | обязательно |
 | SMTP (см. §1) | Сброс пароля и подтверждение email | обязательно |
 | Google Cloud Console | Новый OAuth redirect URI | обязательно |
@@ -36,7 +36,11 @@
 | Значения из текущего `.env` | 14 переменных | обязательно |
 | S3-совместимое хранилище | Бэкапы Dokploy (Backblaze B2, Cloudflare R2, Wasabi) | желательно |
 
-**KVM 2** (2 vCPU / 8 GB) не берите: Dokploy ~0.8 ГБ + Supabase 4–6 ГБ + сборка Next.js 2–4 ГБ не помещаются с запасом.
+> **Фактическая конфигурация: `GenGo.vps`, KVM 2 (2 vCPU / 8 ГБ), IP `187.77.94.160`, домен `gen-go.ai`.**
+>
+> KVM 2 — это минимум, а не комфорт: Dokploy ~0.8 ГБ + Supabase 4–6 ГБ + сборка Next.js 2–4 ГБ в 8 ГБ впритык. Пока Supabase не запущен, сборка проходит спокойно; проблемы начинаются при пересборке на работающем стеке, и выглядят они как «деплой упал без ошибки» или «Postgres сам перезапустился» — это OOM-killer.
+>
+> Поэтому на KVM 2: swap **8 ГБ** (§3.3), лимит памяти билдера в Advanced → Resources, и деплои лучше делать в тихое время. Если станет мучительно — Hostinger позволяет апгрейд до KVM 4 без переустановки сервера.
 
 ---
 
@@ -49,16 +53,16 @@ Self-hosted Supabase **не имеет** встроенной отправки �
 
 ### Вариант A — Hostinger Email (проще всего, если домен на Hostinger)
 
-1. hPanel → **Emails** → выбрать домен → создать ящик, например `noreply@example.com`.
+1. hPanel → **Emails** → выбрать домен → создать ящик, например `noreply@gen-go.ai`.
 2. hPanel → Emails → ваш ящик → **Manage** → **Configuration Settings** → **Manual Configuration** — там точные хост и порт.
 3. Обычные значения:
 
 ```
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465          # SSL; либо 587 для STARTTLS
-SMTP_USER=noreply@example.com     # ВСЕГДА полный адрес, не только имя
+SMTP_USER=noreply@gen-go.ai     # ВСЕГДА полный адрес, не только имя
 SMTP_PASS=<пароль ящика>
-SMTP_ADMIN_EMAIL=noreply@example.com
+SMTP_ADMIN_EMAIL=noreply@gen-go.ai
 SMTP_SENDER_NAME=GenGO
 ```
 
@@ -83,9 +87,11 @@ SMTP_PASS=<API-ключ>
 
 Hostinger порт 25 на VPS не блокирует, но свежий IP без репутации отправит письма в спам. Потребуются PTR, SPF, DKIM, DMARC и мониторинг блок-листов — не стоит того ради двух шаблонов писем.
 
-### Важно про MX
+### Про MX
 
-Переезд меняет только **A-записи**. `MX`-записи не трогайте, иначе почта домена перестанет приниматься.
+На `gen-go.ai` MX-записей сейчас **нет** — почта на домене не настроена. Создадите ящик в hPanel → Hostinger сам добавит MX, SPF и DKIM; смена A-записи этому не мешает.
+
+Общее правило на будущее: переезд меняет только **A-записи**. Если на домене появится почта, `MX` не трогайте, иначе приём писем сломается.
 
 ---
 
@@ -193,8 +199,8 @@ ufw --force enable
 apt update && apt install -y fail2ban unattended-upgrades
 systemctl enable --now fail2ban
 
-# Swap — страховка на время сборки Next.js
-fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+# Swap — на KVM 2 обязателен: 8 ГБ, иначе сборка ловит OOM
+fallocate -l 8G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
@@ -214,17 +220,52 @@ Node.js и Caddy ставить не нужно — сборка идёт в к�
 
 MX и почтовые записи не трогайте. TTL понизьте до 300 секунд **за сутки до переезда** — это ускорит откат.
 
-Дождитесь распространения: `dig app.example.com +short`.
+Дождитесь распространения: `dig gen-go.ai +short`.
 
 ### 4.2 Закрыть панель доменом
 
-В Dokploy: **Settings → Server → Domain** → указать `panel.example.com`, включить Let's Encrypt. После того как панель открылась по HTTPS:
+В Dokploy: **Settings → Web Server → Server Domain**:
+
+1. **Domain**: `panel.gen-go.ai`
+2. **Let's Encrypt Email**: реальный адрес — туда придут письма об истечении сертификата (серый текст в поле это placeholder, а не значение)
+3. **HTTPS**: включить
+4. **Certificate Provider**: выбрать **Let's Encrypt** — если оставить `None`, сертификат не выпустится и домен не откроется, хотя тумблер HTTPS включён
+5. **Save**
+
+Затем откройте `https://panel.gen-go.ai` **в новой вкладке**, не закрывая текущую: выпуск сертификата занимает 30–60 секунд.
+
+⚠️ **Только после того, как панель открылась по домену:**
 
 ```bash
 ufw delete allow 3000/tcp
 ```
 
-Теперь порт 3000 снаружи закрыт, панель доступна только по домену с сертификатом.
+Если закрыть порт раньше и сертификат не выпустится, доступ к панели потеряется — восстанавливать придётся через SSH.
+
+### 4.3 Обновить GitHub App после смены URL
+
+Dokploy предупреждает об этом на том же экране. При создании GitHub App в него были записаны адреса с прежним URL панели (`http://187.77.94.160:3000/...`); после переезда на домен авто-деплой по push молча перестанет работать.
+
+GitHub → **Settings → Developer settings → GitHub Apps** → `dokploy-gengo` → **App settings**. Замените **только схему и хост**, пути оставьте ровно те, что уже прописаны:
+
+| Раздел | Поле | Значение |
+|---|---|---|
+| Basic information | Homepage URL | `https://panel.gen-go.ai` |
+| Identifying and authorizing users | Redirect URI | `https://panel.gen-go.ai/api/providers/github/setup` |
+| Post installation | Setup URL | не трогать — неактивно, пока включён OAuth при установке |
+| Webhook | Webhook URL | `https://panel.gen-go.ai/api/deploy/github` |
+
+Путь в Redirect URI — именно `/setup`, а не `/callback`: Dokploy прописывает его сам при создании приложения. Не подставляйте пути по памяти, смотрите на то, что уже стоит в поле.
+
+У каждого раздела своя кнопка **Save changes**.
+
+Проверка:
+
+```bash
+git commit --allow-empty -m "chore: verify auto-deploy webhook" && git push
+```
+
+В Deployments должна появиться новая сборка.
 
 ---
 
@@ -240,7 +281,7 @@ ufw delete allow 3000/tcp
 
 ### 5.2 Домен для API
 
-Во вкладке **Domains** сервиса: `sb.example.com` → контейнер **kong**, порт **8000**, включить HTTPS (Let's Encrypt).
+Во вкладке **Domains** сервиса: `sb.gen-go.ai` → контейнер **kong**, порт **8000**, включить HTTPS (Let's Encrypt).
 
 HTTPS здесь обязателен: без валидного сертификата Google OAuth работать не будет.
 
@@ -250,17 +291,17 @@ HTTPS здесь обязателен: без валидного сертифи�
 
 ```ini
 ############ URLs ############
-SUPABASE_PUBLIC_URL=https://sb.example.com
-API_EXTERNAL_URL=https://sb.example.com
-SITE_URL=https://app.example.com
-ADDITIONAL_REDIRECT_URLS=https://app.example.com/,https://app.example.com/reset-password
+SUPABASE_PUBLIC_URL=https://sb.gen-go.ai
+API_EXTERNAL_URL=https://sb.gen-go.ai
+SITE_URL=https://gen-go.ai
+ADDITIONAL_REDIRECT_URLS=https://gen-go.ai/,https://gen-go.ai/reset-password
 
 ############ SMTP (из §1) ############
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
-SMTP_USER=noreply@example.com
+SMTP_USER=noreply@gen-go.ai
 SMTP_PASS=<пароль>
-SMTP_ADMIN_EMAIL=noreply@example.com
+SMTP_ADMIN_EMAIL=noreply@gen-go.ai
 SMTP_SENDER_NAME=GenGO
 
 ############ Auth ############
@@ -269,7 +310,7 @@ ENABLE_EMAIL_AUTOCONFIRM=false
 GOTRUE_EXTERNAL_GOOGLE_ENABLED=true
 GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID=<client id>
 GOTRUE_EXTERNAL_GOOGLE_SECRET=<client secret>
-GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI=https://sb.example.com/auth/v1/callback
+GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI=https://sb.gen-go.ai/auth/v1/callback
 
 ############ Studio ############
 DASHBOARD_USERNAME=admin
@@ -366,8 +407,8 @@ select tablename, rowsecurity from pg_tables where schemaname='public';
 
 В Google Cloud Console → APIs & Services → Credentials → ваш OAuth client:
 
-1. **Authorized redirect URIs** — добавить `https://sb.example.com/auth/v1/callback`
-2. **Authorized JavaScript origins** — добавить `https://app.example.com`
+1. **Authorized redirect URIs** — добавить `https://sb.gen-go.ai/auth/v1/callback`
+2. **Authorized JavaScript origins** — добавить `https://gen-go.ai`
 
 Старые URI облачного Supabase пока не удаляйте — пригодятся при откате.
 
@@ -415,10 +456,10 @@ Client ID и Secret уже прописаны в §5.3; после их изме
 
 ```ini
 # Supabase — теперь свой
-SUPABASE_URL=https://sb.example.com
+SUPABASE_URL=https://sb.gen-go.ai
 SUPABASE_ANON_KEY=<ANON_KEY из §5.4>
 SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY из §5.4>
-NEXT_PUBLIC_SUPABASE_URL=https://sb.example.com
+NEXT_PUBLIC_SUPABASE_URL=https://sb.gen-go.ai
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<тот же ANON_KEY>
 
 # AI — без изменений
@@ -447,7 +488,7 @@ NODE_ENV=production
 
 ### 8.4 Домен
 
-Вкладка **Domains**: `app.example.com`, порт контейнера **3000**, HTTPS с Let's Encrypt.
+Вкладка **Domains**: `gen-go.ai`, порт контейнера **3000**, HTTPS с Let's Encrypt.
 
 ### 8.5 Авто-деплой
 
@@ -511,8 +552,8 @@ CMD ["node", "server.js"]
 
 Проверяйте по порядку, каждый пункт опирается на предыдущий:
 
-- [ ] `https://app.example.com` открывается, сертификат валиден
-- [ ] `https://sb.example.com/auth/v1/health` отвечает
+- [ ] `https://gen-go.ai` открывается, сертификат валиден
+- [ ] `https://sb.gen-go.ai/auth/v1/health` отвечает
 - [ ] Регистрация нового пользователя → **письмо приходит** (проверка SMTP)
 - [ ] Вход по email и паролю **старым** аккаунтом (проверка переноса bcrypt-хешей)
 - [ ] Вход через Google (проверка OAuth redirect)
@@ -523,7 +564,7 @@ CMD ["node", "server.js"]
 - [ ] `/admin` открывается под админом, логи пишутся
 - [ ] В логах приложения (Dokploy → Logs) видно старт воркеров из `instrumentation.ts`
 - [ ] Ручной прогон ретеншена:
-      `curl -H "Authorization: Bearer $CRON_SECRET" https://app.example.com/api/cron/retention`
+      `curl -H "Authorization: Bearer $CRON_SECRET" https://gen-go.ai/api/cron/retention`
 - [ ] Studio недоступен без пароля
 
 Только после зелёного чеклиста отключайте проект на Vercel.
@@ -566,7 +607,7 @@ crontab -e
 
 ### Мониторинг
 
-- Внешний uptime-чек на `https://app.example.com` (UptimeRobot, Better Stack)
+- Внешний uptime-чек на `https://gen-go.ai` (UptimeRobot, Better Stack)
 - Алерт на свободное место: логи Supabase и Postgres растут
 - Dokploy показывает CPU/RAM по контейнерам — заглядывайте после релизов
 
@@ -607,7 +648,7 @@ docker run -d --restart always -p 127.0.0.1:7001:7000 \
 |---|---|---|
 | Письма не приходят | SMTP не настроен или порт закрыт | Логи сервиса `auth` в Dokploy; попробовать 587 вместо 465 |
 | `redirect_to is not allowed` | Домен не в allow-list | Проверить `SITE_URL` / `ADDITIONAL_REDIRECT_URLS`, Redeploy |
-| Google-вход возвращает ошибку | Redirect URI не совпадает | В Console ровно `https://sb.example.com/auth/v1/callback` |
+| Google-вход возвращает ошибку | Redirect URI не совпадает | В Console ровно `https://sb.gen-go.ai/auth/v1/callback` |
 | Приложение ходит в старый Supabase | `NEXT_PUBLIC_*` вшиты в бандл | **Redeploy**, а не Restart |
 | Генерация обрывается на 1–2 минутах | Таймаут Traefik | §9 |
 | 413 при загрузке логотипа | Лимит размера тела | Поднять в Advanced |
@@ -618,7 +659,7 @@ docker run -d --restart always -p 127.0.0.1:7001:7000 \
 | Билд-контекст в сотни МБ, деплой медленный | Нет `.dockerignore` | Добавить его с `.git`, `.next`, `node_modules` (§2.5) |
 | `Missing NEXT_PUBLIC_SUPABASE_URL` в браузере | Переменных не было на момент **сборки** | Задать в Environment и сделать Redeploy (§2.2) |
 | Таблицы `notifications` нет | Шаблон старше ваших миграций | Накатить `supabase/migrations/0007_notifications.sql` |
-| Панель Dokploy недоступна | Закрыт порт 3000 | Так и задумано (§4.2) — ходить по `panel.example.com` |
+| Панель Dokploy недоступна | Закрыт порт 3000 | Так и задумано (§4.2) — ходить по `panel.gen-go.ai` |
 
 ---
 
