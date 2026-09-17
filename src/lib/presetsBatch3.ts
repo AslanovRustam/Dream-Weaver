@@ -97,19 +97,13 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset51",
     fields: [],
-    name: "Стрит-обложка",
-    description: "Одноцветный фон, персонаж в маске и стритвире, геометрический заголовок-глиф, микротекст",
+    name: "Казино-обложка",
+    description: "Одноцветный фон, фигура в глянцевой маске-фишке и стритвире, геометрический заголовок-глиф",
     gradient: g("#4a044e", "#a21caf", "#f97316"),
     examples: ex("#4a044e", "#a21caf", "#701a75", "#f97316"),
     isNew: true,
     template:
-      "Create a streetwear-cover style banner for {SUBJECT}. " +
-      "STYLE: a single flat saturated magenta background, a bust-length figure in a hooded technical jacket and cap wearing a glossy surreal full-face mask (invented design), bold geometric glyph-like headline lettering across the top, tiny paragraphs of micro text and a serial number in the corners. " +
-      "COMPOSITION: figure centered and cropped tight at the chest, headline glyphs spanning the top edge, micro-text blocks bottom-left and bottom-right. " +
-      "LIGHTING: soft even studio light, glossy specular highlights on the mask. " +
-      "TYPOGRAPHY & LAYOUT: heavy geometric display headline, tiny mono captions; keep every text inside the safe zone. " +
-      "COLOR: one flat background color, black garments, one contrasting accent (max 3 dominant colors). " +
-      "AVOID: gradients on the background, clutter, real logos.",
+      "Create a streetwear-cover style casino banner for {SUBJECT}. STYLE: a single flat saturated magenta background, a bust-length figure in a hooded technical jacket and cap wearing a glossy surreal full-face mask shaped like an oversized casino chip with dice-pip eyes (invented design), bold geometric glyph-like headline lettering across the top, tiny micro-text blocks and a serial number in the corners, a few casino chips tucked into the jacket pocket. COMPOSITION: figure centered and cropped tight at the chest, headline glyphs spanning the top edge, micro-text blocks bottom-left and bottom-right. LIGHTING: soft even studio light, glossy specular highlights on the mask. TYPOGRAPHY & LAYOUT: heavy geometric display headline, tiny mono captions; keep every text inside the safe zone. COLOR: one flat background color, black garments, one contrasting accent (max 3 dominant colors). AVOID: gradients on the background, clutter, real logos.",
   },
   {
     id: "preset52",
@@ -132,35 +126,23 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset53",
     fields: [],
     name: "Один в толпе",
-    description: "Монохромная толпа в шляпах, один герой в ярком цвете, заголовок внизу",
+    description: "Монохромная толпа игроков в шляпах, один герой в золотом с фишками, заголовок внизу",
     gradient: g("#0a0a0a", "#ea580c", "#262626"),
     examples: ex("#0a0a0a", "#ea580c", "#171717", "#f97316"),
     isNew: true,
     template:
-      "Create a stand-out-from-the-crowd banner for {SUBJECT}. " +
-      "STYLE: a high-angle view of a dense crowd of identical figures in black suits and black fedoras rendered in near-monochrome, with one figure in the center dressed entirely in one vivid accent color tipping the hat; cinematic and graphic. " +
-      "COMPOSITION: the accent figure dead-center, the crowd fading into darkness toward the edges, headline stacked at the bottom with one giant word. " +
-      "LIGHTING: soft top light, deep black shadows, the accent figure slightly brighter. " +
-      "TYPOGRAPHY & LAYOUT: small intro line, one huge rounded bold word in the accent color, a clean subline; all inside the safe zone. " +
-      "COLOR: black, white and one accent color only. " +
-      "AVOID: recognizable faces, more than one accent color, clutter.",
+      "Create a stand-out-from-the-crowd casino banner for {SUBJECT}. STYLE: a high-angle view of a dense crowd of identical figures in black suits and black fedoras rendered in near-monochrome around a casino floor, with one figure in the center dressed entirely in one vivid accent color tipping the hat and holding a tall stack of casino chips and an ace. COMPOSITION: the accent figure dead-center, the crowd fading into darkness toward the edges, headline stacked at the bottom with one giant word. LIGHTING: soft top light, deep black shadows, the accent figure slightly brighter. TYPOGRAPHY & LAYOUT: small intro line, one huge rounded bold word in the accent color, a clean subline; all inside the safe zone. COLOR: black, white and one accent color only. AVOID: recognizable faces, more than one accent color, clutter.",
   },
   {
     id: "preset54",
     fields: [FIELD_CASINO_PROP],
     name: "Кинетический шрифт",
-    description: "Растянутые высокие буквы, 3D-объект в центре, микро-ярлыки и стрелки UI",
+    description: "Растянутые высокие буквы, светящийся 3D-барабан слота в центре, микро-ярлыки UI",
     gradient: g("#022c22", "#16a34a", "#4ade80"),
     examples: ex("#022c22", "#16a34a", "#052e16", "#4ade80"),
     isNew: true,
     template:
-      "Create a kinetic-typography banner for {SUBJECT}. " +
-      "STYLE: two giant stretched, condensed white headline words with soft motion-blur ghosting, a glossy 3D hero object glowing with circuit-like light lines placed over the letters, tiny UI-style labels, outline icons and small pill buttons around the edges. " +
-      "COMPOSITION: the two words stacked top and bottom filling the frame width, the 3D object centered overlapping both, a swipe-style pill CTA bottom-right, small labels along the top. " +
-      "LIGHTING: dark base with a colored glow behind the object, white letters catching a slight edge glow. " +
-      "TYPOGRAPHY & LAYOUT: ultra-tall condensed headline, tiny sans captions, one pill CTA; keep the safe zone clean. " +
-      "COLOR: black-green base, white type, one neon accent (max 3 dominant colors). " +
-      "AVOID: unreadable stretched letters, clutter, more than 3 dominant colors.",
+      "Create a kinetic-typography casino banner for {SUBJECT}. STYLE: two giant stretched, condensed white headline words with soft motion-blur ghosting, a glossy 3D golden slot-reel cylinder glowing with circuit-like light lines placed over the letters, lucky-7 and gem symbols on the reel, tiny UI-style labels, outline icons and small pill buttons around the edges. COMPOSITION: the two words stacked top and bottom filling the frame width, the 3D reel centered overlapping both, a spin-style pill CTA bottom-right, small labels along the top. LIGHTING: dark base with a colored glow behind the reel, white letters catching a slight edge glow. TYPOGRAPHY & LAYOUT: ultra-tall condensed headline, tiny sans captions, one pill CTA; keep the safe zone clean. COLOR: black-green base, white type, one neon accent (max 3 dominant colors). AVOID: unreadable stretched letters, clutter, more than 3 dominant colors.",
   },
   {
     id: "preset55",
@@ -183,52 +165,34 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset56",
     fields: [],
     name: "Стрит-лукбук",
-    description: "Низкий ракурс, гранжевые надписи по бокам, стикеры и ярлыки",
+    description: "Низкий ракурс, игрок с веером карт, гранжевые надписи по бокам, стикеры",
     gradient: g("#0a0a0a", "#dc2626", "#e5e5e5"),
     examples: ex("#0a0a0a", "#dc2626", "#171717", "#f5f5f5"),
     isNew: true,
     template:
-      "Create a streetwear lookbook banner for {SUBJECT}. " +
-      "STYLE: extreme low-angle wide shot of a non-identifiable person in a bold colored bomber jacket and white sneakers standing on an escalator or corridor with converging lines, distressed grunge headline words painted on the walls left and right, small sticker labels, globe icons, arrows and a page-number tag. " +
-      "COMPOSITION: figure centered looking down at the camera, headline split into two stacks on either side, small labels top-left and bottom-right. " +
-      "LIGHTING: cold overhead strip lights, high contrast, slight grain. " +
-      "TYPOGRAPHY & LAYOUT: distressed condensed uppercase, micro captions, sticker tags; keep the center safe zone readable. " +
-      "COLOR: black and white with one strong accent color (max 3 dominant colors). " +
-      "AVOID: real brand logos, recognizable faces, clutter in the safe zone.",
+      "Create a streetwear lookbook casino banner for {SUBJECT}. STYLE: extreme low-angle wide shot of a non-identifiable person in a bold colored bomber jacket and white sneakers standing on an escalator into a casino, fanning a hand of playing cards toward the camera with casino chips in the other hand, distressed grunge headline words painted on the walls left and right, small sticker labels, globe icons, arrows and a page-number tag. COMPOSITION: figure centered looking down at the camera, headline split into two stacks on either side, small labels top-left and bottom-right. LIGHTING: cold overhead strip lights with a warm casino glow below, high contrast, slight grain. TYPOGRAPHY & LAYOUT: distressed condensed uppercase, micro captions, sticker tags; keep the center safe zone readable. COLOR: black and white with one strong accent color (max 3 dominant colors). AVOID: real brand logos, recognizable faces, clutter in the safe zone.",
   },
   {
     id: "preset57",
     fields: [FIELD_BONUS_BADGE],
     name: "Гранж-флаер",
-    description: "Чёрно-кислотный флаер, пушистый 3D-объект с цепями и шипами, рваные полосы",
+    description: "Чёрно-кислотный флаер, пушистые 3D-кости с цепями и шипами, рваные полосы",
     gradient: g("#0a0a0a", "#65a30d", "#a3e635"),
     examples: ex("#0a0a0a", "#65a30d", "#1a2e05", "#a3e635"),
     isNew: true,
     template:
-      "Create a grunge event-flyer banner for {SUBJECT}. " +
-      "STYLE: scratched black photocopy texture, a fuzzy 3D hero object in acid green decorated with chrome chains, spikes, a smiley pin and a barcode sticker, torn-paper strips carrying the info lines, small lightning sparks. " +
-      "COMPOSITION: hero object centered, headline in a distressed condensed font at the top, torn white and green info strips stacked at the bottom-left. " +
-      "LIGHTING: flat flash-lit look, harsh contrast, heavy grain. " +
-      "TYPOGRAPHY & LAYOUT: distressed uppercase headline, info lines on torn strips; all inside the safe zone. " +
-      "COLOR: black, white and acid green only. " +
-      "AVOID: clean gradients, more than 3 dominant colors, unreadable text.",
+      "Create a grunge casino-flyer banner for {SUBJECT}. STYLE: scratched black photocopy texture, a pair of fuzzy acid-green 3D dice decorated with chrome chains, spikes, a smiley pin and a barcode sticker as the hero, a few casino chips scattered, torn-paper strips carrying the offer lines, small lightning sparks. COMPOSITION: hero dice centered, headline in a distressed condensed font at the top, torn white and green offer strips stacked at the bottom-left. LIGHTING: flat flash-lit look, harsh contrast, heavy grain. TYPOGRAPHY & LAYOUT: distressed uppercase headline, offer lines on torn strips; all inside the safe zone. COLOR: black, white and acid green only. AVOID: clean gradients, more than 3 dominant colors, unreadable text.",
   },
   {
     id: "preset58",
     fields: [],
     name: "Бисерный маскот",
-    description: "Плоский жёлтый фон, маскот из бусин и бисера, чёрная типографика",
+    description: "Плоский жёлтый фон, маскот из бисера с фишкой и костями, чёрная типографика",
     gradient: g("#f59e0b", "#fbbf24", "#0a0a0a"),
     examples: ex("#f59e0b", "#fbbf24", "#d97706", "#0a0a0a"),
     isNew: true,
     template:
-      "Create a craft-textured mascot banner for {SUBJECT}. " +
-      "STYLE: a flat solid yellow background, a playful 3D animal mascot (invented, non-branded) entirely made of colorful beads and knitted texture, wearing sunglasses and holding a small prop, small hand-drawn accent strokes. " +
-      "COMPOSITION: mascot on the right two-thirds, a stacked headline top-left mixing bold sans and a script word, a short tagline block bottom-left. " +
-      "LIGHTING: soft even studio light, tiny specular sparkles on the beads. " +
-      "TYPOGRAPHY & LAYOUT: black bold sans headline with one script word, small letter-spaced captions; all inside the safe zone. " +
-      "COLOR: flat yellow base, black type, multicolor beads as texture only (max 3 dominant colors). " +
-      "AVOID: gradients on the background, real cartoon characters, clutter.",
+      "Create a craft-textured casino mascot banner for {SUBJECT}. STYLE: a flat solid yellow background, a playful 3D animal mascot (invented, non-branded) entirely made of colorful beads and knitted texture, wearing sunglasses and holding a beaded casino chip in one hand and a pair of beaded dice in the other, small hand-drawn accent strokes. COMPOSITION: mascot on the right two-thirds, a stacked headline top-left mixing bold sans and a script word, a short tagline block bottom-left. LIGHTING: soft even studio light, tiny specular sparkles on the beads. TYPOGRAPHY & LAYOUT: black bold sans headline with one script word, small letter-spaced captions; all inside the safe zone. COLOR: flat yellow base, black type, multicolor beads as texture only (max 3 dominant colors). AVOID: gradients on the background, real cartoon characters, clutter.",
   },
   {
     id: "preset59",
@@ -251,52 +215,34 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset60",
     fields: [],
     name: "Мегафон сверху",
-    description: "Вид сверху, персона с мегафоном на красном фоне, разметка и конденсированный шрифт",
+    description: "Вид сверху, персона с мегафоном на красном сукне стола с разметкой и фишками",
     gradient: g("#7f1d1d", "#dc2626", "#fee2e2"),
     examples: ex("#7f1d1d", "#dc2626", "#991b1b", "#fee2e2"),
     isNew: true,
     template:
-      "Create a bold announcement banner for {SUBJECT}. " +
-      "STYLE: a straight top-down bird's-eye photo of a non-identifiable person shouting into a large megaphone, standing on a textured solid red ground with painted white road-marking dashes, a few small motion lines from the megaphone. " +
-      "COMPOSITION: figure in the lower-left, a big condensed white headline in three stacked lines on the right, small logo zone top-right, URL line at the bottom. " +
-      "LIGHTING: hard daylight from above, sharp shadow, rich texture. " +
-      "TYPOGRAPHY & LAYOUT: condensed uppercase white headline slightly rotated, tiny footer; all inside the safe zone. " +
-      "COLOR: red, white and black only. " +
-      "AVOID: gradients, faces visible, clutter.",
+      "Create a bold casino announcement banner for {SUBJECT}. STYLE: a straight top-down bird's-eye photo of a non-identifiable person shouting into a large megaphone, standing on a textured solid red casino-table felt with painted white betting-box markings, a few casino chips and two playing cards lying on the felt, small motion lines from the megaphone. COMPOSITION: figure in the lower-left, a big condensed white headline in three stacked lines on the right, small logo zone top-right, URL line at the bottom. LIGHTING: hard light from above, sharp shadow, rich felt texture. TYPOGRAPHY & LAYOUT: condensed uppercase white headline slightly rotated, tiny footer; all inside the safe zone. COLOR: red, white and black only. AVOID: gradients, faces visible, clutter.",
   },
   {
     id: "preset61",
     fields: [FIELD_CASINO_PROP],
     name: "Хром в цветах",
-    description: "Тёмно-красный шёлк, хромированный объект в гнезде из листвы и цветов",
+    description: "Тёмно-красный шёлк, хромированные кости и фишка в гнезде из листвы и цветов",
     gradient: g("#450a0a", "#991b1b", "#84cc16"),
     examples: ex("#450a0a", "#991b1b", "#7f1d1d", "#a3e635"),
     isNew: true,
     template:
-      "Create a surreal botanical luxury banner for {SUBJECT}. " +
-      "STYLE: a deep red silk-draped backdrop, a glossy chrome 3D hero object nested in a lush cluster of real leaves, white flowers and sprigs, more foliage rising from the bottom edge. " +
-      "COMPOSITION: hero object centered inside the foliage, a wide letter-spaced headline in two lines at the top, small date-style labels on the left and right edges, a featured line in a boxed label near the bottom. " +
-      "LIGHTING: soft moody studio light, chrome reflections, rich shadows in the leaves. " +
-      "TYPOGRAPHY & LAYOUT: extended geometric uppercase headline in cream, small tags; all inside the safe zone. " +
-      "COLOR: dark red base, green foliage, cream text (max 3 dominant colors). " +
-      "AVOID: clutter, unreadable text, more than 3 dominant colors.",
+      "Create a surreal botanical luxury casino banner for {SUBJECT}. STYLE: a deep red silk-draped backdrop, a cluster of glossy chrome 3D dice and one chrome casino chip nested in a lush arrangement of real leaves, white flowers and sprigs, more foliage rising from the bottom edge. COMPOSITION: chrome dice centered inside the foliage, a wide letter-spaced headline in two lines at the top, small date-style labels on the left and right edges, a featured line in a boxed label near the bottom. LIGHTING: soft moody studio light, chrome reflections, rich shadows in the leaves. TYPOGRAPHY & LAYOUT: extended geometric uppercase headline in cream, small tags; all inside the safe zone. COLOR: dark red base, green foliage, cream text (max 3 dominant colors). AVOID: clutter, unreadable text, more than 3 dominant colors.",
   },
   {
     id: "preset62",
     fields: [],
     name: "Свет лампы",
-    description: "Тёмная сцена, гибкая лампа подсвечивает заголовок, минимализм",
+    description: "Тёмная сцена, гибкая лампа подсвечивает заголовок, фишки и карта на столе",
     gradient: g("#1a1a0f", "#3f3f1a", "#f97316"),
     examples: ex("#1a1a0f", "#3f3f1a", "#262614", "#f97316"),
     isNew: true,
     template:
-      "Create a minimalist spotlight banner for {SUBJECT}. " +
-      "STYLE: a dark olive textured surface, a single flexible gooseneck desk lamp with a warm bulb photographed from above, its light pool illuminating the headline words printed flat on the surface; everything else stays in shadow. " +
-      "COMPOSITION: lamp head top-right shining down-left, the headline stacked diagonally under the light, small logo top-center, contact/CTA line bottom-right. " +
-      "LIGHTING: one warm practical light source, soft falloff, deep shadows. " +
-      "TYPOGRAPHY & LAYOUT: bold uppercase headline in a warm accent, tiny footer; all inside the safe zone. " +
-      "COLOR: dark olive, warm orange, white (max 3 dominant colors). " +
-      "AVOID: clutter, flat even lighting, more than 3 dominant colors.",
+      "Create a minimalist spotlight casino banner for {SUBJECT}. STYLE: a dark green felt surface, a single flexible gooseneck desk lamp with a warm bulb photographed from above, its light pool illuminating the headline words printed flat on the felt plus a small stack of casino chips and one face-down playing card; everything else stays in shadow. COMPOSITION: lamp head top-right shining down-left, the headline stacked diagonally under the light, chips and the card at the edge of the pool, small logo top-center, CTA line bottom-right. LIGHTING: one warm practical light source, soft falloff, deep shadows. TYPOGRAPHY & LAYOUT: bold uppercase headline in a warm accent, tiny footer; all inside the safe zone. COLOR: dark green, warm orange, white (max 3 dominant colors). AVOID: clutter, flat even lighting, more than 3 dominant colors.",
   },
   {
     id: "preset63",
@@ -319,18 +265,12 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset64",
     fields: [],
     name: "Неон-журнал",
-    description: "Обложка журнала: хром-заголовок, монохромная фигура-статуя, неоновое кольцо, брашскрипт",
+    description: "Обложка журнала: хром-заголовок, фигура-статуя с фишкой, неоновое кольцо, хром-кости",
     gradient: g("#0a0a0a", "#7e22ce", "#c084fc"),
     examples: ex("#0a0a0a", "#7e22ce", "#171717", "#c084fc"),
     isNew: true,
     template:
-      "Create a magazine-cover style banner for {SUBJECT}. " +
-      "STYLE: a giant chrome 3D masthead word across the top, a monochrome sculpted statue-like figure in a glossy puffer jacket and black sunglasses marked with neon X's, a glowing neon ring behind the head, floating chrome spheres and crystals, brush-script slogan lines in neon. " +
-      "COMPOSITION: figure centered bust-length, masthead behind the head, small caption columns on both sides, brush-script slogan across the bottom, a parental-advisory style label tag bottom-right. " +
-      "LIGHTING: cool studio light with neon rim glow, black background. " +
-      "TYPOGRAPHY & LAYOUT: chrome display masthead, small caps captions, brush script accent; keep the safe zone readable. " +
-      "COLOR: black, chrome-white and one neon accent (max 3 dominant colors). " +
-      "AVOID: recognizable faces, real magazine names, clutter.",
+      "Create a magazine-cover style casino banner for {SUBJECT}. STYLE: a giant chrome 3D masthead word across the top, a monochrome sculpted statue-like figure in a glossy puffer jacket and black sunglasses marked with neon X's holding a chrome casino chip between two fingers, a glowing neon ring behind the head, floating chrome dice and chips, brush-script slogan lines in neon. COMPOSITION: figure centered bust-length, masthead behind the head, small caption columns on both sides, brush-script slogan across the bottom, a small advisory-style label tag bottom-right. LIGHTING: cool studio light with neon rim glow, black background. TYPOGRAPHY & LAYOUT: chrome display masthead, small caps captions, brush script accent; keep the safe zone readable. COLOR: black, chrome-white and one neon accent (max 3 dominant colors). AVOID: recognizable faces, real magazine names, clutter.",
   },
   {
     id: "preset65",
@@ -370,69 +310,45 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset67",
     fields: [],
     name: "Жёлтый абсурд",
-    description: "Плоский жёлтый фон, забавная сюрреалистичная сборка объектов, пунктирные стрелки",
+    description: "Плоский жёлтый фон, черепаха на скейте везёт стопку фишек с ракетой, пунктирные стрелки",
     gradient: g("#eab308", "#facc15", "#0a0a0a"),
     examples: ex("#eab308", "#facc15", "#ca8a04", "#0a0a0a"),
     isNew: true,
     template:
-      "Create a witty surreal-object banner for {SUBJECT}. " +
-      "STYLE: a flat solid yellow background, a humorous photoreal assembly of mismatched objects (a slow animal riding a skateboard with a toy rocket strapped on) casting a soft shadow, hand-drawn dotted arrows and a halftone dot patch as decoration. " +
-      "COMPOSITION: the object assembly centered-low, a two-line headline centered above with one word bold, a small subline, a row of three small icon captions at the bottom. " +
-      "LIGHTING: clean studio light, soft ground shadow. " +
-      "TYPOGRAPHY & LAYOUT: black mixed-weight sans headline, small icon labels; all inside the safe zone. " +
-      "COLOR: yellow, black and one metallic object tone (max 3 dominant colors). " +
-      "AVOID: gradients on the background, clutter, real logos.",
+      "Create a witty surreal-object casino banner for {SUBJECT}. STYLE: a flat solid yellow background, a humorous photoreal assembly: a slow tortoise riding a skateboard with a tall stack of casino chips and a pair of dice strapped on its shell and a toy rocket tied behind, casting a soft shadow, hand-drawn dotted arrows and a halftone dot patch as decoration. COMPOSITION: the object assembly centered-low, a two-line headline centered above with one word bold, a small subline, a row of three small icon captions at the bottom. LIGHTING: clean studio light, soft ground shadow. TYPOGRAPHY & LAYOUT: black mixed-weight sans headline, small icon labels; all inside the safe zone. COLOR: yellow, black and one metallic object tone (max 3 dominant colors). AVOID: gradients on the background, clutter, real logos.",
   },
   {
     id: "preset68",
     fields: [],
     name: "Разбитое стекло",
-    description: "Жёлтая гигантская типографика взрывается осколками, город и граффити",
+    description: "Жёлтая гигантская типографика взрывается осколками и фишками, ночной город",
     gradient: g("#0a0a0a", "#ca8a04", "#facc15"),
     examples: ex("#0a0a0a", "#ca8a04", "#171717", "#facc15"),
     isNew: true,
     template:
-      "Create a shattered-typography event banner for {SUBJECT}. " +
-      "STYLE: giant condensed yellow headline letters exploding into glass shards and motion streaks from a central impact point, a dark city skyline and brick wall with graffiti behind, a silhouetted non-identifiable dancer in a hoodie mid-move. " +
-      "COMPOSITION: the headline fills the frame diagonally, impact point center, event details in small blocks at the corners, a footer strip with a QR-style tile bottom-right. " +
-      "LIGHTING: hard black-and-yellow contrast, streaks of light from the impact. " +
-      "TYPOGRAPHY & LAYOUT: condensed uppercase giant headline, small caps details; keep the safe zone readable. " +
-      "COLOR: black, yellow and white only. " +
-      "AVOID: real event names, recognizable faces, more than 3 dominant colors.",
+      "Create a shattered-typography casino banner for {SUBJECT}. STYLE: giant condensed yellow headline letters exploding into glass shards, casino chips and lucky-7 fragments from a central impact point, a dark city skyline and brick wall behind, a silhouetted non-identifiable figure in a hoodie tossing a handful of chips into the air. COMPOSITION: the headline fills the frame diagonally, impact point center, offer details in small blocks at the corners, a footer strip with a QR-style tile bottom-right. LIGHTING: hard black-and-yellow contrast, streaks of light from the impact. TYPOGRAPHY & LAYOUT: condensed uppercase giant headline, small caps details; keep the safe zone readable. COLOR: black, yellow and white only. AVOID: real event names, recognizable faces, more than 3 dominant colors.",
   },
   {
     id: "preset69",
     fields: [],
     name: "Ракета-запуск",
-    description: "Одиночный глянцевый 3D-объект на чёрно-оранжевом градиенте, чистый заголовок",
+    description: "Золотая 3D-ракета с шлейфом из монет и фишек на чёрно-оранжевом градиенте",
     gradient: g("#0a0a0a", "#c2410c", "#f97316"),
     examples: ex("#0a0a0a", "#c2410c", "#1c1917", "#f97316"),
     isNew: true,
     template:
-      "Create a launch-themed banner for {SUBJECT}. " +
-      "STYLE: a single glossy orange 3D retro rocket angled upward with chrome trim and a soft exhaust plume, on a black-to-orange radial gradient background; nothing else in the scene. " +
-      "COMPOSITION: rocket in the right two-thirds rising diagonally, a three-line headline top-left with the middle word in the accent color, logo zone above it, a contact/CTA strip at the bottom. " +
-      "LIGHTING: warm rim light from below, glossy reflections, soft glow in the exhaust. " +
-      "TYPOGRAPHY & LAYOUT: bold rounded sans headline mixing white and accent, small footer; all inside the safe zone. " +
-      "COLOR: black, orange and white only. " +
-      "AVOID: clutter, extra props, more than 3 dominant colors.",
+      "Create a launch-themed casino banner for {SUBJECT}. STYLE: a single glossy gold-and-orange 3D retro rocket angled upward with chrome trim, its exhaust plume made of flying gold coins, casino chips and sparks, on a black-to-orange radial gradient background; nothing else in the scene. COMPOSITION: rocket in the right two-thirds rising diagonally, a three-line headline top-left with the middle word in the accent color, logo zone above it, a CTA strip at the bottom. LIGHTING: warm rim light from below, glossy reflections, soft glow in the coin plume. TYPOGRAPHY & LAYOUT: bold rounded sans headline mixing white and accent, small footer; all inside the safe zone. COLOR: black, orange-gold and white only. AVOID: clutter, extra props, more than 3 dominant colors.",
   },
   {
     id: "preset70",
     fields: [],
     name: "Коллаж-лукбук",
-    description: "Чёрно-белый редакторский коллаж, диагональные панели, скотч-заметки, ряд иконок",
+    description: "Ч/б редакторский коллаж: диагональные фото игрока, веер карт и фишки, скотч-заметки",
     gradient: g("#e7e5e4", "#1c1917", "#a8a29e"),
     examples: ex("#e7e5e4", "#1c1917", "#d6d3d1", "#78716c"),
     isNew: true,
     template:
-      "Create an editorial collage banner for {SUBJECT}. " +
-      "STYLE: off-white paper background, black-and-white photo panels of a non-identifiable model sliced into steep diagonal strips, a product close-up at the bottom-right, paint splatter, tape-stuck paper notes, crosshair and dotted marks, a row of three outline feature icons with captions along the bottom. " +
-      "COMPOSITION: headline stacked top-left with one script word, photo strips through the center, product bottom-right, features row along the bottom edge. " +
-      "LIGHTING: flat print-like contrast, subtle paper grain. " +
-      "TYPOGRAPHY & LAYOUT: condensed uppercase headline plus a script accent word, letter-spaced micro captions; keep the safe zone readable. " +
-      "COLOR: black, off-white and one muted accent (max 3 dominant colors). " +
-      "AVOID: recognizable faces, real logos, clutter in the center.",
+      "Create an editorial collage casino banner for {SUBJECT}. STYLE: off-white paper background, black-and-white photo panels of a non-identifiable player in sunglasses at a card table sliced into steep diagonal strips, a close-up of a fanned deck of cards and stacked chips at the bottom-right, paint splatter, tape-stuck paper notes, crosshair and dotted marks, a row of three outline benefit icons with captions along the bottom. COMPOSITION: headline stacked top-left with one script word, photo strips through the center, cards and chips bottom-right, benefits row along the bottom edge. LIGHTING: flat print-like contrast, subtle paper grain. TYPOGRAPHY & LAYOUT: condensed uppercase headline plus a script accent word, letter-spaced micro captions; keep the safe zone readable. COLOR: black, off-white and one muted accent (max 3 dominant colors). AVOID: recognizable faces, real logos, clutter in the center.",
   },
   {
     id: "preset71",
@@ -455,18 +371,12 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset72",
     fields: [FIELD_CASINO_PROP],
     name: "Гламур-маскот",
-    description: "Монохромный розовый, пушистый 3D-маскот в блёстках и цепях, заголовок сверху",
+    description: "Монохромный розовый, пушистый 3D-маскот в блёстках и цепях с веером карт и фишками",
     gradient: g("#831843", "#db2777", "#f9a8d4"),
     examples: ex("#831843", "#db2777", "#9d174d", "#f9a8d4"),
     isNew: true,
     template:
-      "Create a glam mascot banner for {SUBJECT}. " +
-      "STYLE: an all-pink monochrome scene, a fluffy 3D animal mascot (invented, non-branded) in a sequined jacket, gold chains, rings and sunglasses throwing peace signs at the camera, feathery pink bokeh and sparkles behind. " +
-      "COMPOSITION: mascot centered from the waist up, a big bold white headline word across the top, a small intro line above it, a pill CTA and a barcode-style detail at the bottom. " +
-      "LIGHTING: soft pink beauty light, glitter sparkle highlights on the jewelry. " +
-      "TYPOGRAPHY & LAYOUT: heavy condensed uppercase headline, tiny captions; all inside the safe zone. " +
-      "COLOR: pink shades, white and gold (max 3 dominant colors). " +
-      "AVOID: real cartoon characters, clutter, more than 3 dominant colors.",
+      "Create a glam casino mascot banner for {SUBJECT}. STYLE: an all-pink monochrome scene, a fluffy 3D animal mascot (invented, non-branded) in a sequined jacket, gold chains, rings and sunglasses fanning a hand of playing cards with gold casino chips stacked beside it, feathery pink bokeh and sparkles behind. COMPOSITION: mascot centered from the waist up, a big bold white headline word across the top, a small intro line above it, a pill CTA and a barcode-style detail at the bottom. LIGHTING: soft pink beauty light, glitter sparkle highlights on the jewelry. TYPOGRAPHY & LAYOUT: heavy condensed uppercase headline, tiny captions; all inside the safe zone. COLOR: pink shades, white and gold (max 3 dominant colors). AVOID: real cartoon characters, clutter, more than 3 dominant colors.",
   },
   {
     id: "preset73",
@@ -489,35 +399,23 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset74",
     fields: [],
     name: "Дуохром-портрет",
-    description: "Плоский жёлтый фон, портрет с синими аксессуарами, гигантские буквы позади",
+    description: "Плоский жёлтый фон, портрет с серьгами-костями и очками-фишками, гигантские буквы позади",
     gradient: g("#facc15", "#eab308", "#1d4ed8"),
     examples: ex("#facc15", "#eab308", "#fde047", "#1d4ed8"),
     isNew: true,
     template:
-      "Create a two-color pop portrait banner for {SUBJECT}. " +
-      "STYLE: a flat solid yellow background, a non-identifiable model in profile-to-camera wearing bold blue-and-yellow accessories (oversized sunglasses, knitted earrings, a yellow knitted headpiece), a giant white letter faintly behind the head. " +
-      "COMPOSITION: portrait centered, a two-word headline in huge blue rounded bold type at the top overlapping the head, tiny logo line top-left. " +
-      "LIGHTING: soft even studio light, glossy skin highlights. " +
-      "TYPOGRAPHY & LAYOUT: two-word headline only, huge and bold; keep it inside the safe zone. " +
-      "COLOR: yellow, blue and white only. " +
-      "AVOID: recognizable faces, gradients, more than 3 dominant colors.",
+      "Create a two-color pop portrait casino banner for {SUBJECT}. STYLE: a flat solid yellow background, a non-identifiable model in profile-to-camera wearing bold blue-and-yellow casino accessories (oversized sunglasses with casino-chip rims, dice-shaped earrings, a knitted headpiece), a giant white letter faintly behind the head. COMPOSITION: portrait centered, a two-word headline in huge blue rounded bold type at the top overlapping the head, tiny logo line top-left. LIGHTING: soft even studio light, glossy skin highlights. TYPOGRAPHY & LAYOUT: two-word headline only, huge and bold; keep it inside the safe zone. COLOR: yellow, blue and white only. AVOID: recognizable faces, gradients, more than 3 dominant colors.",
   },
   {
     id: "preset75",
     fields: [FIELD_BONUS_BADGE],
     name: "Кислотная вечеринка",
-    description: "Ядовито-зелёный монохром, 3D-персонаж в очках, объёмный bubble-заголовок, круглый стикер даты",
+    description: "Ядовито-зелёный монохром, 3D-персонаж с фишками, объёмный bubble-заголовок, стикер",
     gradient: g("#052e16", "#16a34a", "#84cc16"),
     examples: ex("#052e16", "#16a34a", "#14532d", "#84cc16"),
     isNew: true,
     template:
-      "Create an acid-green party banner for {SUBJECT}. " +
-      "STYLE: a fully green monochrome scene with fog and light streaks, a glossy 3D cartoon character (invented, non-branded) in a cap and mirrored shades blowing a bubble-gum bubble, floating small props at the edges, a chunky glossy 3D bubble-letter headline, a round sticker badge with date/time text. " +
-      "COMPOSITION: character bust centered-top, bubble headline lower-center, sticker badge on the upper-left, a script subline and small details at the bottom. " +
-      "LIGHTING: green neon glow, glossy specular highlights, slight VHS grain. " +
-      "TYPOGRAPHY & LAYOUT: inflated bubble letters, a round sticker, small caps and a script line; all inside the safe zone. " +
-      "COLOR: green shades, black and white only. " +
-      "AVOID: real characters, more than 3 dominant colors, clutter.",
+      "Create an acid-green casino party banner for {SUBJECT}. STYLE: a fully green monochrome scene with fog and light streaks, a glossy 3D cartoon character (invented, non-branded) in a cap and mirrored shades blowing a bubble-gum bubble and holding a fan of casino chips, floating dice and chips at the edges, a chunky glossy 3D bubble-letter headline, a round sticker badge with offer text. COMPOSITION: character bust centered-top, bubble headline lower-center, sticker badge on the upper-left, a script subline and small details at the bottom. LIGHTING: green neon glow, glossy specular highlights, slight VHS grain. TYPOGRAPHY & LAYOUT: inflated bubble letters, a round sticker, small caps and a script line; all inside the safe zone. COLOR: green shades, black and white only. AVOID: real characters, more than 3 dominant colors, clutter.",
   },
   {
     id: "preset76",
@@ -540,35 +438,23 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset77",
     fields: [],
     name: "Фреш-сплэш",
-    description: "Модель сидит на гигантском продукте, фруктовые дольки и брызги, рукописный заголовок",
+    description: "Модель сидит на гигантской золотой фишке, брызги монет и самоцветов, рукописный заголовок",
     gradient: g("#14532d", "#16a34a", "#fde047"),
     examples: ex("#14532d", "#16a34a", "#166534", "#fde047"),
     isNew: true,
     template:
-      "Create a fresh product-splash banner for {SUBJECT}. " +
-      "STYLE: a giant photoreal product hero object lying tilted with a non-identifiable model in a matching colorful outfit sitting on top of it, citrus slices, water droplets and a big liquid splash flying around, a small 3D cloud accent. " +
-      "COMPOSITION: product and model centered-low, a two-line distressed headline in the upper-left, fruit pieces in the corners. " +
-      "LIGHTING: bright saturated studio light, wet glossy highlights, vivid green gradient backdrop. " +
-      "TYPOGRAPHY & LAYOUT: hand-stamped distressed uppercase headline, one word in the accent color; all inside the safe zone. " +
-      "COLOR: green, yellow and white (max 3 dominant colors). " +
-      "AVOID: real brand logos on the product, recognizable faces, clutter.",
+      "Create a coin-splash casino banner for {SUBJECT}. STYLE: a giant photoreal gold casino chip lying tilted with a non-identifiable model in a matching colorful outfit sitting on top of it, gold coins, gems and dice flying around with a big liquid-gold splash, a small 3D cloud accent. COMPOSITION: chip and model centered-low, a two-line distressed headline in the upper-left, coins in the corners. LIGHTING: bright saturated studio light, glossy highlights, vivid green gradient backdrop. TYPOGRAPHY & LAYOUT: hand-stamped distressed uppercase headline, one word in the accent color; all inside the safe zone. COLOR: green, gold and white (max 3 dominant colors). AVOID: real brand logos, recognizable faces, clutter.",
   },
   {
     id: "preset78",
     fields: [FIELD_CASINO_PROP],
     name: "Неон-дрип",
-    description: "Стекающий неоновый заголовок, светящийся объект-герой, фиолетовый туман",
+    description: "Стекающий неоновый заголовок, светящаяся 3D-семёрка в шляпе, фиолетовый туман",
     gradient: g("#2e1065", "#7e22ce", "#f97316"),
     examples: ex("#2e1065", "#7e22ce", "#3b0764", "#f97316"),
     isNew: true,
     template:
-      "Create a neon-drip themed banner for {SUBJECT}. " +
-      "STYLE: a violet fog-filled night scene, the headline in dripping neon-tube letters with an orange inner glow, a glowing 3D hero object with an oversized hat as the centerpiece, dark spooky silhouettes and bare tree branches faintly behind. " +
-      "COMPOSITION: dripping headline top-center, hero object centered-low, a script subline and small detail lines at the bottom. " +
-      "LIGHTING: purple ambient glow, orange light from the hero object, neon bloom on the letters. " +
-      "TYPOGRAPHY & LAYOUT: dripping display headline, elegant script subline, small caps details; all inside the safe zone. " +
-      "COLOR: violet, orange and white (max 3 dominant colors). " +
-      "AVOID: real event names, clutter, unreadable drips.",
+      "Create a neon-drip casino banner for {SUBJECT}. STYLE: a violet fog-filled night scene, the headline in dripping neon-tube letters with an orange inner glow, a glowing 3D lucky-7 slot symbol wearing an oversized hat as the centerpiece with gold coins around it, dark silhouettes and bare tree branches faintly behind. COMPOSITION: dripping headline top-center, hero object centered-low, a script subline and small detail lines at the bottom. LIGHTING: purple ambient glow, orange light from the hero object, neon bloom on the letters. TYPOGRAPHY & LAYOUT: dripping display headline, elegant script subline, small caps details; all inside the safe zone. COLOR: violet, orange and white (max 3 dominant colors). AVOID: real event names, clutter, unreadable drips.",
   },
   {
     id: "preset79",
@@ -591,18 +477,12 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset80",
     fields: [],
     name: "Гараж-зин",
-    description: "Ч/б фото объекта, неоново-розовые и лаймовые граффити, мятая бумага, микро-ярлыки",
+    description: "Ч/б фото машины-приза, неоново-розовые и лаймовые граффити, фишки, мятая бумага",
     gradient: g("#0a0a0a", "#db2777", "#a3e635"),
     examples: ex("#0a0a0a", "#db2777", "#171717", "#a3e635"),
     isNew: true,
     template:
-      "Create a street-zine poster banner for {SUBJECT}. " +
-      "STYLE: crumpled black paper texture, a black-and-white photo of a sleek hero object (e.g. a sports car rear) on a wet reflective floor, a stacked headline mixing a white block word, a lime plate word and a pink spray-paint script word, spray drips, tiny checklists, coordinates and label tags in the corners. " +
-      "COMPOSITION: headline stack top-center, hero object lower-center, micro labels top-left/top-right/bottom-left/bottom-right. " +
-      "LIGHTING: high-contrast monochrome photo with neon pink highlight streaks. " +
-      "TYPOGRAPHY & LAYOUT: condensed block uppercase, spray script, micro captions; keep the safe zone readable. " +
-      "COLOR: black/white, neon pink and lime (max 3 dominant colors). " +
-      "AVOID: real car brands or logos, clutter in the safe zone.",
+      "Create a street-zine casino banner for {SUBJECT}. STYLE: crumpled black paper texture, a black-and-white photo of a sleek sports-car prize on a wet reflective casino-garage floor with casino chips scattered around the wheels, a stacked headline mixing a white block word, a lime plate word and a pink spray-paint script word, spray drips, tiny checklists and label tags in the corners. COMPOSITION: headline stack top-center, car lower-center, chips in the foreground, micro labels in the corners. LIGHTING: high-contrast monochrome photo with neon pink highlight streaks. TYPOGRAPHY & LAYOUT: condensed block uppercase, spray script, micro captions; keep the safe zone readable. COLOR: black/white, neon pink and lime (max 3 dominant colors). AVOID: real car brands or logos, clutter in the safe zone.",
   },
   {
     id: "preset81",
@@ -642,35 +522,23 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset83",
     fields: [],
     name: "Цель-дартс",
-    description: "Светящийся 3D-дротик в мишени на чёрном, минимальный жёлтый заголовок",
+    description: "Светящийся 3D-дротик в центре мишени-рулетки на чёрном, минимальный жёлтый заголовок",
     gradient: g("#0a0a0a", "#a16207", "#facc15"),
     examples: ex("#0a0a0a", "#a16207", "#171717", "#facc15"),
     isNew: true,
     template:
-      "Create a precision-target banner for {SUBJECT}. " +
-      "STYLE: a black scene with a glowing yellow 3D dart striking the bullseye of a large concentric yellow-and-black target seen at an angle, faint grid and ring reflections; nothing else. " +
-      "COMPOSITION: target fills the lower-left, dart angled from the upper-right, headline and a short two-line subline top-left, small logo top-right. " +
-      "LIGHTING: the dart and rings emit the only light, soft glow on the black surface. " +
-      "TYPOGRAPHY & LAYOUT: bold yellow serif-sans headline, white subline; all inside the safe zone. " +
-      "COLOR: black, yellow and white only. " +
-      "AVOID: clutter, extra props, more than 3 dominant colors.",
+      "Create a precision-target casino banner for {SUBJECT}. STYLE: a black scene with a glowing yellow 3D dart striking the center of a large concentric target styled as a roulette wheel (numbered pockets, yellow-and-black segments) seen at an angle, a few casino chips resting on the rim; nothing else. COMPOSITION: wheel fills the lower-left, dart angled from the upper-right, headline and a short two-line subline top-left, small logo top-right. LIGHTING: the dart and rings emit the only light, soft glow on the black surface. TYPOGRAPHY & LAYOUT: bold yellow serif-sans headline, white subline; all inside the safe zone. COLOR: black, yellow and white only. AVOID: clutter, extra props, more than 3 dominant colors.",
   },
   {
     id: "preset84",
     fields: [],
     name: "Типо-обложка",
-    description: "Гигантские жёлтые буквы поверх портрета, розовый фон, мелкие колонки текста",
+    description: "Гигантские жёлтые буквы поверх портрета с золотой фишкой, розовый фон",
     gradient: g("#f472b6", "#ec4899", "#fde047"),
     examples: ex("#f472b6", "#ec4899", "#f9a8d4", "#fde047"),
     isNew: true,
     template:
-      "Create a typography-over-portrait banner for {SUBJECT}. " +
-      "STYLE: a flat pink background, a frontal non-identifiable portrait with a bright pastel-yellow outfit, a giant yellow headline broken into stacked words overlapping the face and body, small justified caption columns in the top corners. " +
-      "COMPOSITION: portrait centered, headline words staggered left and right down the frame, micro captions top-left and top-right, tiny footer bottom-left. " +
-      "LIGHTING: flat even fashion light, pastel tones. " +
-      "TYPOGRAPHY & LAYOUT: huge grotesque bold words, tiny caption columns; keep the headline readable inside the safe zone. " +
-      "COLOR: pink, yellow and white only. " +
-      "AVOID: recognizable faces, gradients, more than 3 dominant colors.",
+      "Create a typography-over-portrait casino banner for {SUBJECT}. STYLE: a flat pink background, a frontal non-identifiable portrait with a bright pastel-yellow outfit holding a gold casino chip up beside the face, a giant yellow headline broken into stacked words overlapping the face and body, small justified caption columns in the top corners. COMPOSITION: portrait centered, headline words staggered left and right down the frame, micro captions top-left and top-right, tiny footer bottom-left. LIGHTING: flat even fashion light, pastel tones. TYPOGRAPHY & LAYOUT: huge grotesque bold words, tiny caption columns; keep the headline readable inside the safe zone. COLOR: pink, yellow and white only. AVOID: recognizable faces, gradients, more than 3 dominant colors.",
   },
   {
     id: "preset85",
@@ -710,86 +578,56 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset87",
     fields: [],
     name: "Стрит-тедди",
-    description: "Векторная стрит-графика: залатанный плюш с золотой цепью, белые контурные буквы позади",
+    description: "Векторная стрит-графика: залатанный плюш с золотой цепью и костями, белые контурные буквы",
     gradient: g("#0a0a0a", "#92400e", "#f5f5f5"),
     examples: ex("#0a0a0a", "#92400e", "#171717", "#f5f5f5"),
     isNew: true,
     template:
-      "Create a streetwear tee-graphic banner for {SUBJECT}. " +
-      "STYLE: flat black background, a cel-shaded vector illustration of a patched-up plush toy mascot (invented) in torn streetwear with a thick gold chain, thick black outlines, big white outlined headline letters and paint drips behind it, small sticker phrases and crossed-out marks in the corners. " +
-      "COMPOSITION: mascot centered full-body, headline letters behind it, small caption phrases top-left/top-right, a two-line tagline in white along the bottom. " +
-      "LIGHTING: flat vector shading, no photographic light. " +
-      "TYPOGRAPHY & LAYOUT: chunky outlined display letters, small brush captions; all inside the safe zone. " +
-      "COLOR: black, white and one warm accent (max 3 dominant colors). " +
-      "AVOID: real characters, photoreal rendering, clutter.",
+      "Create a streetwear tee-graphic casino banner for {SUBJECT}. STYLE: flat black background, a cel-shaded vector illustration of a patched-up plush toy mascot (invented) in torn streetwear with a thick gold chain holding a pair of dice and a casino chip, thick black outlines, big white outlined headline letters and paint drips behind it, small sticker phrases and crossed-out marks in the corners. COMPOSITION: mascot centered full-body, headline letters behind it, small caption phrases top-left/top-right, a two-line tagline in white along the bottom. LIGHTING: flat vector shading, no photographic light. TYPOGRAPHY & LAYOUT: chunky outlined display letters, small brush captions; all inside the safe zone. COLOR: black, white and one warm accent (max 3 dominant colors). AVOID: real characters, photoreal rendering, clutter.",
   },
   {
     id: "preset88",
     fields: [],
     name: "Лаймовый сплит",
-    description: "Чёрный верх, лаймовый низ с гигантским рукописным словом, пушистый персонаж, тонкая рамка",
+    description: "Чёрный верх, лаймовый низ с гигантским рукописным словом, пушистый персонаж с костями",
     gradient: g("#0a0a0a", "#65a30d", "#a3e635"),
     examples: ex("#0a0a0a", "#65a30d", "#171717", "#a3e635"),
     isNew: true,
     template:
-      "Create a split-color fashion banner for {SUBJECT}. " +
-      "STYLE: the frame split horizontally, black on top and flat lime green below, a non-identifiable figure covered in fuzzy lime-green fur wearing mirrored goggles, a thin white rounded rectangle frame around the figure, a giant white handwritten headline word across the lime bottom band. " +
-      "COMPOSITION: figure centered inside the thin frame, small serif labels in the frame corners, the handwritten word bleeding across the bottom third. " +
-      "LIGHTING: crisp studio light, orange-red reflection in the goggles as the only warm note. " +
-      "TYPOGRAPHY & LAYOUT: giant brush-marker script headline, tiny serif captions; keep the safe zone clean. " +
-      "COLOR: black, lime green and white (max 3 dominant colors). " +
-      "AVOID: recognizable faces, real logos, clutter.",
+      "Create a split-color casino banner for {SUBJECT}. STYLE: the frame split horizontally, black on top and flat lime green below, a non-identifiable figure covered in fuzzy lime-green fur wearing mirrored goggles and holding a glossy black die between two fingers, a thin white rounded rectangle frame around the figure, a giant white handwritten headline word across the lime bottom band. COMPOSITION: figure centered inside the thin frame, small serif labels in the frame corners, the handwritten word bleeding across the bottom third. LIGHTING: crisp studio light, orange-red reflection of a roulette wheel in the goggles as the only warm note. TYPOGRAPHY & LAYOUT: giant brush-marker script headline, tiny serif captions; keep the safe zone clean. COLOR: black, lime green and white (max 3 dominant colors). AVOID: recognizable faces, real logos, clutter.",
   },
   {
     id: "preset89",
     fields: [],
     name: "Песочные часы",
-    description: "Светящиеся песочные часы на чёрном, секундомер и ноутбук в тени, слоёный заголовок",
+    description: "Песочные часы с сыплющимися золотыми монетами на чёрном, фишки и карты в тени",
     gradient: g("#0a0a0a", "#c2410c", "#fb923c"),
     examples: ex("#0a0a0a", "#c2410c", "#1c1917", "#fb923c"),
     isNew: true,
     template:
-      "Create a time-pressure banner for {SUBJECT}. " +
-      "STYLE: a black studio scene, a large glass-and-chrome hourglass with glowing orange sand as the hero, a stopwatch and a laptop faintly lit in the background, glow reflections on the floor. " +
-      "COMPOSITION: hourglass center-left, a stacked headline top-right mixing white and orange words in different sizes, logo top-center, a contact strip along the bottom. " +
-      "LIGHTING: the sand is the light source, warm rim on the chrome, everything else dark. " +
-      "TYPOGRAPHY & LAYOUT: bold grotesque headline in layered sizes, tiny footer; all inside the safe zone. " +
-      "COLOR: black, orange and white only. " +
-      "AVOID: clutter, flat lighting, more than 3 dominant colors.",
+      "Create a bonus-countdown casino banner for {SUBJECT}. STYLE: a black studio scene, a large glass-and-chrome hourglass filled with glowing gold coins pouring through the neck instead of sand as the hero, stacks of casino chips and two playing cards faintly lit in the background, glow reflections on the floor. COMPOSITION: hourglass center-left, a stacked headline top-right mixing white and gold words in different sizes, logo top-center, a CTA strip along the bottom. LIGHTING: the coins are the light source, warm rim on the chrome, everything else dark. TYPOGRAPHY & LAYOUT: bold grotesque headline in layered sizes, tiny footer; all inside the safe zone. COLOR: black, gold-orange and white only. AVOID: clutter, flat lighting, more than 3 dominant colors.",
   },
   {
     id: "preset90",
     fields: [],
     name: "Светлый запуск",
-    description: "Белый фон, белая 3D-ракета с оранжевым шлейфом и облаками, свуш-градиент",
+    description: "Белый фон, белая 3D-ракета с шлейфом из золотых монет и облаками, свуш-градиент",
     gradient: g("#ffffff", "#fb923c", "#f97316"),
     examples: ex("#ffffff", "#fb923c", "#fff7ed", "#f97316"),
     isNew: true,
     template:
-      "Create a light-theme launch banner for {SUBJECT}. " +
-      "STYLE: a clean white background with a large orange swoosh curve, a glossy white 3D rocket with orange fins launching diagonally upward, a bright orange exhaust plume with fluffy orange-lit clouds and sparkles at the bottom. " +
-      "COMPOSITION: rocket in the right half angled up, a two-line headline top-left with the second word in orange, a short subline and a small round badge below, logo zone above. " +
-      "LIGHTING: bright airy daylight, soft shadows, warm glow from the exhaust. " +
-      "TYPOGRAPHY & LAYOUT: rounded bold sans headline in dark grey and orange, small captions; all inside the safe zone. " +
-      "COLOR: white, orange and dark grey only. " +
-      "AVOID: dark backgrounds, clutter, more than 3 dominant colors.",
+      "Create a light-theme casino launch banner for {SUBJECT}. STYLE: a clean white background with a large orange swoosh curve, a glossy white 3D rocket with gold fins launching diagonally upward, its exhaust a bright plume of gold coins, casino chips and sparkles over fluffy orange-lit clouds at the bottom. COMPOSITION: rocket in the right half angled up, a two-line headline top-left with the second word in orange, a short subline and a small round badge below, logo zone above. LIGHTING: bright airy daylight, soft shadows, warm glow from the coin plume. TYPOGRAPHY & LAYOUT: rounded bold sans headline in dark grey and orange, small captions; all inside the safe zone. COLOR: white, orange-gold and dark grey only. AVOID: dark backgrounds, clutter, more than 3 dominant colors.",
   },
   {
     id: "preset91",
     fields: [FIELD_CASINO_PROP],
     name: "Фиолетовая сетка",
-    description: "Фиолетовый фон с сеткой, повторяющееся слово-фон, 3D-маскот, стеклянные и красные плашки",
+    description: "Фиолетовый фон с сеткой, повторяющееся слово, 3D-маскот с веером карт, стеклянные плашки",
     gradient: g("#2e1065", "#6d28d9", "#dc2626"),
     examples: ex("#2e1065", "#6d28d9", "#4c1d95", "#dc2626"),
     isNew: true,
     template:
-      "Create a service-promo banner for {SUBJECT}. " +
-      "STYLE: a deep purple background with a faint perspective grid and a thin outline frame, the headline word repeated as faded ghost text across the background, a large 3D cartoon warrior mascot (invented, non-branded) in a woven hat with arms crossed, a frosted-glass card on the right and a solid red rounded plate on the left with a subtle white outline glow around the mascot. " +
-      "COMPOSITION: two-line white headline top-center with a small red tag, giant white word behind the mascot's head, mascot centered, plates at mid-height on both sides, letter-spaced footer line. " +
-      "LIGHTING: purple ambient light, soft rim glow, glossy 3D shading. " +
-      "TYPOGRAPHY & LAYOUT: bold white uppercase, glass and solid plates, tiny footer; all inside the safe zone. " +
-      "COLOR: purple, white and red (max 3 dominant colors). " +
-      "AVOID: real characters, clutter, unreadable ghost text overlapping the headline.",
+      "Create a casino promo banner for {SUBJECT}. STYLE: a deep purple background with a faint perspective grid and a thin outline frame, the headline word repeated as faded ghost text across the background, a large 3D cartoon warrior mascot (invented, non-branded) in a woven hat holding a fan of playing cards with chips stacked in front, a frosted-glass card on the right and a solid red rounded plate on the left with a subtle white outline glow around the mascot. COMPOSITION: two-line white headline top-center with a small red tag, giant white word behind the mascot's head, mascot centered, plates at mid-height on both sides, letter-spaced footer line. LIGHTING: purple ambient light, soft rim glow, glossy 3D shading. TYPOGRAPHY & LAYOUT: bold white uppercase, glass and solid plates, tiny footer; all inside the safe zone. COLOR: purple, white and red (max 3 dominant colors). AVOID: real characters, clutter, unreadable ghost text overlapping the headline.",
   },
   {
     id: "preset92",
@@ -829,120 +667,78 @@ export const PRESETS_BATCH_3: Preset[] = [
     id: "preset94",
     fields: [FIELD_BONUS_BADGE],
     name: "Неон-скидка",
-    description: "Чёрный фон, плоские неоновые фигуры, гигантская цифра оффера, фэшн-портрет",
+    description: "Чёрный фон, плоские неоновые фигуры, гигантский процент бонуса, модель с фишками",
     gradient: g("#0a0a0a", "#a3e635", "#ec4899"),
     examples: ex("#0a0a0a", "#a3e635", "#171717", "#ec4899"),
     isNew: true,
     template:
-      "Create a neon flat-shape offer banner for {SUBJECT}. " +
-      "STYLE: a black background with flat cut-out shapes in neon lime and hot pink behind a non-identifiable model in a lime blazer and lime sunglasses, the offer figure rendered as a giant flat lime number with the unit in pink and the offer word in pink. " +
-      "COMPOSITION: model on the right, the giant offer stack on the left taking two-thirds of the height, a small intro word above it, a two-line subline and an outlined CTA button at the bottom-left. " +
-      "LIGHTING: crisp studio beauty light, flat graphic shapes without shading. " +
-      "TYPOGRAPHY & LAYOUT: ultra-bold grotesque numbers and words, tiny letter-spaced captions; all inside the safe zone. " +
-      "COLOR: black, lime and pink only. " +
-      "AVOID: gradients, recognizable faces, more than 3 dominant colors.",
+      "Create a neon flat-shape casino bonus banner for {SUBJECT}. STYLE: a black background with flat cut-out shapes in neon lime and hot pink behind a non-identifiable model in a lime blazer and lime sunglasses holding a stack of casino chips, the bonus figure rendered as a giant flat lime percentage with the word BONUS in pink. COMPOSITION: model on the right, the giant offer stack on the left taking two-thirds of the height, a small intro word above it, a two-line subline and an outlined CTA button at the bottom-left. LIGHTING: crisp studio beauty light, flat graphic shapes without shading. TYPOGRAPHY & LAYOUT: ultra-bold grotesque numbers and words, tiny letter-spaced captions; all inside the safe zone. COLOR: black, lime and pink only. AVOID: gradients, recognizable faces, more than 3 dominant colors.",
   },
   {
     id: "preset95",
     fields: [],
     name: "Синтвейв-вечеринка",
-    description: "Розовый закат-круг, пальмы, неоновые полосы, персонаж в маске и куртке",
+    description: "Розовый закат-круг, пальмы, неоновые полосы, персонаж в маске с фишками",
     gradient: g("#1a0521", "#be185d", "#f472b6"),
     examples: ex("#1a0521", "#be185d", "#3b0764", "#f472b6"),
     isNew: true,
     template:
-      "Create a synthwave party banner for {SUBJECT}. " +
-      "STYLE: a magenta retro sunset circle behind a palm-tree and city silhouette, glowing pink neon light streaks sweeping across the bottom, a non-identifiable figure in a knitted balaclava, varsity jacket and chains posing with a finger to the lips. " +
-      "COMPOSITION: figure centered, sunset circle framing the head, a letter-spaced intro line and logo at the top, a big pink headline and details stacked at the bottom. " +
-      "LIGHTING: magenta ambient glow, neon rim light, soft haze. " +
-      "TYPOGRAPHY & LAYOUT: bold pink display headline, white sans details, letter-spaced caption; all inside the safe zone. " +
-      "COLOR: magenta, deep purple and white (max 3 dominant colors). " +
-      "AVOID: real event names, recognizable faces, clutter.",
+      "Create a synthwave casino party banner for {SUBJECT}. STYLE: a magenta retro sunset circle behind a palm-tree and city silhouette, glowing pink neon light streaks sweeping across the bottom, a non-identifiable figure in a knitted balaclava, varsity jacket and chains fanning casino chips with a finger to the lips. COMPOSITION: figure centered, sunset circle framing the head, a letter-spaced intro line and logo at the top, a big pink headline and details stacked at the bottom. LIGHTING: magenta ambient glow, neon rim light, soft haze. TYPOGRAPHY & LAYOUT: bold pink display headline, white sans details, letter-spaced caption; all inside the safe zone. COLOR: magenta, deep purple and white (max 3 dominant colors). AVOID: real event names, recognizable faces, clutter.",
   },
   {
     id: "preset96",
     fields: [],
     name: "Рваная бумага",
-    description: "Красная бумага с прорывом, сквозь дыру смотрят глаза с гравюры, заголовок под ней",
+    description: "Красная бумага с прорывом, сквозь дыру смотрят глаза карточного короля, заголовок под ней",
     gradient: g("#7f1d1d", "#dc2626", "#e5e5e5"),
     examples: ex("#7f1d1d", "#dc2626", "#991b1b", "#e5e5e5"),
     isNew: true,
     template:
-      "Create a torn-paper reveal banner for {SUBJECT}. " +
-      "STYLE: a textured red paper surface torn open horizontally across the upper half, a fine-line engraved illustration of a pair of watching eyes visible through the tear, engraved paper corners peeking in at the edges. " +
-      "COMPOSITION: the torn window in the upper half, a two-line headline in the lower half with one word in a small red label and a highlighted subline plate, small captions in the top-right and bottom-left corners. " +
-      "LIGHTING: soft raking light showing paper fibers and torn edges. " +
-      "TYPOGRAPHY & LAYOUT: bold sans headline in white and light red, small captions; all inside the safe zone. " +
-      "COLOR: red, off-white and black (max 3 dominant colors). " +
-      "AVOID: real currency portraits, clutter, more than 3 dominant colors.",
+      "Create a torn-paper reveal casino banner for {SUBJECT}. STYLE: a textured red paper surface torn open horizontally across the upper half, the engraved eyes of a playing-card king (classic card illustration style, invented) visible through the tear, card-suit corners peeking in at the edges. COMPOSITION: the torn window in the upper half, a two-line headline in the lower half with one word in a small red label and a highlighted subline plate, small captions in the top-right and bottom-left corners. LIGHTING: soft raking light showing paper fibers and torn edges. TYPOGRAPHY & LAYOUT: bold sans headline in white and light red, small captions; all inside the safe zone. COLOR: red, off-white and black (max 3 dominant colors). AVOID: real currency portraits, clutter, more than 3 dominant colors.",
   },
   {
     id: "preset97",
     fields: [],
     name: "Волновой шрифт",
-    description: "Красно-белые волнистые растянутые буквы, монохромный герой с красным глазом",
+    description: "Красно-белые волнистые буквы, монохромный ястреб с красным глазом и золотой фишкой в клюве",
     gradient: g("#b91c1c", "#dc2626", "#fafafa"),
     examples: ex("#b91c1c", "#dc2626", "#7f1d1d", "#fafafa"),
     isNew: true,
     template:
-      "Create a wave-typography banner for {SUBJECT}. " +
-      "STYLE: a solid red background, huge white headline letters distorted into vertical wave ripples filling the frame, a monochrome black-and-grey feathered creature head (a fierce bird of prey, invented) diving from the top with a single glowing red eye, a thin script slogan and a small date-stack in the corners. " +
-      "COMPOSITION: creature head across the upper-left, wave letters behind and below it, script line center-right, small caption blocks top-right and bottom. " +
-      "LIGHTING: flat graphic contrast, subtle sheen on the feathers. " +
-      "TYPOGRAPHY & LAYOUT: rippled ultra-bold uppercase, thin script accent, tiny caps; keep the safe zone readable. " +
-      "COLOR: red, white and black only. " +
-      "AVOID: national emblems, more than 3 dominant colors, illegible waves.",
+      "Create a wave-typography casino banner for {SUBJECT}. STYLE: a solid red background, huge white headline letters distorted into vertical wave ripples filling the frame, a monochrome black-and-grey feathered bird-of-prey head (invented) diving from the top with a single glowing red eye and a gold casino chip clenched in its beak, a thin script slogan and a small date-stack in the corners. COMPOSITION: bird head across the upper-left, wave letters behind and below it, script line center-right, small caption blocks top-right and bottom. LIGHTING: flat graphic contrast, subtle sheen on the feathers and the gold chip. TYPOGRAPHY & LAYOUT: rippled ultra-bold uppercase, thin script accent, tiny caps; keep the safe zone readable. COLOR: red, white and black only, gold only on the chip. AVOID: national emblems, more than 3 dominant colors, illegible waves.",
   },
   {
     id: "preset98",
     fields: [],
     name: "Японский коллаж",
-    description: "Бежевая бумага, оранжевые круги и мазки, птицы, ч/б фото, большой белый заголовок",
+    description: "Бежевая бумага, оранжевые круги и мазки, персона бросает карты, большой белый заголовок",
     gradient: g("#f5f5f4", "#ea580c", "#1c1917"),
     examples: ex("#f5f5f4", "#ea580c", "#e7e5e4", "#1c1917"),
     isNew: true,
     template:
-      "Create a Japanese-editorial collage banner for {SUBJECT}. " +
-      "STYLE: aged beige paper background, big orange sun circles and horizontal brush-smear strokes, a non-identifiable person in a black jacket reaching a hand toward the camera, small engraved swallows, a landscape photo fragment, calligraphy-style vertical glyphs at the top, tiny dots and arrow marks. " +
-      "COMPOSITION: figure center-right with the hand foreground-left, a giant white bold headline across the lower third, glyph block top-left, micro captions in the corners. " +
-      "LIGHTING: flat print-like tones, paper grain, muted contrast. " +
-      "TYPOGRAPHY & LAYOUT: giant condensed white headline, tiny sans captions, decorative glyphs; keep the safe zone readable. " +
-      "COLOR: beige, orange and black (max 3 dominant colors). " +
-      "AVOID: recognizable faces, readable real-language slogans in the glyphs, clutter.",
+      "Create a Japanese-editorial collage casino banner for {SUBJECT}. STYLE: aged beige paper background, big orange sun circles and horizontal brush-smear strokes, a non-identifiable person in a black jacket flicking a playing card toward the camera with more cards and dice in mid-air, small engraved cranes, calligraphy-style vertical glyphs at the top, tiny dots and arrow marks. COMPOSITION: figure center-right with the card hand foreground-left, a giant white bold headline across the lower third, glyph block top-left, micro captions in the corners. LIGHTING: flat print-like tones, paper grain, muted contrast. TYPOGRAPHY & LAYOUT: giant condensed white headline, tiny sans captions, decorative glyphs; keep the safe zone readable. COLOR: beige, orange and black (max 3 dominant colors). AVOID: recognizable faces, readable real-language slogans in the glyphs, clutter.",
   },
   {
     id: "preset99",
     fields: [],
     name: "Готика-сплэттер",
-    description: "Готический розовый шрифт на ч/б гравюре, брызги краски, граффити-подписи",
+    description: "Готический розовый шрифт на ч/б гравюре карточного короля с фишками, брызги краски",
     gradient: g("#0a0a0a", "#be123c", "#fb7185"),
     examples: ex("#0a0a0a", "#be123c", "#171717", "#fb7185"),
     isNew: true,
     template:
-      "Create a gothic-splatter banner for {SUBJECT}. " +
-      "STYLE: a black background with a black-and-white ink-engraving illustration of a crowned, bearded figure in round shades holding a sword (invented, non-identifiable), a large blackletter gothic headline in hot pink layered over the crown, pink paint splatters and drips, spray-paint script phrases across the lower half. " +
-      "COMPOSITION: figure bust centered, blackletter headline top-center overlapping the crown, script phrases on both sides at the bottom. " +
-      "LIGHTING: flat engraving contrast, no photographic light. " +
-      "TYPOGRAPHY & LAYOUT: ornate blackletter headline, graffiti script; keep the headline readable inside the safe zone. " +
-      "COLOR: black, white and hot pink only. " +
-      "AVOID: religious or political symbols, more than 3 dominant colors, illegible gothic letters.",
+      "Create a gothic-splatter casino banner for {SUBJECT}. STYLE: a black background with a black-and-white ink-engraving illustration of a crowned, bearded playing-card king (invented, non-identifiable) in round shades holding a sword with a stack of casino chips and an ace tucked in the crown, a large blackletter gothic headline in hot pink layered over the crown, pink paint splatters and drips, spray-paint script phrases across the lower half. COMPOSITION: figure bust centered, blackletter headline top-center overlapping the crown, script phrases on both sides at the bottom. LIGHTING: flat engraving contrast, no photographic light. TYPOGRAPHY & LAYOUT: ornate blackletter headline, graffiti script; keep the headline readable inside the safe zone. COLOR: black, white and hot pink only. AVOID: religious or political symbols, more than 3 dominant colors, illegible gothic letters.",
   },
   {
     id: "preset100",
     fields: [],
     name: "Студия-продукт",
-    description: "Монохромный бирюзовый сет, гигантский продукт, модель опирается на него, шахматный пол",
+    description: "Монохромный бирюзовый сет, гигантский слот-автомат, модель опирается на него, шахматный пол",
     gradient: g("#0f766e", "#14b8a6", "#facc15"),
     examples: ex("#0f766e", "#14b8a6", "#0d9488", "#facc15"),
     isNew: true,
     template:
-      "Create a monochrome set-design product banner for {SUBJECT}. " +
-      "STYLE: a fully teal studio set with angled walls and a teal-and-cream checkered floor, a giant photoreal product bottle with condensation as the hero, a non-identifiable model in a pastel outfit leaning to rest a hand on its cap, two smaller bottles in the background. " +
-      "COMPOSITION: giant product center-low, model behind it, a three-line headline centered at the top with the middle word in yellow, a three-word tagline stack on the right with a yellow underline. " +
-      "LIGHTING: bright soft studio light, clean shadows, glossy wet highlights. " +
-      "TYPOGRAPHY & LAYOUT: extra-bold rounded uppercase headline in white and yellow, small tagline; all inside the safe zone. " +
-      "COLOR: teal, cream and yellow only. " +
-      "AVOID: real brand labels, recognizable faces, more than 3 dominant colors.",
+      "Create a monochrome set-design casino banner for {SUBJECT}. STYLE: a fully teal studio set with angled walls and a teal-and-cream checkered floor, a giant glossy teal slot machine with a gold lever and lit reels as the hero, a non-identifiable model in a pastel outfit leaning to rest a hand on its lever, two smaller slot cabinets in the background. COMPOSITION: giant slot machine center-low, model beside it, a three-line headline centered at the top with the middle word in yellow, a three-word tagline stack on the right with a yellow underline. LIGHTING: bright soft studio light, clean shadows, glossy highlights on the cabinet. TYPOGRAPHY & LAYOUT: extra-bold rounded uppercase headline in white and yellow, small tagline; all inside the safe zone. COLOR: teal, cream and yellow only. AVOID: real brand labels, recognizable faces, more than 3 dominant colors.",
   },
   {
     id: "preset101",
