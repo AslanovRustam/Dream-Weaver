@@ -50,7 +50,7 @@ type CardDetail = {
 };
 
 const PRESET_LABELS: Record<string, string> = {
-  preset1: "Широкий угол",
+  preset1: "Приложение в руке",
   preset2: "Слот",
   preset3: "Событие",
   preset4: "Спорт",

@@ -58,7 +58,7 @@ export const PRESETS: Preset[] = [
   {
     id: "preset1",
     fields: [FIELD_BONUS_BADGE],
-    name: "Широкий угол",
+    name: "Приложение в руке + цифры",
     description: "Яркая инфографика для товара с крупными цифрами и характеристиками",
     gradient: "linear-gradient(135deg,#a3e635,#22d3ee,#f0abfc)",
     examples: [
@@ -72,7 +72,7 @@ export const PRESETS: Preset[] = [
   {
     id: "preset2",
     fields: [FIELD_WIN_CALLOUT, FIELD_CASINO_PROP],
-    name: "Баннер по слоту",
+    name: "Слот: барабаны и символы",
     description: "Премиум gaming-баннер для конкретного слота",
     gradient: "linear-gradient(135deg,#0f172a,#7c3aed,#22d3ee)",
     examples: [
@@ -124,7 +124,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset3",
     fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
-    name: "Событие",
+    name: "Турнир / событие",
     description: "Гемблинг/беттинг баннер под событие или повод",
     gradient: "linear-gradient(135deg,#1e1b4b,#dc2626,#f59e0b)",
     examples: [
@@ -169,7 +169,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset6",
     fields: [FIELD_JACKPOT_TIER, FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Джекпот-взрыв",
+    name: "Джекпот: взрыв монет",
     description: "Взрыв монет и фишек, big-win энергия, объёмный свет",
     gradient: "linear-gradient(135deg,#0b0b0f,#f59e0b,#fde047)",
     examples: [
@@ -190,7 +190,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset7",
     fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Ультрафиолет / Неон",
+    name: "Неон-казино (фиолет/циан)",
     description: "Киберпанк-неон, фиолет-циан свечение, голо-UI",
     gradient: "linear-gradient(135deg,#0f0524,#7c3aed,#22d3ee)",
     examples: [
@@ -232,7 +232,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset9",
     fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Ретро-Вегас / Vaporwave",
+    name: "Ретро-Вегас 80-х",
     description: "80–90-е Вегас: хром-текст, неон-закат, VHS-зерно",
     gradient: "linear-gradient(135deg,#2b1055,#ff2d95,#ffd36e)",
     examples: [
@@ -253,7 +253,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset10",
     fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Luxury Noir (VIP)",
+    name: "VIP: чёрное и золото",
     description: "Чёрное с золотом, драматичный свет, премиум hi-roller",
     gradient: "linear-gradient(135deg,#000000,#1c1917,#d4af37)",
     examples: [
@@ -274,7 +274,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset11",
     fields: [FIELD_WIN_CALLOUT, FIELD_CASINO_PROP],
-    name: "Комикс поп-арт",
+    name: "Комикс: WIN! в облаке",
     description: "Полутон Бен-Дэй, чернильный контур, «WIN!» в облаке",
     gradient: "linear-gradient(135deg,#1d4ed8,#facc15,#ef4444)",
     examples: [
@@ -295,7 +295,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset12",
     fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Покер-нуар",
+    name: "Покер: роял-флеш и фишки",
     description: "Роял-флеш и стопки фишек макро, драматичный стол",
     gradient: "linear-gradient(135deg,#0b0b0f,#7f1d1d,#d4af37)",
     examples: [
@@ -357,7 +357,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset15",
-    name: "Мистик-фэнтези",
+    name: "Слот-фэнтези: дракон и руны",
     description: "Эпик-фэнтези: руны, сокровища, магические частицы",
     gradient: "linear-gradient(135deg,#1e1b4b,#7c3aed,#d4af37)",
     examples: [
@@ -513,7 +513,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset20",
-    name: "Приветственный бонус",
+    name: "Бонус: подарок и монеты",
     description: "Фрибет/бонус, подарок, «100%», монеты",
     gradient: "linear-gradient(135deg,#1e1b4b,#7c3aed,#facc15)",
     examples: [
@@ -602,7 +602,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset25",
     fields: [FIELD_SHOW_ODDS, FIELD_WIN_CALLOUT],
-    name: "Кэшаут",
+    name: "Кэшаут: зелёная кнопка",
     description: "Момент кэшаута, зафиксированный выигрыш, зелёная кнопка",
     gradient: "linear-gradient(135deg,#0b0b0f,#16a34a,#a3e635)",
     examples: [
@@ -842,7 +842,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset36",
     fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
-    name: "Мега-слоган",
+    name: "Слоган на весь фон + герой",
     description: "Гигантская фоновая надпись, герой на переднем плане, список плюсов",
     gradient: "linear-gradient(135deg,#1c1400,#f59e0b,#fde047)",
     examples: [
@@ -884,7 +884,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset38",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "Талисман-взрыв",
+    name: "Маскот и объёмные буквы",
     description: "3D-маскот с глянцевыми объёмными буквами и брызгами",
     gradient: "linear-gradient(135deg,#f97316,#22c55e,#fef08a)",
     examples: [
@@ -926,7 +926,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset40",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "VIP-приглашение",
+    name: "VIP: корона на картах",
     description: "Золотая корона на картах, орнаментальная рамка, статус",
     gradient: "linear-gradient(135deg,#000000,#78350f,#facc15)",
     examples: [
@@ -951,7 +951,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset41",
     fields: [FIELD_WIN_CALLOUT, FIELD_BONUS_BADGE],
-    name: "Слот-символ крупным планом",
+    name: "Слот-символ 777 крупно",
     description: "Гигантский глянцевый слот-символ в свете софитов, техно-акценты",
     gradient: "linear-gradient(135deg,#020617,#0ea5e9,#facc15)",
     examples: [
@@ -972,7 +972,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset42",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "Королевский маскот",
+    name: "Маскот-король на троне",
     description: "Маскот в короне на троне, монеты, бонус крупным планом",
     gradient: "linear-gradient(135deg,#022c22,#15803d,#facc15)",
     examples: [
@@ -993,7 +993,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset43",
     fields: [FIELD_CASINO_PROP],
-    name: "Флэт-промо",
+    name: "Промокод на телефоне (флэт)",
     description: "Флэт-цвет фон, промокод на телефоне, кости и фишки",
     gradient: "linear-gradient(135deg,#f97316,#fb923c,#fed7aa)",
     examples: [
@@ -1014,7 +1014,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset44",
     fields: [FIELD_BONUS_BADGE, FIELD_WIN_CALLOUT],
-    name: "Витрина игр",
+    name: "Ведущая и карточки игр",
     description: "Ведущая с телефоном и парящими карточками игр вокруг",
     gradient: "linear-gradient(135deg,#020617,#1d4ed8,#38bdf8)",
     examples: [
@@ -1035,7 +1035,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset45",
     fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
-    name: "Курьер-бонус",
+    name: "Маскот доставляет бонус",
     description: "Маскот доставляет бонус-посылку через дверной глазок",
     gradient: "linear-gradient(135deg,#022c22,#166534,#4ade80)",
     examples: [
@@ -1056,7 +1056,7 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset46",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "Витрина-приз",
+    name: "Приз в витрине + промокод",
     description: "Приз в стеклянной витрине, промокод-баннер, свет подиума",
     gradient: "linear-gradient(135deg,#0b0b0f,#f97316,#1c1917)",
     examples: [

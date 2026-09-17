@@ -29,7 +29,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset47",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "Кэшбек-вихрь",
+    name: "Кэшбек: маскот и купюры",
     description: "3D-маскот летит сквозь дым, купюры и мешки денег, объёмный бейдж со стрелками",
     gradient: g("#1a0b2e", "#7c3aed", "#f59e0b"),
     examples: ex("#1a0b2e", "#7c3aed", "#2e1065", "#f59e0b"),
@@ -46,7 +46,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset48",
     fields: [FIELD_CASINO_PROP],
-    name: "Крипто-джентльмен",
+    name: "Крипто-казино: джентльмен",
     description: "Персона в смокинге с бокалом, синие светящиеся кольца, парящие стеклянные монеты",
     gradient: g("#020617", "#1d4ed8", "#38bdf8"),
     examples: ex("#020617", "#1d4ed8", "#0f172a", "#38bdf8"),
@@ -63,7 +63,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset49",
     fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
-    name: "Маскот и бонус-карта",
+    name: "Депозит-бонус: маскот и карта %",
     description: "3D-персонаж в тематическом костюме, стеклянная карточка с процентом, инфо-полоса внизу",
     gradient: g("#04211f", "#0f766e", "#2dd4bf"),
     examples: ex("#04211f", "#0f766e", "#042f2e", "#2dd4bf"),
@@ -80,7 +80,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset50",
     fields: [FIELD_BONUS_BADGE],
-    name: "Промокод-плашка",
+    name: "Фриспины: модель и промокод",
     description: "Вертикальный гигантский заголовок сбоку, персона в спортивном стиле, техно-плашка с кодом",
     gradient: g("#0a0a0a", "#ea580c", "#f97316"),
     examples: ex("#0a0a0a", "#ea580c", "#171717", "#f97316"),
@@ -97,7 +97,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset51",
     fields: [],
-    name: "Казино-обложка",
+    name: "Маска-фишка (стрит-обложка)",
     description: "Одноцветный фон, фигура в глянцевой маске-фишке и стритвире, геометрический заголовок-глиф",
     gradient: g("#4a044e", "#a21caf", "#f97316"),
     examples: ex("#4a044e", "#a21caf", "#701a75", "#f97316"),
@@ -108,7 +108,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset52",
     fields: [FIELD_WIN_CALLOUT],
-    name: "Каменные буквы",
+    name: "Слот в каменных буквах",
     description: "Гигантские треснувшие 3D-буквы, персонаж развалился внутри, летящие обломки",
     gradient: g("#0a0a0a", "#be185d", "#f472b6"),
     examples: ex("#0a0a0a", "#be185d", "#1f0a14", "#f472b6"),
@@ -125,7 +125,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset53",
     fields: [],
-    name: "Один в толпе",
+    name: "Победитель в толпе",
     description: "Монохромная толпа игроков в шляпах, один герой в золотом с фишками, заголовок внизу",
     gradient: g("#0a0a0a", "#ea580c", "#262626"),
     examples: ex("#0a0a0a", "#ea580c", "#171717", "#f97316"),
@@ -136,7 +136,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset54",
     fields: [FIELD_CASINO_PROP],
-    name: "Кинетический шрифт",
+    name: "Барабан слота + большой шрифт",
     description: "Растянутые высокие буквы, светящийся 3D-барабан слота в центре, микро-ярлыки UI",
     gradient: g("#022c22", "#16a34a", "#4ade80"),
     examples: ex("#022c22", "#16a34a", "#052e16", "#4ade80"),
@@ -164,7 +164,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset56",
     fields: [],
-    name: "Стрит-лукбук",
+    name: "Игрок с картами (лукбук)",
     description: "Низкий ракурс, игрок с веером карт, гранжевые надписи по бокам, стикеры",
     gradient: g("#0a0a0a", "#dc2626", "#e5e5e5"),
     examples: ex("#0a0a0a", "#dc2626", "#171717", "#f5f5f5"),
@@ -175,7 +175,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset57",
     fields: [FIELD_BONUS_BADGE],
-    name: "Гранж-флаер",
+    name: "Кости в цепях (гранж-флаер)",
     description: "Чёрно-кислотный флаер, пушистые 3D-кости с цепями и шипами, рваные полосы",
     gradient: g("#0a0a0a", "#65a30d", "#a3e635"),
     examples: ex("#0a0a0a", "#65a30d", "#1a2e05", "#a3e635"),
@@ -186,7 +186,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset58",
     fields: [],
-    name: "Бисерный маскот",
+    name: "Маскот из бисера с фишкой",
     description: "Плоский жёлтый фон, маскот из бисера с фишкой и костями, чёрная типографика",
     gradient: g("#f59e0b", "#fbbf24", "#0a0a0a"),
     examples: ex("#f59e0b", "#fbbf24", "#d97706", "#0a0a0a"),
@@ -214,7 +214,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset60",
     fields: [],
-    name: "Мегафон сверху",
+    name: "Анонс: мегафон на сукне",
     description: "Вид сверху, персона с мегафоном на красном сукне стола с разметкой и фишками",
     gradient: g("#7f1d1d", "#dc2626", "#fee2e2"),
     examples: ex("#7f1d1d", "#dc2626", "#991b1b", "#fee2e2"),
@@ -225,7 +225,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset61",
     fields: [FIELD_CASINO_PROP],
-    name: "Хром в цветах",
+    name: "Хром-кости в цветах (люкс)",
     description: "Тёмно-красный шёлк, хромированные кости и фишка в гнезде из листвы и цветов",
     gradient: g("#450a0a", "#991b1b", "#84cc16"),
     examples: ex("#450a0a", "#991b1b", "#7f1d1d", "#a3e635"),
@@ -236,7 +236,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset62",
     fields: [],
-    name: "Свет лампы",
+    name: "Ночной стол под лампой",
     description: "Тёмная сцена, гибкая лампа подсвечивает заголовок, фишки и карта на столе",
     gradient: g("#1a1a0f", "#3f3f1a", "#f97316"),
     examples: ex("#1a1a0f", "#3f3f1a", "#262614", "#f97316"),
@@ -247,7 +247,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset63",
     fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
-    name: "Король-бонус",
+    name: "Бонус 100%: король-маскот",
     description: "Двухцветный градиент, 3D-маскот с короной, огромный процент, летящие купюры",
     gradient: g("#1e3a8a", "#6d28d9", "#dc2626"),
     examples: ex("#1e3a8a", "#6d28d9", "#1d4ed8", "#dc2626"),
@@ -264,7 +264,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset64",
     fields: [],
-    name: "Неон-журнал",
+    name: "Обложка: статуя с фишкой",
     description: "Обложка журнала: хром-заголовок, фигура-статуя с фишкой, неоновое кольцо, хром-кости",
     gradient: g("#0a0a0a", "#7e22ce", "#c084fc"),
     examples: ex("#0a0a0a", "#7e22ce", "#171717", "#c084fc"),
@@ -292,7 +292,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset66",
     fields: [FIELD_CASINO_PROP, FIELD_BONUS_BADGE],
-    name: "Казино-хостес",
+    name: "Хостес и золотые карты",
     description: "Тёмные соты, золотые карты, смеющаяся модель в блестящем платье, оранжевый заголовок",
     gradient: g("#0a0a0a", "#b45309", "#fbbf24"),
     examples: ex("#0a0a0a", "#b45309", "#171717", "#fbbf24"),
@@ -309,7 +309,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset67",
     fields: [],
-    name: "Жёлтый абсурд",
+    name: "Черепаха с фишками (юмор)",
     description: "Плоский жёлтый фон, черепаха на скейте везёт стопку фишек с ракетой, пунктирные стрелки",
     gradient: g("#eab308", "#facc15", "#0a0a0a"),
     examples: ex("#eab308", "#facc15", "#ca8a04", "#0a0a0a"),
@@ -320,7 +320,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset68",
     fields: [],
-    name: "Разбитое стекло",
+    name: "Джекпот: разбитое стекло",
     description: "Жёлтая гигантская типографика взрывается осколками и фишками, ночной город",
     gradient: g("#0a0a0a", "#ca8a04", "#facc15"),
     examples: ex("#0a0a0a", "#ca8a04", "#171717", "#facc15"),
@@ -331,7 +331,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset69",
     fields: [],
-    name: "Ракета-запуск",
+    name: "Ракета на монетах",
     description: "Золотая 3D-ракета с шлейфом из монет и фишек на чёрно-оранжевом градиенте",
     gradient: g("#0a0a0a", "#c2410c", "#f97316"),
     examples: ex("#0a0a0a", "#c2410c", "#1c1917", "#f97316"),
@@ -342,7 +342,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset70",
     fields: [],
-    name: "Коллаж-лукбук",
+    name: "Карты и фишки (ч/б коллаж)",
     description: "Ч/б редакторский коллаж: диагональные фото игрока, веер карт и фишки, скотч-заметки",
     gradient: g("#e7e5e4", "#1c1917", "#a8a29e"),
     examples: ex("#e7e5e4", "#1c1917", "#d6d3d1", "#78716c"),
@@ -370,7 +370,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset72",
     fields: [FIELD_CASINO_PROP],
-    name: "Гламур-маскот",
+    name: "Гламур-маскот с картами",
     description: "Монохромный розовый, пушистый 3D-маскот в блёстках и цепях с веером карт и фишками",
     gradient: g("#831843", "#db2777", "#f9a8d4"),
     examples: ex("#831843", "#db2777", "#9d174d", "#f9a8d4"),
@@ -381,7 +381,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset73",
     fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
-    name: "Лавровый оффер",
+    name: "Двойной оффер в венках",
     description: "Два оффера в лавровых венках, 3D-маскот указывает на зрителя, слот и бейджи",
     gradient: g("#0a0a0a", "#b91c1c", "#f59e0b"),
     examples: ex("#0a0a0a", "#b91c1c", "#1c1917", "#f59e0b"),
@@ -398,7 +398,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset74",
     fields: [],
-    name: "Дуохром-портрет",
+    name: "Портрет с очками-фишками",
     description: "Плоский жёлтый фон, портрет с серьгами-костями и очками-фишками, гигантские буквы позади",
     gradient: g("#facc15", "#eab308", "#1d4ed8"),
     examples: ex("#facc15", "#eab308", "#fde047", "#1d4ed8"),
@@ -409,7 +409,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset75",
     fields: [FIELD_BONUS_BADGE],
-    name: "Кислотная вечеринка",
+    name: "Кислотный маскот с фишками",
     description: "Ядовито-зелёный монохром, 3D-персонаж с фишками, объёмный bubble-заголовок, стикер",
     gradient: g("#052e16", "#16a34a", "#84cc16"),
     examples: ex("#052e16", "#16a34a", "#14532d", "#84cc16"),
@@ -437,7 +437,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset77",
     fields: [],
-    name: "Фреш-сплэш",
+    name: "Модель на золотой фишке",
     description: "Модель сидит на гигантской золотой фишке, брызги монет и самоцветов, рукописный заголовок",
     gradient: g("#14532d", "#16a34a", "#fde047"),
     examples: ex("#14532d", "#16a34a", "#166534", "#fde047"),
@@ -448,7 +448,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset78",
     fields: [FIELD_CASINO_PROP],
-    name: "Неон-дрип",
+    name: "Семёрка в неон-дрипе",
     description: "Стекающий неоновый заголовок, светящаяся 3D-семёрка в шляпе, фиолетовый туман",
     gradient: g("#2e1065", "#7e22ce", "#f97316"),
     examples: ex("#2e1065", "#7e22ce", "#3b0764", "#f97316"),
@@ -476,7 +476,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset80",
     fields: [],
-    name: "Гараж-зин",
+    name: "Машина-приз (граффити)",
     description: "Ч/б фото машины-приза, неоново-розовые и лаймовые граффити, фишки, мятая бумага",
     gradient: g("#0a0a0a", "#db2777", "#a3e635"),
     examples: ex("#0a0a0a", "#db2777", "#171717", "#a3e635"),
@@ -521,7 +521,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset83",
     fields: [],
-    name: "Цель-дартс",
+    name: "Дротик в рулетку",
     description: "Светящийся 3D-дротик в центре мишени-рулетки на чёрном, минимальный жёлтый заголовок",
     gradient: g("#0a0a0a", "#a16207", "#facc15"),
     examples: ex("#0a0a0a", "#a16207", "#171717", "#facc15"),
@@ -532,7 +532,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset84",
     fields: [],
-    name: "Типо-обложка",
+    name: "Портрет с фишкой + буквы",
     description: "Гигантские жёлтые буквы поверх портрета с золотой фишкой, розовый фон",
     gradient: g("#f472b6", "#ec4899", "#fde047"),
     examples: ex("#f472b6", "#ec4899", "#f9a8d4", "#fde047"),
@@ -543,7 +543,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset85",
     fields: [FIELD_BONUS_BADGE, FIELD_CASINO_PROP],
-    name: "Два маскота-босса",
+    name: "Бонус: два маскота-босса",
     description: "Тёмно-зелёный фон, два 3D-маскота в золоте и очках, огромный процент и плашка",
     gradient: g("#022c22", "#065f46", "#34d399"),
     examples: ex("#022c22", "#065f46", "#064e3b", "#34d399"),
@@ -577,7 +577,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset87",
     fields: [],
-    name: "Стрит-тедди",
+    name: "Тедди с костями (стрит)",
     description: "Векторная стрит-графика: залатанный плюш с золотой цепью и костями, белые контурные буквы",
     gradient: g("#0a0a0a", "#92400e", "#f5f5f5"),
     examples: ex("#0a0a0a", "#92400e", "#171717", "#f5f5f5"),
@@ -588,7 +588,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset88",
     fields: [],
-    name: "Лаймовый сплит",
+    name: "Пушистый с костью (лайм)",
     description: "Чёрный верх, лаймовый низ с гигантским рукописным словом, пушистый персонаж с костями",
     gradient: g("#0a0a0a", "#65a30d", "#a3e635"),
     examples: ex("#0a0a0a", "#65a30d", "#171717", "#a3e635"),
@@ -599,7 +599,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset89",
     fields: [],
-    name: "Песочные часы",
+    name: "Бонус истекает: часы с монетами",
     description: "Песочные часы с сыплющимися золотыми монетами на чёрном, фишки и карты в тени",
     gradient: g("#0a0a0a", "#c2410c", "#fb923c"),
     examples: ex("#0a0a0a", "#c2410c", "#1c1917", "#fb923c"),
@@ -610,7 +610,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset90",
     fields: [],
-    name: "Светлый запуск",
+    name: "Бонус запущен: белая ракета",
     description: "Белый фон, белая 3D-ракета с шлейфом из золотых монет и облаками, свуш-градиент",
     gradient: g("#ffffff", "#fb923c", "#f97316"),
     examples: ex("#ffffff", "#fb923c", "#fff7ed", "#f97316"),
@@ -621,7 +621,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset91",
     fields: [FIELD_CASINO_PROP],
-    name: "Фиолетовая сетка",
+    name: "Маскот с картами (фиолет)",
     description: "Фиолетовый фон с сеткой, повторяющееся слово, 3D-маскот с веером карт, стеклянные плашки",
     gradient: g("#2e1065", "#6d28d9", "#dc2626"),
     examples: ex("#2e1065", "#6d28d9", "#4c1d95", "#dc2626"),
@@ -649,7 +649,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset93",
     fields: [FIELD_CASINO_PROP],
-    name: "Сёрф на монете",
+    name: "Сёрф на золотой монете",
     description: "Синий лучевой фон, персона в костюме сёрфит на гигантской золотой монете, купюры в воздухе",
     gradient: g("#1e3a8a", "#2563eb", "#facc15"),
     examples: ex("#1e3a8a", "#2563eb", "#1e40af", "#facc15"),
@@ -666,7 +666,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset94",
     fields: [FIELD_BONUS_BADGE],
-    name: "Неон-скидка",
+    name: "Бонус 200% в неоне",
     description: "Чёрный фон, плоские неоновые фигуры, гигантский процент бонуса, модель с фишками",
     gradient: g("#0a0a0a", "#a3e635", "#ec4899"),
     examples: ex("#0a0a0a", "#a3e635", "#171717", "#ec4899"),
@@ -677,7 +677,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset95",
     fields: [],
-    name: "Синтвейв-вечеринка",
+    name: "Синтвейв: фишки и закат",
     description: "Розовый закат-круг, пальмы, неоновые полосы, персонаж в маске с фишками",
     gradient: g("#1a0521", "#be185d", "#f472b6"),
     examples: ex("#1a0521", "#be185d", "#3b0764", "#f472b6"),
@@ -688,7 +688,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset96",
     fields: [],
-    name: "Рваная бумага",
+    name: "Карточный король в разрыве",
     description: "Красная бумага с прорывом, сквозь дыру смотрят глаза карточного короля, заголовок под ней",
     gradient: g("#7f1d1d", "#dc2626", "#e5e5e5"),
     examples: ex("#7f1d1d", "#dc2626", "#991b1b", "#e5e5e5"),
@@ -699,7 +699,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset97",
     fields: [],
-    name: "Волновой шрифт",
+    name: "Ястреб с фишкой (волна)",
     description: "Красно-белые волнистые буквы, монохромный ястреб с красным глазом и золотой фишкой в клюве",
     gradient: g("#b91c1c", "#dc2626", "#fafafa"),
     examples: ex("#b91c1c", "#dc2626", "#7f1d1d", "#fafafa"),
@@ -710,7 +710,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset98",
     fields: [],
-    name: "Японский коллаж",
+    name: "Карты в воздухе (яп. коллаж)",
     description: "Бежевая бумага, оранжевые круги и мазки, персона бросает карты, большой белый заголовок",
     gradient: g("#f5f5f4", "#ea580c", "#1c1917"),
     examples: ex("#f5f5f4", "#ea580c", "#e7e5e4", "#1c1917"),
@@ -721,7 +721,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset99",
     fields: [],
-    name: "Готика-сплэттер",
+    name: "Король джекпотов (готика)",
     description: "Готический розовый шрифт на ч/б гравюре карточного короля с фишками, брызги краски",
     gradient: g("#0a0a0a", "#be123c", "#fb7185"),
     examples: ex("#0a0a0a", "#be123c", "#171717", "#fb7185"),
@@ -732,7 +732,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset100",
     fields: [],
-    name: "Студия-продукт",
+    name: "Слот-автомат в студии",
     description: "Монохромный бирюзовый сет, гигантский слот-автомат, модель опирается на него, шахматный пол",
     gradient: g("#0f766e", "#14b8a6", "#facc15"),
     examples: ex("#0f766e", "#14b8a6", "#0d9488", "#facc15"),
@@ -743,7 +743,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset101",
     fields: [FIELD_CASINO_PROP, FIELD_WIN_CALLOUT],
-    name: "Денежный вихрь",
+    name: "Вихрь купюр + лента-заголовок",
     description: "Тёплый оранжевый фон, вихрь купюр, лента-заголовок обвивает героя в красном",
     gradient: g("#7c2d12", "#ea580c", "#fde047"),
     examples: ex("#7c2d12", "#ea580c", "#9a3412", "#fde047"),
