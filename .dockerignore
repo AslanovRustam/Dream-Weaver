@@ -1,0 +1,9 @@
+# Build context hygiene — without this the Nixpacks build ships ~280MB to Docker.
+.git
+.next
+node_modules
+npm-debug.log*
+*.tsbuildinfo
+.env*
+coverage
+тест
