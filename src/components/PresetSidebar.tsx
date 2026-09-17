@@ -138,8 +138,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset4",
     fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
-    name: "Спорт / Ставки",
-    description: "Беттинг-баннер под спортивное событие (face-off, fight poster, esports)",
+    name: "Матч: эмблемы VS + кубок",
+    description: "Беттинг-баннер под матч: две эмблемы, VS, кубок, софиты стадиона",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
@@ -152,8 +152,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset5",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
-    name: "Боевые искусства",
-    description: "Кинематографичный fighter-портрет: бокс/ММА, пот, энергетический свет",
+    name: "Бой: портрет бойца",
+    description: "Кинематографичный портрет бойца (бокс/ММА), энергетический свет, оффер на бой",
     gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
     examples: [
       "linear-gradient(135deg,#0b0b0f,#dc2626)",
@@ -316,8 +316,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset13",
     fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
-    name: "Голо-статборд",
-    description: "Голографические коэффициенты, HUD, стат-графы",
+    name: "Live-коэффициенты: HUD",
+    description: "Голографические коэффициенты, HUD-панели и стат-графы над стадионом",
     gradient: "linear-gradient(135deg,#020617,#1d4ed8,#22d3ee)",
     examples: [
       "linear-gradient(135deg,#020617,#1d4ed8)",
@@ -337,8 +337,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset14",
     fields: [FIELD_WIN_CALLOUT],
-    name: "Стрит / граффити",
-    description: "Спрей-текстуры, граффити-теги, стритвир-энергия",
+    name: "Ставки: граффити-стена",
+    description: "Уличный беттинг: спрей-текстуры, граффити-теги, бетонная стена, хайп",
     gradient: "linear-gradient(135deg,#111827,#22c55e,#f43f5e)",
     examples: [
       "linear-gradient(135deg,#111827,#22c55e)",
@@ -405,8 +405,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset16",
     fields: [FIELD_WIN_CALLOUT, FIELD_SHOW_ODDS],
-    name: "Победный купон",
-    description: "Выигрышный бет-слип, денежный дождь, зелёный тикет",
+    name: "Выигрышный купон + деньги",
+    description: "Бет-слип с отметкой WON, денежный дождь, зелёное свечение выигрыша",
     gradient: "linear-gradient(135deg,#0b0b0f,#15803d,#facc15)",
     examples: [
       "linear-gradient(135deg,#0b0b0f,#15803d)",
@@ -426,8 +426,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset17",
     fields: [FIELD_SPORT, FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
-    name: "Live-ставки",
-    description: "Красный LIVE, in-play тикер, динамичный стадион",
+    name: "LIVE: тикер и стадион",
+    description: "Красный бейдж LIVE, in-play тикер коэффициентов, смазанный экшн на стадионе",
     gradient: "linear-gradient(135deg,#0b0b0f,#dc2626,#f59e0b)",
     examples: [
       "linear-gradient(135deg,#0b0b0f,#dc2626)",
@@ -447,8 +447,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset18",
     fields: [FIELD_ODDS_MULT, FIELD_SHOW_ODDS],
-    name: "Экспресс x50",
-    description: "Аккумулятор: цепочка исходов, крупный множитель",
+    name: "Экспресс: цепочка исходов ×50",
+    description: "Аккумулятор: цепочка связанных исходов ведёт к огромному множителю",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
@@ -467,8 +467,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset19",
-    name: "Коэффициент-буст",
-    description: "Усиленные коэффициенты, молния, электрический акцент",
+    name: "Буст кэфа: молния",
+    description: "Усиленный коэффициент с молниями и искрами, мотив «было → стало»",
     gradient: "linear-gradient(135deg,#020617,#2563eb,#22d3ee)",
     examples: [
       "linear-gradient(135deg,#020617,#2563eb)",
@@ -560,8 +560,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset23",
     fields: [FIELD_JACKPOT_TIER, FIELD_WIN_CALLOUT],
-    name: "Тото / лотерея",
-    description: "Лото-шары, счастливые числа, призовой пул",
+    name: "Тото: шары и призовой пул",
+    description: "Лото-шары с числами, светящаяся сумма пула, конфетти",
     gradient: "linear-gradient(135deg,#042f2e,#0d9488,#fbbf24)",
     examples: [
       "linear-gradient(135deg,#042f2e,#0d9488)",
@@ -581,8 +581,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset24",
     fields: [FIELD_SPORT],
-    name: "Дерби эмблем",
-    description: "Столкновение эмблем/флагов, VS, без лиц",
+    name: "Дерби: эмблемы и VS",
+    description: "Две эмблемы клубов сталкиваются через VS, искры, тёплый и холодный сплит",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
@@ -623,8 +623,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset26",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Футбол",
-    description: "Беттинг-баннер под футбол: стадион, экшн, командные цвета",
+    name: "Футбол: стадион и удар",
+    description: "Беттинг под футбол: стадион под софитами, удар по мячу, командные цвета",
     gradient: "linear-gradient(135deg,#052e16,#16a34a,#f1f5f9)",
     examples: [
       "linear-gradient(135deg,#052e16,#16a34a)",
@@ -644,8 +644,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset27",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Баскетбол",
-    description: "Беттинг-баннер под баскетбол: арена, паркет, данк",
+    name: "Баскетбол: арена и данк",
+    description: "Беттинг под баскетбол: арена, паркет, данк в прыжке",
     gradient: "linear-gradient(135deg,#0b0b0f,#ea580c,#f59e0b)",
     examples: [
       "linear-gradient(135deg,#0b0b0f,#ea580c)",
@@ -665,8 +665,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset28",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Американский футбол",
-    description: "Беттинг-баннер под NFL: стадион, экшн, спред",
+    name: "Амер. футбол: прорыв",
+    description: "Беттинг под американский футбол: стадион, игрок в шлеме рвётся с мячом",
     gradient: "linear-gradient(135deg,#0b1220,#1e3a8a,#94a3b8)",
     examples: [
       "linear-gradient(135deg,#0b1220,#1e3a8a)",
@@ -686,8 +686,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset29",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Теннис",
-    description: "Беттинг-баннер под теннис: корт, подача, матч",
+    name: "Теннис: подача на корте",
+    description: "Беттинг под теннис: стадионный корт, подача, ракетка и мяч",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#a3e635)",
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
@@ -707,8 +707,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset30",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT],
-    name: "Крикет",
-    description: "Беттинг-баннер под крикет: поле, бэтсмен, T20",
+    name: "Крикет: удар бэтсмена",
+    description: "Беттинг под крикет: поле под софитами, бэтсмен бьёт по мячу",
     gradient: "linear-gradient(135deg,#052e16,#0d9488,#f59e0b)",
     examples: [
       "linear-gradient(135deg,#052e16,#0d9488)",
@@ -728,8 +728,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset31",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Бейсбол",
-    description: "Беттинг-баннер под бейсбол: даймонд, свинг, MLB",
+    name: "Бейсбол: свинг на даймонде",
+    description: "Беттинг под бейсбол: даймонд на закате, бэттер в замахе",
     gradient: "linear-gradient(135deg,#0b1220,#b91c1c,#e2e8f0)",
     examples: [
       "linear-gradient(135deg,#0b1220,#b91c1c)",
@@ -749,8 +749,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset32",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Хоккей",
-    description: "Беттинг-баннер под хоккей: лёд, буллит, NHL",
+    name: "Хоккей: бросок на льду",
+    description: "Беттинг под хоккей: лёд, борта, бросок с ледяной крошкой",
     gradient: "linear-gradient(135deg,#0b1220,#0284c7,#e0f2fe)",
     examples: [
       "linear-gradient(135deg,#0b1220,#0284c7)",
@@ -770,8 +770,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset33",
     fields: [FIELD_SHOW_ODDS, FIELD_MATCH_MOMENT, FIELD_TIME_OF_DAY],
-    name: "Скачки",
-    description: "Беттинг-баннер под скачки: ипподром, финиш, фаворит",
+    name: "Скачки: финиш фаворита",
+    description: "Беттинг под скачки: ипподром, лошади с жокеями на финише, пыль",
     gradient: "linear-gradient(135deg,#052e16,#15803d,#facc15)",
     examples: [
       "linear-gradient(135deg,#052e16,#15803d)",
@@ -790,8 +790,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   },
   {
     id: "preset35",
-    name: "Киберспорт",
-    description: "Беттинг-баннер под esports: арена, LED, про-игрок",
+    name: "Киберспорт: арена и про",
+    description: "Беттинг под киберспорт: LED-арена, неон, про-игрок за сетапом",
     gradient: "linear-gradient(135deg,#0f0524,#a855f7,#22d3ee)",
     examples: [
       "linear-gradient(135deg,#0f0524,#a855f7)",
@@ -863,8 +863,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset37",
     fields: [FIELD_WIN_CALLOUT],
-    name: "Стрит-афиша",
-    description: "Грандж-постер события: рваная текстура, QR-код, дерзкий тон",
+    name: "Афиша матча (гранж + QR)",
+    description: "Гранж-постер матч-дня: рваная текстура, красно-чёрный дуотон, QR и детали",
     gradient: "linear-gradient(135deg,#1a0000,#b91c1c,#f1f5f9)",
     examples: [
       "linear-gradient(135deg,#1a0000,#b91c1c)",
@@ -905,8 +905,8 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   {
     id: "preset39",
     fields: [FIELD_SPORT, FIELD_SHOW_ODDS],
-    name: "Экшн-лайфстайл",
-    description: "Динамичный fisheye-экшн: приложение в руке, городская энергия",
+    name: "Приложение в руке (fisheye)",
+    description: "Fisheye-экшн: улыбающийся человек показывает приложение ставок на телефоне, город",
     gradient: "linear-gradient(135deg,#0ea5e9,#f97316,#fde68a)",
     examples: [
       "linear-gradient(135deg,#0ea5e9,#f97316)",
@@ -1089,6 +1089,8 @@ const PNG_PREVIEW_IDS = new Set([
   // Sep 2026; regenerated as 3:2 via scripts/gen-previews.mjs.
   "preset1", "preset2", "preset3", "preset4",
   "preset15",
+  // Sport pack regenerated Sep 2026 (brand-free samples).
+  "preset5", "preset13", "preset14", "preset16", "preset17", "preset18", "preset19", "preset23", "preset24", "preset26", "preset27", "preset28", "preset29", "preset30", "preset31", "preset32", "preset33", "preset35", "preset37", "preset39", "preset55", "preset59", "preset65", "preset71", "preset76", "preset79", "preset81", "preset82", "preset86", "preset92",
   "preset36", "preset37", "preset38", "preset39", "preset40",
   "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
   ...PRESETS_BATCH_3.map((p) => p.id),

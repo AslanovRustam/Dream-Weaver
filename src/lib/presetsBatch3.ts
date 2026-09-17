@@ -147,19 +147,13 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset55",
     fields: [FIELD_SPORT, FIELD_MATCH_MOMENT],
-    name: "Спорт-плакат",
-    description: "Гигантские жёлтые слова за атлетом, разрядка заглавных, тёмный зал",
+    name: "Атлет + гигантские слова",
+    description: "Гигантские жёлтые слова за атлетом, купон ставки и тег коэффициента, тёмная арена",
     gradient: g("#0a0a0a", "#eab308", "#facc15"),
     examples: ex("#0a0a0a", "#eab308", "#171717", "#facc15"),
     isNew: true,
     template:
-      "Create a gym / athletic poster banner for {SUBJECT}. " +
-      "STYLE: a dynamic non-identifiable athlete in dark training gear standing in front of two giant condensed yellow headline words, a dark moody gym behind, a few pieces of equipment floating blurred at the edges. " +
-      "COMPOSITION: athlete centered overlapping the giant words, a wide letter-spaced intro line above, two small label tags beside the figure, a letter-spaced tagline at the bottom. " +
-      "LIGHTING: hard rim light on the body, dark background, yellow letters flat and bright. " +
-      "TYPOGRAPHY & LAYOUT: condensed uppercase giant words, wide tracked small caps captions; all inside the safe zone. " +
-      "COLOR: black, yellow and white only. " +
-      "AVOID: real athletes, real logos, more than 3 dominant colors.",
+      "Create a sportsbook poster banner for {SUBJECT}. STYLE: a dynamic non-identifiable athlete in dark training gear standing in front of two giant condensed yellow headline words, a dark moody arena behind, a glowing bet-slip ticket and a small odds tag floating beside the figure, a few pieces of sports gear blurred at the edges. COMPOSITION: athlete centered overlapping the giant words, a wide letter-spaced intro line above, the bet slip and odds tag beside the figure, a letter-spaced tagline at the bottom. LIGHTING: hard rim light on the body, dark background, yellow letters flat and bright. TYPOGRAPHY & LAYOUT: condensed uppercase giant words, wide tracked small caps captions; all inside the safe zone. COLOR: black, yellow and white only. AVOID: real athletes, real logos, more than 3 dominant colors.",
   },
   {
     id: "preset56",
@@ -197,8 +191,8 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset59",
     fields: [FIELD_SPORT, FIELD_TIME_OF_DAY],
-    name: "AR из телефона",
-    description: "Телефон в руке, из экрана вырываются 3D-объекты, стадион и бейджи сторов",
+    name: "Матч из телефона (AR)",
+    description: "Телефон в руке, из экрана вырываются мяч, кубок и форма, стадион и бейджи сторов",
     gradient: g("#0f172a", "#16a34a", "#dc2626"),
     examples: ex("#0f172a", "#16a34a", "#1e293b", "#dc2626"),
     isNew: true,
@@ -275,8 +269,8 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset65",
     fields: [FIELD_SPORT, FIELD_BONUS_BADGE],
-    name: "Хром-трофей",
-    description: "Хромированные 3D-объекты, мячи и купюры, синие ленты-плашки, поле промокода",
+    name: "Промокод: хром-трофей и мячи",
+    description: "Хромированный кубок, знаки $, мячи и купюры из телефона, синие ленты, поле промокода",
     gradient: g("#0f172a", "#2563eb", "#e2e8f0"),
     examples: ex("#0f172a", "#2563eb", "#1e293b", "#e2e8f0"),
     isNew: true,
@@ -353,8 +347,8 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset71",
     fields: [FIELD_SPORT, FIELD_BONUS_BADGE],
-    name: "Спорт-бонус HUD",
-    description: "Портрет атлета на фоне неоновой сетки, огромный процент, зелёная плашка",
+    name: "Бонус 15%: атлет и HUD-сетка",
+    description: "Портрет атлета в профиль на фоне неоновой сетки стадиона, огромный процент бонуса",
     gradient: g("#022c22", "#059669", "#4ade80"),
     examples: ex("#022c22", "#059669", "#064e3b", "#4ade80"),
     isNew: true,
@@ -420,19 +414,13 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset76",
     fields: [FIELD_SPORT],
-    name: "Надувные буквы",
-    description: "Огромные надувные буквы обвивают человека на улице, солнечный день",
+    name: "Надувные буквы вокруг атлета",
+    description: "Огромные надувные буквы обвивают атлета с телефоном на корте, солнечный день",
     gradient: g("#65a30d", "#a3e635", "#38bdf8"),
     examples: ex("#65a30d", "#a3e635", "#4d7c0f", "#38bdf8"),
     isNew: true,
     template:
-      "Create an inflatable-typography lifestyle banner for {SUBJECT}. " +
-      "STYLE: giant puffy inflatable 3D letters in a green-to-teal gradient spiraling around a non-identifiable athletic person outdoors on a sunny sports court, the letters physically wrapping the body, palm trees and blue sky behind. " +
-      "COMPOSITION: person centered holding sports gear, the two headline words inflated above and below wrapping around them, small logo tags in the bottom corners. " +
-      "LIGHTING: bright natural sunlight, soft shadows on the inflatable surfaces. " +
-      "TYPOGRAPHY & LAYOUT: the inflatable letters ARE the headline (two short words); minimal other text inside the safe zone. " +
-      "COLOR: lime-green, teal and sky blue (max 3 dominant colors). " +
-      "AVOID: recognizable faces, real logos, unreadable letters.",
+      "Create an inflatable-typography sportsbook banner for {SUBJECT}. STYLE: giant puffy inflatable 3D letters in a green-to-teal gradient spiraling around a non-identifiable athletic person on a sunny sports court holding sports gear in one hand and a phone showing a bet slip in the other, the letters physically wrapping the body, palm trees and blue sky behind, a small odds tag. COMPOSITION: person centered, the two headline words inflated above and below wrapping around them, the odds tag near the phone, small logo tags in the bottom corners. LIGHTING: bright natural sunlight, soft shadows on the inflatable surfaces. TYPOGRAPHY & LAYOUT: the inflatable letters ARE the headline (two short words); minimal other text inside the safe zone. COLOR: lime-green, teal and sky blue (max 3 dominant colors). AVOID: recognizable faces, real logos, unreadable letters.",
   },
   {
     id: "preset77",
@@ -459,7 +447,7 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset79",
     fields: [FIELD_SPORT, FIELD_JACKPOT_TIER],
-    name: "Спорт-джекпот",
+    name: "Спорт-джекпот: фанат и монеты",
     description: "Золотой 3D-заголовок в рамке, кричащий фанат, парящий инвентарь и монеты",
     gradient: g("#052e16", "#16a34a", "#fbbf24"),
     examples: ex("#052e16", "#16a34a", "#14532d", "#fbbf24"),
@@ -487,8 +475,8 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset81",
     fields: [FIELD_SPORT],
-    name: "Апп-витрина",
-    description: "Плоский фиолетовый фон, восторженная персона с телефоном, карточки интерфейса",
+    name: "Приложение: фанат с телефоном",
+    description: "Плоский фиолетовый фон, восторженный фанат с телефоном, карточки ставок на экране",
     gradient: g("#4c1d95", "#7c3aed", "#facc15"),
     examples: ex("#4c1d95", "#7c3aed", "#5b21b6", "#facc15"),
     isNew: true,
@@ -504,19 +492,13 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset82",
     fields: [FIELD_SPORT, FIELD_MATCH_MOMENT],
-    name: "Красный дуотон-экшн",
-    description: "Красно-белый дуотон, гигантская фоновая надпись, бегущие фигуры, силуэт города",
+    name: "Дуотон-экшн: бег на камеру",
+    description: "Красно-белый дуотон, гигантская надпись, атлеты бегут на камеру, тег коэффициента",
     gradient: g("#7f1d1d", "#dc2626", "#fafafa"),
     examples: ex("#7f1d1d", "#dc2626", "#991b1b", "#fafafa"),
     isNew: true,
     template:
-      "Create a red-duotone action banner for {SUBJECT}. " +
-      "STYLE: a bold red-and-white duotone poster: a giant white headline word fills the background, three non-identifiable athletes in helmets and gear sprinting toward the camera across a wet street, white speed streaks, a dark city skyline silhouette, a small boxed event title top-right. " +
-      "COMPOSITION: lead figure reaching toward the lens on the left, others behind on the right, giant word behind everything, small label block top-right. " +
-      "LIGHTING: hard graphic contrast, wet reflections, grain. " +
-      "TYPOGRAPHY & LAYOUT: giant condensed white word as backdrop, small caps label; keep the safe zone readable. " +
-      "COLOR: red, white and black only. " +
-      "AVOID: recognizable faces, real logos, more than 3 dominant colors.",
+      "Create a red-duotone sportsbook action banner for {SUBJECT}. STYLE: a bold red-and-white duotone poster: a giant white headline word fills the background, three non-identifiable athletes in helmets and gear sprinting toward the camera across a wet street, white speed streaks, a dark city skyline silhouette, a small boxed odds tag and event title top-right. COMPOSITION: lead figure reaching toward the lens on the left, others behind on the right, giant word behind everything, small label block top-right. LIGHTING: hard graphic contrast, wet reflections, grain. TYPOGRAPHY & LAYOUT: giant condensed white word as backdrop, small caps label; keep the safe zone readable. COLOR: red, white and black only. AVOID: recognizable faces, real logos, more than 3 dominant colors.",
   },
   {
     id: "preset83",
@@ -560,8 +542,8 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset86",
     fields: [FIELD_SPORT, FIELD_BONUS_BADGE],
-    name: "Хайп-фрибет",
-    description: "Синий свет, восторженная персона, серебряный 3D-заголовок, жёлтая подчёркивающая линия",
+    name: "Фрибет: хайп и бейджи сторов",
+    description: "Синий свет, восторженный человек, серебряный 3D-заголовок, жёлтая линия, бейджи сторов",
     gradient: g("#0c1a3a", "#1e40af", "#facc15"),
     examples: ex("#0c1a3a", "#1e40af", "#172554", "#facc15"),
     isNew: true,
@@ -632,19 +614,13 @@ export const PRESETS_BATCH_3: Preset[] = [
   {
     id: "preset92",
     fields: [FIELD_SPORT, FIELD_TIME_OF_DAY],
-    name: "Аннотации-коллауты",
-    description: "Атлет бежит на камеру, лаймовые линии-выноски с преимуществами, гигантский заголовок",
+    name: "Атлет + выноски преимуществ",
+    description: "Атлет бежит на камеру, лаймовые линии-выноски с плюсами букмекера, гигантский заголовок",
     gradient: g("#0a0a0a", "#65a30d", "#bef264"),
     examples: ex("#0a0a0a", "#65a30d", "#1a2e05", "#bef264"),
     isNew: true,
     template:
-      "Create an annotated-feature banner for {SUBJECT}. " +
-      "STYLE: a dark modern gym with sunlit windows, a non-identifiable athlete in a black training vest running straight at the camera on a lime running track, thin lime callout lines with dots pointing from the body to four short benefit labels on the left and right, a kettlebell and a plate floating with motion trails. " +
-      "COMPOSITION: athlete centered, a giant three-line headline above mixing lime and white words, callouts at mid-height, a two-line CTA stack at the bottom. " +
-      "LIGHTING: backlit sun flare through the windows, lime glow on the track. " +
-      "TYPOGRAPHY & LAYOUT: extra-bold uppercase headline, small sans callout labels, footer CTA; all inside the safe zone. " +
-      "COLOR: black, lime and white only. " +
-      "AVOID: recognizable faces, real logos, callouts overlapping the headline.",
+      "Create an annotated-benefits sportsbook banner for {SUBJECT}. STYLE: a dark stadium tunnel with sunlit exit, a non-identifiable athlete in a plain black kit running straight at the camera on a lime track, thin lime callout lines with dots pointing from the body to four short sportsbook benefit labels (fast payouts, boosted odds, live streams, cash out) on the left and right, a ball and a bet-slip ticket floating with motion trails. COMPOSITION: athlete centered, a giant three-line headline above mixing lime and white words, callouts at mid-height, a two-line CTA stack at the bottom. LIGHTING: backlit sun flare from the tunnel exit, lime glow on the track. TYPOGRAPHY & LAYOUT: extra-bold uppercase headline, small sans callout labels, footer CTA; all inside the safe zone. COLOR: black, lime and white only. AVOID: recognizable faces, real logos, callouts overlapping the headline.",
   },
   {
     id: "preset93",
