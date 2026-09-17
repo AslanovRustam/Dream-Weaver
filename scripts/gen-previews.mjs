@@ -24,7 +24,7 @@ const SUFFIX =
 
 // id → { subject (invented user request, EN), style }
 const ITEMS = [
-  { id: "preset1", subject: "VoltMax tropical energy drink, 200mg caffeine", style: "High-impact e-commerce product infographic banner: a hand holds the product toward camera in the foreground (macro blur), a smiling model mid-ground, soft gradient backdrop with rainbow prism flares, big bold NUMBERS with short unit captions." },
+  { id: "preset1", subject: "LuckyRoyal online casino app — 200% welcome bonus and 500 free spins", style: "High-impact casino-app infographic banner: a hand holds a smartphone toward camera in the foreground showing a glossy casino game lobby with a golden slot reel (macro blur), a smiling model mid-ground, a soft dark-violet gradient backdrop with gold coins, casino chips and rainbow prism flares, big bold NUMBERS (200% / 500) with short bonus captions." },
   { id: "preset2", subject: "a candy-and-fruit themed online slot called Candy Rush (invented game)", style: "Premium cinematic gaming slot banner: glossy high-contrast, rich dark atmospheric background, glowing slot reels and candy/fruit jackpot symbols, particles, smoke, reflections." },
   { id: "preset3", subject: "a New Year mega poker tournament with a $100,000 prize pool", style: "Premium gambling event banner: cinematic, glowing casino props (poker cards, golden chips), tasteful festive New Year accents, dynamic energy." },
   { id: "preset4", subject: "the cup final: Northbridge FC vs Harbor City (invented clubs, generic crests)", style: "Premium sports-betting face-off poster: two football club crests mirrored left and right with a bold VS in the center, stadium floodlights, sparks, dramatic warm-vs-cool split. No real player faces, emblems only." },
