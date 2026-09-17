@@ -10,10 +10,6 @@ import {
   Square,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import presetWideAngle from "@/assets/preset-wide-angle.jpg";
-import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
-import presetEvent from "@/assets/preset-event.jpg";
-import presetSport from "@/assets/preset-sport.jpg";
 
 // Declarative per-template custom fields — a flexible dropdown/checkbox system.
 // A preset lists the fields it wants; the UI renders them generically and the
@@ -65,7 +61,6 @@ export const PRESETS: Preset[] = [
     name: "Широкий угол",
     description: "Яркая инфографика для товара с крупными цифрами и характеристиками",
     gradient: "linear-gradient(135deg,#a3e635,#22d3ee,#f0abfc)",
-    preview: presetWideAngle.src,
     examples: [
       "linear-gradient(135deg,#a3e635,#22d3ee)",
       "linear-gradient(160deg,#f0abfc,#a3e635)",
@@ -80,7 +75,6 @@ export const PRESETS: Preset[] = [
     name: "Баннер по слоту",
     description: "Премиум gaming-баннер для конкретного слота",
     gradient: "linear-gradient(135deg,#0f172a,#7c3aed,#22d3ee)",
-    preview: presetSlotBanner.src,
     examples: [
       "linear-gradient(135deg,#0f172a,#7c3aed)",
       "linear-gradient(160deg,#1e1b4b,#22d3ee)",
@@ -133,7 +127,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
     name: "Событие",
     description: "Гемблинг/беттинг баннер под событие или повод",
     gradient: "linear-gradient(135deg,#1e1b4b,#dc2626,#f59e0b)",
-    preview: presetEvent.src,
     examples: [
       "linear-gradient(135deg,#1e1b4b,#dc2626)",
       "linear-gradient(160deg,#0f172a,#f59e0b)",
@@ -148,7 +141,6 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
     name: "Спорт / Ставки",
     description: "Беттинг-баннер под спортивное событие (face-off, fight poster, esports)",
     gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#dc2626)",
-    preview: presetSport.src,
     examples: [
       "linear-gradient(135deg,#0b1220,#1d4ed8)",
       "linear-gradient(160deg,#0a0a0a,#dc2626)",
@@ -1093,6 +1085,9 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
 // Attach each as its tile preview; presets without a generated file keep
 // their gradient fallback.
 const PNG_PREVIEW_IDS = new Set([
+  // preset1–4 were square asset imports (cropped in the 4:3 tiles) until
+  // Sep 2026; regenerated as 3:2 via scripts/gen-previews.mjs.
+  "preset1", "preset2", "preset3", "preset4",
   "preset36", "preset37", "preset38", "preset39", "preset40",
   "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
   ...PRESETS_BATCH_3.map((p) => p.id),
