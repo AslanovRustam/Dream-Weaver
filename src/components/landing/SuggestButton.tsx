@@ -15,8 +15,8 @@ export function SuggestButton({
   onFill,
 }: {
   topic: string;
-  field: "headline" | "cta" | "bg" | "character" | "icon";
-  mechanic: "wheel" | "slot" | "crash";
+  field: "headline" | "cta" | "bg" | "character" | "icon" | "teams";
+  mechanic: "wheel" | "slot" | "crash" | "match";
   onFill: (text: string) => void;
 }) {
   const [loading, setLoading] = useState(false);

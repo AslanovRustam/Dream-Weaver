@@ -282,6 +282,10 @@ export function LandingGenApp() {
       router.push("/crash");
       return;
     }
+    if (t.interactive === "match") {
+      router.push("/match");
+      return;
+    }
     setTemplateId(t.id);
     setMobileTab("settings");
   };

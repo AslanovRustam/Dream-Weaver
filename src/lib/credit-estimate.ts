@@ -51,6 +51,9 @@ export const SLOT_SYMBOLS_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PE
 // Crash-game rocket icon — same model/cost class as the character generator
 // (gpt-image-2.5-sunburst): one call, flat price like CHARACTER_PRICE_CREDITS.
 export const CRASH_ROCKET_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
+// Team crest for the "Матч-прогноз" landing (generate-team-crest): one call per
+// crest, flat price like the rocket icon.
+export const TEAM_CREST_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);
 
 // ⚠️ PLACEHOLDER — "Сделать лендинг" price shown on the button under the
 // master banner. Landing generation (bg + character, analysis) doesn't

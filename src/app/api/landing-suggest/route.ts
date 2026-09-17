@@ -10,13 +10,14 @@ import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
-type Field = "headline" | "cta" | "bg" | "character" | "icon";
+type Field = "headline" | "cta" | "bg" | "character" | "icon" | "teams";
 type Body = { topic?: string; field?: Field; mechanic?: string };
 
 const MECH_LABEL: Record<string, string> = {
   wheel: "колесо фортуны (fortune wheel)",
   slot: "слот-машина (slot machine)",
   crash: "crash-игра (rising multiplier)",
+  match: "матч-прогноз (pick the match winner, sports betting)",
 };
 
 function buildMessages(theme: string, field: Field, mechanic: string) {
@@ -54,7 +55,27 @@ function buildMessages(theme: string, field: Field, mechanic: string) {
       };
     // Icon prompts. The generators already pin down shape, angle, transparent
     // background and slicing, so these only describe the SUBJECT and look.
+    // Two invented club names for the match card, "A vs B". Real clubs are
+    // trademarks — the generator is told to avoid them.
+    case "teams":
+      return {
+        system:
+          "Ты — маркетолог спортивного беттинга. Придумай ДВА ВЫМЫШЛЕННЫХ названия команд/клубов под тематику " +
+          "(не используй реальные клубы, лиги и города-бренды вроде «Реал» или «Барселона»). Короткие, 1–2 слова каждое, " +
+          "на языке тематики. Верни ТОЛЬКО строку вида «Команда А vs Команда Б», без кавычек и пояснений.",
+        user: `Тематика: ${theme}`,
+      };
     case "icon":
+      if (mechanic === "match") {
+        return {
+          system:
+            "You are an art director. Write a concise (1 sentence) description IN ENGLISH of the visual theme for an " +
+            "INVENTED sports club crest — heraldic symbol idea, colors, material/finish — fitting the theme. Never " +
+            "reference real clubs or leagues. Do NOT mention shape, framing or background — that is added automatically. " +
+            "Return ONLY the theme description.",
+          user: `Theme / wishes: ${theme}`,
+        };
+      }
       return mechanic === "slot"
         ? {
             system:
@@ -103,7 +124,7 @@ export async function POST(request: Request) {
   const field = body.field as Field;
   const mechanic = (body.mechanic || "").trim();
   if (!theme) return Response.json({ error: "Заполните тематику" }, { status: 400 });
-  if (!["headline", "cta", "bg", "character", "icon"].includes(field)) {
+  if (!["headline", "cta", "bg", "character", "icon", "teams"].includes(field)) {
     return Response.json({ error: "Unknown field" }, { status: 400 });
   }
 

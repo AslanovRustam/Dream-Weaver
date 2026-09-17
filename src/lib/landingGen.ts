@@ -56,7 +56,7 @@ export type LandingTemplate = {
    *  to `gradient` when absent. */
   preview?: string;
   /** Interactive templates open a dedicated builder instead of the block flow. */
-  interactive?: "wheel" | "slot" | "crash";
+  interactive?: "wheel" | "slot" | "crash" | "match";
 };
 
 export type LandingTemplateCategory = {
@@ -80,6 +80,15 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
         description: "Спорт-беттинг: коэффициенты, экспресс, бонус на депозит",
         accent: "#38bdf8",
         gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#38bdf8)",
+      },
+      {
+        id: "betting-match",
+        vertical: "betting",
+        name: "Матч-прогноз",
+        description: "Геймифицированный лендинг: угадай исход матча — забери фрибет",
+        accent: "#38bdf8",
+        gradient: "linear-gradient(135deg,#052e16,#16a34a,#38bdf8)",
+        interactive: "match",
       },
       {
         id: "betting-express",
