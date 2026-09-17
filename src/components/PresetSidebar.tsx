@@ -1088,6 +1088,7 @@ const PNG_PREVIEW_IDS = new Set([
   // preset1–4 were square asset imports (cropped in the 4:3 tiles) until
   // Sep 2026; regenerated as 3:2 via scripts/gen-previews.mjs.
   "preset1", "preset2", "preset3", "preset4",
+  "preset15",
   "preset36", "preset37", "preset38", "preset39", "preset40",
   "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
   ...PRESETS_BATCH_3.map((p) => p.id),
