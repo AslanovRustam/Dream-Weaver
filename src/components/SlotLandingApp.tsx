@@ -25,6 +25,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -75,6 +76,7 @@ const DEFAULT_ATTEMPTS: string[] = [""];
 
 export function SlotLandingApp() {
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -369,6 +371,10 @@ export function SlotLandingApp() {
   // new list is at least as long (so re-rolling doesn't wipe bonus amounts
   // the user already typed in).
   const generateSlotIcons = async () => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (symbolTheme || topic).trim();
     if (!prompt) {
       toast.error("Укажите тематику иконок (или тематику лендинга выше)");
@@ -424,6 +430,10 @@ export function SlotLandingApp() {
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
   const generateBg = async (themeOverride?: string, refOverride?: string) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
     setGenning(true);
@@ -448,6 +458,10 @@ export function SlotLandingApp() {
     promptOverride?: string,
     refOverride?: string,
   ) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
     if (!prompt) return;
     const ref = refOverride ?? bannerRef;

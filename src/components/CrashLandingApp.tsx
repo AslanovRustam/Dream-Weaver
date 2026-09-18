@@ -13,6 +13,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, CRASH_ROCKET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -22,6 +23,7 @@ const ROCKET_PRICE = CRASH_ROCKET_PRICE_CREDITS;
 
 export function CrashLandingApp() {
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -289,6 +291,10 @@ export function CrashLandingApp() {
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
   const generateBg = async (themeOverride?: string, refOverride?: string) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
     setGenning(true);
@@ -313,6 +319,10 @@ export function CrashLandingApp() {
     promptOverride?: string,
     refOverride?: string,
   ) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
     if (!prompt) return;
     const ref = refOverride ?? bannerRef;
@@ -361,6 +371,10 @@ export function CrashLandingApp() {
   // bounding box (same helper used for characters) so it sits tight in the
   // small trail-line footprint instead of carrying empty padding.
   const generateRocketIcon = async () => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (rocketTheme || topic).trim();
     if (!prompt) {
       toast.error("Укажите тематику иконки (или тематику лендинга выше)");

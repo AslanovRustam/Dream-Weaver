@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { MatchCard } from "@/components/MatchCard";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -41,6 +42,7 @@ type Side = "home" | "away";
 // the odds buttons and the CTA all lead to the sportsbook (ctaUrl).
 export function MatchLandingApp() {
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -261,6 +263,10 @@ export function MatchLandingApp() {
   };
 
   const generateBg = async (themeOverride?: string, refOverride?: string) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
     setGenning(true);
@@ -277,6 +283,10 @@ export function MatchLandingApp() {
   };
 
   const generateCharacter = async (side: "left" | "right", promptOverride?: string, refOverride?: string) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
     if (!prompt) return;
     const ref = refOverride ?? bannerRef;
@@ -308,6 +318,10 @@ export function MatchLandingApp() {
   };
 
   const generateCrest = async (side: Side) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const team = teams[side].trim();
     if (!team) {
       toast.error("Сначала введите название команды");

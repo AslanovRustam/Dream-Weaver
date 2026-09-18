@@ -8,12 +8,13 @@
 //   const { requireAuth, isGuest } = useAuthGate();
 //   <button onClick={() => requireAuth(startGeneration)}>Сгенерировать</button>
 // or, for a whole page, render <GuestWall/> instead of the page body.
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LogIn, Sparkles, UserPlus, X } from "lucide-react";
 
 import { useAppRole } from "@/lib/roles";
+import { AUTH_REQUIRED_EVENT } from "@/lib/api-client";
 
 type GateValue = {
   isGuest: boolean;
@@ -26,12 +27,21 @@ type GateValue = {
 const GateContext = createContext<GateValue | null>(null);
 
 const DEFAULT_REASON = "Создавайте креативы, сохраняйте проекты и получайте кредиты.";
+const GENERATE_REASON = "Генерация и ИИ-подсказки доступны после входа. Зарегистрируйтесь или войдите.";
 
 export function AuthGateProvider({ children }: { children: ReactNode }) {
   const { isGuest } = useAppRole();
   const [reason, setReason] = useState<string | null>(null);
 
   const openGate = useCallback((r?: string) => setReason(r || DEFAULT_REASON), []);
+
+  // Any API call that ends in a real 401 (see apiFetch) opens the gate —
+  // covers every generate / ✨ button in every builder without wiring each.
+  useEffect(() => {
+    const onNeedAuth = () => setReason(GENERATE_REASON);
+    window.addEventListener(AUTH_REQUIRED_EVENT, onNeedAuth);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, onNeedAuth);
+  }, []);
   const requireAuth = useCallback(
     (action: () => void) => {
       if (isGuest) setReason(DEFAULT_REASON);

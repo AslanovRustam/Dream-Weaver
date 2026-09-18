@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Wand2 } from "lucide-react";
 
 import { apiFetch } from "@/lib/api-client";
+import { useAuthGate } from "@/components/AuthGate";
 
 // Little "✨ suggest" icon next to a landing field. Asks gpt-4o-mini (via
 // /api/landing-suggest) to propose text/prompt for this field from the topic,
@@ -20,10 +21,15 @@ export function SuggestButton({
   onFill: (text: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const { isGuest, openGate } = useAuthGate();
   const ready = topic.trim().length > 0;
 
   const run = async () => {
     if (!ready || loading) return;
+    if (isGuest) {
+      openGate();
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch("/api/landing-suggest", {

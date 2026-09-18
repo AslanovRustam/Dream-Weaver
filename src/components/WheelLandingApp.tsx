@@ -24,6 +24,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -41,6 +42,7 @@ const DEFAULT_PRIZES: WheelSegment[] = [
 
 export function WheelLandingApp() {
   const gen = useGeneration();
+  const { isGuest, openGate } = useAuthGate();
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -307,6 +309,10 @@ export function WheelLandingApp() {
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
   const generateBg = async (themeOverride?: string, refOverride?: string) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
     setGenning(true);
@@ -331,6 +337,10 @@ export function WheelLandingApp() {
     promptOverride?: string,
     refOverride?: string,
   ) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
     if (!prompt) return;
     const ref = refOverride ?? bannerRef;

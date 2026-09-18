@@ -61,10 +61,23 @@ export async function apiFetch(path: string, init: ApiInit = {}): Promise<Respon
   if (res.status === 401) {
     const token = await forceRefreshToken();
     if (token) {
-      return doFetch(path, init, { Authorization: `Bearer ${token}` });
+      const retried = await doFetch(path, init, { Authorization: `Bearer ${token}` });
+      if (retried.status === 401) notifyAuthRequired();
+      return retried;
     }
+    notifyAuthRequired();
   }
   return res;
+}
+
+/** Fired when a request ends in a definitive 401 (guest or dead session).
+ *  AuthGateProvider listens and opens the sign-in / register modal, so a
+ *  guest clicking any generate button sees the gate instead of a silent
+ *  "не удалось" — every call site gets this for free. */
+export const AUTH_REQUIRED_EVENT = "dw:auth-required";
+function notifyAuthRequired() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT));
 }
 
 export class ApiError extends Error {
