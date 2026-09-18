@@ -85,7 +85,7 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
         id: "betting-match",
         vertical: "betting",
         name: "Матч-прогноз",
-        description: "Геймифицированный лендинг: угадай исход матча — забери фрибет",
+        description: "Лендинг под матч: команды, коэффициенты, таймер и оффер — кнопки ведут на ставку",
         accent: "#38bdf8",
         gradient: "linear-gradient(135deg,#052e16,#16a34a,#38bdf8)",
         interactive: "match",

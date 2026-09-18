@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { MatchGame } from "@/components/MatchGame";
+import { MatchCard } from "@/components/MatchCard";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -19,7 +19,6 @@ import {
   type MatchPick,
   type MatchSport,
   type OddsFormat,
-  type OutcomeMode,
   type PrizeType,
 } from "@/lib/matchLogic";
 import { apiFetch } from "@/lib/api-client";
@@ -36,6 +35,9 @@ const DEFAULT_CHAR = "восторженный болельщик в шарфе 
 
 type Side = "home" | "away";
 
+// «Матч-прогноз» builder. The landing advertises ONE match: teams, crests,
+// odds, kick-off countdown, bonus offer. Nothing is played on the page —
+// the odds buttons and the CTA all lead to the sportsbook (ctaUrl).
 export function MatchLandingApp() {
   const gen = useGeneration();
   const [brand, setBrand] = useState("LOGO");
@@ -45,10 +47,10 @@ export function MatchLandingApp() {
     r.onload = () => setBrandLogo(String(r.result));
     r.readAsDataURL(f);
   };
-  const [headline, setHeadline] = useState("УГАДАЙ ИСХОД — ЗАБЕРИ ФРИБЕТ");
+  const [headline, setHeadline] = useState("СТАВЬ НА МАТЧ ДНЯ");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#38bdf8");
-  const [ctaText, setCtaText] = useState("СДЕЛАТЬ ПРОГНОЗ");
+  const [ctaText, setCtaText] = useState("СДЕЛАТЬ СТАВКУ");
   const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [bgImage, setBgImage] = useState("");
@@ -58,39 +60,29 @@ export function MatchLandingApp() {
 
   // ── match ──
   const [sport, setSport] = useState<MatchSport>("football");
+  const [eventName, setEventName] = useState("Финал кубка · Суббота 21:00");
   const [teams, setTeams] = useState<{ home: string; away: string }>({ home: "Нортбридж", away: "Харбор Сити" });
   const [crests, setCrests] = useState<{ home: string; away: string }>({ home: "", away: "" });
   const [crestTheme, setCrestTheme] = useState("");
   const [crestGenning, setCrestGenning] = useState<Side | null>(null);
   const [odds, setOdds] = useState<{ home: string; draw: string; away: string }>({ home: "1.85", draw: "3.40", away: "4.20" });
   const [oddsFormat, setOddsFormat] = useState<OddsFormat>("decimal");
-  const [outcomeMode, setOutcomeMode] = useState<OutcomeMode>("always");
-  const [winChance, setWinChance] = useState(70);
-  const [matchSeconds, setMatchSeconds] = useState(8);
-  const [finalScore, setFinalScore] = useState("2:1");
+  const [highlightFavourite, setHighlightFavourite] = useState(true);
+  const [showOffer, setShowOffer] = useState(true);
   const [prizeType, setPrizeType] = useState<PrizeType>("freebet");
   const [prizeAmount, setPrizeAmount] = useState("500");
   const [prizeCurrency, setPrizeCurrency] = useState("₽");
-  const [winText, setWinText] = useState("Прогноз сыграл! Регистрируйтесь и забирайте бонус.");
+  const [offerText, setOfferText] = useState("за первую ставку на этот матч");
   const [countdownMode, setCountdownMode] = useState<CountdownMode>("minutes");
   const [countdownMinutes, setCountdownMinutes] = useState(15);
   const [countdownDate, setCountdownDate] = useState("");
 
-  const [won, setWon] = useState<{ win: boolean; pick: MatchPick; score: string } | null>(null);
-  const [resetSignal, setResetSignal] = useState(0);
-  const [maxAttempts, setMaxAttempts] = useState(0);
-  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
-  const outOfAttempts = attemptsLeft !== null && attemptsLeft <= 0;
-  useEffect(() => {
-    setAttemptsLeft(null);
-  }, [maxAttempts]);
   const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [bannerRef, setBannerRef] = useState("");
   const [restored, setRestored] = useState(false);
 
-  // Numeric odds for the game (strings in the inputs so the user can type freely).
   const oddsNum = {
     home: Math.max(1.01, parseFloat(odds.home.replace(",", ".")) || 1.01),
     draw: Math.max(1.01, parseFloat(odds.draw.replace(",", ".")) || 1.01),
@@ -118,13 +110,12 @@ export function MatchLandingApp() {
         str("ctaUrl", setCtaUrl);
         str("theme", setTheme);
         str("bgImage", setBgImage);
+        str("eventName", setEventName);
         str("crestTheme", setCrestTheme);
-        str("finalScore", setFinalScore);
         str("prizeAmount", setPrizeAmount);
         str("prizeCurrency", setPrizeCurrency);
-        str("winText", setWinText);
+        str("offerText", setOfferText);
         str("countdownDate", setCountdownDate);
-        if (typeof d.maxAttempts === "number" && d.maxAttempts >= 0) setMaxAttempts(d.maxAttempts);
         if (typeof d.sport === "string" && SPORTS.some((s) => s.id === d.sport)) setSport(d.sport as MatchSport);
         if (typeof d.teamHome === "string" || typeof d.teamAway === "string") {
           setTeams((t) => ({
@@ -147,9 +138,8 @@ export function MatchLandingApp() {
           }));
         }
         if (["decimal", "american", "fractional"].includes(String(d.oddsFormat))) setOddsFormat(d.oddsFormat as OddsFormat);
-        if (["always", "favorite", "chance"].includes(String(d.outcomeMode))) setOutcomeMode(d.outcomeMode as OutcomeMode);
-        if (typeof d.winChance === "number") setWinChance(clampInt(d.winChance, 0, 100, 70));
-        if (typeof d.matchSeconds === "number") setMatchSeconds(clampInt(d.matchSeconds, 2, 60, 8));
+        if (typeof d.highlightFavourite === "boolean") setHighlightFavourite(d.highlightFavourite);
+        if (typeof d.showOffer === "boolean") setShowOffer(d.showOffer);
         if (["freebet", "deposit", "cashback"].includes(String(d.prizeType))) setPrizeType(d.prizeType as PrizeType);
         if (["off", "minutes", "date"].includes(String(d.countdownMode))) setCountdownMode(d.countdownMode as CountdownMode);
         if (typeof d.countdownMinutes === "number") setCountdownMinutes(clampInt(d.countdownMinutes, 1, 100000, 15));
@@ -212,11 +202,11 @@ export function MatchLandingApp() {
     if (!restored) return;
     const id = window.setTimeout(() => {
       const data = {
-        brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, maxAttempts, theme, bgImage,
+        brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, theme, bgImage,
         charLeft: chars.left, charRight: chars.right, charPromptLeft: charPrompts.left, charPromptRight: charPrompts.right,
-        sport, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, crestTheme,
-        odds, oddsFormat, outcomeMode, winChance, matchSeconds, finalScore,
-        prizeType, prizeAmount, prizeCurrency, winText, countdownMode, countdownMinutes, countdownDate,
+        sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, crestTheme,
+        odds, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText,
+        countdownMode, countdownMinutes, countdownDate,
       };
       try {
         window.localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
@@ -233,25 +223,28 @@ export function MatchLandingApp() {
     }, 500);
     return () => window.clearTimeout(id);
   }, [
-    restored, brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, maxAttempts, theme, bgImage, chars, charPrompts,
-    sport, teams, crests, crestTheme, odds, oddsFormat, outcomeMode, winChance, matchSeconds, finalScore,
-    prizeType, prizeAmount, prizeCurrency, winText, countdownMode, countdownMinutes, countdownDate,
+    restored, brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, theme, bgImage, chars, charPrompts,
+    sport, eventName, teams, crests, crestTheme, odds, oddsFormat, highlightFavourite, showOffer,
+    prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate,
   ]);
 
-  const closeModal = () => {
-    setWon(null);
-    setResetSignal((n) => n + 1);
-  };
-  const claimBonus = () => {
-    closeModal();
+  // Same ctaUrl / {macro} handling as the other builders: a tracker macro
+  // shows an info toast, a real URL opens in a new tab (never navigating the
+  // builder away). The chosen outcome is appended as ?pick=… like the export.
+  const goToOffer = (pick?: MatchPick) => {
     const url = ctaUrl.trim();
-    if (!url) return;
+    if (!url) {
+      toast.info("Укажите ссылку перехода (CTA) — на лендинге все кнопки ведут туда");
+      return;
+    }
     if (/[{}]/.test(url)) {
       toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
       return;
     }
     try {
-      window.open(new URL(url, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+      const u = new URL(url, window.location.origin);
+      if (pick) u.searchParams.set("pick", pick);
+      window.open(u.toString(), "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Некорректная ссылка в поле CTA");
     }
@@ -295,7 +288,6 @@ export function MatchLandingApp() {
       });
       const data = await res.json();
       if (res.ok && data.imageUrl) {
-        setChars((c) => ({ ...c, [side]: "" }));
         const trimmed = await trimTransparent(data.imageUrl);
         setChars((c) => ({ ...c, [side]: trimmed }));
         return;
@@ -331,7 +323,6 @@ export function MatchLandingApp() {
       if (!res.ok || !data.imageUrl) {
         throw new Error([data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
       }
-      setCrests((c) => ({ ...c, [side]: "" }));
       const trimmed = await trimTransparent(data.imageUrl);
       setCrests((c) => ({ ...c, [side]: trimmed }));
       toast.success(`Эмблема «${team}» сгенерирована`);
@@ -349,8 +340,8 @@ export function MatchLandingApp() {
   };
 
   const inputCls = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
-  const selectCls = `${inputCls} appearance-none`;
   const sportMeta = SPORTS.find((s) => s.id === sport) ?? SPORTS[0];
+  const prizeTitle = `${PRIZE_LABEL[prizeType]} ${prizeAmount} ${prizeCurrency}`.trim();
 
   const renderCharSlot = (side: "left" | "right", title: string) => (
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
@@ -430,19 +421,25 @@ export function MatchLandingApp() {
     </div>
   );
 
+  const toggle = (checked: boolean, set: (v: boolean) => void, label: string) => (
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+      <span className="text-xs font-semibold text-foreground">{label}</span>
+      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+    </label>
+  );
+
   const exportHtml = () =>
     downloadText(
       `${slugify(brand, "match")}-match.html`,
       buildMatchHtml({
-        brand, brandLogo, headline, accent, ctaText, ctaUrl, maxAttempts, bgImage,
+        brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage,
         charLeft: chars.left, charRight: chars.right,
-        sport, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away,
-        odds: oddsNum, oddsFormat, outcomeMode, winChance, matchSeconds, finalScore,
-        prizeType, prizeAmount, prizeCurrency, winText, countdownMode, countdownMinutes, countdownDate,
+        sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away,
+        odds: oddsNum, oddsFormat, highlightFavourite,
+        showOffer, prizeType, prizeAmount, prizeCurrency, offerText,
+        countdownMode, countdownMinutes, countdownDate,
       }),
     );
-
-  const prizeTitle = `${PRIZE_LABEL[prizeType]} ${prizeAmount} ${prizeCurrency}`.trim();
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,400px)_1fr]">
@@ -471,7 +468,7 @@ export function MatchLandingApp() {
           <p className="ds-overline text-accent-green">Лендинг · Betting</p>
           <h1 className="ds-h1 mt-1">Матч-прогноз</h1>
           <p className="ds-body mt-2 text-muted-foreground">
-            Геймифицированный лендинг: посетитель выбирает исход матча, смотрит короткий live-розыгрыш и забирает фрибет — ведите на регистрацию.
+            Лендинг под конкретный матч: команды, коэффициенты, таймер до начала и оффер. Ставка не делается на странице — коэффициенты и кнопка ведут на букмекера.
           </p>
         </header>
 
@@ -530,16 +527,17 @@ export function MatchLandingApp() {
 
         <CollapsibleSection title="Матч" tone="accent">
           <Field label="Вид спорта">
-            <select className={selectCls} value={sport} onChange={(e) => setSport(e.target.value as MatchSport)}>
+            <select className={`${inputCls} appearance-none`} value={sport} onChange={(e) => setSport(e.target.value as MatchSport)}>
               {SPORTS.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.emoji} {s.label}
                 </option>
               ))}
             </select>
-            <p className="mt-1 ds-caption">
-              {sportMeta.hasDraw ? "Три исхода: П1 / Ничья / П2." : "Два исхода: П1 / П2 — ничьей нет."} Счёт считается в «{sportMeta.unit}».
-            </p>
+            <p className="mt-1 ds-caption">{sportMeta.hasDraw ? "Три исхода: П1 / Ничья / П2." : "Два исхода: П1 / П2 — ничьей нет."}</p>
+          </Field>
+          <Field label="Турнир / дата (строка над карточкой)">
+            <input className={inputCls} value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Финал кубка · Суббота 21:00" />
           </Field>
           <div className="mt-3 flex items-center justify-between">
             <span className="ds-h4">Команды</span>
@@ -583,43 +581,37 @@ export function MatchLandingApp() {
               ["american", "-118"],
               ["fractional", "17/20"],
             ])}
-            <p className="mt-1 ds-caption">Вводите десятичные — на лендинге они показываются в выбранном формате. Наименьший кэф считается фаворитом.</p>
           </div>
+          <div className="mt-3">{toggle(highlightFavourite, setHighlightFavourite, "Подсветить фаворита (наименьший кэф)")}</div>
+          <p className="mt-2 ds-caption">Клик по коэффициенту ведёт на ссылку CTA с параметром ?pick=home|draw|away — букмекер или трекер могут предвыбрать исход.</p>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Логика исхода" tone="accent">
-          {segmented<OutcomeMode>(outcomeMode, setOutcomeMode, [
-            ["always", "Любой прогноз выигрывает"],
-            ["favorite", "Только фаворит"],
-            ["chance", "Случайно"],
-          ])}
-          {outcomeMode === "chance" ? (
-            <div className="mt-3">
-              <span className="mb-1 block ds-caption">Шанс выигрыша: {winChance}%</span>
-              <input type="range" min={0} max={100} step={5} value={winChance} onChange={(e) => setWinChance(Number(e.target.value))} className="w-full accent-[var(--accent)]" />
-            </div>
+        <CollapsibleSection title="Оффер" tone="accent">
+          {toggle(showOffer, setShowOffer, "Показывать плашку оффера под карточкой")}
+          {showOffer ? (
+            <>
+              <div className="mt-3">
+                {segmented<PrizeType>(prizeType, setPrizeType, [
+                  ["freebet", "Фрибет"],
+                  ["deposit", "Бонус на депозит"],
+                  ["cashback", "Кэшбек"],
+                ])}
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_88px] gap-2">
+                <div>
+                  <span className="mb-1 block ds-caption">Сумма</span>
+                  <input className={`${inputCls} tabular-nums`} value={prizeAmount} onChange={(e) => setPrizeAmount(e.target.value)} placeholder="500" />
+                </div>
+                <div>
+                  <span className="mb-1 block ds-caption">Валюта</span>
+                  <input className={inputCls} value={prizeCurrency} onChange={(e) => setPrizeCurrency(e.target.value)} placeholder="₽" />
+                </div>
+              </div>
+              <Field label="Условие / подпись">
+                <input className={inputCls} value={offerText} onChange={(e) => setOfferText(e.target.value)} placeholder="за первую ставку на этот матч" />
+              </Field>
+            </>
           ) : null}
-          <p className="mt-2 ds-caption">
-            {outcomeMode === "always"
-              ? "Лендинг всегда «заходит» — максимум конверсии в CTA."
-              : outcomeMode === "favorite"
-                ? "Выигрывает только выбор с наименьшим коэффициентом, остальные — «попробуйте ещё»."
-                : "Исход разыгрывается случайно с заданным шансом."}
-          </p>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Live-сценарий" hint="Длительность и счёт розыгрыша">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <span className="mb-1 block ds-caption">Длительность, сек</span>
-              <input type="number" min={2} max={60} className={inputCls} value={matchSeconds} onChange={(e) => setMatchSeconds(clampInt(e.target.value, 2, 60, 8))} />
-            </div>
-            <div>
-              <span className="mb-1 block ds-caption">Базовый счёт (хозяева:гости)</span>
-              <input className={`${inputCls} tabular-nums`} value={finalScore} onChange={(e) => setFinalScore(e.target.value)} placeholder="2:1" />
-            </div>
-          </div>
-          <p className="mt-2 ds-caption">Счёт подгоняется под исход раунда: при ничьей уравнивается, при победе гостей переворачивается.</p>
         </CollapsibleSection>
 
         <CollapsibleSection title="Обратный отсчёт" hint="Срочность: таймер до матча">
@@ -640,28 +632,7 @@ export function MatchLandingApp() {
               <input type="datetime-local" className={inputCls} value={countdownDate} onChange={(e) => setCountdownDate(e.target.value)} />
             </div>
           ) : null}
-          <p className="mt-2 ds-caption">Таймер декоративный — прогноз можно сделать в любой момент. На нуле переключается в «LIVE».</p>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Приз" tone="accent">
-          {segmented<PrizeType>(prizeType, setPrizeType, [
-            ["freebet", "Фрибет"],
-            ["deposit", "Бонус на депозит"],
-            ["cashback", "Кэшбек"],
-          ])}
-          <div className="mt-3 grid grid-cols-[1fr_88px] gap-2">
-            <div>
-              <span className="mb-1 block ds-caption">Сумма</span>
-              <input className={`${inputCls} tabular-nums`} value={prizeAmount} onChange={(e) => setPrizeAmount(e.target.value)} placeholder="500" />
-            </div>
-            <div>
-              <span className="mb-1 block ds-caption">Валюта</span>
-              <input className={inputCls} value={prizeCurrency} onChange={(e) => setPrizeCurrency(e.target.value)} placeholder="₽" />
-            </div>
-          </div>
-          <Field label="Текст в окне выигрыша">
-            <textarea className={`${inputCls} min-h-[52px] resize-y py-2 text-xs`} rows={2} value={winText} onChange={(e) => setWinText(e.target.value)} />
-          </Field>
+          <p className="mt-2 ds-caption">На нуле таймер переключается в «LIVE».</p>
         </CollapsibleSection>
 
         <CollapsibleSection title="Фон" tone="accent">
@@ -703,11 +674,7 @@ export function MatchLandingApp() {
         </Field>
         <Field label="Ссылка перехода (CTA)">
           <input className={inputCls} value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://your-offer.com или {clickurl}" />
-          <p className="mt-1 ds-caption">Куда ведёт «Забрать бонус» после выигрыша. URL или переменная-макрос (напр. {"{clickurl}"}).</p>
-        </Field>
-        <Field label="Количество попыток">
-          <input type="number" min={0} step={1} className={inputCls} value={maxAttempts} onChange={(e) => setMaxAttempts(clampInt(e.target.value, 0, 1000, 0))} />
-          <p className="mt-1 ds-caption">Сколько прогнозов может сделать посетитель. 0 — без ограничений.</p>
+          <p className="mt-1 ds-caption">Куда ведут кнопка и коэффициенты. URL или переменная-макрос (напр. {"{clickurl}"}).</p>
         </Field>
 
         <button
@@ -780,7 +747,7 @@ export function MatchLandingApp() {
               className="mt-1 text-center text-xl font-extrabold uppercase leading-none tracking-tight sm:text-2xl"
               style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
             >
-              {headline || "УГАДАЙ ИСХОД — ЗАБЕРИ ФРИБЕТ"}
+              {headline || "СТАВЬ НА МАТЧ ДНЯ"}
             </h2>
             {countdownMode !== "off" ? (
               <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
@@ -789,75 +756,42 @@ export function MatchLandingApp() {
               </span>
             ) : null}
 
-            <div className={`relative mt-3 flex w-full flex-1 justify-center ${viewport === "portrait" ? "items-start pt-1" : "items-center"}`}>
-              <MatchGame
-                key={`${maxAttempts}-${sport}`}
+            <div className={`relative mt-3 flex w-full flex-1 flex-col items-center justify-center gap-3 ${viewport === "portrait" ? "justify-start pt-1" : ""}`}>
+              <MatchCard
                 accent={accent}
                 sport={sport}
+                eventName={eventName}
                 teamHome={teams.home}
                 teamAway={teams.away}
                 crestHome={crests.home || undefined}
                 crestAway={crests.away || undefined}
                 odds={oddsNum}
                 oddsFormat={oddsFormat}
-                outcomeMode={outcomeMode}
-                winChance={winChance}
-                matchSeconds={matchSeconds}
-                finalScore={finalScore}
-                maxAttempts={maxAttempts || undefined}
-                resetSignal={resetSignal}
-                onResult={(win, pick, score) => setWon({ win, pick, score })}
-                onAttemptsChange={(_used, left) => setAttemptsLeft(left)}
+                highlightFavourite={highlightFavourite}
+                onPick={goToOffer}
               />
+              {showOffer ? (
+                <div
+                  className="flex w-full max-w-[420px] items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
+                  style={{ borderColor: `${accent}66`, background: `linear-gradient(90deg, ${accent}33, rgba(255,255,255,.06))` }}
+                >
+                  <span className="whitespace-nowrap text-lg font-black" style={{ color: accent, textShadow: `0 0 10px ${accent}66` }}>
+                    {prizeTitle}
+                  </span>
+                  <span className="text-xs leading-tight text-white/85">{offerText || "за первую ставку на этот матч"}</span>
+                </div>
+              ) : null}
             </div>
 
             <button
               type="button"
-              disabled={outOfAttempts}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-base font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => goToOffer()}
+              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-base font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
               style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
             >
-              {outOfAttempts ? "Попытки закончились" : ctaText || "СДЕЛАТЬ ПРОГНОЗ"}
+              {ctaText || "СДЕЛАТЬ СТАВКУ"}
             </button>
-            {maxAttempts > 0 && attemptsLeft !== null ? (
-              <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">Осталось попыток: {attemptsLeft}</p>
-            ) : null}
           </div>
-
-          {won !== null ? (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
-              <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                {won.win ? (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">✅ Прогноз сыграл!</p>
-                    <p className="mt-1 text-sm text-[#475569]">Счёт {won.score}</p>
-                    <p className="mt-1 text-2xl font-extrabold" style={{ color: accent }}>{prizeTitle}</p>
-                    <p className="mt-1 text-sm text-[#475569]">{winText}</p>
-                    <button type="button" onClick={claimBonus} className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white" style={{ backgroundColor: accent }}>
-                      Забрать бонус
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">😬 Не зашло</p>
-                    <p className="mt-1 text-sm text-[#475569]">Счёт {won.score}. Попробуйте другой исход!</p>
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      disabled={outOfAttempts}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      style={{ backgroundColor: accent }}
-                    >
-                      {outOfAttempts ? "Попытки закончились" : "Ещё прогноз"}
-                    </button>
-                  </>
-                )}
-                <button type="button" onClick={closeModal} aria-label="Закрыть" className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
