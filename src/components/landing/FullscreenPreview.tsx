@@ -2,17 +2,15 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Monitor, RefreshCw, Smartphone, X } from "lucide-react";
+import { Maximize2, RefreshCw, RotateCw, X } from "lucide-react";
 
 // "На весь экран" for the landing builders: renders the REAL export HTML
 // (the same string «Скачать HTML» writes) in a sandboxed iframe.
 //
-// Desktop mode is a DevTools-style responsive viewport: width × height
-// inputs, device presets, and drag handles on the right / bottom edge and
-// the corner. The frame keeps real CSS pixels and is scaled down as a whole
-// when it doesn't fit the stage. Portrait / landscape show a phone bezel.
-type Viewport = "desktop" | "portrait" | "landscape";
-const PHONE = { w: 390, h: 844 } as const;
+// A DevTools-style responsive viewport: width × height inputs, device
+// presets, a rotate button that swaps them, and drag handles on the right /
+// bottom edge and the corner. The frame keeps real CSS pixels and is scaled
+// down as a whole when it doesn't fit the stage.
 const MIN = 320;
 const MAX_W = 3840;
 const MAX_H = 2400;
@@ -36,7 +34,6 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, M
 
 export function FullscreenPreview({ title, buildHtml }: { title: string; buildHtml: () => string }) {
   const [open, setOpen] = useState(false);
-  const [viewport, setViewport] = useState<Viewport>("desktop");
   const [html, setHtml] = useState("");
   // Responsive frame size (CSS px of the simulated viewport).
   const [size, setSize] = useState({ w: 1280, h: 800 });
@@ -82,20 +79,14 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
   }, [open]);
 
   useEffect(() => {
-    if (!open || viewport !== "desktop" || !fitToStage || !stage.w) return;
+    if (!open || !fitToStage || !stage.w) return;
     setSize({ w: clamp(stage.w, MIN, MAX_W), h: clamp(stage.h, MIN, MAX_H) });
-  }, [open, viewport, fitToStage, stage]);
+  }, [open, fitToStage, stage]);
 
   useEffect(() => {
     if (!stage.w) return;
-    if (viewport === "desktop") {
-      setScale(Math.min(1, stage.w / size.w, stage.h / size.h));
-    } else {
-      const w = viewport === "portrait" ? PHONE.w : PHONE.h;
-      const h = viewport === "portrait" ? PHONE.h : PHONE.w;
-      setScale(Math.min(1, stage.w / (w + 24), stage.h / (h + 24)));
-    }
-  }, [stage, size, viewport]);
+    setScale(Math.min(1, stage.w / size.w, stage.h / size.h));
+  }, [stage, size]);
 
   // Drag handles (DevTools style): the frame is centered, so a pointer delta
   // on the right edge changes the width by 2×delta/scale; the bottom edge
@@ -142,6 +133,10 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
     setFitToStage(false);
     setSize({ w: p.w, h: p.h });
   };
+  const rotate = () => {
+    setFitToStage(false);
+    setSize((s) => ({ w: s.h, h: s.w }));
+  };
   const presetValue = fitToStage ? "fit" : PRESETS.some((p) => p.w === size.w && p.h === size.h) ? `${size.w}x${size.h}` : "custom";
 
   const numInput = (key: "w" | "h", max: number) => (
@@ -182,8 +177,7 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
                   <p className="truncate text-sm font-semibold">{title}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {viewport === "desktop" ? (
-                    <div className="hidden items-center gap-1.5 md:flex">
+                  <div className="hidden items-center gap-1.5 md:flex">
                       <select
                         value={presetValue}
                         onChange={(e) => applyPreset(e.target.value)}
@@ -201,32 +195,17 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
                       {numInput("w", MAX_W)}
                       <span className="text-xs text-muted-foreground">×</span>
                       {numInput("h", MAX_H)}
+                      <button
+                        type="button"
+                        onClick={rotate}
+                        title="Повернуть: поменять ширину и высоту местами"
+                        aria-label="Повернуть"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
+                      >
+                        <RotateCw className="h-4 w-4" />
+                      </button>
                       {scale < 1 ? <span className="ds-caption tabular-nums">{Math.round(scale * 100)}%</span> : null}
                     </div>
-                  ) : null}
-                  <div className="flex rounded-lg border border-border p-0.5">
-                    {(
-                      [
-                        ["desktop", Monitor, "Responsive / десктоп", ""],
-                        ["landscape", Smartphone, "Телефон горизонтально", "rotate-90"],
-                        ["portrait", Smartphone, "Телефон вертикально", ""],
-                      ] as const
-                    ).map(([v, Icon, label, rot]) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setViewport(v)}
-                        title={label}
-                        aria-label={label}
-                        aria-pressed={viewport === v}
-                        className={`flex h-8 w-8 items-center justify-center rounded-md transition ${
-                          viewport === v ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <Icon className={`h-4 w-4 ${rot}`} />
-                      </button>
-                    ))}
-                  </div>
                   <button
                     type="button"
                     onClick={refresh}
@@ -250,7 +229,6 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
                 ref={stageRef}
                 className="relative flex min-h-0 flex-1 items-start justify-center overflow-hidden bg-[radial-gradient(60%_60%_at_50%_40%,rgba(255,255,255,.04),transparent)] p-5"
               >
-                {viewport === "desktop" ? (
                   <div
                     className="group/frame relative shrink-0"
                     style={{
@@ -261,7 +239,7 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
                     }}
                   >
                     <iframe
-                      key={html.length + ":desktop"}
+                      key={html.length}
                       title={title}
                       srcDoc={html}
                       sandbox="allow-scripts"
@@ -308,28 +286,9 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
                       <span className={gripCls} style={{ width: 8 / scale, height: 8 / scale }} />
                     </div>
                   </div>
-                ) : (
-                  <div
-                    className="rounded-[44px] border-[10px] border-[#1E2128] bg-black shadow-[0_30px_80px_rgba(0,0,0,.6)]"
-                    style={{
-                      width: (viewport === "portrait" ? PHONE.w : PHONE.h) + 4,
-                      height: (viewport === "portrait" ? PHONE.h : PHONE.w) + 4,
-                      transform: `scale(${scale})`,
-                      transformOrigin: "top center",
-                    }}
-                  >
-                    <iframe
-                      key={html.length + ":" + viewport}
-                      title={title}
-                      srcDoc={html}
-                      sandbox="allow-scripts"
-                      className="h-full w-full rounded-[34px] bg-black"
-                    />
-                  </div>
-                )}
               </div>
               <p className="shrink-0 border-t border-border px-4 py-2 text-center ds-caption">
-                Это ровно тот HTML, который скачивается кнопкой «Скачать HTML». В режиме Responsive тяните за правый и нижний край или введите размер. Переходы по ссылке CTA отключены.
+                Это ровно тот HTML, который скачивается кнопкой «Скачать HTML». Тяните за правый и нижний край, введите размер или поверните экран. Переходы по ссылке CTA отключены.
               </p>
             </div>,
             document.body,
