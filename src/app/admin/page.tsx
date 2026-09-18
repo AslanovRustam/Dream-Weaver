@@ -1749,7 +1749,7 @@ function TokensLogsView() {
               <th className="px-3 py-2 font-medium">Модель</th>
               <th className="px-3 py-2 font-medium">Кач-во</th>
               <th className="px-3 py-2 font-medium text-right" title="input_text_tokens / prompt_tokens">Вх. текст / промпт</th>
-              <th className="px-3 py-2 font-medium text-right" title="input_image_tokens (только gpt-image-2)">Вх. изобр.</th>
+              <th className="px-3 py-2 font-medium text-right" title="input_image_tokens (gpt-image-2.5, i2i-правки)">Вх. изобр.</th>
               <th className="px-3 py-2 font-medium text-right" title="output_image_tokens / completion_tokens">Вых. изобр. / ответ</th>
               <th className="px-3 py-2 font-medium text-right">Итого</th>
               <th className="px-3 py-2 font-medium text-right">Кредиты</th>
@@ -2271,7 +2271,7 @@ function AdminCardDetailDialog({
 }
 
 // ---------------------------------------------------------------------
-// Расход — per-user AI spend (OpenRouter + image gen), in $, from the
+// Расход — per-user AI spend (OpenAI: LLM + images), in $, from the
 // `generations` ledger via /api/admin/usage. Option B: our own ledger.
 // ---------------------------------------------------------------------
 type UsageUser = {
@@ -2324,7 +2324,7 @@ function UsageTab() {
         <div>
           <h2 className="text-lg font-semibold">Расход по пользователям</h2>
           <p className="text-sm text-muted-foreground">
-            Стоимость ИИ-генераций (OpenRouter + картинки) в долларах, из леджера generations.
+            Стоимость ИИ-генераций (OpenAI: тексты и картинки) в долларах по списочным ценам за токены, из леджера generations.
           </p>
         </div>
         <div className="flex rounded-lg border border-border p-0.5">

@@ -10,6 +10,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { TEAM_CREST_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
+import { imageUsageFromResponse } from "@/lib/openai-pricing";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -142,8 +143,10 @@ export async function POST(request: Request) {
   }
 
   let b64 = "";
+  let json: unknown = null;
   try {
-    b64 = (JSON.parse(text) as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
+    json = JSON.parse(text);
+    b64 = (json as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
   } catch {
     /* ignore */
   }
@@ -152,10 +155,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "No image payload" }, { status: 502 });
   }
 
-  await recordUsage(user.id, { model: CREST_IMAGE_MODEL, feature: "landing-team-crest", type: "image", costUsd: 0 });
+  const iu = imageUsageFromResponse(json);
+  await recordUsage(user.id, {
+    model: CREST_IMAGE_MODEL,
+    feature: "landing-team-crest",
+    type: "image",
+    promptTokens: iu.inputText,
+    inputImageTokens: iu.inputImage,
+    completionTokens: iu.output,
+    totalTokens: iu.total,
+    costUsd: iu.costUsd,
+  });
   return Response.json({
     imageUrl: `data:image/png;base64,${b64}`,
-    costUsd: 0,
+    costUsd: iu.costUsd,
     costCredits: TEAM_CREST_PRICE_CREDITS,
     balance: charge.balance,
   });

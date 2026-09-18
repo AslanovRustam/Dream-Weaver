@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "LLM недоступен", detail }, { status: 502 });
   }
 
-  const usage = extractUsage(usageData);
+  const usage = extractUsage(usageData, usedModel);
   await recordUsage(authedUser.id, { model: usedModel, feature: "email-content", type: "llm", ...usage });
 
   let parsed: Record<string, unknown>;

@@ -151,6 +151,9 @@ export interface RecordGenerationArgs {
   costCredits: number;
   coefficient: number;
   modelKey: string;
+  /** The OpenAI model actually called (e.g. gpt-image-2.5-sunburst); goes into
+   *  generations.model. modelKey stays the pricing-table key. */
+  providerModel?: string;
   quality: "low" | "medium" | "high";
   billingError: string | null;
   finalPrompt: string;
@@ -185,6 +188,7 @@ export async function recordGenerationAndUpload(
     costCredits,
     coefficient,
     modelKey,
+    providerModel,
     quality,
     billingError,
   } = args;
@@ -326,7 +330,7 @@ export async function recordGenerationAndUpload(
       .from("generations")
       .insert({
         user_id: userId,
-        model: modelKey,
+        model: providerModel || modelKey,
         quality,
         tokens_input_text: Number(usageObj.input_text_tokens) || 0,
         tokens_input_image: Number(usageObj.input_image_tokens) || 0,
@@ -340,6 +344,8 @@ export async function recordGenerationAndUpload(
         height,
         upload_status: cardId ? "pending" : "legacy",
         meta: {
+          feature: isMaster ? "banner-master" : "banner-resize",
+          pricing_model: modelKey,
           coefficient,
           preset_id: (body.preset_id as string) || null,
           aspect_ratio: (body.aspect_ratio as string) || null,

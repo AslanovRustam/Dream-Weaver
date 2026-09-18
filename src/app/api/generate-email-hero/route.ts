@@ -20,6 +20,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
+import { imageUsageFromResponse } from "@/lib/openai-pricing";
 import { openAiSizeString } from "@/lib/imageSizes";
 
 export const runtime = "nodejs";
@@ -233,8 +234,10 @@ export async function POST(request: Request) {
   }
 
   let b64 = "";
+  let json: unknown = null;
   try {
-    b64 = (JSON.parse(text) as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
+    json = JSON.parse(text);
+    b64 = (json as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
   } catch {
     /* ignore */
   }
@@ -244,12 +247,17 @@ export async function POST(request: Request) {
   }
   const imageUrl = `data:image/png;base64,${b64}`;
 
+  const iu = imageUsageFromResponse(json);
   await recordUsage(user.id, {
     model: HERO_IMAGE_MODEL,
     feature: (body.feature || "").trim() || "hero-image",
     type: "image",
-    costUsd: 0,
+    promptTokens: iu.inputText,
+    inputImageTokens: iu.inputImage,
+    completionTokens: iu.output,
+    totalTokens: iu.total,
+    costUsd: iu.costUsd,
   });
 
-  return Response.json({ imageUrl, prompt, costUsd: 0, costCredits: EMAIL_HERO_PRICE_CREDITS, balance: charge.balance });
+  return Response.json({ imageUrl, prompt, costUsd: iu.costUsd, costCredits: EMAIL_HERO_PRICE_CREDITS, balance: charge.balance });
 }

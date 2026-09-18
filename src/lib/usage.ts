@@ -7,6 +7,7 @@
 // images APIs return token counts but no per-request $ cost, so costUsd is
 // 0 unless the caller computes/passes an estimate itself.
 import { getAdminClient } from "./supabase/admin";
+import { llmCostUsd } from "./openai-pricing";
 
 export type UsageEntry = {
   model: string;
@@ -15,6 +16,8 @@ export type UsageEntry = {
   feature: string;
   type?: "llm" | "image";
   promptTokens?: number;
+  /** Image-input tokens (i2i edits) — kept in their own ledger column. */
+  inputImageTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
   costUsd?: number;
@@ -24,7 +27,7 @@ export type UsageEntry = {
 /** Pull token counts + $ cost out of an OpenAI-shaped chat/image response
  *  (also tolerates an OpenRouter-shaped one, which the same field names and
  *  an extra `usage.cost` come from, for any legacy caller still on it). */
-export function extractUsage(data: unknown): {
+export function extractUsage(data: unknown, model?: string): {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -35,7 +38,8 @@ export function extractUsage(data: unknown): {
   const promptTokens = num(u.prompt_tokens) || num(u.input_tokens);
   const completionTokens = num(u.completion_tokens) || num(u.output_tokens);
   const totalTokens = num(u.total_tokens) || promptTokens + completionTokens;
-  const costUsd = num(u.cost);
+  // OpenAI returns no $ — price the tokens ourselves when a model is given.
+  const costUsd = num(u.cost) || (model ? llmCostUsd(model, promptTokens, completionTokens) : 0);
   return { promptTokens, completionTokens, totalTokens, costUsd };
 }
 
@@ -48,9 +52,11 @@ export async function recordUsage(userId: string, e: UsageEntry): Promise<void> 
       model: e.model || "unknown",
       quality: e.type ?? "llm",
       tokens_input_text: Math.round(e.promptTokens ?? 0),
-      tokens_input_image: 0,
+      tokens_input_image: Math.round(e.inputImageTokens ?? 0),
       tokens_output: Math.round(e.completionTokens ?? 0),
-      total_tokens: Math.round(e.totalTokens ?? (e.promptTokens ?? 0) + (e.completionTokens ?? 0)),
+      total_tokens: Math.round(
+        e.totalTokens ?? (e.promptTokens ?? 0) + (e.inputImageTokens ?? 0) + (e.completionTokens ?? 0),
+      ),
       cost_usd: e.costUsd ?? 0,
       cost_credits: 0,
       meta: { feature: e.feature, source: "openai", ...(e.meta ?? {}) },

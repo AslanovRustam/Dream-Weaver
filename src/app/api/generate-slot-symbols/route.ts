@@ -17,6 +17,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
+import { imageUsageFromResponse } from "@/lib/openai-pricing";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -167,8 +168,10 @@ export async function POST(request: Request) {
   }
 
   let b64 = "";
+  let json: unknown = null;
   try {
-    b64 = (JSON.parse(text) as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
+    json = JSON.parse(text);
+    b64 = (json as { data?: { b64_json?: string }[] }).data?.[0]?.b64_json || "";
   } catch {
     /* ignore */
   }
@@ -178,12 +181,17 @@ export async function POST(request: Request) {
   }
   const imageUrl = `data:image/png;base64,${b64}`;
 
+  const iu = imageUsageFromResponse(json);
   await recordUsage(user.id, {
     model: SYMBOLS_IMAGE_MODEL,
     feature: "landing-slot-symbols",
     type: "image",
-    costUsd: 0,
+    promptTokens: iu.inputText,
+    inputImageTokens: iu.inputImage,
+    completionTokens: iu.output,
+    totalTokens: iu.total,
+    costUsd: iu.costUsd,
   });
 
-  return Response.json({ imageUrl, cols, rows: ROWS, count, costUsd: 0, costCredits: SLOT_SYMBOLS_PRICE_CREDITS, balance: charge.balance });
+  return Response.json({ imageUrl, cols, rows: ROWS, count, costUsd: iu.costUsd, costCredits: SLOT_SYMBOLS_PRICE_CREDITS, balance: charge.balance });
 }

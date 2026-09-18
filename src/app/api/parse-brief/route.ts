@@ -208,7 +208,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "LLM request failed", detail: lastDetail }, { status: 502 });
   }
 
-  const usage = extractUsage(usageData);
+  const usage = extractUsage(usageData, usedModel);
   await recordUsage(authedUser.id, { model: usedModel, feature: "parse-brief", type: "llm", ...usage });
 
   let parsed: { fields?: Record<string, unknown>; generationPrompt?: unknown };

@@ -2,6 +2,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getGroupTemplate } from "@/lib/bannerSizes";
 import { recordGenerationAndUpload } from "@/lib/history/cardWriter";
+import { imageCostUsd } from "@/lib/openai-pricing";
 import { notifyLowBalanceIfNeeded } from "@/lib/notifications";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
@@ -1870,7 +1871,16 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           const rawCharge = Math.max(totalTokens, 1) * coefficient;
           const creditsCharged = Number(rawCharge.toFixed(4));
           const usageObj = (usage as Record<string, unknown>) || {};
-          const costUsd = Number(usageObj.cost_usd ?? 0) || 0;
+          // OpenAI returns tokens, not $ — price them (gpt-image-2.5 list
+          // prices) so the ledger / admin «Расход» show the real spend.
+          const costUsd =
+            Number(usageObj.cost_usd ?? 0) ||
+            imageCostUsd({
+              inputText: Number(usageObj.input_text_tokens) || 0,
+              inputImage: Number(usageObj.input_image_tokens) || 0,
+              output: Number(usageObj.output_image_tokens) || 0,
+            });
+          usageObj.cost_usd = costUsd;
 
           // Whether this call creates a brand-new card (master) or attaches to
           // one that already exists (resize) — computed here (not just below,
@@ -1958,6 +1968,7 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
             costCredits: creditsCharged,
             coefficient,
             modelKey,
+            providerModel: openAiModel,
             quality,
             billingError,
             finalPrompt,

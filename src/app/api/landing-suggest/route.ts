@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     model: "gpt-4o-mini",
     feature: `landing-suggest-${field}`,
     type: "llm",
-    ...extractUsage(usageData),
+    ...extractUsage(usageData, "gpt-4o-mini"),
   });
 
   return Response.json({ text });
