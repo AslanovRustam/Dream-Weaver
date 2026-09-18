@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Filter,
   Image as ImageIcon,
+  Maximize2,
   Search,
   Upload,
   X,
@@ -818,47 +819,103 @@ function TemplateTile({
   template,
   selected,
   onSelect,
+  onPreview,
 }: {
   template: LandingTemplate;
   selected: boolean;
   onSelect: () => void;
+  /** Open the full-size screenshot in a lightbox (only when one exists). */
+  onPreview?: () => void;
 }) {
-  // MVP: only the interactive templates (wheel / slot / crash) are available.
-  // The rest are hidden from the gallery entirely — see LandingTemplateSidebar's
-  // `groups` (filtered on `interactive`); they are not greyed out here.
+  // MVP: only the interactive templates are available. The rest are hidden
+  // from the gallery entirely — see LandingTemplateSidebar's `groups`.
+  // Large 16:10 preview + name + description: the tile itself has to explain
+  // the template — there are only a handful, so they get the room.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <div
+      className={`group relative flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-surface)] text-left transition ${
+        selected
+          ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
+          : "border-border hover:border-accent-green/40"
+      }`}
+    >
+      <button type="button" onClick={onSelect} className="block w-full text-left">
+        <div
+          className="aspect-[16/10] w-full bg-cover bg-top"
+          style={
+            template.preview
+              ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
+              : { background: template.gradient }
+          }
+        />
+        <div className="p-3">
+          <p className="text-sm font-semibold leading-snug">{template.name}</p>
+          <p className="mt-1 line-clamp-2 ds-caption">{template.description}</p>
+        </div>
+      </button>
+      {selected && (
+        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-accent-green px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-accent">
+          <Check size={10} /> Выбран
+        </span>
+      )}
+      {onPreview ? (
         <button
           type="button"
-          onClick={onSelect}
-          className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
-            selected
-              ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]"
-              : "border-border hover:bg-[var(--bg-surface-hover)]"
-          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPreview();
+          }}
+          title="Открыть предпросмотр"
+          aria-label="Открыть предпросмотр"
+          className="absolute right-2 top-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-black/55 px-2.5 text-xs font-medium text-white opacity-0 backdrop-blur transition hover:bg-black/75 focus-visible:opacity-100 group-hover:opacity-100"
         >
-          <div
-            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-            style={
-              template.preview
-                ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
-                : { background: template.gradient }
-            }
-          />
-          <p className="truncate text-xs font-medium">{template.name}</p>
-          {selected && (
-            <span className="absolute right-1.5 top-1.5 rounded-full bg-accent-green p-0.5 text-on-accent">
-              <Check size={10} />
-            </span>
-          )}
+          <Maximize2 className="h-3.5 w-3.5" /> Предпросмотр
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[220px] text-left">
-        <p className="font-medium">{template.name}</p>
-        <p className="mt-0.5 text-muted-foreground">{template.description}</p>
-      </TooltipContent>
-    </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
+// Full-size screenshot of a template's generated landing (public/landing-previews).
+function PreviewLightbox({ template, onClose }: { template: LandingTemplate; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-8"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Предпросмотр: ${template.name}`}
+    >
+      <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex items-center justify-between gap-3 text-white">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{template.name}</p>
+            <p className="truncate text-xs text-white/70">{template.description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-black/50 text-white transition hover:bg-black/70"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <img
+          src={template.preview}
+          alt={template.name}
+          className="max-h-[80vh] w-full rounded-xl border border-white/10 object-contain shadow-2xl"
+          style={{ backgroundColor: "#0b0d12" }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -889,6 +946,7 @@ function LandingTemplateSidebar({
   onSelect: (t: LandingTemplate) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [lightbox, setLightbox] = useState<LandingTemplate | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(LANDING_CATEGORIES_ACTIVE.map((c) => [c.id, true])),
   );
@@ -1101,13 +1159,14 @@ function LandingTemplateSidebar({
                 </button>
                 {isExpanded ? (
                   <div className="border-t border-border p-2.5">
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {cat.templates.map((t) => (
                         <TemplateTile
                           key={t.id}
                           template={t}
                           selected={value === t.id}
                           onSelect={() => onSelect(t)}
+                          onPreview={t.preview ? () => setLightbox(t) : undefined}
                         />
                       ))}
                     </div>
@@ -1119,6 +1178,7 @@ function LandingTemplateSidebar({
         </div>
       </div>
     </aside>
+    {lightbox ? <PreviewLightbox template={lightbox} onClose={() => setLightbox(null)} /> : null}
     </TooltipProvider>
   );
 }
