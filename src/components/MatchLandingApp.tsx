@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { MatchCard } from "@/components/MatchCard";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
+import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { buildMatchHtml } from "@/lib/matchExport";
@@ -688,7 +689,10 @@ export function MatchLandingApp() {
 
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="ds-caption">Предпросмотр лендинга</p>
+          <div className="flex items-center gap-2">
+            <p className="ds-caption">Предпросмотр лендинга</p>
+            <FullscreenPreview title="Матч-прогноз" buildHtml={() => buildMatchHtml({ brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage, charLeft: chars.left, charRight: chars.right, sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, odds: oddsNum, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate })} />
+          </div>
           <div className="flex rounded-lg border border-border p-0.5">
             {(
               [

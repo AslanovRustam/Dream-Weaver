@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, CRASH_ROCKET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
+import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -753,7 +754,10 @@ export function CrashLandingApp() {
 
       <div className="lg:sticky lg:top-6 lg:h-fit">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="ds-caption">Предпросмотр лендинга</p>
+          <div className="flex items-center gap-2">
+            <p className="ds-caption">Предпросмотр лендинга</p>
+            <FullscreenPreview title="Crash-игра" buildHtml={() => buildCrashHtml({ brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, maxAttempts, rocketImage: rocketIcon, bgImage, charLeft: chars.left, charRight: chars.right })} />
+          </div>
           <div className="flex rounded-lg border border-border p-0.5">
             {(
               [
