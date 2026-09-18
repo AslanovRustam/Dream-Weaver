@@ -1078,25 +1078,12 @@ The subject of the banner is the slot "{SUBJECT}". The reference images attached
   ...PRESETS_BATCH_3,
 ];
 
-// Generated 3:2 preview banners live in public/previews/<id>.{webp,png}
-// (see scripts/gen-previews.mjs — batches run through mid-2026 were hand
-// converted to .webp; the OpenAI-direct script run afterwards writes .png
-// straight from the API response, so newer ids need the other extension).
-// Attach each as its tile preview; presets without a generated file keep
-// their gradient fallback.
-const PNG_PREVIEW_IDS = new Set([
-  // preset1–4 were square asset imports (cropped in the 4:3 tiles) until
-  // Sep 2026; regenerated as 3:2 via scripts/gen-previews.mjs.
-  "preset1", "preset2", "preset3", "preset4",
-  "preset15",
-  // Sport pack regenerated Sep 2026 (brand-free samples).
-  "preset5", "preset13", "preset14", "preset16", "preset17", "preset18", "preset19", "preset23", "preset24", "preset26", "preset27", "preset28", "preset29", "preset30", "preset31", "preset32", "preset33", "preset35", "preset37", "preset39", "preset55", "preset59", "preset65", "preset71", "preset76", "preset79", "preset81", "preset82", "preset86", "preset92",
-  "preset36", "preset37", "preset38", "preset39", "preset40",
-  "preset41", "preset42", "preset43", "preset44", "preset45", "preset46",
-  ...PRESETS_BATCH_3.map((p) => p.id),
-]);
+// Generated 3:2 preview banners live in public/previews/<id>.webp —
+// scripts/gen-previews.mjs writes PNGs, scripts/optimize-previews.mjs turns
+// them into 768px WebP (run it after every generation batch). Presets without
+// a file keep their gradient fallback.
 for (const p of PRESETS) {
-  if (!p.preview) p.preview = `/previews/${p.id}.${PNG_PREVIEW_IDS.has(p.id) ? "png" : "webp"}`;
+  if (!p.preview) p.preview = `/previews/${p.id}.webp`;
 }
 
 // Templates grouped into categories. Each category is an accordion: collapsed
