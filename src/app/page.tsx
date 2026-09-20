@@ -18,7 +18,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { MobileScrim } from "@/components/MobileScrim";
-import { CATEGORIES } from "@/components/PresetSidebar";
+import { BANNER_TEMPLATES_ROUTE, CATEGORIES } from "@/components/PresetSidebar";
 import { SECTIONS, SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
 import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
@@ -71,7 +71,36 @@ const HUB_ANIM = `
 @keyframes hubRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .hub-in { animation: hubRise .55s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); }
 @media (prefers-reduced-motion: reduce) { .hub-in { animation: none; } }
+/* Editorial hero: display type sized in container-query units so the three
+   lines keep filling the column at every width (the column is narrower than
+   the viewport because of the sidebar, so vw would overflow). Per-line sizes
+   are tuned to the glyph count of each line. */
+.hub-hero { container-type: inline-size; }
+.hero-line { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: -.045em; line-height: .9; }
+.hero-line-1 { font-size: 16.1cqw; }
+.hero-line-2 { font-size: 15.7cqw; }
+.hero-line-3 { font-size: 15.5cqw; }
+/* Scattered work samples. They rise in with the same curve as the tiles and
+   lift slightly on hover of the hero — decorative, off under reduced motion. */
+.hub-shot { animation: hubRise .7s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); transition: transform .5s cubic-bezier(.22,1,.36,1); }
+.hub-hero:hover .hub-shot { transform: translateY(-6px); }
+@media (prefers-reduced-motion: reduce) { .hub-shot { animation: none; transition: none; } .hub-hero:hover .hub-shot { transform: none; } }
 `;
+
+// Work samples scattered around the hero headline — real generated creatives,
+// picked for contrast (gold casino, purple slot, blue sport, magenta landing).
+// Purely decorative: the layer is aria-hidden and takes no pointer events.
+const HERO_SHOT_TOP = {
+  src: "/previews/preset1.webp",
+  pos: "left-1/2 top-0 w-[17%] -translate-x-[62%] aspect-[3/2]",
+  d: "60ms",
+};
+
+const HERO_SHOTS = [
+  { src: "/previews/preset15.webp", pos: "-left-12 top-[28%] w-[15%] aspect-[3/2]", d: "180ms" },
+  { src: "/previews/hero-wheel.webp", pos: "left-[1%] bottom-2 w-[15%] aspect-[4/3]", d: "300ms" },
+  { src: "/previews/preset4.webp", pos: "right-0 bottom-0 w-[22%] aspect-[3/2]", d: "240ms" },
+];
 
 const PRESET_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
@@ -536,7 +565,7 @@ export default function HubPage() {
           sticky z-30. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[860px] overflow-hidden"
       >
         <div className="ds-hero-glow absolute inset-0" />
         <div className="ds-dotgrid ds-dotgrid-fade absolute inset-0 opacity-[0.14]" />
@@ -547,18 +576,81 @@ export default function HubPage() {
             element owning a stacking context forever — so the search dropdown
             inside it can only rise above the tiles if the WHOLE hero is lifted
             (z-50, above the z-40 scrim) while the dropdown is open. */}
+        {/* Editorial hero: one giant statement with work samples scattered
+            around it. The samples are absolutely placed and only shown from lg
+            up, where there is room beside the headline; narrower screens get a
+            compact strip of the same creatives under the type. */}
+        <section className="hub-hero relative mb-6 overflow-hidden pb-2 pt-2 sm:mb-8 sm:pt-5 lg:pb-28">
+          <div className="hub-in flex items-baseline justify-between gap-4">
+            <p className="ds-overline ds-overline-accent">GenGO Studio</p>
+            <p className="ds-caption truncate">{greeting}</p>
+          </div>
+
+          <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
+            {HERO_SHOTS.map((shot) => (
+              <span
+                key={shot.src}
+                style={{ "--d": shot.d } as React.CSSProperties}
+                className={`hub-shot absolute overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${shot.pos}`}
+              >
+                <img src={shot.src} alt="" className="h-full w-full object-cover" />
+              </span>
+            ))}
+          </div>
+
+          <h1 className="hub-in relative mt-6 text-center text-foreground sm:mt-7" style={{ "--d": "40ms" } as React.CSSProperties}>
+            <span className="hero-line hero-line-1">Креатив,</span>{" "}
+            <span className="hero-line hero-line-2">который</span>{" "}
+            <span className="hero-line hero-line-3">
+              продаёт
+            </span>
+          </h1>
+
+          {/* The one sample that paints OVER the type, as in the reference —
+              it clips the crown of the first line rather than whole letters. */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 z-10 hidden lg:block">
+            <span
+              style={{ "--d": HERO_SHOT_TOP.d } as React.CSSProperties}
+              className={`hub-shot absolute overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${HERO_SHOT_TOP.pos}`}
+            >
+              <img src={HERO_SHOT_TOP.src} alt="" className="h-full w-full object-cover" />
+            </span>
+          </div>
+
+          {/* Mobile / tablet stand-in for the scattered layer. */}
+          <div aria-hidden className="mt-7 grid grid-cols-3 gap-2 lg:hidden">
+            {[HERO_SHOT_TOP, ...HERO_SHOTS.slice(0, 2)].map((shot) => (
+              <span
+                key={shot.src}
+                className="aspect-[3/2] overflow-hidden rounded-lg border border-white/10 bg-[var(--bg-surface)]"
+              >
+                <img src={shot.src} alt="" className="h-full w-full object-cover" />
+              </span>
+            ))}
+          </div>
+
+        </section>
+
+        <div className="hub-in mb-8 flex flex-col gap-4 border-t border-border pt-5 sm:mb-10 md:flex-row md:items-start md:justify-between md:gap-8" style={{ "--d": "360ms" } as React.CSSProperties}>
+          <p className="ds-overline shrink-0 md:w-40">iGaming · Креативы</p>
+          <p className="max-w-lg text-sm text-muted-foreground md:text-center">
+            У вашего оффера есть что сказать. Мы превращаем это в баннеры, лендинги, письма и
+            видео, которые узнают с первого показа.
+          </p>
+          <Link
+            href={BANNER_TEMPLATES_ROUTE}
+            className="ds-overline group inline-flex shrink-0 items-center gap-1.5 text-foreground transition hover:text-accent-green md:w-40 md:justify-end"
+          >
+            Смотреть шаблоны
+            <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
         <div
           className={`hub-in relative mx-auto max-w-3xl text-center ${
             searchOpen ? "z-50" : ""
           }`}
         >
-          <p className="ds-overline ds-overline-accent">GenGO Studio</p>
-          <h1 className="ds-h1 mt-2 sm:text-4xl">{greeting}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Опишите идею — соберём рекламный креатив. Баннеры, лендинги, видео и письма в одном
-            месте.
-          </p>
-
           <form
             onSubmit={(e) => {
               e.preventDefault();
