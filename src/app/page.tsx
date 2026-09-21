@@ -77,9 +77,9 @@ const HUB_ANIM = `
    are tuned to the glyph count of each line. */
 .hub-hero { container-type: inline-size; }
 .hero-line { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: -.045em; line-height: .9; }
-.hero-line-1 { font-size: 16.1cqw; }
-.hero-line-2 { font-size: 15.7cqw; }
-.hero-line-3 { font-size: 15.5cqw; }
+.hero-line-1 { font-size: 14.2cqw; }
+.hero-line-2 { font-size: 13.9cqw; }
+.hero-line-3 { font-size: 13.7cqw; }
 /* Scattered work samples. They rise in with the same curve as the tiles and
    lift slightly on hover of the hero — decorative, off under reduced motion. */
 .hub-shot { animation: hubRise .7s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); transition: transform .5s cubic-bezier(.22,1,.36,1); }
@@ -90,16 +90,27 @@ const HUB_ANIM = `
 // Work samples scattered around the hero headline — real generated creatives,
 // picked for contrast (gold casino, purple slot, blue sport, magenta landing).
 // Purely decorative: the layer is aria-hidden and takes no pointer events.
+// The one sample that paints OVER the type: it clips the crown of the first
+// line rather than whole letters, as in the reference layout.
 const HERO_SHOT_TOP = {
   src: "/previews/preset1.webp",
-  pos: "left-1/2 top-0 w-[17%] -translate-x-[62%] aspect-[3/2]",
+  label: "Баннер · Казино",
+  pos: "left-1/2 top-0 w-[17%] -translate-x-[64%]",
+  ratio: "aspect-[3/2]",
   d: "60ms",
 };
 
+// Samples behind the type, in the two side columns and the band below it.
+// Picked for colour spread so the collage never reads as one gold blur.
 const HERO_SHOTS = [
-  { src: "/previews/preset15.webp", pos: "-left-12 top-[28%] w-[15%] aspect-[3/2]", d: "180ms" },
-  { src: "/previews/hero-wheel.webp", pos: "left-[1%] bottom-2 w-[15%] aspect-[4/3]", d: "300ms" },
-  { src: "/previews/preset4.webp", pos: "right-0 bottom-0 w-[22%] aspect-[3/2]", d: "240ms" },
+  { src: "/previews/preset20.webp", label: "Бонус", pos: "left-0 top-[15%] w-[15%]", ratio: "aspect-[3/2]", d: "120ms" },
+  { src: "/previews/preset15.webp", label: "Слот", pos: "-left-10 top-[43%] w-[17%]", ratio: "aspect-[3/2]", d: "180ms" },
+  { src: "/previews/hero-wheel.webp", label: "Лендинг · Колесо", pos: "left-[1%] bottom-0 w-[16%]", ratio: "aspect-[4/3]", d: "300ms" },
+  { src: "/previews/preset19.webp", label: "Коэффициенты", pos: "right-0 top-[9%] w-[15%]", ratio: "aspect-[3/2]", d: "150ms" },
+  { src: "/previews/preset2.webp", label: "Новый слот", pos: "-right-10 top-[42%] w-[17%]", ratio: "aspect-[3/2]", d: "210ms" },
+  { src: "/previews/preset11.webp", label: "Аркада", pos: "left-[24%] bottom-[7%] w-[18%]", ratio: "aspect-[3/2]", d: "330ms" },
+  { src: "/previews/preset4.webp", label: "Спорт · Матч", pos: "right-[18%] bottom-[1%] w-[22%]", ratio: "aspect-[3/2]", d: "260ms" },
+  { src: "/previews/preset7.webp", label: "Запуск казино", pos: "right-[1%] bottom-[11%] w-[15%]", ratio: "aspect-[3/2]", d: "360ms" },
 ];
 
 const PRESET_CAT: Record<string, string> = {};
@@ -580,7 +591,7 @@ export default function HubPage() {
             around it. The samples are absolutely placed and only shown from lg
             up, where there is room beside the headline; narrower screens get a
             compact strip of the same creatives under the type. */}
-        <section className="hub-hero relative mb-6 overflow-hidden pb-2 pt-2 sm:mb-8 sm:pt-5 lg:pb-28">
+        <section className="hub-hero relative mb-6 overflow-hidden pb-2 pt-2 sm:mb-8 sm:pt-5 lg:pb-40">
           <div className="hub-in flex items-baseline justify-between gap-4">
             <p className="ds-overline ds-overline-accent">GenGO Studio</p>
             <p className="ds-caption truncate">{greeting}</p>
@@ -591,9 +602,16 @@ export default function HubPage() {
               <span
                 key={shot.src}
                 style={{ "--d": shot.d } as React.CSSProperties}
-                className={`hub-shot absolute overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${shot.pos}`}
+                className={`hub-shot absolute ${shot.pos}`}
               >
-                <img src={shot.src} alt="" className="h-full w-full object-cover" />
+                <span
+                  className={`block overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${shot.ratio}`}
+                >
+                  <img src={shot.src} alt="" className="h-full w-full object-cover" />
+                </span>
+                <span className="mt-1.5 block truncate ds-micro uppercase tracking-wide text-hint">
+                  {shot.label}
+                </span>
               </span>
             ))}
           </div>
@@ -606,20 +624,25 @@ export default function HubPage() {
             </span>
           </h1>
 
-          {/* The one sample that paints OVER the type, as in the reference —
-              it clips the crown of the first line rather than whole letters. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-10 hidden lg:block">
             <span
               style={{ "--d": HERO_SHOT_TOP.d } as React.CSSProperties}
-              className={`hub-shot absolute overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${HERO_SHOT_TOP.pos}`}
+              className={`hub-shot absolute ${HERO_SHOT_TOP.pos}`}
             >
-              <img src={HERO_SHOT_TOP.src} alt="" className="h-full w-full object-cover" />
+              <span
+                  className={`block overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${HERO_SHOT_TOP.ratio}`}
+                >
+                  <img src={HERO_SHOT_TOP.src} alt="" className="h-full w-full object-cover" />
+                </span>
+                <span className="mt-1.5 block truncate ds-micro uppercase tracking-wide text-hint">
+                  {HERO_SHOT_TOP.label}
+                </span>
             </span>
           </div>
 
           {/* Mobile / tablet stand-in for the scattered layer. */}
           <div aria-hidden className="mt-7 grid grid-cols-3 gap-2 lg:hidden">
-            {[HERO_SHOT_TOP, ...HERO_SHOTS.slice(0, 2)].map((shot) => (
+            {[HERO_SHOT_TOP, ...HERO_SHOTS].slice(0, 6).map((shot) => (
               <span
                 key={shot.src}
                 className="aspect-[3/2] overflow-hidden rounded-lg border border-white/10 bg-[var(--bg-surface)]"

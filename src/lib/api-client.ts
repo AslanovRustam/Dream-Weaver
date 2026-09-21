@@ -52,6 +52,14 @@ async function doFetch(path: string, init: ApiInit, extraHeaders: Record<string,
 }
 
 export async function apiFetch(path: string, init: ApiInit = {}): Promise<Response> {
+  // Only something the user actually did should raise the sign-in gate. A page
+  // load fires background reads (notifications, history, upload status) that
+  // 401 for a guest, and those used to pop the modal over the Hub the moment
+  // it rendered. Reads stay silent and fall back to their empty state; every
+  // paid or AI action is a POST, so guests still meet the gate where it helps.
+  const method = (init.method || "GET").toUpperCase();
+  const isRead = (method === "GET" || method === "HEAD") && init.json === undefined && !init.body;
+  const gateOn401 = !isRead;
   const res = await doFetch(path, init, await authHeaders());
   // A 401 can mean a genuinely dead session, OR just an access token that
   // expired while a long-running flow (e.g. a resize batch) was still going —
@@ -62,10 +70,10 @@ export async function apiFetch(path: string, init: ApiInit = {}): Promise<Respon
     const token = await forceRefreshToken();
     if (token) {
       const retried = await doFetch(path, init, { Authorization: `Bearer ${token}` });
-      if (retried.status === 401) notifyAuthRequired();
+      if (retried.status === 401 && gateOn401) notifyAuthRequired();
       return retried;
     }
-    notifyAuthRequired();
+    if (gateOn401) notifyAuthRequired();
   }
   return res;
 }
