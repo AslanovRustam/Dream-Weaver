@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -25,6 +25,7 @@ import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
+import { useT, useTx } from "@/lib/i18n";
 import { getMockProjects } from "@/lib/historyMock";
 import {
   ALL_TEMPLATES,
@@ -77,10 +78,7 @@ const HUB_ANIM = `
    the viewport because of the sidebar, so vw would overflow). Per-line sizes
    are tuned to the glyph count of each line. */
 .hub-hero { container-type: inline-size; }
-.hero-line { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: -.045em; line-height: .9; }
-.hero-line-1 { font-size: 14.2cqw; }
-.hero-line-2 { font-size: 13.9cqw; }
-.hero-line-3 { font-size: 13.7cqw; }
+.hero-line { display: block; font-weight: 800; text-transform: uppercase; letter-spacing: -.045em; line-height: .9; font-size: 13cqw; }
 /* Scattered work samples. They rise in with the same curve as the tiles and
    lift slightly on hover of the hero — decorative, off under reduced motion. */
 .hub-shot { animation: hubRise .7s cubic-bezier(.22,1,.36,1) both; animation-delay: var(--d, 0ms); transition: transform .5s cubic-bezier(.22,1,.36,1); }
@@ -103,15 +101,80 @@ const HERO_SHOT_TOP = {
 // Samples behind the type, in the two side columns and the band below it.
 // Picked for colour spread so the collage never reads as one gold blur.
 const HERO_SHOTS = [
-  { src: "/previews/preset20.webp", label: "Бонус", pos: "left-0 top-[15%] w-[15%]", ratio: "aspect-[3/2]", d: "120ms" },
-  { src: "/previews/preset15.webp", label: "Слот", pos: "-left-10 top-[43%] w-[17%]", ratio: "aspect-[3/2]", d: "180ms" },
-  { src: "/previews/hero-wheel.webp", label: "Лендинг · Колесо", pos: "left-[1%] bottom-0 w-[16%]", ratio: "aspect-[4/3]", d: "300ms" },
-  { src: "/previews/preset19.webp", label: "Коэффициенты", pos: "right-0 top-[9%] w-[15%]", ratio: "aspect-[3/2]", d: "150ms" },
-  { src: "/previews/preset2.webp", label: "Новый слот", pos: "-right-10 top-[42%] w-[17%]", ratio: "aspect-[3/2]", d: "210ms" },
-  { src: "/previews/preset11.webp", label: "Аркада", pos: "left-[24%] bottom-[7%] w-[18%]", ratio: "aspect-[3/2]", d: "330ms" },
-  { src: "/previews/preset4.webp", label: "Спорт · Матч", pos: "right-[18%] bottom-[1%] w-[22%]", ratio: "aspect-[3/2]", d: "260ms" },
-  { src: "/previews/preset7.webp", label: "Запуск казино", pos: "right-[1%] bottom-[11%] w-[15%]", ratio: "aspect-[3/2]", d: "360ms" },
+  { src: "/previews/preset20.webp", key: "bonus", label: "Бонус", pos: "left-0 top-[15%] w-[15%]", ratio: "aspect-[3/2]", d: "120ms" },
+  { src: "/previews/preset15.webp", key: "slot", label: "Слот", pos: "-left-10 top-[43%] w-[17%]", ratio: "aspect-[3/2]", d: "180ms" },
+  { src: "/previews/hero-wheel.webp", key: "wheel", label: "Лендинг · Колесо", pos: "left-[1%] bottom-0 w-[16%]", ratio: "aspect-[4/3]", d: "300ms" },
+  { src: "/previews/preset19.webp", key: "odds", label: "Коэффициенты", pos: "right-0 top-[9%] w-[15%]", ratio: "aspect-[3/2]", d: "150ms" },
+  { src: "/previews/preset2.webp", key: "newSlot", label: "Новый слот", pos: "-right-10 top-[42%] w-[17%]", ratio: "aspect-[3/2]", d: "210ms" },
+  { src: "/previews/preset11.webp", key: "arcade", label: "Аркада", pos: "left-[24%] bottom-[7%] w-[18%]", ratio: "aspect-[3/2]", d: "330ms" },
+  { src: "/previews/preset4.webp", key: "match", label: "Спорт · Матч", pos: "right-[18%] bottom-[1%] w-[22%]", ratio: "aspect-[3/2]", d: "260ms" },
+  { src: "/previews/preset7.webp", key: "launch", label: "Запуск казино", pos: "right-[1%] bottom-[11%] w-[15%]", ratio: "aspect-[3/2]", d: "360ms" },
 ];
+
+// Display type that fills the column whatever language it is in. Sizes used to
+// be hard-coded per line, tuned to the width of «Креатив, который продаёт», so a
+// translation of a different length broke the block. Now all three lines share
+// ONE size: the one that makes the longest line reach the target width. Scaling
+// each line to the same width instead blows a short word like «THAT» up to fill
+// the column, which is not what the reference layout does.
+function FittedHeadline({ lines, fill = 0.72 }: { lines: string[]; fill?: number }) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  const [size, setSize] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const host = ref.current;
+    if (!host) return;
+    let alive = true;
+
+    const measure = () => {
+      if (!alive) return;
+      const target = host.clientWidth * fill;
+      if (target <= 0) return;
+      const spans = Array.from(host.querySelectorAll<HTMLElement>(".hero-line"));
+      let widest = 1;
+      for (const span of spans) {
+        const previous = span.style.fontSize;
+        span.style.fontSize = "100px";
+        const range = document.createRange();
+        range.selectNodeContents(span);
+        widest = Math.max(widest, range.getBoundingClientRect().width);
+        span.style.fontSize = previous;
+      }
+      const next = Math.max(20, Math.round((target / widest) * 1000) / 10);
+      setSize((prev) => (prev !== null && Math.abs(prev - next) < 0.5 ? prev : next));
+    };
+
+    measure();
+    // Web fonts land after the first paint and change every measurement.
+    if (typeof document !== "undefined" && "fonts" in document) {
+      void (document as Document & { fonts: FontFaceSet }).fonts.ready.then(measure);
+    }
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    return () => {
+      alive = false;
+      ro.disconnect();
+    };
+  }, [lines.join("\u0000"), fill]);
+
+  return (
+    <h1
+      ref={ref}
+      className="hub-in relative mt-6 text-center text-foreground sm:mt-7"
+      style={{ "--d": "40ms" } as React.CSSProperties}
+    >
+      {lines.map((line, i) => (
+        <span
+          key={i}
+          className="hero-line"
+          style={size ? { fontSize: `${size}px` } : undefined}
+        >
+          {line}
+        </span>
+      ))}
+    </h1>
+  );
+}
 
 const PRESET_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
@@ -240,13 +303,18 @@ function SectionTile({
   onOpen: () => void;
 }) {
   const Icon = section.icon;
+  const t = useT();
+  const tx = useTx();
   const soon = !MVP_ENABLED.has(section.id);
+  const title = tx(`sections.${section.id}.title`, section.title);
+  const description = tx(`sections.${section.id}.description`, section.description);
+  const cta = tx(`sections.${section.id}.cta`, section.cta);
 
   if (soon) {
     return (
       <div
         aria-disabled="true"
-        title={`${section.title} — скоро`}
+        title={t("common.soonFor", { title })}
         className={`hub-tile relative flex w-full cursor-not-allowed flex-col overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] text-left opacity-55 grayscale lg:h-full ${
           featured ? "min-h-[280px] lg:min-h-0" : "min-h-[168px] lg:min-h-0"
         }`}
@@ -258,7 +326,7 @@ function SectionTile({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-surface)] to-transparent" />
         </div>
         <span className="absolute right-3 top-3 z-10 rounded-full border border-border bg-[var(--bg-void)]/80 px-2.5 py-1 text-xs font-semibold text-hint backdrop-blur">
-          Скоро
+          {t("common.soon")}
         </span>
         <div className={`relative flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2 p-4"}`}>
           <div className="flex items-center gap-2.5">
@@ -266,10 +334,10 @@ function SectionTile({
               <Icon className="h-4 w-4" />
             </span>
             <h3 className={`truncate font-semibold tracking-tight text-muted-foreground ${featured ? "text-xl" : "text-base"}`}>
-              {section.title}
+              {title}
             </h3>
           </div>
-          <p className="mt-1.5 truncate text-xs text-hint">{section.description}</p>
+          <p className="mt-1.5 truncate text-xs text-hint">{description}</p>
         </div>
       </div>
     );
@@ -310,7 +378,7 @@ function SectionTile({
           />
           <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.07]" />
           <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-            Рекомендуем начать
+            {t("hub.recommended")}
           </span>
         </>
       ) : (
@@ -349,11 +417,11 @@ function SectionTile({
             <h3
               className={`truncate font-semibold tracking-tight text-white ${featured ? "text-xl lg:text-2xl" : "text-base"}`}
             >
-              {section.title}
+              {title}
             </h3>
           </div>
           <p className={`mt-1.5 text-white/80 ${featured ? "text-sm" : "truncate text-xs"}`}>
-            {section.description}
+            {description}
           </p>
         </div>
         <span
@@ -361,7 +429,7 @@ function SectionTile({
             featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
           }`}
         >
-          {section.cta}
+          {cta}
           <ArrowRight
             className={`transition-transform duration-200 group-hover:translate-x-0.5 ${featured ? "h-4 w-4" : "h-3.5 w-3.5"}`}
           />
@@ -396,6 +464,8 @@ function Thumb({
 export default function HubPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+  const t = useT();
+  const tx = useTx();
   const { activeId } = useWorkspace();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
@@ -477,7 +547,7 @@ export default function HubPage() {
           }
           return {
             id: String(c.id ?? ""),
-            name: (c.name as string) || "Проект без названия",
+            name: (c.name as string) || "Проект без названия", // localised at render
             updatedLabel,
             thumb: (master?.image_url as string) || null,
           };
@@ -549,7 +619,7 @@ export default function HubPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Загрузка…
+        {t("common.loading")}
       </div>
     );
   }
@@ -557,7 +627,9 @@ export default function HubPage() {
   const bannerSection = SECTION_BY_ID.get("banner")!;
   const CREATE_IDS = new Set(["landing", "playable", "video", "email"]);
   const otherSections = SECTIONS.filter((s) => CREATE_IDS.has(s.id));
-  const greeting = firstName ? `Что создаём сегодня, ${firstName}?` : "Что создаём сегодня?";
+  const greeting = firstName
+    ? t("hub.greeting", { name: firstName })
+    : t("hub.greetingAnon");
   // Gate onboarding on the same count as the stat so the two are mutually
   // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
   // sees the stat, and malformed data can never show both at once.
@@ -597,7 +669,7 @@ export default function HubPage() {
             compact strip of the same creatives under the type. */}
         <section className="hub-hero relative mb-6 overflow-hidden pb-2 pt-2 sm:mb-8 sm:pt-5 lg:pb-40">
           <div className="hub-in flex items-baseline justify-between gap-4">
-            <p className="ds-overline ds-overline-accent">GenGO Studio</p>
+            <p className="ds-overline ds-overline-accent">{t("hub.overline")}</p>
             <p className="ds-caption truncate">{greeting}</p>
           </div>
 
@@ -614,19 +686,15 @@ export default function HubPage() {
                   <img src={shot.src} alt="" className="h-full w-full object-cover" />
                 </span>
                 <span className="mt-1.5 block truncate ds-micro uppercase tracking-wide text-hint">
-                  {shot.label}
+                  {tx(`hub.shots.${shot.key}`, shot.label)}
                 </span>
               </span>
             ))}
           </div>
 
-          <h1 className="hub-in relative mt-6 text-center text-foreground sm:mt-7" style={{ "--d": "40ms" } as React.CSSProperties}>
-            <span className="hero-line hero-line-1">Креатив,</span>{" "}
-            <span className="hero-line hero-line-2">который</span>{" "}
-            <span className="hero-line hero-line-3">
-              продаёт
-            </span>
-          </h1>
+          <FittedHeadline
+            lines={[t("hub.headline.l1"), t("hub.headline.l2"), t("hub.headline.l3")]}
+          />
 
           {/* No caption on this one: it sits over the headline, so a line of
               text under it would print across the letters. */}
@@ -654,16 +722,15 @@ export default function HubPage() {
         </section>
 
         <div className="hub-in mb-8 flex flex-col gap-4 border-t border-border pt-5 sm:mb-10 md:flex-row md:items-start md:justify-between md:gap-8" style={{ "--d": "360ms" } as React.CSSProperties}>
-          <p className="ds-overline shrink-0 md:w-40">iGaming · Креативы</p>
+          <p className="ds-overline shrink-0 md:w-40">{t("hub.label")}</p>
           <p className="max-w-lg text-sm text-muted-foreground md:text-center">
-            У вашего оффера есть что сказать. Мы превращаем это в баннеры, лендинги, письма и
-            видео, которые узнают с первого показа.
+            {t("hub.tagline")}
           </p>
           <Link
             href={BANNER_TEMPLATES_ROUTE}
             className="ds-overline group inline-flex shrink-0 items-center gap-1.5 text-foreground transition hover:text-accent-green md:w-40 md:justify-end"
           >
-            Смотреть шаблоны
+            {t("hub.templatesLink")}
             <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
           </Link>
         </div>
@@ -686,15 +753,15 @@ export default function HubPage() {
                 type="text"
                 value={hubPrompt}
                 onChange={(e) => setHubPrompt(e.target.value)}
-                placeholder="Например: приветственный бонус 100% для онлайн-казино…"
-                aria-label="Опишите креатив"
+                placeholder={t("hub.prompt.placeholder")}
+                aria-label={t("hub.prompt.aria")}
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint sm:text-base"
               />
               <button
                 type="submit"
                 className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
               >
-                Создать
+                {t("hub.prompt.submit")}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -704,18 +771,19 @@ export default function HubPage() {
             {TOOL_CHIPS.map((sc) => {
               const Icon = sc.icon;
               const soon = !MVP_ENABLED.has(sc.id);
+              const chipTitle = tx(`sections.${sc.id}.title`, sc.title);
               if (soon) {
                 return (
                   <span
                     key={sc.id}
                     aria-disabled="true"
-                    title={`${sc.title} — скоро`}
+                    title={t("common.soonFor", { title: chipTitle })}
                     className="inline-flex min-h-9 cursor-not-allowed items-center gap-1.5 rounded-full border border-border bg-white/[0.02] px-3 text-xs font-medium text-hint opacity-60"
                   >
                     <Icon className="h-3.5 w-3.5" />
-                    {sc.title}
+                    {chipTitle}
                     <span className="ml-0.5 rounded-full border border-border px-1 text-[9px] uppercase tracking-wide">
-                      Скоро
+                      {t("common.soon")}
                     </span>
                   </span>
                 );
@@ -727,13 +795,13 @@ export default function HubPage() {
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-white/[0.03] px-3 text-xs font-medium text-muted-foreground transition hover:border-accent-green/40 hover:text-foreground"
                 >
                   <Icon className="h-3.5 w-3.5 text-accent-green" />
-                  {sc.title}
+                  {chipTitle}
                 </Link>
               );
             })}
           </div>
 
-          <p className="mx-auto mt-7 max-w-md ds-caption">Или найдите готовый шаблон</p>
+          <p className="mx-auto mt-7 max-w-md ds-caption">{t("hub.searchHint")}</p>
 
           <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
           <div ref={searchRef} className="relative mt-4 text-left">
@@ -744,15 +812,15 @@ export default function HubPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
-                placeholder="Искать шаблоны, проекты, бренды…"
-                aria-label="Поиск по шаблонам и проектам"
+                placeholder={t("hub.search.placeholder")}
+                aria-label={t("hub.search.aria")}
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint"
               />
               {query ? (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  aria-label="Очистить поиск"
+                  aria-label={t("hub.search.clear")}
                   className="relative flex shrink-0 text-muted-foreground transition after:absolute after:-inset-2.5 after:content-[''] hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -764,7 +832,7 @@ export default function HubPage() {
               <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 text-foreground shadow-xl">
                 {!hasResults ? (
                   <div className="px-3 py-6 text-center">
-                    <p className="text-sm font-medium">Ничего не найдено</p>
+                    <p className="text-sm font-medium">{t("hub.search.empty")}</p>
                     <p className="mt-1 ds-caption">
                       По запросу «{query.trim()}» шаблонов и проектов нет
                     </p>
@@ -856,14 +924,14 @@ export default function HubPage() {
                 <GraduationCap className="h-4 w-4" />
               </span>
               <p className="min-w-0 flex-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Первый раз здесь?</span> Быстрый старт
-                проведёт по шаблону, баннеру и лендингу — по пунктам, за пару минут.
+                <span className="font-medium text-foreground">{t("hub.onboarding.title")}</span>{" "}
+                {t("hub.onboarding.body")}
               </p>
               <Link
                 href="/onboarding"
                 className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-accent-green/40 px-3.5 text-sm font-medium text-foreground transition hover:bg-accent-green/10"
               >
-                Открыть
+                {t("hub.onboarding.cta")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -912,15 +980,15 @@ export default function HubPage() {
                 <Sparkles className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <p className="ds-overline ds-overline-accent">Витрина</p>
-                <h2 className="mt-0.5 text-lg font-semibold">Примеры креативов</h2>
+                <p className="ds-overline ds-overline-accent">{t("hub.showcase.overline")}</p>
+                <h2 className="mt-0.5 text-lg font-semibold">{t("hub.showcase.title")}</h2>
               </div>
             </div>
             <Link
               href="/banner/templates"
               className="hidden shrink-0 items-center gap-1 text-sm font-medium text-accent-green transition hover:text-[var(--accent-hover)] sm:inline-flex"
             >
-              Все шаблоны
+              {t("hub.showcase.all")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -978,8 +1046,8 @@ export default function HubPage() {
                 <Clock className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <p className="ds-overline ds-overline-accent">Продолжить</p>
-                <h2 className="mt-0.5 text-lg font-semibold">Недавние проекты</h2>
+                <p className="ds-overline ds-overline-accent">{t("hub.continueCta")}</p>
+                <h2 className="mt-0.5 text-lg font-semibold">{t("hub.recent.title")}</h2>
               </div>
             </div>
             <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
@@ -1023,8 +1091,8 @@ export default function HubPage() {
               <Sparkles className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="ds-overline ds-overline-accent">Быстрый старт</p>
-              <h2 className="mt-0.5 text-lg font-semibold">Популярные шаблоны</h2>
+              <p className="ds-overline ds-overline-accent">{t("nav.onboarding")}</p>
+              <h2 className="mt-0.5 text-lg font-semibold">{t("hub.popular")}</h2>
             </div>
           </div>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
@@ -1073,9 +1141,9 @@ export default function HubPage() {
                 <HelpCircle className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold">Нужна помощь?</h2>
+                <h2 className="text-lg font-semibold">{t("hub.helpCard.title")}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  База знаний, частые вопросы и связь с поддержкой — в одном месте.
+                  {t("hub.helpCard.body")}
                 </p>
               </div>
             </div>
@@ -1085,14 +1153,14 @@ export default function HubPage() {
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-foreground transition hover:border-white/28 hover:bg-[var(--overlay-hover)] sm:w-auto"
               >
                 <BookOpen className="h-4 w-4" />
-                База знаний
+                {t("hub.helpCard.kb")}
               </Link>
               <Link
                 href="/help#contact"
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground sm:w-auto"
               >
                 <Mail className="h-4 w-4" />
-                Написать в поддержку
+                {t("hub.helpCard.contact")}
               </Link>
             </div>
           </div>

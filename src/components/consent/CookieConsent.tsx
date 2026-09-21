@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Cookie, ShieldCheck, Sliders, X } from "lucide-react";
 
 import { track } from "@/lib/analytics";
+import { useT } from "@/lib/i18n";
 import {
   clearNonEssentialStorage,
   CONSENT_EVENT,
@@ -24,10 +25,9 @@ import {
 
 type Row = {
   id: keyof ConsentCategories;
-  title: string;
-  body: string;
   locked?: boolean;
-  note?: string;
+  /** Only these two have the extra caveat line. */
+  hasNote?: boolean;
 };
 
 // Consent is never pre-ticked: analytics starts off, and stays off until
@@ -35,27 +35,13 @@ type Row = {
 const DEFAULT_DRAFT: ConsentCategories = { necessary: true, functional: true, analytics: false };
 
 const ROWS: Row[] = [
-  {
-    id: "necessary",
-    title: "Необходимые",
-    body: "Держат вас в аккаунте между визитами и хранят ваш выбор в этом окне. Без них не работает вход.",
-    locked: true,
-  },
-  {
-    id: "functional",
-    title: "Настройки и черновики",
-    body: "Запоминают язык, свёрнутое меню, выбранный шаблон, бренд и незаконченные проекты — чтобы не собирать всё заново.",
-    note: "Если выключить, сохранённые черновики и настройки будут удалены.",
-  },
-  {
-    id: "analytics",
-    title: "Аналитика",
-    body: "Обезличенная статистика: какие инструменты используют и где спотыкаются.",
-    note: "Сейчас не подключена. Переключатель хранит ваш выбор на будущее — без согласия мы её не включим.",
-  },
+  { id: "necessary", locked: true },
+  { id: "functional", hasNote: true },
+  { id: "analytics", hasNote: true },
 ];
 
 export function CookieConsent() {
+  const t = useT();
   const [mounted, setMounted] = useState(false);
   const [needsChoice, setNeedsChoice] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,7 +104,7 @@ export function CookieConsent() {
       {needsChoice && !dialogOpen ? (
         <div
           role="region"
-          aria-label="Уведомление о cookie"
+          aria-label={t("consent.region")}
           className="fixed inset-x-0 bottom-0 z-[150] p-3 sm:p-4"
         >
           <div className="mx-auto flex max-w-4xl flex-col gap-3 rounded-2xl border border-border bg-popover p-4 text-foreground shadow-[0_24px_70px_-20px_rgba(0,0,0,0.95)] sm:flex-row sm:items-center sm:gap-4 sm:p-5">
@@ -126,12 +112,11 @@ export function CookieConsent() {
               <Cookie className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Cookie и данные в браузере</p>
+              <p className="text-sm font-medium">{t("consent.title")}</p>
               <p className="mt-1 ds-caption">
-                Храним только вход в аккаунт, настройки интерфейса и черновики проектов — всё
-                остаётся на вашем устройстве. Рекламных пикселей и аналитических трекеров нет.{" "}
+                {t("consent.body")}{" "}
                 <Link href="/legal#cookies" className="text-accent-green underline-offset-2 hover:underline">
-                  Подробнее
+                  {t("common.more")}
                 </Link>
               </p>
             </div>
@@ -145,21 +130,21 @@ export function CookieConsent() {
                 className="order-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-border px-3 text-sm font-medium text-muted-foreground transition hover:border-accent-green/40 hover:text-foreground sm:order-none"
               >
                 <Sliders className="h-3.5 w-3.5" />
-                Настроить
+                {t("consent.settings")}
               </button>
               <button
                 type="button"
                 onClick={() => decide(MINIMAL)}
                 className="order-3 min-h-10 rounded-xl border border-border px-3 text-sm font-medium text-muted-foreground transition hover:border-accent-green/40 hover:text-foreground sm:order-none"
               >
-                Только необходимое
+                {t("consent.minimal")}
               </button>
               <button
                 type="button"
                 onClick={() => decide(DEFAULT_DRAFT)}
                 className="order-1 col-span-2 min-h-10 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:order-none sm:col-auto"
               >
-                Хорошо
+                {t("consent.accept")}
               </button>
             </div>
           </div>
@@ -176,18 +161,18 @@ export function CookieConsent() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Настройки хранения данных"
+            aria-label={t("consent.dialog.aria")}
             className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-popover text-foreground shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]"
           >
             <div className="flex items-start justify-between gap-3 border-b border-border p-5">
               <div>
-                <p className="ds-overline ds-overline-accent">Cookie и локальное хранилище</p>
-                <h2 className="ds-h4 mt-1">Что мы храним в вашем браузере</h2>
+                <p className="ds-overline ds-overline-accent">{t("consent.dialog.overline")}</p>
+                <h2 className="ds-h4 mt-1">{t("consent.dialog.title")}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setDialogOpen(false)}
-                aria-label="Закрыть"
+                aria-label={t("common.close")}
                 className="relative -mr-1 -mt-1 shrink-0 text-muted-foreground transition after:absolute after:-inset-2.5 after:content-[''] hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -197,21 +182,19 @@ export function CookieConsent() {
             <div className="max-h-[60vh] overflow-y-auto">
               <p className="flex items-start gap-2 border-b border-border bg-white/[0.02] px-5 py-3 ds-caption">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-green" />
-                <span>
-                  Своих cookie мы не ставим — только запись вашего выбора в этом окне. Данные лежат
-                  в localStorage вашего браузера и никуда не уходят.
-                </span>
+                <span>{t("consent.dialog.note")}</span>
               </p>
 
               {ROWS.map((row) => {
                 const on = row.locked ? true : draft[row.id] === true;
+                const title = t(`consent.rows.${row.id}.title`);
                 return (
                   <div key={row.id} className="flex items-start gap-3 border-b border-border/60 p-5 last:border-b-0">
                     <button
                       type="button"
                       role="switch"
                       aria-checked={on}
-                      aria-label={row.title}
+                      aria-label={title}
                       disabled={row.locked}
                       onClick={() =>
                         setDraft((p) => ({ ...p, necessary: true, [row.id]: !p[row.id] }))
@@ -228,17 +211,17 @@ export function CookieConsent() {
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">
-                        {row.title}
+                        {title}
                         {row.locked ? (
                           <span className="ml-2 rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                            всегда
+                            {t("consent.dialog.always")}
                           </span>
                         ) : null}
                       </p>
-                      <p className="mt-1 ds-caption">{row.body}</p>
-                      {row.note ? (
+                      <p className="mt-1 ds-caption">{t(`consent.rows.${row.id}.body`)}</p>
+                      {row.hasNote ? (
                         <p className="mt-1.5 border-l-2 border-accent-green/30 pl-2.5 ds-caption">
-                          {row.note}
+                          {t(`consent.rows.${row.id}.note`)}
                         </p>
                       ) : null}
                     </div>
@@ -253,14 +236,14 @@ export function CookieConsent() {
                 onClick={() => decide(MINIMAL)}
                 className="min-h-10 rounded-xl px-2 text-sm text-muted-foreground transition hover:text-foreground"
               >
-                Только необходимое
+                {t("consent.minimal")}
               </button>
               <button
                 type="button"
                 onClick={() => decide(draft)}
                 className="min-h-10 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
               >
-                Сохранить выбор
+                {t("consent.save")}
               </button>
             </div>
           </div>

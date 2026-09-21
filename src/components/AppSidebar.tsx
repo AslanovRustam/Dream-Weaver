@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { SECTION_BY_ID, sectionEntryRoute } from "@/lib/sections";
+import { useTx } from "@/lib/i18n";
 import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
@@ -23,6 +24,8 @@ import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
 // the active item uses the design-system lime "Active" pill (--lime-tint).
 type NavItem = {
   href: string;
+  /** Dictionary path; `label` is the Russian fallback until it is translated. */
+  labelKey: string;
   label: string;
   icon: LucideIcon;
   exact?: boolean;
@@ -36,22 +39,31 @@ const ENABLED_HREFS = MVP_ENABLED_ROUTES;
 
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
   const sec = SECTION_BY_ID.get(id)!;
-  return { href: sectionEntryRoute(sec), match: sec.route, label: sec.title, icon: sec.icon };
+  return {
+    href: sectionEntryRoute(sec),
+    match: sec.route,
+    labelKey: `sections.${sec.id}.title`,
+    label: sec.title,
+    icon: sec.icon,
+  };
 };
 
-const GROUPS: { title?: string; items: NavItem[] }[] = [
-  { items: [{ href: "/", label: "Главная", icon: Home, exact: true }] },
+const GROUPS: { titleKey?: string; title?: string; items: NavItem[] }[] = [
+  { items: [{ href: "/", labelKey: "nav.home", label: "Главная", icon: Home, exact: true }] },
   {
+    titleKey: "nav.groups.tools",
     title: "Инструменты",
     items: [s("banner"), s("landing"), s("playable"), s("video"), s("email")],
   },
   {
+    titleKey: "nav.groups.ads",
     title: "Реклама",
     items: [s("ads"), s("stats"), s("mailing")],
   },
   {
+    titleKey: "nav.groups.library",
     title: "Библиотека",
-    items: [{ href: "/history", label: "История", icon: Clock }],
+    items: [{ href: "/history", labelKey: "nav.history", label: "История", icon: Clock }],
   },
 ];
 
@@ -59,14 +71,15 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
 // lib/mvp.ts), so it's flagged "Скоро" like the rest of the disabled sidebar
 // items — Help and Billing are real working pages and stay enabled.
 const FOOTER: NavItem[] = [
-  { href: "/onboarding", label: "Быстрый старт", icon: GraduationCap },
-  { href: "/settings", label: "Интеграции", icon: KeyRound, soon: true },
-  { href: "/help", label: "Помощь", icon: HelpCircle },
-  { href: "/billing", label: "Тарифы", icon: Coins },
+  { href: "/onboarding", labelKey: "nav.onboarding", label: "Быстрый старт", icon: GraduationCap },
+  { href: "/settings", labelKey: "nav.integrations", label: "Интеграции", icon: KeyRound, soon: true },
+  { href: "/help", labelKey: "nav.help", label: "Помощь", icon: HelpCircle },
+  { href: "/billing", labelKey: "nav.billing", label: "Тарифы", icon: Coins },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const tx = useTx();
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -106,8 +119,8 @@ export function AppSidebar() {
         <button
           type="button"
           onClick={toggle}
-          aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
-          title={collapsed ? "Развернуть" : "Свернуть"}
+          aria-label={collapsed ? tx("nav.expand", "Развернуть меню") : tx("nav.collapse", "Свернуть меню")}
+          title={collapsed ? tx("nav.expandShort", "Развернуть") : tx("nav.collapseShort", "Свернуть")}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
         >
           {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
@@ -119,7 +132,7 @@ export function AppSidebar() {
           <div key={gi} className={gi > 0 ? "mt-4" : ""}>
             {g.title && !collapsed ? (
               <p className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-hint">
-                {g.title}
+                {tx(g.titleKey ?? "", g.title)}
               </p>
             ) : g.title && collapsed ? (
               <div className="mx-3 mb-1.5 h-px bg-border" />
@@ -170,12 +183,14 @@ function SidebarLink({
   soon?: boolean;
 }) {
   const Icon = item.icon;
+  const tx = useTx();
+  const label = tx(item.labelKey, item.label);
 
   if (soon) {
     return (
       <div
         aria-disabled="true"
-        title={collapsed ? `${item.label} — скоро` : undefined}
+        title={collapsed ? tx("common.soonFor", "{title} — скоро", { title: label }) : undefined}
         className={`group flex h-10 cursor-not-allowed items-center rounded-lg text-sm text-hint opacity-60 ${
           collapsed ? "justify-center px-0" : "gap-3 px-3"
         }`}
@@ -183,9 +198,9 @@ function SidebarLink({
         <Icon className="h-5 w-5 shrink-0" />
         {!collapsed ? (
           <>
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{label}</span>
             <span className="ml-auto rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-hint">
-              Скоро
+              {tx("common.soon", "Скоро")}
             </span>
           </>
         ) : null}
@@ -196,7 +211,7 @@ function SidebarLink({
   return (
     <Link
       href={item.href}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? label : undefined}
       aria-current={active ? "page" : undefined}
       className={`group flex h-10 items-center rounded-lg text-sm transition ${
         collapsed ? "justify-center px-0" : "gap-3 px-3"
@@ -207,7 +222,7 @@ function SidebarLink({
       }`}
     >
       <Icon className={`h-5 w-5 shrink-0 ${active ? "text-accent-green" : ""}`} />
-      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+      {!collapsed ? <span className="truncate">{label}</span> : null}
     </Link>
   );
 }

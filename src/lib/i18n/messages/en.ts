@@ -1,0 +1,236 @@
+import type { Messages } from "./ru.types";
+
+// English. Deliberately allowed to be incomplete — t() falls back to the
+// Russian string key by key, so a half-translated screen reads correctly
+// instead of rendering blanks. Unknown keys still fail the build.
+export const en: Messages = {
+  header: {
+    home: "Home",
+    homeAria: "GenGO — home",
+    uploadFailed: "{n} files were not saved to the cloud. Open History.",
+    credits: {
+      title: "Credits",
+      label: "Credits:",
+      low: "Credits are running low — top up",
+      topUp: "Top up credits",
+      more: "More credits",
+      topUpShort: "Top up",
+    },
+    notifications: {
+      title: "Notifications",
+      empty: "No new notifications",
+      items: [
+        { title: "Generation finished", desc: "A pack of 6 banners is ready to download", time: "2 min" },
+        { title: "New template added", desc: "Betting · “Express of the day”", time: "1 h" },
+        { title: "Account active", desc: "Current plan: Free", time: "yesterday" },
+      ],
+    },
+    help: {
+      trigger: "Help",
+      kb: "Knowledge base & FAQ",
+      contact: "Contact support",
+    },
+    projects: {
+      trigger: "My projects",
+      all: "All history",
+      updated: "Edited {date}",
+    },
+    profile: {
+      trigger: "Profile",
+      account: "Account",
+      history: "History",
+      help: "Help & support",
+      legal: "Legal",
+      admin: "Admin panel",
+      signOut: "Sign out",
+    },
+    guest: {
+      login: "Sign in",
+      register: "Sign up",
+    },
+    language: {
+      aria: "Interface language",
+      title: "Language",
+      hint: "Changes the product interface language.",
+    },
+    sections: {
+      switch: "Switch section",
+      all: "Sections",
+      coach:
+        "Switch between the Banner generator, Landing generator and other tools here.",
+      coachOk: "Got it",
+    },
+    project: {
+      untitled: "Untitled project",
+      rename: "Rename project",
+    },
+    progress: {
+      error: "Error",
+      master: "Master",
+      done: "Done",
+      open: "Open the generation page",
+      abort: "Abort",
+      hide: "Hide",
+      abortAll: "Abort remaining tasks",
+      hideIndicator: "Hide the indicator",
+    },
+    unsaved: "You have unsaved changes. Continue?",
+    unsavedModal: {
+      title: "Unsaved changes",
+      body: "You have unsaved changes. If you continue, they will be lost.",
+      stay: "Cancel",
+      leave: "Continue",
+    },
+  },
+  workspace: {
+    switch: "My Workspace",
+    all: "My workspaces",
+    manage: "Manage workspaces",
+  },
+  common: {
+    soon: "Soon",
+    soonFor: "{title} — coming soon",
+    loading: "Loading…",
+    all: "All",
+    more: "Learn more",
+    close: "Close",
+  },
+  nav: {
+    home: "Home",
+    groups: { tools: "Tools", ads: "Advertising", library: "Library" },
+    history: "History",
+    onboarding: "Quick start",
+    integrations: "Integrations",
+    help: "Help",
+    billing: "Plans",
+    expand: "Expand menu",
+    collapse: "Collapse menu",
+    expandShort: "Expand",
+    collapseShort: "Collapse",
+  },
+  sections: {
+    banner: {
+      title: "Banner generator",
+      description: "Static banners for social, betting and paid ads",
+      cta: "Create a banner",
+    },
+    landing: {
+      title: "Landing generator",
+      description: "Landing pages from a banner or from scratch",
+      cta: "Create a landing",
+    },
+    playable: {
+      title: "Playable ads",
+      description: "Interactive game-like banners",
+      cta: "Create a playable",
+    },
+    video: {
+      title: "Video builder",
+      description: "Screencasts, characters, lip-sync, music",
+      cta: "Create a video",
+    },
+    email: {
+      title: "Email generator",
+      description: "Campaign emails with a live preview",
+      cta: "Create an email",
+    },
+    ads: {
+      title: "Ad accounts",
+      description: "Connect Meta, Google and TikTok",
+      cta: "Connect an account",
+    },
+    stats: {
+      title: "Statistics",
+      description: "Spend, impressions, clicks, CTR and conversions per account",
+      cta: "Open statistics",
+    },
+    mailing: {
+      title: "Mailing",
+      description: "Send to audiences, track opens and clicks",
+      cta: "Open mailing",
+    },
+  },
+  hub: {
+    overline: "GenGO Studio",
+    greeting: "What are we making today, {name}?",
+    greetingAnon: "What are we making today?",
+    headline: { l1: "Creative", l2: "that", l3: "sells" },
+    label: "iGaming · Creative",
+    tagline:
+      "Your offer has something to say. We turn it into banners, landings, emails and video people recognise at first glance.",
+    templatesLink: "Browse templates",
+    shots: {
+      bonus: "Bonus",
+      slot: "Slot",
+      wheel: "Landing · Wheel",
+      odds: "Odds",
+      newSlot: "New slot",
+      arcade: "Arcade",
+      match: "Sports · Match",
+      launch: "Casino launch",
+    },
+    prompt: {
+      placeholder: "For example: 100% welcome bonus for an online casino…",
+      aria: "Describe the creative",
+      submit: "Create",
+    },
+    searchHint: "Or find a ready-made template",
+    search: {
+      placeholder: "Search templates, projects, brands…",
+      aria: "Search templates and projects",
+      clear: "Clear search",
+      empty: "Nothing found",
+      emptyHint: "No templates or projects match “{q}”",
+      templates: "Templates",
+      projects: "My projects",
+    },
+    onboarding: {
+      title: "First time here?",
+      body: "Quick start walks you through a template, a banner and a landing — step by step, in a couple of minutes.",
+      cta: "Open",
+    },
+    recommended: "Start here",
+    continueCta: "Continue",
+    showcase: { overline: "Showcase", title: "Creative examples", all: "All templates" },
+    recent: { title: "Recent projects", untitled: "Untitled project" },
+    popular: "Popular templates",
+    helpCard: {
+      title: "Need a hand?",
+      body: "Knowledge base, common questions and a line to support — all in one place.",
+      kb: "Knowledge base",
+      contact: "Contact support",
+    },
+  },
+  consent: {
+    region: "Cookie notice",
+    title: "Cookies and browser data",
+    body: "We keep only your sign-in, interface settings and project drafts — all of it stays on your device. No ad pixels, no analytics trackers.",
+    settings: "Customise",
+    minimal: "Essentials only",
+    accept: "Got it",
+    save: "Save choice",
+    dialog: {
+      aria: "Data storage settings",
+      overline: "Cookies and local storage",
+      title: "What we keep in your browser",
+      note: "We set no cookies of our own — only a record of the choice you make here. Everything else lives in your browser's localStorage and never leaves it.",
+      always: "always on",
+    },
+    rows: {
+      necessary: {
+        title: "Essential",
+        body: "Keep you signed in between visits and remember the choice you make here. Sign-in does not work without them.",
+      },
+      functional: {
+        title: "Settings and drafts",
+        body: "Remember your language, collapsed menu, chosen template, brand and unfinished projects so you don't rebuild them.",
+        note: "Turning this off deletes the drafts and settings already saved.",
+      },
+      analytics: {
+        title: "Analytics",
+        body: "Anonymised statistics: which tools people use and where they get stuck.",
+        note: "Not connected right now. The switch records your choice for later — we will not turn it on without consent.",
+      },
+    },
+  },
+};
