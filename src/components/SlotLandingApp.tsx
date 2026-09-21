@@ -600,6 +600,7 @@ export function SlotLandingApp() {
             Тематика <span className="text-accent-green">*</span>
           </label>
           <textarea
+            data-tour="landing-topic"
             className={`${inputCls} min-h-[64px] resize-y py-2`}
             rows={2}
             value={topic}
@@ -895,6 +896,7 @@ export function SlotLandingApp() {
         </Field>
 
         <button
+          data-tour="landing-export"
           type="button"
           onClick={() =>
             downloadText(

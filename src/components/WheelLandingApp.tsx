@@ -491,6 +491,7 @@ export function WheelLandingApp() {
 
         <Field label="Тематика *">
           <textarea
+            data-tour="landing-topic"
             className={`${inputCls} min-h-[60px] resize-y py-2`}
             rows={2}
             value={topic}
@@ -664,6 +665,7 @@ export function WheelLandingApp() {
         </Field>
 
         <button
+          data-tour="landing-export"
           type="button"
           onClick={() =>
             downloadText(

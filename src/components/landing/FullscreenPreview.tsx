@@ -161,6 +161,7 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
     <>
       <button
         type="button"
+        data-tour="landing-preview"
         onClick={show}
         title="Открыть предпросмотр на весь экран"
         className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground"
@@ -170,7 +171,7 @@ export function FullscreenPreview({ title, buildHtml }: { title: string; buildHt
 
       {open && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[200] flex flex-col bg-[#0B0D12]" role="dialog" aria-modal="true" aria-label={`Предпросмотр: ${title}`}>
+            <div data-tour-modal-open className="fixed inset-0 z-[200] flex flex-col bg-[#0B0D12]" role="dialog" aria-modal="true" aria-label={`Предпросмотр: ${title}`}>
               <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
                 <div className="min-w-0">
                   <p className="ds-overline text-accent-green">Предпросмотр лендинга</p>

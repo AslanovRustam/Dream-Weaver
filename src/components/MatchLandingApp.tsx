@@ -492,6 +492,7 @@ export function MatchLandingApp() {
             Тематика <span className="text-accent-green">*</span>
           </label>
           <textarea
+            data-tour="landing-topic"
             className={`${inputCls} min-h-[64px] resize-y py-2`}
             rows={2}
             value={topic}
@@ -693,6 +694,7 @@ export function MatchLandingApp() {
         </Field>
 
         <button
+          data-tour="landing-export"
           type="button"
           onClick={exportHtml}
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"

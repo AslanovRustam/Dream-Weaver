@@ -35,6 +35,7 @@ function CatalogTile({
       <TooltipTrigger asChild>
         <button
           type="button"
+          data-tour="tpl-tile"
           onClick={onSelect}
           className={`group relative flex flex-col gap-1.5 overflow-hidden rounded-lg border p-1.5 text-left transition ${
             selected
@@ -160,7 +161,10 @@ export function BannerTemplateCatalog() {
             <h2 className="ds-h4">Шаблоны</h2>
           </div>
           <div ref={filterRef} className="relative px-4 pb-2 pt-2">
-            <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
+            <div
+              data-tour="tpl-search"
+              className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green"
+            >
               <Search size={16} className="shrink-0 text-foreground/70" />
               <input
                 type="text"
@@ -172,6 +176,7 @@ export function BannerTemplateCatalog() {
               <button
                 type="button"
                 onClick={openFilter}
+                data-tour="tpl-filter"
                 aria-label="Фильтр"
                 aria-expanded={filterOpen}
                 className={`relative -mr-1 flex shrink-0 items-center justify-center rounded-md p-1 transition after:absolute after:-inset-2.5 after:content-[''] ${

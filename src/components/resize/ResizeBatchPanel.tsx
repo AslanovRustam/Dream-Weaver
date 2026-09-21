@@ -457,7 +457,10 @@ export function ResizeBatchPanel({
   const canZip = doneCount >= 1 && !zipping;
 
   return (
-    <div className="mt-3 flex justify-start gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4">
+    <div
+      data-tour="banner-resizes"
+      className="mt-3 flex justify-start gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:mt-4"
+    >
       {leadingButton}
       <button
         type="button"

@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   Layout,
+  MousePointerClick,
   RotateCcw,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
 import { BANNER_TEMPLATES_ROUTE } from "@/components/PresetSidebar";
+import { useTour } from "@/components/tour/TourProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Быстрый старт — a walk-through of the three things a new account does in
@@ -217,6 +219,7 @@ const NEXT_LINKS: { href: string; icon: LucideIcon; title: string; body: string 
 ];
 
 export default function OnboardingPage() {
+  const tour = useTour();
   const [done, setDone] = useState<Set<string>>(new Set());
   const [ready, setReady] = useState(false);
 
@@ -291,6 +294,29 @@ export default function OnboardingPage() {
               запомнит, где вы остановились.
             </p>
           </header>
+
+          <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-5 sm:flex-row sm:items-center">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-green/15 text-accent-green">
+              <MousePointerClick className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {tour.completed ? "Интерактивный тур пройден" : "Пройти прямо в интерфейсе"}
+              </p>
+              <p className="mt-1 ds-caption">
+                Подсветим нужную кнопку на самой странице и подождём, пока вы её нажмёте. Выйти
+                можно в любой момент.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={tour.start}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
+            >
+              {tour.active ? "Начать заново" : tour.completed ? "Пройти ещё раз" : "Запустить тур"}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
 
           {/* Progress */}
           <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-card">
@@ -424,11 +450,9 @@ export default function OnboardingPage() {
                   <div className="border-t border-border p-5 sm:p-6">
                     <Link
                       href={chapter.href}
-                      className={
-                        isActive
-                          ? "inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
-                          : "inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground transition hover:border-accent-green/40"
-                      }
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium text-foreground transition hover:border-accent-green/40 ${
+                        isActive ? "border-accent-green/50" : "border-border"
+                      }`}
                     >
                       {chapter.cta}
                       <ArrowRight className="h-4 w-4" />

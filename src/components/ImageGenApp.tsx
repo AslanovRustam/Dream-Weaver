@@ -1163,6 +1163,7 @@ export function ImageGenApp() {
                     <span className="text-[color:var(--status-error)]">*</span>
                   </label>
                   <textarea
+                    data-tour="banner-prompt"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={3}
@@ -1499,6 +1500,7 @@ export function ImageGenApp() {
                       type="text"
                       value={brandName}
                       onChange={(e) => setBrandName(e.target.value)}
+                      data-tour="banner-brand"
                       placeholder="Название бренда / проекта"
                       className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                     />
@@ -1667,6 +1669,7 @@ export function ImageGenApp() {
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
             <button
               type="button"
+              data-tour="banner-generate"
               onClick={onGenerate}
               disabled={
                 !isGuest &&
@@ -1774,6 +1777,7 @@ export function ImageGenApp() {
               duplicate. */}
           <button
             type="button"
+            data-tour="banner-generate"
             onClick={onGenerate}
             disabled={
               !isGuest &&

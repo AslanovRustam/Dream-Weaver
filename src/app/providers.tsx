@@ -9,6 +9,7 @@ import { WorkspaceProvider } from "@/lib/workspace-context";
 import { GenerationProvider } from "@/lib/generation-context";
 import { EditorHistoryProvider } from "@/lib/editor-history";
 import { ConfirmProvider } from "@/components/ui/confirm";
+import { TourProvider } from "@/components/tour/TourProvider";
 import { LocaleProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -28,7 +29,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <WorkspaceProvider>
               <GenerationProvider>
                 <EditorHistoryProvider>
-                  <ConfirmProvider>{children}</ConfirmProvider>
+                  <ConfirmProvider>
+                    <TourProvider>{children}</TourProvider>
+                  </ConfirmProvider>
                 </EditorHistoryProvider>
               </GenerationProvider>
             </WorkspaceProvider>
