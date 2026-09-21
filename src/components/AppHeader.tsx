@@ -51,6 +51,7 @@ import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
 import { useWorkspace } from "@/lib/workspace-context";
 import { useLocale, useT, UI_LOCALES } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { BrandLogo } from "./BrandLogo";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -612,6 +613,8 @@ function GuestAuthButtons() {
   const t = useT();
   return (
     <div className="ml-0.5 flex shrink-0 items-center gap-1.5 sm:gap-2">
+      {/* A guest has no profile menu, so the language control lives here. */}
+      <LanguageSwitcher />
       <Link
         href="/login"
         className="inline-flex min-h-9 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition hover:text-foreground max-sm:min-h-11 sm:px-3"
