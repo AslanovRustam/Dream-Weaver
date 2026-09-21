@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Clock,
   Coins,
+  GraduationCap,
   HelpCircle,
   Home,
   KeyRound,
@@ -58,6 +59,7 @@ const GROUPS: { title?: string; items: NavItem[] }[] = [
 // lib/mvp.ts), so it's flagged "Скоро" like the rest of the disabled sidebar
 // items — Help and Billing are real working pages and stay enabled.
 const FOOTER: NavItem[] = [
+  { href: "/onboarding", label: "Быстрый старт", icon: GraduationCap },
   { href: "/settings", label: "Интеграции", icon: KeyRound, soon: true },
   { href: "/help", label: "Помощь", icon: HelpCircle },
   { href: "/billing", label: "Тарифы", icon: Coins },

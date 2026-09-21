@@ -7,6 +7,7 @@ import {
   ArrowRight,
   BookOpen,
   Clock,
+  GraduationCap,
   HelpCircle,
   Mail,
   Play,
@@ -94,7 +95,6 @@ const HUB_ANIM = `
 // line rather than whole letters, as in the reference layout.
 const HERO_SHOT_TOP = {
   src: "/previews/preset1.webp",
-  label: "Баннер · Казино",
   pos: "left-1/2 top-0 w-[17%] -translate-x-[64%]",
   ratio: "aspect-[3/2]",
   d: "60ms",
@@ -399,8 +399,10 @@ export default function HubPage() {
   const { activeId } = useWorkspace();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
-  const [projectCount, setProjectCount] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  /** True only when /api/history actually returned cards — the mock projects
+   *  used as a stand-in must not count as "this account has work already". */
+  const [hasRealProjects, setHasRealProjects] = useState(false);
   const [query, setQuery] = useState("");
   const [hubPrompt, setHubPrompt] = useState("");
   const [showcaseCat, setShowcaseCat] = useState<string>("all");
@@ -452,7 +454,6 @@ export default function HubPage() {
           thumb: p.thumb ?? null,
         })),
       );
-      setProjectCount(list.length);
       setHistoryLoaded(true);
     };
     apiJson<{ items?: unknown[] }>(qs)
@@ -482,7 +483,7 @@ export default function HubPage() {
           };
         });
         setRecent(mapped.filter((m) => m.id));
-        setProjectCount(cards.length);
+        setHasRealProjects(true);
         setHistoryLoaded(true);
       })
       .catch(() => {
@@ -560,7 +561,10 @@ export default function HubPage() {
   // Gate onboarding on the same count as the stat so the two are mutually
   // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
   // sees the stat, and malformed data can never show both at once.
-  const showOnboarding = historyLoaded && projectCount === 0;
+  // A guest has nothing loaded at all (the history effect bails out before
+  //  fetching), and a fresh account gets mock projects — both are exactly who
+  //  the walk-through is for, so neither can be detected by projectCount.
+  const showOnboarding = !isAuthenticated || (historyLoaded && !hasRealProjects);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
@@ -624,19 +628,14 @@ export default function HubPage() {
             </span>
           </h1>
 
+          {/* No caption on this one: it sits over the headline, so a line of
+              text under it would print across the letters. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-10 hidden lg:block">
             <span
               style={{ "--d": HERO_SHOT_TOP.d } as React.CSSProperties}
-              className={`hub-shot absolute ${HERO_SHOT_TOP.pos}`}
+              className={`hub-shot absolute overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${HERO_SHOT_TOP.ratio} ${HERO_SHOT_TOP.pos}`}
             >
-              <span
-                  className={`block overflow-hidden rounded-xl border border-white/10 bg-[var(--bg-surface)] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] ${HERO_SHOT_TOP.ratio}`}
-                >
-                  <img src={HERO_SHOT_TOP.src} alt="" className="h-full w-full object-cover" />
-                </span>
-                <span className="mt-1.5 block truncate ds-micro uppercase tracking-wide text-hint">
-                  {HERO_SHOT_TOP.label}
-                </span>
+              <img src={HERO_SHOT_TOP.src} alt="" className="h-full w-full object-cover" />
             </span>
           </div>
 
@@ -850,18 +849,23 @@ export default function HubPage() {
 
           {showOnboarding ? (
             <div
-              className="hub-in mt-5 flex items-center gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left"
+              className="hub-in mt-5 flex flex-col gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left sm:flex-row sm:items-center"
               style={{ "--d": "90ms" } as React.CSSProperties}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
-                <Sparkles className="h-4 w-4" />
+                <GraduationCap className="h-4 w-4" />
               </span>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  Начните с любого инструмента ниже
-                </span>{" "}
-                — мы поможем создать первый креатив за пару минут.
+              <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Первый раз здесь?</span> Быстрый старт
+                проведёт по шаблону, баннеру и лендингу — по пунктам, за пару минут.
               </p>
+              <Link
+                href="/onboarding"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-accent-green/40 px-3.5 text-sm font-medium text-foreground transition hover:bg-accent-green/10"
+              >
+                Открыть
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           ) : null}
         </div>

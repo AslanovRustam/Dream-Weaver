@@ -14,6 +14,7 @@ export const MVP_ENABLED_ROUTES = new Set<string>([
   "/banner/templates",
   "/landing",
   "/history",
+  "/onboarding",
 ]);
 
 export function isSectionEnabled(id: string): boolean {

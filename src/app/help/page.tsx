@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Coins,
+  GraduationCap,
   Loader2,
   Mail,
   Megaphone,
@@ -269,6 +271,14 @@ export default function HelpPage() {
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Найдите ответ в базе знаний или напишите нам — обычно отвечаем в течение 24 часов.
           </p>
+
+          <Link
+            href="/onboarding"
+            className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-accent-green/30 bg-accent-green/[0.06] px-3.5 text-sm font-medium text-foreground transition hover:bg-accent-green/10"
+          >
+            <GraduationCap className="h-4 w-4 text-accent-green" />
+            Впервые в студии? Пройдите быстрый старт
+          </Link>
 
           <div className="mt-6">
             <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
