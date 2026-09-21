@@ -23,7 +23,12 @@ export function imageCostUsd(t: { inputText?: number; inputImage?: number; outpu
 }
 
 export function llmCostUsd(model: string, promptTokens: number, completionTokens: number): number {
-  const key = Object.keys(LLM_PER_M).find((k) => model.toLowerCase().startsWith(k));
+  // The ledger carries the same model under two spellings: bare
+  // ("gpt-4o-mini", OpenAI-direct) and provider-prefixed ("openai/gpt-4o-mini",
+  // left over from the OpenRouter era). Without stripping the prefix the
+  // prefixed rows silently price at $0.
+  const bare = model.toLowerCase().replace(/^[a-z0-9_.-]+\//, "");
+  const key = Object.keys(LLM_PER_M).find((k) => bare.startsWith(k));
   if (!key) return 0;
   const p = LLM_PER_M[key];
   return round6((promptTokens * p.input + completionTokens * p.output) / 1e6);
