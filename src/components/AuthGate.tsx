@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 // Guest gating. Everything a guest may look at stays reachable; the moment a
 // guest tries to DO something that needs an account (generate, save, open the
 // history / account), this modal takes over instead of a silent redirect.
@@ -33,7 +34,10 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
   const { isGuest } = useAppRole();
   const [reason, setReason] = useState<string | null>(null);
 
-  const openGate = useCallback((r?: string) => setReason(r || DEFAULT_REASON), []);
+  const openGate = useCallback((r?: string) => {
+    track("auth_gate_shown");
+    setReason(r || DEFAULT_REASON);
+  }, []);
 
   // Any API call that ends in a real 401 (see apiFetch) opens the gate —
   // covers every generate / ✨ button in every builder without wiring each.

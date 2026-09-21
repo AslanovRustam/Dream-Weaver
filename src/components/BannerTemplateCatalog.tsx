@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 // Full-page banner template catalog (/banner/templates) — the entry point of
 // the banner generator. Same look as the landing generator's template panel
 // (LandingTemplateSidebar): "Шаблоны" header, search box with a funnel
@@ -144,6 +145,7 @@ export function BannerTemplateCatalog() {
   );
 
   const pick = (p: Preset) => {
+    track("template_selected", { preset: p.id });
     try {
       window.localStorage.setItem("dw_preset", p.id);
     } catch {

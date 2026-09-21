@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 // Landing-generator — full "create from scratch" flow, structured like the
 // Banner-generator: three columns on desktop (templates / settings / result),
 // a step wizard on mobile (Назад + sticky "Сгенерировать"). Generation is
@@ -270,6 +271,7 @@ export function LandingGenApp() {
   }, []);
 
   const selectTemplate = (t: LandingTemplate) => {
+    track("landing_template_selected", { template: t.id });
     if (t.interactive === "wheel") {
       router.push("/wheel");
       return;

@@ -183,6 +183,18 @@ async function tick(): Promise<void> {
     } catch (err) {
       console.error("retention-worker: rate_limits_prune threw", err);
     }
+
+    // Analytics events (migration 0012). Half a year is plenty for product
+    // questions and keeps the table from growing without bound. Best-effort:
+    // until 0012 is applied the RPC doesn't exist and this just logs.
+    try {
+      const { error } = await supa.rpc("analytics_prune", { p_days: 180 });
+      if (error) {
+        console.error("retention-worker: analytics_prune failed", error);
+      }
+    } catch (err) {
+      console.error("retention-worker: analytics_prune threw", err);
+    }
   } catch (err) {
     console.error("retention-worker: tick crashed", err);
   }

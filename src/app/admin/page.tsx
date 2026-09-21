@@ -205,6 +205,9 @@ export default function AdminPage() {
             <TabsTrigger value="usage" className={TAB_CLS}>
               Расход
             </TabsTrigger>
+            <TabsTrigger value="analytics" className={TAB_CLS}>
+              Аналитика
+            </TabsTrigger>
             <TabsTrigger value="announcements" className={TAB_CLS}>
               Уведомления
             </TabsTrigger>
@@ -232,6 +235,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="usage" className="mt-4">
             <UsageTab />
+          </TabsContent>
+          <TabsContent value="analytics" className="mt-4">
+            <AnalyticsTab />
           </TabsContent>
           <TabsContent value="announcements" className="mt-4">
             <AnnouncementsTab />
@@ -2468,6 +2474,219 @@ function AnnouncementsTab() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Аналитика — first-party product events (analytics_events, migration 0012).
+// Only what a decision can hang on: who came, what they opened, where they
+// stopped. Nothing here exists until a visitor turns analytics on in the
+// cookie dialog, so an empty tab is a normal state, not a bug.
+// ─────────────────────────────────────────────────────────────────────────────
+type AnalyticsResponse = {
+  days: number;
+  tableMissing?: boolean;
+  truncated?: boolean;
+  totals?: { events: number; visitors: number; users: number; pageViews: number };
+  byDay?: { day: string; views: number; visitors: number }[];
+  byName?: { key: string; count: number }[];
+  topPaths?: { key: string; count: number }[];
+  topReferrers?: { key: string; count: number }[];
+  funnel?: { visited: number; template: number; generate: number; exported: number };
+  tour?: { started: number; completed: number; abandoned: number };
+};
+
+function Kpi({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <p className="ds-overline">{label}</p>
+      <p className="ds-kpi mt-1">{value}</p>
+    </div>
+  );
+}
+
+function BarList({ title, rows }: { title: string; rows: { key: string; count: number }[] }) {
+  const max = rows.reduce((m, r) => Math.max(m, r.count), 0) || 1;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <p className="ds-overline">{title}</p>
+      {rows.length === 0 ? (
+        <p className="mt-3 ds-caption">Пока пусто</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {rows.map((r) => (
+            <li key={r.key}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="truncate text-sm">{r.key}</span>
+                <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                  {r.count}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                <div
+                  className="h-full rounded-full bg-accent-green"
+                  style={{ width: `${Math.round((r.count / max) * 100)}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AnalyticsTab() {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setErr("");
+    apiJson<AnalyticsResponse>(`/api/admin/analytics?days=${days}`)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch((e) => {
+        if (alive) setErr(e instanceof Error ? e.message : "Ошибка загрузки");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [days]);
+
+  const maxViews = (data?.byDay ?? []).reduce((m, d) => Math.max(m, d.views), 0) || 1;
+  const funnel = data?.funnel;
+  const funnelRows = funnel
+    ? [
+        { label: "Открыли сайт", value: funnel.visited },
+        { label: "Выбрали шаблон", value: funnel.template },
+        { label: "Нажали «Сгенерировать»", value: funnel.generate },
+        { label: "Скачали лендинг", value: funnel.exported },
+      ]
+    : [];
+  const funnelMax = funnelRows.reduce((m, r) => Math.max(m, r.value), 0) || 1;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Аналитика продукта</h2>
+          <p className="text-sm text-muted-foreground">
+            Свои события из таблицы analytics_events. Считаются только у тех, кто включил аналитику
+            в окне про cookie, — сторонних счётчиков в сервисе нет.
+          </p>
+        </div>
+        <div className="flex rounded-lg border border-border p-0.5">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              className={`min-h-8 rounded-md px-3 text-sm font-medium transition ${
+                days === d ? "bg-accent-green text-on-accent" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {d} дн.
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {err ? <p className="text-sm text-[color:var(--status-error)]">{err}</p> : null}
+      {loading && !data ? <p className="ds-caption">Загрузка…</p> : null}
+
+      {data?.tableMissing ? (
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <p className="text-sm font-medium">Таблица событий ещё не создана</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Примените миграцию{" "}
+            <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs">
+              0012_analytics_events.sql
+            </code>{" "}
+            — после этого события начнут записываться, а этот экран оживёт.
+          </p>
+        </div>
+      ) : null}
+
+      {data && !data.tableMissing && data.totals ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi label="Посетители" value={data.totals.visitors} />
+            <Kpi label="Из них вошли" value={data.totals.users} />
+            <Kpi label="Просмотры" value={data.totals.pageViews} />
+            <Kpi label="Событий всего" value={data.totals.events} />
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="ds-overline">Просмотры по дням</p>
+            {(data.byDay ?? []).length === 0 ? (
+              <p className="mt-3 ds-caption">Пока пусто</p>
+            ) : (
+              <div className="mt-4 flex h-28 items-end gap-1">
+                {(data.byDay ?? []).map((d) => (
+                  <div
+                    key={d.day}
+                    title={`${d.day}: ${d.views} просмотров, ${d.visitors} посетителей`}
+                    className="min-w-[3px] flex-1 rounded-t bg-accent-green/70 transition hover:bg-accent-green"
+                    style={{ height: `${Math.max(3, Math.round((d.views / maxViews) * 100))}%` }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="ds-overline">Путь до результата</p>
+            <ul className="mt-3 space-y-2.5">
+              {funnelRows.map((r, i) => (
+                <li key={r.label}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm">{r.label}</span>
+                    <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                      {r.value}
+                      {i > 0 && funnelRows[0].value > 0
+                        ? ` · ${Math.round((r.value / funnelRows[0].value) * 100)}%`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-accent-green"
+                      style={{ width: `${Math.round((r.value / funnelMax) * 100)}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {data.tour ? (
+              <p className="mt-4 ds-caption">
+                Интерактивный тур: запустили {data.tour.started}, прошли до конца{" "}
+                {data.tour.completed}, бросили {data.tour.abandoned}.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <BarList title="События" rows={data.byName ?? []} />
+            <BarList title="Страницы" rows={data.topPaths ?? []} />
+            <BarList title="Источники" rows={data.topReferrers ?? []} />
+          </div>
+
+          {data.truncated ? (
+            <p className="ds-caption">
+              Показаны последние 50 000 событий за период — более ранние в подсчёт не вошли.
+            </p>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

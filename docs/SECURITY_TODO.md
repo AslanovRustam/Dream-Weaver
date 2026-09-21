@@ -36,6 +36,7 @@ supabase db push
 | 0009 | `0009_lock_profiles_privileged_columns.sql` | **CRITICAL**: пользователь больше не может менять себе `role`, `tier`, `credits_balance` |
 | 0010 | `0010_billing_refund_ratelimit_roles.sql` | `refund_credits`, общий лимитер `rate_limits`, `admin_set_user_role`, снятие лишних грантов |
 | 0011 | `0011_backfill_image_cost_usd.sql` | data-only: проставляет реальную стоимость $ старым генерациям картинок (вкладка «Расход» перестанет показывать $0.00) |
+| 0012 | `0012_analytics_events.sql` | таблица собственных продуктовых событий + `analytics_prune`. Без неё вкладка «Аналитика» покажет просьбу применить миграцию, события будут теряться (роут отвечает 202 и пишет в лог) |
 
 Проверка после:
 
@@ -63,6 +64,14 @@ select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
 После деплоя в логах не должно быть строки `[rate-limit] shared counter unavailable` — если есть, миграция 0010 не применилась.
 
 ### Шаг 5. Проверка на проде
+
+Отдельно проверьте новый публичный роут аналитики — он единственный принимает запись без входа:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://ДОМЕН/api/analytics -H "Content-Type: application/json" -d '{"events":[{"name":"page_view","path":"/"}]}'
+# ожидается 202; 61-й запрос за минуту с одного IP — 429
+```
+
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST https://ДОМЕН/api/generate-character \

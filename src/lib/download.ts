@@ -1,5 +1,8 @@
+import { track } from "@/lib/analytics";
 // Trigger a client-side file download from an in-memory string (HTML, SVG, …).
 export function downloadText(filename: string, content: string, mime = "text/html;charset=utf-8") {
+  // Every landing builder ends here, so one call covers all of them.
+  track("landing_exported", { bytes: content.length });
   if (typeof window === "undefined") return;
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);

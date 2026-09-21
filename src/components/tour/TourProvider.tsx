@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, X } from "lucide-react";
 
 import { TOUR_STEPS, TOUR_STORAGE_KEY, TOUR_TOTAL, type TourStep } from "@/lib/tour";
+import { track } from "@/lib/analytics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Interactive tour. Highlights a real control on a real screen and waits for
@@ -128,18 +129,21 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     (pathname.startsWith(step.route) || (step.also ?? []).some((r) => pathname.startsWith(r)));
 
   const start = useCallback(() => {
+    track("tour_started");
     apply({ active: true, index: 0, completed: false });
     const first = TOUR_STEPS[0];
     if (first && !window.location.pathname.startsWith(first.route)) router.push(first.route);
   }, [apply, router]);
 
   const stop = useCallback(() => {
+    track("tour_abandoned", { step: load().index });
     apply({ ...load(), active: false });
   }, [apply]);
 
   const next = useCallback(() => {
     setState((prev) => {
       const last = prev.index >= TOUR_TOTAL - 1;
+      track(last ? "tour_completed" : "tour_step_done", { step: prev.index });
       const n: Saved = last
         ? { active: false, index: 0, completed: true }
         : { ...prev, index: prev.index + 1 };

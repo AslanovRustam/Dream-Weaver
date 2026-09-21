@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -950,6 +951,10 @@ export function ImageGenApp() {
   };
 
   const onGenerate = async () => {
+    // Tracked before the guest check on purpose: the gap between clicks and
+    // results is the interesting number, and guests bouncing off the gate are
+    // part of it.
+    track("generate_clicked", { preset, guest: isGuest });
     if (isGuest) {
       openGate();
       return;

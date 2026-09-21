@@ -14,6 +14,7 @@ import { LocaleProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { CookieConsent } from "@/components/consent/CookieConsent";
+import { Analytics } from "@/components/analytics/Analytics";
 import { DevRoleSwitcher } from "@/components/DevRoleSwitcher";
 
 // Replaces TanStack's src/router.tsx (QueryClient creation) + the provider
@@ -41,6 +42,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         </AuthProvider>
         <OfflineBanner />
         <CookieConsent />
+        <Analytics />
         <Toaster position="top-center" />
       </LocaleProvider>
     </QueryClientProvider>

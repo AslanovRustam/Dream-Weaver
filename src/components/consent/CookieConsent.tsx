@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Cookie, ShieldCheck, Sliders, X } from "lucide-react";
 
+import { track } from "@/lib/analytics";
 import {
   clearNonEssentialStorage,
   CONSENT_EVENT,
@@ -104,6 +105,7 @@ export function CookieConsent() {
 
   const decide = useCallback((c: ConsentCategories) => {
     saveConsent(c);
+    track("consent_set", { functional: c.functional, analytics: c.analytics });
     setNeedsChoice(false);
     setDialogOpen(false);
   }, []);

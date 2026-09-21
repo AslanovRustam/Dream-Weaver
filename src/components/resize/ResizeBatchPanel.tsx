@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics";
 // ResizeBatchPanel — a single modal that owns the ENTIRE resize-batch flow
 // in three steps. Nothing about the batch is shown on the main screen.
 //
@@ -368,6 +369,7 @@ export function ResizeBatchPanel({
   };
 
   const startBatch = () => {
+    track("resize_batch_started", { formats: selectedCount });
     const ordered = orderedSelected();
     if (ordered.length === 0 || disabled) return;
     startRef.current = Date.now();
