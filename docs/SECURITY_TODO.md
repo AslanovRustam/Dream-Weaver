@@ -37,6 +37,7 @@ supabase db push
 | 0010 | `0010_billing_refund_ratelimit_roles.sql` | `refund_credits`, общий лимитер `rate_limits`, `admin_set_user_role`, снятие лишних грантов |
 | 0011 | `0011_backfill_image_cost_usd.sql` | data-only: проставляет реальную стоимость $ старым генерациям картинок (вкладка «Расход» перестанет показывать $0.00) |
 | 0012 | `0012_analytics_events.sql` | таблица собственных продуктовых событий + `analytics_prune`. Без неё вкладка «Аналитика» покажет просьбу применить миграцию, события будут теряться (роут отвечает 202 и пишет в лог) |
+| 0013 | `0013_analytics_events_cascade.sql` | удаление аккаунта уносит его события. Применять после 0012 |
 
 Проверка после:
 
@@ -70,7 +71,17 @@ select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST https://ДОМЕН/api/analytics -H "Content-Type: application/json" -d '{"events":[{"name":"page_view","path":"/"}]}'
 # ожидается 202; 61-й запрос за минуту с одного IP — 429
+
+# Лимит не должен обходиться подстановкой чужого адреса в начало цепочки:
+for i in $(seq 1 65); do curl -s -o /dev/null -w "%{http_code} " -X POST https://ДОМЕН/api/analytics \
+  -H "Content-Type: application/json" -H "X-Forwarded-For: 9.9.9.$i" \
+  -d '{"events":[{"name":"page_view","path":"/"}]}'; done
+# ожидается, что последние ответы — 429
 ```
+
+Если все 65 ответов 202, значит перед приложением больше одного прокси и
+`clientRateKey` в `src/lib/request-guard.ts` надо отсчитывать на хоп дальше от
+конца цепочки.
 
 
 ```bash
@@ -91,6 +102,15 @@ curl -sI https://FTP_BASE_URL/любые8символов/
 ```
 
 Ожидается 403 или 404. Если отдаёт список файлов — выключить directory listing или положить `.htaccess` с `Options -Indexes` в корень `FTP_BASE_PATH`.
+
+### Шаг 6.5. Проверить список адресов возврата у Supabase
+
+Auth → URL Configuration: в **Redirect URLs** должны быть только наши адреса
+(`https://gen-go.ai/reset-password` и, если нужен локальный вход, адрес дева).
+Роут восстановления пароля больше не берёт адрес возврата из тела запроса и
+строит его сам, но ссылку в письме в конечном счёте валидирует Supabase — если
+список пуст или содержит `*`, письмо можно увести на чужой домен вместе с
+токеном.
 
 ### Шаг 7. Включить CSP
 

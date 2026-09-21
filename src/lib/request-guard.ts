@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // Request-hardening primitives:
 //   1. In-memory rate limiting (fixed window per bucket+key).
 //   2. Inbound payload-size checks for base64 data: URLs.
@@ -164,13 +166,97 @@ export function rejectLargeBody(request: Request, maxBytes: number): Response | 
   const raw = request.headers.get("content-length");
   if (!raw) return null;
   const n = Number(raw);
-  if (Number.isFinite(n) && n > maxBytes) {
-    return Response.json(
-      { error: "payload_too_large", max_bytes: maxBytes },
-      { status: 413 },
-    );
-  }
+  if (Number.isFinite(n) && n > maxBytes) return payloadTooLarge(maxBytes);
   return null;
+}
+
+function payloadTooLarge(maxBytes: number): Response {
+  return Response.json({ error: "payload_too_large", max_bytes: maxBytes }, { status: 413 });
+}
+
+export type CappedBody =
+  | { ok: true; value: unknown }
+  | { ok: false; reason: "too_large" | "invalid_json"; response: Response };
+
+/**
+ * Read and parse a JSON body, refusing to buffer more than maxBytes whatever
+ * the caller declares. rejectLargeBody trusts content-length, which a chunked
+ * request simply omits; this reads the stream and cancels it the moment the
+ * cap is passed, so an unauthenticated route cannot be made to hold an
+ * arbitrary body in memory.
+ */
+export async function readJsonCapped(request: Request, maxBytes: number): Promise<CappedBody> {
+  const declared = rejectLargeBody(request, maxBytes);
+  if (declared) return { ok: false, reason: "too_large", response: declared };
+
+  const body = request.body;
+  if (!body) return { ok: true, value: null };
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, reason: "too_large", response: payloadTooLarge(maxBytes) };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return {
+      ok: false,
+      reason: "invalid_json",
+      response: Response.json({ error: "Invalid body" }, { status: 400 }),
+    };
+  }
+
+  const merged = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  const text = new TextDecoder().decode(merged).trim();
+  if (!text) return { ok: true, value: null };
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {
+    return {
+      ok: false,
+      reason: "invalid_json",
+      response: Response.json({ error: "Invalid JSON" }, { status: 400 }),
+    };
+  }
+}
+
+/**
+ * Rate-limit key for routes that have no user to key on.
+ *
+ * X-Forwarded-For is a chain, and everything except the LAST entry is whatever
+ * the caller chose to send. Keying on the first entry — the usual "original
+ * client" reading — lets anyone mint a fresh bucket per request and walk
+ * straight past the limit. The last entry is the one our own proxy appended,
+ * the only value in that header we did not take on trust. This assumes exactly
+ * one reverse proxy in front of the app (Traefik, see docs/DEPLOY_HOSTINGER.md);
+ * another hop means counting back one more entry.
+ *
+ * The address is hashed, so the limiter's key store never holds a raw IP.
+ */
+export function clientRateKey(request: Request): { key: string; identified: boolean } {
+  const chain = (request.headers.get("x-forwarded-for") || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const ip = chain.length
+    ? chain[chain.length - 1]
+    : (request.headers.get("x-real-ip") || "").trim();
+  if (!ip) return { key: "no-client-ip", identified: false };
+  return { key: createHash("sha256").update(ip).digest("hex").slice(0, 32), identified: true };
 }
 
 // ---------------------------------------------------------------------

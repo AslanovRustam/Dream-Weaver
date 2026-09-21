@@ -7,15 +7,14 @@
 //   • event names come from a fixed allowlist — unknown names are dropped, not
 //     stored, so the table cannot be used as someone else's database;
 //   • props are scalars only, with a key count and a length limit;
-//   • rate-limited per IP, and the IP is used only as that key: it is hashed
-//     for the limiter and never written anywhere;
+//   • rate-limited per IP taken from the end of the forwarded chain, which is
+//     the only part of that header the caller cannot invent; the address is
+//     hashed for the limiter and never written anywhere;
 //   • it costs nothing to serve — no provider call, no credits.
 // The response is always 202 with no detail, so it cannot be probed for
 // whether a user, a session or the table itself exists.
-import { createHash } from "node:crypto";
-
 import { optionalUser } from "@/lib/auth-server";
-import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
+import { clientRateKey, rateLimitResponse, readJsonCapped } from "@/lib/request-guard";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
   ANALYTICS_EVENT_SET,
@@ -89,28 +88,24 @@ function cleanProps(v: unknown): Record<string, string | number | boolean> {
   return out;
 }
 
-function clientKey(request: Request): string {
-  const fwd = request.headers.get("x-forwarded-for") || "";
-  const ip = fwd.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";
-  // Hashed so the limiter's key store never holds a raw address.
-  return createHash("sha256").update(ip).digest("hex").slice(0, 32);
-}
-
 export async function POST(request: Request) {
-  const tooBig = rejectLargeBody(request, MAX_BATCH_BYTES);
-  if (tooBig) return tooBig;
-
-  const limited = await rateLimitResponse("analytics", clientKey(request), 60, 60_000);
+  // Without a usable client address every caller would share one bucket, which
+  // would throttle the whole site on a proxy misconfiguration. Keep a limit,
+  // but a loose one, so the failure mode is "too permissive for a while"
+  // rather than "nobody can send anything".
+  const client = clientRateKey(request);
+  const limited = client.identified
+    ? await rateLimitResponse("analytics", client.key, 60, 60_000)
+    : await rateLimitResponse("analytics-unkeyed", client.key, 600, 60_000);
   if (limited) return limited;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return accepted();
-  }
+  const parsed = await readJsonCapped(request, MAX_BATCH_BYTES);
+  // A body over the cap is refused outright; anything else malformed is
+  // swallowed, because analytics must never answer in a way that tells a
+  // prober something about the server.
+  if (!parsed.ok) return parsed.reason === "too_large" ? parsed.response : accepted();
 
-  const b = (body ?? {}) as { events?: unknown; anon_id?: unknown; session_id?: unknown };
+  const b = (parsed.value ?? {}) as { events?: unknown; anon_id?: unknown; session_id?: unknown };
   const list = Array.isArray(b.events) ? b.events.slice(0, MAX_EVENTS_PER_BATCH) : [];
   if (list.length === 0) return accepted();
 

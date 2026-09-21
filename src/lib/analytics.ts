@@ -20,6 +20,26 @@ let queue: Queued[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let wired = false;
 
+/**
+ * Path with identifying segments collapsed. Five routes carry an object id
+ * (/history/<card>, /workspace/<id>, /landing/editor/<id>, /stats/<id>), and
+ * storing those verbatim would park internal identifiers next to a visitor id
+ * — and turn the "top pages" report into a list of one-hit rows. A segment is
+ * an id when it is a UUID, or long and not word-like.
+ */
+export function normalisePath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((segment) => {
+      if (!segment) return segment;
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) return ":id";
+      if (/^\d+$/.test(segment)) return ":id";
+      if (segment.length >= 16 && /[0-9]/.test(segment) && !/^[a-z-]+$/i.test(segment)) return ":id";
+      return segment;
+    })
+    .join("/");
+}
+
 function randomId(): string {
   try {
     return crypto.randomUUID().replace(/-/g, "").slice(0, 32);
@@ -95,7 +115,7 @@ export function track(name: AnalyticsEventName, props?: AnalyticsProps) {
   queue.push({
     name,
     props,
-    path: window.location.pathname,
+    path: normalisePath(window.location.pathname),
     ref: document.referrer || undefined,
   });
   if (queue.length >= MAX_EVENTS_PER_BATCH) {
