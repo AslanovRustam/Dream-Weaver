@@ -7,32 +7,23 @@ import {
   ArrowRight,
   BookOpen,
   Clock,
-  GraduationCap,
   HelpCircle,
   Mail,
-  Play,
-  Search,
   Sparkles,
   X,
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
-import { MobileScrim } from "@/components/MobileScrim";
 import { BANNER_TEMPLATES_ROUTE, CATEGORIES } from "@/components/PresetSidebar";
-import { SECTIONS, SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
+import { SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
 import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
 import { useT, useTx } from "@/lib/i18n";
 import { getMockProjects } from "@/lib/historyMock";
-import {
-  ALL_TEMPLATES,
-  POPULAR_TEMPLATES,
-  searchTemplates,
-  type HubTemplate,
-} from "@/lib/hubTemplates";
+import { ALL_TEMPLATES, POPULAR_TEMPLATES } from "@/lib/hubTemplates";
 import presetSlotBanner from "@/assets/preset-slot-banner.jpg";
 
 type RecentCard = {
@@ -42,31 +33,9 @@ type RecentCard = {
   thumb: string | null;
 };
 
-// Looped, self-contained previews for the section tiles — same "живое превью"
-// idea as the playable mechanic animations, kept local so the Hub has no
-// cross-component coupling. Respects prefers-reduced-motion (see globals.css,
-// which already disables animations under that query).
+// Page-local animation: the first-paint entrance the Hub blocks rise in with.
+// Respects prefers-reduced-motion (globals.css disables animations there).
 const HUB_ANIM = `
-@keyframes hubRoll { to { transform: translateY(-50%); } }
-@keyframes hubPulse { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(2.1); opacity: 0; } }
-.hub-reels { display: flex; gap: 6px; height: 100%; }
-.hub-reel { flex: 1; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.08); }
-.hub-strip { display: flex; flex-direction: column; align-items: center; font-size: 30px; line-height: 1.75; animation: hubRoll 1.5s linear infinite; animation-play-state: paused; }
-.hub-reel:nth-child(2) .hub-strip { animation-duration: 1.85s; }
-.hub-reel:nth-child(3) .hub-strip { animation-duration: 1.25s; }
-.hub-pulse { position: absolute; border-radius: 9999px; border: 2px solid var(--accent-green); animation: hubPulse 1.6s ease-out infinite; animation-play-state: paused; }
-/* Previews are STATIC at rest (bright, first frame) and only come alive on
-   hover/focus — no ambient motion while browsing, and mobile (no hover) stays
-   quiet. The same .hub-tile rule drives every tile, so behaviour is identical. */
-.hub-tile:hover .hub-strip,
-.hub-tile:focus-visible .hub-strip,
-.hub-tile:hover .hub-pulse,
-.hub-tile:focus-visible .hub-pulse { animation-play-state: running; }
-/* Uniform "comes alive" gloss sweep on hover — gives the light-animation tiles
-   (banner, landing) the same life as the looped ones (playable, video). */
-.hub-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,.14) 50%, transparent 58%); transform: translateX(-100%); transition: transform .7s ease; }
-.hub-tile:hover .hub-shine,
-.hub-tile:focus-visible .hub-shine { transform: translateX(100%); }
 /* First-paint entrance: blocks rise in softly, staggered via --d, so the Hub
    assembles itself instead of snapping in as one slab. Decorative only —
    switched off under prefers-reduced-motion. */
@@ -179,265 +148,7 @@ function FittedHeadline({ lines, fill = 0.72 }: { lines: string[]; fill?: number
 const PRESET_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
 
-const PREVIEW_BASE = "bg-gradient-to-br from-[#141a2b] via-[#0d1120] to-[#0a0d15]";
-
-// Colourful, illustrative preview for each tool — NOT skeleton placeholders, so
-// the Hub reads as a live, finished product. Banner shows a real example; the
-// other three are stylised colour mocks in the shared palette.
-function TilePreview({ sectionId }: { sectionId: string }) {
-  if (sectionId === "banner") {
-    return (
-      <img
-        src={presetSlotBanner.src}
-        alt=""
-        className="h-full w-full object-cover"
-        draggable={false}
-      />
-    );
-  }
-  if (sectionId === "playable") {
-    return (
-      <div className={`flex h-full w-full items-center justify-center ${PREVIEW_BASE} p-5`}>
-        <div className="hub-reels aspect-[3/2] h-full max-h-28">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="hub-reel">
-              <div className="hub-strip">
-                <span>🍒</span>
-                <span>⭐</span>
-                <span>7️⃣</span>
-                <span>🍒</span>
-                <span>⭐</span>
-                <span>7️⃣</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (sectionId === "video") {
-    // Stylised video cover: a cool backlight makes a near-black talking-head
-    // avatar silhouette read against the stage, with a play button whose ring
-    // pulses out on hover (see .hub-pulse).
-    return (
-      <div className={`relative flex h-full w-full items-center justify-center overflow-hidden ${PREVIEW_BASE}`}>
-        <div
-          className="absolute inset-0"
-          style={{ background: "radial-gradient(58% 55% at 50% 60%, rgba(99,134,214,0.34), transparent 72%)" }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: "radial-gradient(46% 34% at 50% 22%, rgba(198,255,61,0.16), transparent 70%)" }}
-        />
-        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 translate-y-[14%] flex-col items-center">
-          <div className="h-10 w-10 rounded-full bg-[#070a10]" />
-          <div className="-mt-1.5 h-16 w-28 rounded-t-[46px] bg-[#070a10]" />
-        </div>
-        <span className="relative z-10 mb-5 flex items-center justify-center">
-          <span className="hub-pulse" style={{ inset: "-11px" }} aria-hidden />
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-green text-on-accent shadow-glow-lime">
-            <Play className="ml-0.5 h-6 w-6 fill-current" />
-          </span>
-        </span>
-      </div>
-    );
-  }
-  if (sectionId === "email") {
-    return (
-      <div className={`flex h-full w-full items-center justify-center ${PREVIEW_BASE} p-5`}>
-        <div className="w-full max-w-[220px] overflow-hidden rounded-lg bg-white shadow-lg">
-          <div className="px-3 py-2" style={{ borderBottom: "1px solid #eef1f4" }}>
-            <span className="text-xs font-extrabold" style={{ color: "#7B5CFF" }}>
-              Adspire
-            </span>
-          </div>
-          <div className="px-3 py-3" style={{ background: "linear-gradient(160deg,#7B5CFF14,#fff)" }}>
-            <div className="h-2 w-4/5 rounded bg-[#0f172a]/85" />
-            <div className="mt-1.5 h-1.5 w-3/5 rounded bg-[#475569]/45" />
-          </div>
-          <div className="px-3 pb-3 pt-2">
-            <div className="h-1.5 w-full rounded bg-[#334155]/20" />
-            <div className="mt-1 h-1.5 w-11/12 rounded bg-[#334155]/20" />
-            <div className="mt-3 h-5 w-24 rounded-md" style={{ backgroundColor: "#7B5CFF" }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className={`flex h-full w-full flex-col ${PREVIEW_BASE}`}>
-      <div className="flex items-center justify-between px-4 pt-4">
-        <div className="h-2 w-9 rounded-full bg-sky-400" />
-        <div className="flex gap-1.5">
-          <div className="h-1.5 w-5 rounded-full bg-white/35" />
-          <div className="h-1.5 w-5 rounded-full bg-white/35" />
-          <div className="h-1.5 w-5 rounded-full bg-white/35" />
-        </div>
-      </div>
-      <div className="flex flex-1 items-center gap-3 px-4 py-3">
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="h-3 w-11/12 rounded bg-white/90" />
-          <div className="h-2 w-3/5 rounded bg-white/45" />
-          <div className="mt-1 h-5 w-24 rounded-md bg-sky-400" />
-        </div>
-        <div className="h-16 w-1/3 shrink-0 rounded-lg bg-gradient-to-br from-sky-400 to-indigo-600" />
-      </div>
-      <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-        <div className="h-9 rounded-lg bg-gradient-to-br from-white/20 to-white/5" />
-        <div className="h-9 rounded-lg bg-gradient-to-br from-violet-500/30 to-white/5" />
-        <div className="h-9 rounded-lg bg-gradient-to-br from-sky-400/40 to-white/5" />
-      </div>
-    </div>
-  );
-}
-
 const MVP_ENABLED = MVP_ENABLED_SECTION_IDS;
-
-function SectionTile({
-  section,
-  featured,
-  onOpen,
-}: {
-  section: Section;
-  featured?: boolean;
-  onOpen: () => void;
-}) {
-  const Icon = section.icon;
-  const t = useT();
-  const tx = useTx();
-  const soon = !MVP_ENABLED.has(section.id);
-  const title = tx(`sections.${section.id}.title`, section.title);
-  const description = tx(`sections.${section.id}.description`, section.description);
-  const cta = tx(`sections.${section.id}.cta`, section.cta);
-
-  if (soon) {
-    return (
-      <div
-        aria-disabled="true"
-        title={t("common.soonFor", { title })}
-        className={`hub-tile relative flex w-full cursor-not-allowed flex-col overflow-hidden rounded-2xl border border-border bg-[var(--bg-surface)] text-left opacity-55 grayscale lg:h-full ${
-          featured ? "min-h-[280px] lg:min-h-0" : "min-h-[168px] lg:min-h-0"
-        }`}
-      >
-        <div className="relative min-h-[104px] w-full flex-1 overflow-hidden">
-          <div className="absolute inset-0">
-            <TilePreview sectionId={section.id} />
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-surface)] to-transparent" />
-        </div>
-        <span className="absolute right-3 top-3 z-10 rounded-full border border-border bg-[var(--bg-void)]/80 px-2.5 py-1 text-xs font-semibold text-hint backdrop-blur">
-          {t("common.soon")}
-        </span>
-        <div className={`relative flex flex-col items-start ${featured ? "gap-3.5 p-5" : "gap-2 p-4"}`}>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-hint">
-              <Icon className="h-4 w-4" />
-            </span>
-            <h3 className={`truncate font-semibold tracking-tight text-muted-foreground ${featured ? "text-xl" : "text-base"}`}>
-              {title}
-            </h3>
-          </div>
-          <p className="mt-1.5 truncate text-xs text-hint">{description}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      // The featured tile is the violet emphasis surface (system: violet carries
-      // emphasis); the other three keep the lime accent. Border AND hover glow
-      // live inside the ternary so the two treatments never both apply — two
-      // competing hover utilities would resolve by stylesheet order, not by the
-      // order written here.
-      className={`group hub-tile relative flex w-full flex-col overflow-hidden rounded-2xl border bg-[var(--bg-surface)] text-left shadow-[0_10px_34px_-14px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40 lg:h-full ${
-        featured
-          ? "min-h-[280px] border-[color:var(--brand-violet)]/40 shadow-[0_16px_48px_-16px_rgba(123,92,255,0.40)] hover:border-[color:var(--brand-violet)]/75 hover:shadow-[0_22px_66px_-16px_rgba(123,92,255,0.55)] focus-visible:border-[color:var(--brand-violet)]/75 lg:min-h-0"
-          : "min-h-[168px] border-border hover:border-accent-green/70 hover:shadow-[0_18px_54px_-18px_rgba(198,255,61,0.40)] focus-visible:border-accent-green/60 lg:min-h-0"
-      }`}
-    >
-      {featured ? (
-        <>
-          {/* Featured (banner) — full-bleed preview with the caption OVERLAID at
-              the bottom over a darkening gradient. Tall enough that the two never
-              collide. */}
-          <div className="absolute inset-0">
-            <div className="h-full w-full transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
-              <TilePreview sectionId={section.id} />
-            </div>
-          </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(123,92,255,0.18)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/[0.08] to-transparent" />
-          <span className="hub-shine" aria-hidden />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/75 to-transparent" />
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2"
-            style={{ background: "radial-gradient(115% 90% at 16% 120%, rgba(123,92,255,0.45), transparent 58%)" }}
-          />
-          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/[0.07]" />
-          <span className="absolute right-3 top-3 z-10 rounded-full border border-accent-green/40 bg-[var(--bg-void)] px-2.5 py-1 text-xs font-semibold text-accent-green shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
-            {t("hub.recommended")}
-          </span>
-        </>
-      ) : (
-        // Other tools — a clean CAPTION card: the animated preview lives in a
-        // top band, the label + CTA sit BELOW it on the card's solid surface, so
-        // text never overlaps the preview at any size (the mobile failure mode).
-        <div className="relative min-h-[104px] w-full flex-1 overflow-hidden">
-          <div className="absolute inset-0 transition-transform duration-[650ms] ease-out group-hover:scale-[1.07]">
-            <TilePreview sectionId={section.id} />
-          </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[rgba(198,255,61,0.12)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white/[0.08] to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--bg-surface)] to-transparent" />
-          <span className="hub-shine" aria-hidden />
-          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.06]" />
-        </div>
-      )}
-
-      {/* Hierarchy: the featured (banner) tile gets a bigger title, icon, CTA and
-          padding; the other three stay compact. Styling/overlay is identical —
-          only relative size and weight differ. */}
-      <div
-        className={`relative flex flex-col items-start ${featured ? "mt-auto gap-3.5 p-5" : "gap-2 p-4"}`}
-      >
-        <div className="w-full min-w-0">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`flex shrink-0 items-center justify-center rounded-lg backdrop-blur-sm ${
-                featured
-                  ? "h-8 w-8 bg-[color:var(--brand-violet)]/25 text-[color:var(--violet-400)] ring-1 ring-[color:var(--brand-violet)]/40"
-                  : "h-7 w-7 bg-accent-green/20 text-accent-green ring-1 ring-accent-green/30"
-              }`}
-            >
-              <Icon className={featured ? "h-[18px] w-[18px]" : "h-4 w-4"} />
-            </span>
-            <h3
-              className={`truncate font-semibold tracking-tight text-white ${featured ? "text-xl lg:text-2xl" : "text-base"}`}
-            >
-              {title}
-            </h3>
-          </div>
-          <p className={`mt-1.5 text-white/80 ${featured ? "text-sm" : "truncate text-xs"}`}>
-            {description}
-          </p>
-        </div>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-accent-green font-semibold text-on-accent shadow-[0_2px_10px_rgba(0,0,0,0.30)] transition-all duration-200 group-hover:bg-[var(--accent-hover)] group-hover:shadow-glow-lime ${
-            featured ? "px-5 py-2.5 text-sm" : "px-3.5 py-2 text-sm"
-          }`}
-        >
-          {cta}
-          <ArrowRight
-            className={`transition-transform duration-200 group-hover:translate-x-0.5 ${featured ? "h-4 w-4" : "h-3.5 w-3.5"}`}
-          />
-        </span>
-      </div>
-    </button>
-  );
-}
 
 function Thumb({
   preview,
@@ -469,15 +180,8 @@ export default function HubPage() {
   const { activeId } = useWorkspace();
   const [recent, setRecent] = useState<RecentCard[]>([]);
   const [firstName, setFirstName] = useState("");
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  /** True only when /api/history actually returned cards — the mock projects
-   *  used as a stand-in must not count as "this account has work already". */
-  const [hasRealProjects, setHasRealProjects] = useState(false);
-  const [query, setQuery] = useState("");
   const [hubPrompt, setHubPrompt] = useState("");
   const [showcaseCat, setShowcaseCat] = useState<string>("all");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.title = "GenGO";
@@ -524,7 +228,6 @@ export default function HubPage() {
           thumb: p.thumb ?? null,
         })),
       );
-      setHistoryLoaded(true);
     };
     apiJson<{ items?: unknown[] }>(qs)
       .then((r) => {
@@ -553,9 +256,7 @@ export default function HubPage() {
           };
         });
         setRecent(mapped.filter((m) => m.id));
-        setHasRealProjects(true);
-        setHistoryLoaded(true);
-      })
+        })
       .catch(() => {
         applyMock();
       });
@@ -564,37 +265,6 @@ export default function HubPage() {
     };
   }, [loading, isAuthenticated, activeId]);
 
-  useEffect(() => {
-    if (!searchFocused) return;
-    const onDown = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchFocused(false);
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [searchFocused]);
-
-  const q = query.trim().toLowerCase();
-  const templateResults = useMemo(
-    () => searchTemplates(query, 24).filter((t) => MVP_ENABLED.has(t.sectionId)).slice(0, 6),
-    [query],
-  );
-  const projectResults = useMemo(
-    () => (q ? recent.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 4) : []),
-    [q, recent],
-  );
-  const searchOpen = searchFocused && q.length > 0;
-  const hasResults = templateResults.length + projectResults.length > 0;
-
-  const openTemplate = (t: HubTemplate) => {
-    setSearchFocused(false);
-    router.push(t.href);
-  };
-  const openProject = (id: string) => {
-    setSearchFocused(false);
-    router.push(`/banner?card=${id}`);
-  };
   const submitHubPrompt = () => {
     const v = hubPrompt.trim();
     if (v) {
@@ -625,18 +295,12 @@ export default function HubPage() {
   }
 
   const bannerSection = SECTION_BY_ID.get("banner")!;
-  const CREATE_IDS = new Set(["landing", "playable", "video", "email"]);
-  const otherSections = SECTIONS.filter((s) => CREATE_IDS.has(s.id));
   const greeting = firstName
     ? t("hub.greeting", { name: firstName })
     : t("hub.greetingAnon");
   // Gate onboarding on the same count as the stat so the two are mutually
   // exclusive — a first-visit user (0 projects) sees the nudge, a returning one
   // sees the stat, and malformed data can never show both at once.
-  // A guest has nothing loaded at all (the history effect bails out before
-  //  fetching), and a fresh account gets mock projects — both are exactly who
-  //  the walk-through is for, so neither can be detected by projectCount.
-  const showOnboarding = !isAuthenticated || (historyLoaded && !hasRealProjects);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
@@ -735,11 +399,7 @@ export default function HubPage() {
           </Link>
         </div>
 
-        <div
-          className={`hub-in relative mx-auto max-w-3xl text-center ${
-            searchOpen ? "z-50" : ""
-          }`}
-        >
+        <div className="hub-in relative mx-auto max-w-3xl text-center">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -801,177 +461,10 @@ export default function HubPage() {
             })}
           </div>
 
-          <p className="mx-auto mt-7 max-w-md ds-caption">{t("hub.searchHint")}</p>
 
-          <MobileScrim open={searchOpen} onClose={() => setSearchFocused(false)} scope="all" />
-          <div ref={searchRef} className="relative mt-4 text-left">
-            <div className="flex h-13 w-full items-center gap-3 rounded-2xl border border-border bg-[var(--bg-surface)] px-4 shadow-[0_8px_28px_-18px_rgba(0,0,0,0.8)] transition focus-within:border-accent-green focus-within:shadow-[0_0_0_4px_rgba(198,255,61,0.10)] focus-within:ring-1 focus-within:ring-accent-green">
-              <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                placeholder={t("hub.search.placeholder")}
-                aria-label={t("hub.search.aria")}
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hint"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label={t("hub.search.clear")}
-                  className="relative flex shrink-0 text-muted-foreground transition after:absolute after:-inset-2.5 after:content-[''] hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
 
-            {searchOpen ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 text-foreground shadow-xl">
-                {!hasResults ? (
-                  <div className="px-3 py-6 text-center">
-                    <p className="text-sm font-medium">{t("hub.search.empty")}</p>
-                    <p className="mt-1 ds-caption">
-                      По запросу «{query.trim()}» шаблонов и проектов нет
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {templateResults.length > 0 ? (
-                      <div className="mb-1">
-                        <p className="px-3 pb-1 pt-2 ds-micro uppercase tracking-wide text-muted-foreground">
-                          Шаблоны
-                        </p>
-                        {templateResults.map((t) => {
-                          const sec = SECTION_BY_ID.get(t.sectionId);
-                          const SecIcon = sec?.icon;
-                          return (
-                            <button
-                              key={`${t.sectionId}-${t.id}`}
-                              type="button"
-                              onClick={() => openTemplate(t)}
-                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/5"
-                            >
-                              <span
-                                className="h-9 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-[var(--bg-surface)]"
-                                aria-hidden
-                              >
-                                <Thumb
-                                  preview={t.preview}
-                                  gradient={t.gradient}
-                                  fallbackIcon={SecIcon ? <SecIcon className="h-4 w-4" /> : null}
-                                />
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-medium">{t.name}</span>
-                                <span className="flex items-center gap-1 truncate ds-caption">
-                                  {SecIcon ? (
-                                    <SecIcon className="h-3 w-3 shrink-0 text-accent-green" />
-                                  ) : null}
-                                  {sec?.title}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-
-                    {projectResults.length > 0 ? (
-                      <div>
-                        <p className="px-3 pb-1 pt-2 ds-micro uppercase tracking-wide text-muted-foreground">
-                          Мои проекты
-                        </p>
-                        {projectResults.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => openProject(p.id)}
-                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/5"
-                          >
-                            <span className="h-9 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-[var(--bg-surface)]">
-                              <Thumb
-                                preview={p.thumb}
-                                fallbackIcon={<Clock className="h-4 w-4" />}
-                              />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-medium">{p.name}</span>
-                              {p.updatedLabel ? (
-                                <span className="block truncate ds-caption">
-                                  Изменён {p.updatedLabel}
-                                </span>
-                              ) : null}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          {showOnboarding ? (
-            <div
-              className="hub-in mt-5 flex flex-col gap-3 rounded-2xl border border-accent-green/25 bg-accent-green/[0.06] p-4 text-left sm:flex-row sm:items-center"
-              style={{ "--d": "90ms" } as React.CSSProperties}
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
-                <GraduationCap className="h-4 w-4" />
-              </span>
-              <p className="min-w-0 flex-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{t("hub.onboarding.title")}</span>{" "}
-                {t("hub.onboarding.body")}
-              </p>
-              <Link
-                href="/onboarding"
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-accent-green/40 px-3.5 text-sm font-medium text-foreground transition hover:bg-accent-green/10"
-              >
-                {t("hub.onboarding.cta")}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          ) : null}
         </div>
 
-        {/* Large bottom margin sets a clear break before "Недавние проекты"
-            (primary action → secondary content). A compact top margin and a
-            shorter grid keep all four tiles inside the first desktop viewport. */}
-        <div className="mt-6 mb-16 sm:mt-6 sm:mb-20">
-          <div className="grid grid-cols-1 gap-4 lg:h-[420px] lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2">
-            <div
-              className="hub-in lg:col-start-1 lg:row-span-2"
-              style={{ "--d": "120ms" } as React.CSSProperties}
-            >
-              <SectionTile
-                section={bannerSection}
-                featured
-                onOpen={() => router.push(sectionEntryRoute(bannerSection))}
-              />
-            </div>
-            {otherSections.map((s, i) => (
-              <div
-                key={s.id}
-                style={{ "--d": `${170 + i * 55}ms` } as React.CSSProperties}
-                className={`hub-in ${
-                  i === 0
-                    ? "lg:col-start-2 lg:row-start-1"
-                    : i === 1
-                      ? "lg:col-start-3 lg:row-start-1"
-                      : i === 2
-                        ? "lg:col-start-2 lg:row-start-2"
-                        : "lg:col-start-3 lg:row-start-2"
-                }`}
-              >
-                <SectionTile section={s} onOpen={() => router.push(sectionEntryRoute(s))} />
-              </div>
-            ))}
-          </div>
-        </div>
 
         <section className="hub-in mt-14" style={{ "--d": "220ms" } as React.CSSProperties}>
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -1103,7 +596,7 @@ export default function HubPage() {
                 <button
                   key={`${t.sectionId}-${t.id}`}
                   type="button"
-                  onClick={() => openTemplate(t)}
+                  onClick={() => router.push(t.href)}
                   className="group flex w-44 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-[var(--bg-surface)] text-left transition-all hover:-translate-y-0.5 hover:border-accent-green/50 hover:bg-[var(--bg-surface-hover)] hover:shadow-[0_12px_32px_-14px_rgba(198,255,61,0.35)] sm:w-auto"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-background">
