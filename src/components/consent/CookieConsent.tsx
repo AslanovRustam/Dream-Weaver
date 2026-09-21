@@ -126,10 +126,10 @@ export function CookieConsent() {
               <Cookie className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Мы храним минимум</p>
+              <p className="text-sm font-medium">Cookie и данные в браузере</p>
               <p className="mt-1 ds-caption">
-                Вход в аккаунт, настройки интерфейса и черновики проектов — всё в вашем браузере.
-                Рекламных пикселей и аналитических трекеров у нас нет.{" "}
+                Храним только вход в аккаунт, настройки интерфейса и черновики проектов — всё
+                остаётся на вашем устройстве. Рекламных пикселей и аналитических трекеров нет.{" "}
                 <Link href="/legal#cookies" className="text-accent-green underline-offset-2 hover:underline">
                   Подробнее
                 </Link>
