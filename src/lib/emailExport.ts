@@ -1,22 +1,30 @@
-// Email HTML export.
+// Email HTML export — собран по внутреннему своду правил вёрстки писем
+// (get_all_rules v4.4, папка «правила писем»). Свод писался под конвейер
+// Figma → HTML, поэтому часть его — про маппинг данных фигмы, которых у нас
+// нет: конструктор собирает письмо из формы. Здесь применены разделы, которые
+// говорят про сам HTML: layout, head_template, cta_structure, assembly и
+// чеклист.
 //
-// Mail clients are not browsers. Outlook on Windows renders through Word, most
-// clients strip <style> or ignore flex/grid, and several rewrite colours for
-// dark mode. So this builds the shape every ESP expects:
+// Что это значит на практике (и чем отличается от «просто HTML»):
+//   • разметка только table/tr/td, никаких div — их запрещает layout.forbidden;
+//   • никаких медиазапросов: Outlook и часть мобильных клиентов их не читают,
+//     а свод требует, чтобы вёрстка не зависела от них вовсе;
+//   • border-collapse:separate (чеклист п.2) — с collapse Outlook схлопывает
+//     границы ячеек и ломает отступы;
+//   • у каждой таблицы с фиксированной шириной width И min-width в style
+//     (п.13), иначе Apple Mail и Gmail её сжимают;
+//   • у каждой текстовой ячейки явный line-height (п.54) — без него строки
+//     наезжают друг на друга;
+//   • расстояние между блоками — padding-top на следующем, не padding-bottom
+//     на предыдущем (п.21);
+//   • bgcolor только там, где фон реально отличается от родительского (п.6),
+//     при этом собственная плашка футера рисуется (п.57);
+//   • кнопка по cta_structure: <a> внутри <td>, никогда <table> внутри <a>,
+//     display:block с явными width/height и line-height для центровки — так
+//     клик срабатывает по всей кнопке, а не по надписи.
 //
-//   • XHTML transitional doctype — what Word's engine wants to see;
-//   • nested <table> layout at a fixed 600px, never flex or grid;
-//   • every style inline, because Gmail drops the <head> on forwarded mail;
-//   • "bulletproof" buttons: a table cell with a background colour, plus a VML
-//     round-rect behind an Outlook conditional comment, because Outlook
-//     ignores padding on <a> and border-radius entirely;
-//   • a hidden preheader, the grey line the inbox shows next to the subject;
-//   • one <style> block for the few progressive touches (a media query and
-//     prefers-color-scheme) — treated as decoration that may be dropped.
-//
-// Everything a user typed goes through esc(); the CTA goes through
-// safeCtaUrl() so "javascript:" cannot ride along, while tracker macros like
-// {clickurl} pass untouched.
+// Текст пользователя проходит через esc(); ссылка кнопки — через safeCtaUrl(),
+// который отсекает javascript: и пропускает макросы трекера как есть.
 
 import { safeCtaUrl } from "./exportUtils";
 import type { EmailDraft } from "./mailing";
@@ -26,7 +34,6 @@ const LT = /</g;
 const GT = />/g;
 const QUOT = /"/g;
 
-/** HTML-escape for text nodes and attribute values. */
 function esc(s: string | undefined): string {
   return (s ?? "")
     .replace(AMP, "&amp;")
@@ -35,33 +42,37 @@ function esc(s: string | undefined): string {
     .replace(QUOT, "&quot;");
 }
 
-/**
- * The same `**bold**` shorthand the builder's preview understands, rendered as
- * a <strong> in the accent colour. Escaping happens per fragment so a literal
- * "<" in the copy can never open a tag.
- */
+/** Разметка `**жирный**` из полей конструктора — в <strong> акцентного цвета. */
 function md(text: string | undefined, accent: string): string {
   return (text ?? "")
     .split(/(\*\*[^*]+\*\*)/g)
     .map((part) => {
       const hit = /^\*\*([^*]+)\*\*$/.exec(part);
       return hit
-        ? `<strong style="color:${accent};font-weight:700;">${esc(hit[1])}</strong>`
+        ? `<strong style="color:${accent};font-weight:bold;">${esc(hit[1])}</strong>`
         : esc(part);
     })
     .join("");
 }
 
-/** Paragraph text keeps the line breaks the author typed. */
 function mdMultiline(text: string | undefined, accent: string): string {
   return md(text, accent).split("\n").join("<br />");
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
+// Свод: если fontFamily не задан — Arial,Helvetica,sans-serif, без дублей в
+// стеке. Веб-шрифты (Google Fonts) запрещены отдельным пунктом.
+const FONT = "Arial,Helvetica,sans-serif";
+
+/** Обязательный набор стилей для картинок из layout.images. */
+const IMG_STYLE = "display:block;border:none;max-width:100%;-ms-interpolation-mode:bicubic;";
+
 type Palette = {
   accent: string;
-  bg: string;
+  /** Фон письма — идёт на body, внешнюю таблицу и её td (сборка, п.3). */
+  page: string;
+  /** Полотно письма: отличается от фона страницы, поэтому bgcolor разрешён. */
   panel: string;
   text: string;
   muted: string;
@@ -76,7 +87,7 @@ function palette(draft: EmailDraft): Palette {
   return draft.dark
     ? {
         accent,
-        bg: "#060a16",
+        page: "#060a16",
         panel: "#0b1226",
         text: "#eaf0ff",
         muted: "#93a4cc",
@@ -87,7 +98,7 @@ function palette(draft: EmailDraft): Palette {
       }
     : {
         accent,
-        bg: "#e9edf2",
+        page: "#e9edf2",
         panel: "#ffffff",
         text: "#0f172a",
         muted: "#475569",
@@ -98,37 +109,40 @@ function palette(draft: EmailDraft): Palette {
       };
 }
 
-const FONT =
-  "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+/** Текстовая ячейка: line-height обязателен (чеклист п.54). */
+function textCell(html: string, opts: {
+  color: string;
+  size: number;
+  lineHeight: number;
+  weight?: string;
+  align?: string;
+  transform?: string;
+  padding: string;
+}): string {
+  const weight = opts.weight ? `font-weight:${opts.weight};` : "";
+  const transform = opts.transform ? `text-transform:${opts.transform};` : "";
+  return `<td align="${opts.align ?? "center"}" style="padding:${opts.padding};font-family:${FONT};font-size:${opts.size}px;line-height:${opts.lineHeight}px;color:${opts.color};${weight}${transform}text-align:${opts.align ?? "center"};">${html}</td>`;
+}
+
+/** Вертикальный зазор строкой-спейсером (layout.spacers). */
+function spacer(height: number): string {
+  return `<tr><td height="${height}" style="height:${height}px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
+}
 
 /**
- * A button that survives Outlook. The VML rectangle carries the fill and the
- * rounded corner for Word's engine; every other client skips the conditional
- * comment and gets the table cell underneath.
+ * Кнопка по cta_structure / чеклист п.8: ссылка внутри ячейки, display:block,
+ * явные width и height, line-height равен высоте за вычетом вертикальных
+ * паддингов. Никакого <table> внутри <a> — это невалидный HTML, и часть
+ * клиентов рвёт такую разметку.
  */
-function button(label: string, href: string, p: Palette): string {
+function button(label: string, href: string, p: Palette, width = 440): string {
   if (!label.trim()) return "";
-  const text = esc(label);
-  const url = esc(href);
-  return `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+  const innerWidth = width - 32;
+  const innerHeight = 22;
+  return `<table width="${width}" cellpadding="0" cellspacing="0" border="0" align="center" style="width:${width}px;min-width:${width}px;border-collapse:separate;">
                 <tr>
-                  <td align="center" style="padding:4px 0;">
-                    <!--[if mso]>
-                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:52px;v-text-anchor:middle;width:440px;" arcsize="50%" stroke="f" fillcolor="${p.accent}">
-                      <w:anchorlock/>
-                      <center style="color:${p.onAccent};font-family:${FONT};font-size:16px;font-weight:bold;">${text}</center>
-                    </v:roundrect>
-                    <![endif]-->
-                    <!--[if !mso]><!-- -->
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;">
-                      <tr>
-                        <td align="center" bgcolor="${p.accent}" style="border-radius:26px;background-color:${p.accent};">
-                          <a href="${url}" target="_blank" style="display:block;padding:15px 24px;font-family:${FONT};font-size:16px;font-weight:700;line-height:20px;letter-spacing:0.5px;text-transform:uppercase;color:${p.onAccent};text-decoration:none;border-radius:26px;">${text}</a>
-                        </td>
-                      </tr>
-                    </table>
-                    <!--<![endif]-->
+                  <td bgcolor="${p.accent}" style="background-color:${p.accent};border-radius:26px;padding:15px 16px;text-align:center;">
+                    <a href="${esc(href)}" target="_blank" style="display:block;width:${innerWidth}px;height:${innerHeight}px;line-height:${innerHeight}px;font-family:${FONT};font-size:16px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.onAccent};text-decoration:none;text-align:center;">${esc(label)}</a>
                   </td>
                 </tr>
               </table>`;
@@ -136,25 +150,17 @@ function button(label: string, href: string, p: Palette): string {
 
 function heroBlock(draft: EmailDraft, p: Palette): string {
   if (draft.heroImage) {
-    return `
-            <tr>
-              <td style="padding:0;">
-                <img src="${esc(draft.heroImage)}" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />
-              </td>
-            </tr>`;
+    return `        <tr>
+          <td style="font-size:0;line-height:0;"><img src="${esc(draft.heroImage)}" width="600" alt="" style="${IMG_STYLE}width:600px;" /></td>
+        </tr>`;
   }
-  // No hero picture: a solid accent-tinted band. Gradients are not portable,
-  // so the fallback is a flat colour every client can paint.
   const inner =
     draft.brandMode === "logo" && draft.logo
-      ? `<img src="${esc(draft.logo)}" alt="${esc(draft.brand)}" style="display:block;max-height:64px;max-width:60%;border:0;" />`
-      : `<span style="font-family:${FONT};font-size:28px;font-weight:800;letter-spacing:-0.5px;color:${p.text};">${esc(draft.brand || "ВАШ БРЕНД")}</span>`;
-  return `
-            <tr>
-              <td align="center" bgcolor="${p.chipBg}" style="padding:44px 24px;background-color:${p.chipBg};">
-                ${inner}
-              </td>
-            </tr>`;
+      ? `<img src="${esc(draft.logo)}" width="180" alt="${esc(draft.brand)}" style="${IMG_STYLE}margin:0 auto;" />`
+      : `<span style="font-family:${FONT};font-size:28px;line-height:34px;font-weight:bold;color:${p.text};">${esc(draft.brand || "ВАШ БРЕНД")}</span>`;
+  return `        <tr>
+          <td align="center" bgcolor="${p.chipBg}" style="background-color:${p.chipBg};padding:44px 24px;font-family:${FONT};font-size:28px;line-height:34px;">${inner}</td>
+        </tr>`;
 }
 
 function stepsBlock(draft: EmailDraft, p: Palette): string {
@@ -162,136 +168,163 @@ function stepsBlock(draft: EmailDraft, p: Palette): string {
   if (steps.length === 0) return "";
   const rows = steps
     .map(
-      (step, i) => `
-                  <tr>
-                    <td width="32" valign="top" style="padding:0 12px 10px 0;">
-                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
-                        <tr>
-                          <td width="24" height="24" align="center" valign="middle" bgcolor="${p.accent}" style="width:24px;height:24px;border-radius:12px;background-color:${p.accent};font-family:${FONT};font-size:12px;font-weight:700;color:${p.onAccent};">${i + 1}</td>
-                        </tr>
-                      </table>
-                    </td>
-                    <td valign="top" style="padding:0 0 10px 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accent)}</td>
-                  </tr>`,
+      (step, i) => `                    <tr>
+                      <td width="24" valign="top" style="padding:0 12px 10px 0;">
+                        <table width="24" cellpadding="0" cellspacing="0" border="0" style="width:24px;min-width:24px;border-collapse:separate;">
+                          <tr>
+                            <td width="24" height="24" align="center" valign="middle" bgcolor="${p.accent}" style="width:24px;height:24px;background-color:${p.accent};border-radius:12px;font-family:${FONT};font-size:12px;line-height:24px;font-weight:bold;color:${p.onAccent};text-align:center;">${i + 1}</td>
+                          </tr>
+                        </table>
+                      </td>
+                      <td valign="top" style="padding:0 0 10px 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accent)}</td>
+                    </tr>`,
     )
-    .join("");
-  return `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-top:20px;">
-                <tr>
-                  <td colspan="2" align="center" style="padding-bottom:14px;font-family:${FONT};font-size:14px;font-weight:800;text-transform:uppercase;color:${p.text};">Чтобы активировать бонус:</td>
-                </tr>${rows}
+    .join("\n");
+  return `              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
+                    <tr>
+                      <td colspan="2" align="center" style="padding:0 0 14px 0;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;text-transform:uppercase;color:${p.text};text-align:center;">Чтобы активировать бонус:</td>
+                    </tr>
+${rows}
               </table>`;
 }
 
 const PAYMENTS = ["VISA", "Mastercard", "Skrill", "NETELLER", "Yandex", "QIWI", "Trustly"];
+const STORES = ["App Store", "Google Play"];
 
-function paymentsBlock(p: Palette): string {
+/** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div. */
+function extrasBlock(p: Palette): string {
+  const stores = STORES.map(
+    (name) =>
+      `<td align="center" style="padding:0 4px;font-family:${FONT};font-size:11px;line-height:17px;color:${p.muted};"><span style="display:inline-block;padding:6px 12px;border:1px solid ${p.divider};border-radius:8px;">${esc(name)}</span></td>`,
+  ).join("");
   const chips = PAYMENTS.map(
     (name) =>
-      `<span style="display:inline-block;margin:0 3px 6px 3px;padding:3px 8px;border-radius:4px;background-color:${p.chipBg};font-family:${FONT};font-size:10px;font-weight:600;color:${p.muted};">${esc(name)}</span>`,
-  ).join("");
-  const stores = ["App Store", "Google Play"]
-    .map(
-      (name) =>
-        `<span style="display:inline-block;margin:0 4px;padding:6px 12px;border:1px solid ${p.divider};border-radius:8px;font-family:${FONT};font-size:11px;font-weight:500;color:${p.muted};">${esc(name)}</span>`,
-    )
-    .join("");
-  return `
-            <tr>
-              <td align="center" style="padding:20px 24px 24px 24px;border-top:1px solid ${p.divider};">
-                <p style="margin:0 0 12px 0;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${p.muted};">Download our mobile app</p>
-                <div style="margin-bottom:14px;">${stores}</div>
-                <div>${chips}</div>
-              </td>
-            </tr>`;
+      `<span style="display:inline-block;padding:3px 8px;border-radius:4px;background-color:${p.chipBg};font-family:${FONT};font-size:10px;line-height:14px;font-weight:bold;color:${p.muted};">${esc(name)}</span>`,
+  ).join("&nbsp;");
+  return `        <tr>
+          <td align="center" style="padding:20px 24px 24px 24px;border-top:1px solid ${p.divider};">
+            <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
+              <tr>
+                <td align="center" style="padding:0 0 12px 0;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.muted};text-align:center;">Download our mobile app</td>
+              </tr>
+              <tr>
+                <td align="center" style="padding:0 0 14px 0;">
+                  <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
+                    <tr>${stores}</tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="font-family:${FONT};font-size:10px;line-height:18px;text-align:center;">${chips}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>`;
 }
 
 /**
- * The email as a standalone HTML document — the exact bytes the download and
- * the builder's preview both use, so what is on screen is what is sent.
+ * Футер. Свод запрещает дублировать фон письма на футере, но требует рисовать
+ * его собственную плашку (чеклист п.57) — здесь она своя и от полотна
+ * отличается, поэтому bgcolor правомерен. Ссылка отписки всегда без
+ * подчёркивания по умолчанию (roles.footer).
+ */
+function footerBlock(draft: EmailDraft, p: Palette, unsubscribe: string): string {
+  return `        <tr>
+          <td align="center" bgcolor="${p.footerBg}" style="background-color:${p.footerBg};padding:18px 28px;border-top:1px solid ${p.divider};">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
+              <tr>
+${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, padding: "0 0 8px 0" })}
+              </tr>
+              <tr>
+                <td align="center" style="font-family:${FONT};font-size:11px;line-height:17px;text-align:center;"><a href="${esc(unsubscribe)}" target="_blank" style="font-family:${FONT};font-size:11px;line-height:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.accent};text-decoration:none;">Unsubscribe</a></td>
+              </tr>
+            </table>
+          </td>
+        </tr>`;
+}
+
+/**
+ * Готовый файл письма. Его же показывает предпросмотр в конструкторе, поэтому
+ * на экране и в почте одно и то же.
  */
 export function buildEmailHtml(draft: EmailDraft): string {
   const p = palette(draft);
+  // layout.links: плейсхолдер "#", если ссылку не задали.
   const cta = safeCtaUrl(draft.ctaUrl) || "#";
   const unsubscribe = safeCtaUrl(draft.unsubscribeUrl) || "#";
   const title = draft.heroTitle || "Заголовок акции";
-  const body = draft.body || "";
 
-  // Gmail shows the preheader after the subject; the zero-width padding stops
-  // it from pulling the first words of the body in after it.
+  // Единственное осознанное отступление от свода: прехедер — скрытый элемент,
+  // а свод запрещает невидимые элементы (чеклист п.31). Там это правило про
+  // фальшивые спейсеры в конвейере из фигмы; прехедер же — отдельное поле
+  // конструктора и та самая серая строка, которую почтовик показывает рядом с
+  // темой. Без него поле в форме ни на что не влияло бы.
   const preheader = draft.preheader
-    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${p.panel};opacity:0;">${esc(draft.preheader)}${"&#8199;&#65279;&#847; ".repeat(60)}</div>`
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="max-height:0;overflow:hidden;mso-hide:all;border-collapse:separate;"><tr><td style="font-size:1px;line-height:1px;color:${p.page};">${esc(draft.preheader)}${"&#8199;&#65279;&#847; ".repeat(60)}</td></tr></table>`
     : "";
 
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="ru">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="x-apple-disable-message-reformatting" />
-<meta name="color-scheme" content="${draft.dark ? "dark" : "light"}" />
-<meta name="supported-color-schemes" content="${draft.dark ? "dark" : "light"}" />
-<title>${esc(draft.subject || draft.name || "Письмо")}</title>
-<!--[if mso]>
-<xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
-<![endif]-->
-<style type="text/css">
-  /* Progressive only — several clients drop this block entirely, which is why
-     every rule that matters is inline on the element itself. */
-  body { margin:0; padding:0; width:100% !important; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
-  table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
-  img { -ms-interpolation-mode:bicubic; }
-  a { color:${p.accent}; }
-  @media only screen and (max-width:620px) {
-    .dw-shell { width:100% !important; }
-    .dw-pad { padding-left:18px !important; padding-right:18px !important; }
-    .dw-title { font-size:22px !important; line-height:28px !important; }
-  }
-</style>
-</head>
-<body style="margin:0;padding:0;background-color:${p.bg};">
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="viewport" content="width=device-width" /><meta name="x-apple-disable-message-reformatting"/><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(draft.subject || draft.name || "Письмо")}</title><!--[if gte mso 9]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]--><style type="text/css">img{font-size:0;line-height:0;display:block;border:none;-ms-interpolation-mode:bicubic;max-width:100%}body{font-family:sans-serif;-webkit-font-smoothing:antialiased;margin:0;padding:0;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}table{border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt}</style></head>
+<body style="background-color:${p.page};margin:0;padding:0;">
 ${preheader}
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="${p.bg}" style="background-color:${p.bg};">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.page}" style="width:100%;background-color:${p.page};border-collapse:separate;">
   <tr>
-    <td align="center" style="padding:24px 12px;">
-      <table role="presentation" class="dw-shell" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;background-color:${p.panel};border-radius:16px;overflow:hidden;">
+    <td align="center" bgcolor="${p.page}" style="background-color:${p.page};padding:24px 12px;">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.panel}" style="width:600px;min-width:600px;background-color:${p.panel};border-radius:16px;border-collapse:separate;">
 ${heroBlock(draft, p)}
         <tr>
-          <td class="dw-pad" align="center" style="padding:28px 28px 8px 28px;">
-            <h1 class="dw-title" style="margin:0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;text-transform:uppercase;color:${p.text};">${md(title, p.accent)}</h1>
+${textCell(md(title, p.accent), {
+  color: p.text,
+  size: 26,
+  lineHeight: 32,
+  weight: "bold",
+  transform: "uppercase",
+  padding: "28px 28px 0 28px",
+})}
+        </tr>
 ${
   draft.heroSubtitle
-    ? `            <p style="margin:8px 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(draft.heroSubtitle, p.accent)}</p>`
+    ? `        <tr>
+${textCell(md(draft.heroSubtitle, p.accent), { color: p.muted, size: 14, lineHeight: 20, padding: "8px 28px 0 28px" })}
+        </tr>`
     : ""
 }
-          </td>
-        </tr>
 ${
   draft.ctaText
     ? `        <tr>
-          <td class="dw-pad" style="padding:16px 28px 4px 28px;">${button(draft.ctaText, cta, p)}
+          <td align="center" style="padding:20px 28px 0 28px;">
+              ${button(draft.ctaText, cta, p)}
           </td>
         </tr>`
     : ""
 }
-        <tr>
-          <td class="dw-pad" align="center" style="padding:18px 28px 24px 28px;">
 ${
-  body
-    ? `            <p style="margin:0;font-family:${FONT};font-size:14px;line-height:22px;color:${p.muted};">${mdMultiline(body, p.accent)}</p>`
+  draft.body
+    ? `        <tr>
+${textCell(mdMultiline(draft.body, p.accent), { color: p.muted, size: 14, lineHeight: 22, padding: "20px 28px 0 28px" })}
+        </tr>`
     : ""
 }
+${
+  stepsBlock(draft, p)
+    ? `        <tr>
+          <td align="center" style="padding:20px 28px 0 28px;">
 ${stepsBlock(draft, p)}
-${draft.bonusCtaText ? `            <div style="margin-top:20px;">${button(draft.bonusCtaText, cta, p)}</div>` : ""}
           </td>
-        </tr>
-${paymentsBlock(p)}
-        <tr>
-          <td align="center" bgcolor="${p.footerBg}" style="padding:18px 28px;background-color:${p.footerBg};border-top:1px solid ${p.divider};">
-            <p style="margin:0;font-family:${FONT};font-size:11px;line-height:17px;color:${p.muted};">${esc(draft.footer)}</p>
-            <a href="${esc(unsubscribe)}" target="_blank" style="display:inline-block;margin-top:8px;font-family:${FONT};font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:${p.accent};text-decoration:underline;">Unsubscribe</a>
+        </tr>`
+    : ""
+}
+${
+  draft.bonusCtaText
+    ? `        <tr>
+          <td align="center" style="padding:20px 28px 0 28px;">
+              ${button(draft.bonusCtaText, cta, p)}
           </td>
-        </tr>
+        </tr>`
+    : ""
+}
+${spacer(24)}
+${extrasBlock(p)}
+${footerBlock(draft, p, unsubscribe)}
       </table>
     </td>
   </tr>
@@ -300,7 +333,7 @@ ${paymentsBlock(p)}
 </html>`;
 }
 
-/** File name for the download: the draft's name, or the subject, or a default. */
+/** Имя файла при выгрузке: имя черновика, тема или запасное значение. */
 export function emailFileName(draft: EmailDraft): string {
   const base = (draft.name || draft.subject || "email")
     .toLowerCase()

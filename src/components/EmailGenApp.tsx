@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -595,18 +595,52 @@ export function EmailGenApp() {
         ) : null}
       </div>
 
-      <div className="lg:sticky lg:top-6 lg:h-fit">
+      {/* min-w-0: иначе масштабируемый блок предпросмотра задаёт колонке
+          минимальную ширину по содержимому и отъедает место у формы. */}
+      <div className="min-w-0 lg:sticky lg:top-6 lg:h-fit">
         <EmailPreview draft={draft} html={html} />
       </div>
     </div>
   );
 }
 
-// Renders the exported file in an iframe, so the preview cannot disagree with
-// the download. Scripts are off: an email has none, and a sandboxed frame also
-// keeps the CTA from navigating the builder away.
+// Показывает сам экспортируемый файл, а не его двойника, — иначе предпросмотр
+// рано или поздно разойдётся с тем, что уходит адресату.
+//
+// Письмо свёрстано на фиксированных 600px: свод запрещает медиазапросы, а без
+// них оно не умеет сужаться. Поэтому в узкой колонке его не обрезаем, а
+// уменьшаем целиком — так же, как это делает почтовый клиент на телефоне.
+// Скрипты у письма отключены; allow-same-origin нужен только чтобы померить
+// высоту документа, и без allow-scripts он ничего не открывает.
+const EMAIL_WIDTH = 600;
+const PHONE_WIDTH = 375;
+
 function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
   const [narrow, setNarrow] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [available, setAvailable] = useState(EMAIL_WIDTH);
+  const [docHeight, setDocHeight] = useState(900);
+
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const measure = () => setAvailable(box.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, []);
+
+  // Высота письма известна только после отрисовки, и меняется с каждой правкой
+  // полей — пересчитываем на каждый новый html.
+  const onLoad = () => {
+    const doc = frameRef.current?.contentDocument;
+    if (doc?.body) setDocHeight(Math.max(320, doc.body.scrollHeight));
+  };
+
+  const targetWidth = narrow ? PHONE_WIDTH : Math.min(available, EMAIL_WIDTH);
+  const scale = Math.min(1, targetWidth / EMAIL_WIDTH);
 
   return (
     <div>
@@ -640,27 +674,42 @@ function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-[#e9edf2] p-3 sm:p-4">
-        {/* The inbox chrome around the message — subject and preheader are what
-            a reader sees before opening anything. */}
+        {/* Обрамление почтовика: тема и прехедер — это то, что человек видит
+            до того, как откроет письмо. */}
         <div className="mb-3 px-1">
           <p className="truncate text-sm font-semibold text-[#111827]">
             {draft.subject || "Без темы"}
           </p>
           <p className="truncate text-xs text-[#4b5563]">{draft.preheader}</p>
         </div>
-        <div className="mx-auto transition-[max-width]" style={{ maxWidth: narrow ? 380 : 620 }}>
-          <iframe
-            title="Предпросмотр письма"
-            sandbox=""
-            srcDoc={html}
-            className="h-[560px] w-full rounded-xl border-0 bg-white lg:h-[640px]"
-          />
+        <div ref={boxRef} className="mx-auto" style={{ maxWidth: EMAIL_WIDTH }}>
+          <div
+            className="mx-auto overflow-hidden rounded-xl bg-white"
+            style={{ width: EMAIL_WIDTH * scale, height: Math.min(docHeight, 1600) * scale }}
+          >
+            <iframe
+              ref={frameRef}
+              title="Предпросмотр письма"
+              sandbox="allow-same-origin"
+              srcDoc={html}
+              onLoad={onLoad}
+              scrolling="no"
+              style={{
+                width: EMAIL_WIDTH,
+                height: Math.min(docHeight, 1600),
+                border: 0,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
+            />
+          </div>
         </div>
       </div>
 
       <p className="mt-2 ds-caption">
-        Это ровно тот HTML, который скачивается кнопкой «Скачать HTML»: таблицы, инлайн-стили и
-        кнопки, которые переживают Outlook.
+        Это ровно тот HTML, который скачивается кнопкой «Скачать HTML»: таблицы, инлайн-стили,
+        фиксированные 600 пикселей — так письмо собирают по нашему своду правил вёрстки.
+        {scale < 1 ? " Показан в уменьшенном масштабе, чтобы поместиться в колонку." : ""}
       </p>
     </div>
   );
