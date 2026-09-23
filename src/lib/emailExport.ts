@@ -27,7 +27,7 @@
 // который отсекает javascript: и пропускает макросы трекера как есть.
 
 import { safeCtaUrl } from "./exportUtils";
-import type { EmailDraft } from "./mailing";
+import { EMAIL_BLOCK_DEFAULTS, type EmailBlocks, type EmailDraft } from "./mailing";
 
 const AMP = /&/g;
 const LT = /</g;
@@ -194,8 +194,10 @@ ${rows}
 const PAYMENTS = ["VISA", "Mastercard", "Skrill", "NETELLER", "Yandex", "QIWI", "Trustly"];
 const STORES = ["App Store", "Google Play"];
 
-/** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div. */
-function extrasBlock(p: Palette): string {
+/** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div.
+ *  Каждый включается своей галочкой, поэтому рисуем только то, что выбрано. */
+function extrasBlock(p: Palette, blocks: EmailBlocks): string {
+  if (!blocks.apps && !blocks.payments) return "";
   const stores = STORES.map(
     (name) =>
       `<td align="center" style="padding:0 4px;font-family:${FONT};font-size:11px;line-height:17px;color:${p.muted};"><span style="display:inline-block;padding:6px 12px;border:1px solid ${p.divider};border-radius:8px;">${esc(name)}</span></td>`,
@@ -211,7 +213,9 @@ function extrasBlock(p: Palette): string {
   return `        <tr>
           <td align="center" style="padding:24px 24px 24px 24px;border-top:1px solid ${p.divider};">
             <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
-              <tr>
+${
+                blocks.apps
+                  ? `<tr>
                 <td align="center" style="padding:0;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.muted};text-align:center;">Download our mobile app</td>
               </tr>
               <tr>
@@ -220,14 +224,19 @@ function extrasBlock(p: Palette): string {
                     <tr>${stores}</tr>
                   </table>
                 </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding:14px 0 0 0;">
+              </tr>`
+                  : ""
+              }${
+                blocks.payments
+                  ? `<tr>
+                <td align="center" style="padding:${blocks.apps ? "14px" : "0"} 0 0 0;">
                   <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
                     <tr>${chips}</tr>
                   </table>
                 </td>
-              </tr>
+              </tr>`
+                  : ""
+              }
             </table>
           </td>
         </tr>`;
@@ -260,6 +269,8 @@ ${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, paddin
  */
 export function buildEmailHtml(draft: EmailDraft): string {
   const p = palette(draft);
+  // Черновик мог быть сохранён до появления настройки состава.
+  const blocks: EmailBlocks = { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) };
   // layout.links: плейсхолдер "#", если ссылку не задали.
   const cta = safeCtaUrl(draft.ctaUrl) || "#";
   const unsubscribe = safeCtaUrl(draft.unsubscribeUrl) || "#";
@@ -281,7 +292,7 @@ ${preheader}
   <tr>
     <td align="center" bgcolor="${p.page}" style="background-color:${p.page};padding:24px 12px;">
       <table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.panel}" style="width:600px;min-width:600px;background-color:${p.panel};border-radius:16px;border-collapse:separate;">
-${heroBlock(draft, p)}
+${blocks.hero ? heroBlock(draft, p) : ""}
         <tr>
 ${textCell(md(title, p.accent), {
   color: p.text,
@@ -293,14 +304,14 @@ ${textCell(md(title, p.accent), {
 })}
         </tr>
 ${
-  draft.heroSubtitle
+  blocks.subtitle && draft.heroSubtitle
     ? `        <tr>
 ${textCell(md(draft.heroSubtitle, p.accent), { color: p.muted, size: 14, lineHeight: 20, padding: "8px 28px 0 28px" })}
         </tr>`
     : ""
 }
 ${
-  draft.ctaText
+  blocks.cta && draft.ctaText
     ? `        <tr>
           <td align="center" style="padding:20px 28px 0 28px;">
               ${button(draft.ctaText, cta, p)}
@@ -309,14 +320,14 @@ ${
     : ""
 }
 ${
-  draft.body
+  blocks.body && draft.body
     ? `        <tr>
 ${textCell(mdMultiline(draft.body, p.accent), { color: p.muted, size: 14, lineHeight: 22, padding: "20px 28px 0 28px" })}
         </tr>`
     : ""
 }
 ${
-  stepsBlock(draft, p)
+  blocks.steps && stepsBlock(draft, p)
     ? `        <tr>
           <td align="center" style="padding:20px 28px 0 28px;">
 ${stepsBlock(draft, p)}
@@ -325,7 +336,7 @@ ${stepsBlock(draft, p)}
     : ""
 }
 ${
-  draft.bonusCtaText
+  blocks.bonusCta && draft.bonusCtaText
     ? `        <tr>
           <td align="center" style="padding:20px 28px 0 28px;">
               ${button(draft.bonusCtaText, cta, p)}
@@ -333,8 +344,8 @@ ${
         </tr>`
     : ""
 }
-${extrasBlock(p)}
-${footerBlock(draft, p, unsubscribe)}
+${extrasBlock(p, blocks)}
+${blocks.footer ? footerBlock(draft, p, unsubscribe) : ""}
       </table>
     </td>
   </tr>

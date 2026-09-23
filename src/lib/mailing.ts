@@ -13,6 +13,55 @@ export const EMAIL_STYLES: { id: EmailStyle; label: string }[] = [
   { id: "minimal", label: "Минимал" },
 ];
 
+/**
+ * Необязательные блоки письма. Раньше блок появлялся, если в его поле что-то
+ * написали, — то есть состав письма нельзя было задать, он выводился из
+ * заполненности. Теперь это отдельный выключатель: пустой блок можно оставить
+ * включённым и дописать позже, а заполненный — выключить, не стирая текст.
+ */
+export type EmailBlockId =
+  | "hero"
+  | "subtitle"
+  | "body"
+  | "steps"
+  | "cta"
+  | "bonusCta"
+  | "apps"
+  | "payments"
+  | "footer";
+
+export type EmailBlocks = Record<EmailBlockId, boolean>;
+
+export const EMAIL_BLOCKS: { id: EmailBlockId; label: string; hint: string }[] = [
+  { id: "hero", label: "Шапка", hint: "Баннер или полоса с брендом" },
+  { id: "subtitle", label: "Подзаголовок", hint: "Строка под заголовком" },
+  { id: "body", label: "Текст письма", hint: "Основной абзац" },
+  { id: "steps", label: "Шаги активации", hint: "Нумерованный список" },
+  { id: "cta", label: "Кнопка сверху", hint: "Сразу под заголовком" },
+  { id: "bonusCta", label: "Кнопка снизу", hint: "Повтор после текста" },
+  { id: "apps", label: "Мобильное приложение", hint: "App Store и Google Play" },
+  { id: "payments", label: "Платёжные системы", hint: "Ряд логотипов" },
+  { id: "footer", label: "Футер", hint: "Дисклеймер и отписка" },
+];
+
+export const EMAIL_BLOCK_DEFAULTS: EmailBlocks = {
+  hero: true,
+  subtitle: true,
+  body: true,
+  steps: true,
+  cta: true,
+  // Вторая кнопка — повтор первой, в большинстве писем она лишняя.
+  bonusCta: false,
+  apps: true,
+  payments: true,
+  footer: true,
+};
+
+/** Черновик из прошлой версии не знал про blocks — добираем умолчаниями. */
+export function withBlocks(draft: EmailDraft): EmailDraft {
+  return { ...draft, blocks: { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) } };
+}
+
 export interface EmailDraft {
   id: string;
   name: string;
@@ -35,6 +84,8 @@ export interface EmailDraft {
   bonusCtaText: string;
   footer: string;
   unsubscribeUrl: string;
+  /** Какие необязательные блоки входят в письмо. */
+  blocks: EmailBlocks;
   updatedAt: string;
 }
 
@@ -63,6 +114,7 @@ export function newDraft(): EmailDraft {
     bonusCtaText: "",
     footer: "",
     unsubscribeUrl: "",
+    blocks: { ...EMAIL_BLOCK_DEFAULTS },
     updatedAt: new Date().toISOString(),
   };
 }
@@ -94,6 +146,7 @@ export function sampleDraft(id: string): EmailDraft {
     bonusCtaText: "GET BONUS",
     footer: "Это автоматическое сообщение, отвечать не нужно.",
     unsubscribeUrl: "https://example.com/unsubscribe",
+    blocks: { ...EMAIL_BLOCK_DEFAULTS, bonusCta: true },
     updatedAt: new Date().toISOString(),
   };
 }
@@ -102,7 +155,9 @@ export function getDrafts(): EmailDraft[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(DRAFTS_KEY);
-    return raw ? (JSON.parse(raw) as EmailDraft[]) : [];
+    // Черновики, сохранённые до появления настройки состава, приходят без
+    // blocks — добираем умолчаниями, иначе письмо соберётся пустым.
+    return raw ? (JSON.parse(raw) as EmailDraft[]).map(withBlocks) : [];
   } catch {
     return [];
   }

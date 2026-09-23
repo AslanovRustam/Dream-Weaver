@@ -25,12 +25,16 @@ import { imageCredits } from "@/lib/credit-estimate";
 
 const IMG_PRICE = imageCredits(1);
 import {
+  EMAIL_BLOCKS,
   EMAIL_STYLES,
+  type EmailBlockId,
+  type EmailBlocks,
   type EmailDraft,
   type EmailStyle,
   newDraft,
   saveDraft,
 } from "@/lib/mailing";
+import { OptionalBlock } from "@/components/email/OptionalBlock";
 
 export function EmailGenApp() {
   const [draft, setDraft] = useState<EmailDraft>(() => newDraft());
@@ -39,6 +43,36 @@ export function EmailGenApp() {
   const set = <K extends keyof EmailDraft>(key: K, value: EmailDraft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
     setSaved(false);
+  };
+
+  const setBlock = (id: EmailBlockId, on: boolean) => {
+    setDraft((d) => ({ ...d, blocks: { ...d.blocks, [id]: on } }));
+    setSaved(false);
+  };
+  const blockMeta = (id: EmailBlockId) => EMAIL_BLOCKS.find((b) => b.id === id)!;
+
+  /**
+   * Пришёл текст — включаем блок, в который он ляжет. Выключенный блок с
+   * заполненным полем выглядит как поломка: ИИ «написал», а в письме пусто.
+   * Обратное не делаем: пустое поле сам блок не выключает, человек мог
+   * включить его заранее и дописать позже.
+   */
+  const enableFilled = (blocks: EmailBlocks, filled: Partial<Record<EmailBlockId, boolean>>) => {
+    const next = { ...blocks };
+    for (const [id, has] of Object.entries(filled)) {
+      if (has) next[id as EmailBlockId] = true;
+    }
+    return next;
+  };
+  /** Общие пропсы секции блока — чтобы не повторять их девять раз. */
+  const blockProps = (id: EmailBlockId) => {
+    const meta = blockMeta(id);
+    return {
+      title: meta.label,
+      hint: meta.hint,
+      enabled: draft.blocks?.[id] ?? true,
+      onToggle: (next: boolean) => setBlock(id, next),
+    };
   };
 
   const onSave = () => {
@@ -97,6 +131,14 @@ export function EmailGenApp() {
         bonusCtaText: str(f.bonusCtaText) ?? d.bonusCtaText,
         footer: str(f.footer) ?? d.footer,
         name: d.name || (str(f.subject) ? String(f.subject).slice(0, 40) : d.name),
+        blocks: enableFilled(d.blocks, {
+          subtitle: !!str(f.heroSubtitle),
+          body: !!str(f.body),
+          steps: !!(steps && steps.some((x) => x.trim())),
+          cta: !!str(f.ctaText),
+          bonusCta: !!str(f.bonusCtaText),
+          footer: !!str(f.footer),
+        }),
       }));
       setSaved(false);
     } catch (e) {
@@ -211,6 +253,12 @@ export function EmailGenApp() {
     setDraft((d) => {
       const next = { ...d };
       for (const k of allow) if (fields[k]) (next[k] as string) = fields[k];
+      next.blocks = enableFilled(d.blocks, {
+        subtitle: !!fields.heroSubtitle,
+        body: !!fields.body,
+        cta: !!fields.ctaText,
+        footer: !!fields.footer,
+      });
       return next;
     });
     setSaved(false);
@@ -357,6 +405,7 @@ export function EmailGenApp() {
           </div>
         </div>
 
+        <OptionalBlock {...blockProps("hero")}>
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
@@ -489,13 +538,23 @@ export function EmailGenApp() {
           ) : null}
         </div>
 
+        </OptionalBlock>
+
+        {/* Заголовок обязателен: письмо без него не имеет первого экрана. */}
         <Field label="Заголовок (hero)">
           <input className={inputCls} value={draft.heroTitle} onChange={(e) => set("heroTitle", e.target.value)} />
         </Field>
-        <Field label="Подзаголовок">
-          <input className={inputCls} value={draft.heroSubtitle} onChange={(e) => set("heroSubtitle", e.target.value)} />
-        </Field>
-        <Field label="Текст письма">
+
+        <OptionalBlock {...blockProps("subtitle")}>
+          <input
+            className={inputCls}
+            value={draft.heroSubtitle}
+            onChange={(e) => set("heroSubtitle", e.target.value)}
+            placeholder="Строка под заголовком"
+          />
+        </OptionalBlock>
+
+        <OptionalBlock {...blockProps("body")}>
           <textarea
             className={`${inputCls} min-h-[110px] resize-y py-2.5`}
             rows={4}
@@ -505,9 +564,9 @@ export function EmailGenApp() {
           <p className="mt-1.5 ds-caption">
             Выделяйте акцентом через <span className="font-mono">**двойные звёздочки**</span>.
           </p>
-        </Field>
+        </OptionalBlock>
 
-        <Field label="Шаги активации бонуса">
+        <OptionalBlock {...blockProps("steps")}>
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
               <input
@@ -519,41 +578,64 @@ export function EmailGenApp() {
               />
             ))}
           </div>
-        </Field>
+        </OptionalBlock>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Кнопка (верх)">
-            <input className={inputCls} value={draft.ctaText} onChange={(e) => set("ctaText", e.target.value)} />
-          </Field>
-          <Field label="Кнопка (бонус)">
-            <input
-              className={inputCls}
-              value={draft.bonusCtaText}
-              onChange={(e) => set("bonusCtaText", e.target.value)}
-              placeholder="GET BONUS"
-            />
-          </Field>
-        </div>
+        <OptionalBlock {...blockProps("cta")}>
+          <input
+            className={inputCls}
+            value={draft.ctaText}
+            onChange={(e) => set("ctaText", e.target.value)}
+            placeholder="ЗАБРАТЬ БОНУС"
+          />
+        </OptionalBlock>
+
+        <OptionalBlock {...blockProps("bonusCta")}>
+          <input
+            className={inputCls}
+            value={draft.bonusCtaText}
+            onChange={(e) => set("bonusCtaText", e.target.value)}
+            placeholder="GET BONUS"
+          />
+        </OptionalBlock>
+
+        {/* Ссылка общая для обеих кнопок, поэтому живёт вне их блоков. */}
         <Field label="Ссылка кнопки">
           <input className={inputCls} value={draft.ctaUrl} onChange={(e) => set("ctaUrl", e.target.value)} />
         </Field>
 
-        <Field label="Футер">
-          <textarea
-            className={`${inputCls} min-h-[64px] resize-y py-2.5`}
-            rows={2}
-            value={draft.footer}
-            onChange={(e) => set("footer", e.target.value)}
-          />
-        </Field>
-        <Field label="Ссылка отписки">
-          <input
-            className={inputCls}
-            value={draft.unsubscribeUrl}
-            onChange={(e) => set("unsubscribeUrl", e.target.value)}
-            placeholder="https://…/unsubscribe"
-          />
-        </Field>
+        <OptionalBlock {...blockProps("apps")}>
+          <p className="ds-caption">
+            Ряд «App Store» и «Google Play» в подвале письма. Настроек нет — блок либо есть, либо
+            нет.
+          </p>
+        </OptionalBlock>
+
+        <OptionalBlock {...blockProps("payments")}>
+          <p className="ds-caption">
+            Ряд платёжных систем: VISA, Mastercard, Skrill, NETELLER, Yandex, QIWI, Trustly.
+          </p>
+        </OptionalBlock>
+
+        <OptionalBlock {...blockProps("footer")}>
+          <div className="flex flex-col gap-3">
+            <Field label="Текст футера">
+              <textarea
+                className={`${inputCls} min-h-[64px] resize-y py-2.5`}
+                rows={2}
+                value={draft.footer}
+                onChange={(e) => set("footer", e.target.value)}
+              />
+            </Field>
+            <Field label="Ссылка отписки">
+              <input
+                className={inputCls}
+                value={draft.unsubscribeUrl}
+                onChange={(e) => set("unsubscribeUrl", e.target.value)}
+                placeholder="https://…/unsubscribe"
+              />
+            </Field>
+          </div>
+        </OptionalBlock>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
