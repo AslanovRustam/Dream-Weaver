@@ -412,7 +412,6 @@ export function EmailGenApp() {
         />
 
         <OptionalBlock {...blockProps("hero")}>
-        <div>
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
             {draft.heroImage ? (
@@ -442,7 +441,6 @@ export function EmailGenApp() {
               </label>
             )}
           </div>
-        </div>
 
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
           <label className="mb-1.5 block ds-label">Шаблон баннера</label>

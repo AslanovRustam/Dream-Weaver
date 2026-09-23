@@ -74,7 +74,9 @@ export function OptionalBlock({
       </div>
 
       {open ? (
-        <div className={`border-t border-border/60 p-3 ${enabled ? "" : "opacity-60"}`}>
+        <div
+          className={`flex flex-col gap-3 border-t border-border/60 p-3 ${enabled ? "" : "opacity-60"}`}
+        >
           {children}
           {!enabled ? (
             <p className="mt-2 ds-caption">Блок выключен — в письмо не попадёт, текст сохранится.</p>
