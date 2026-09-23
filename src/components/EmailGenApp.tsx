@@ -31,10 +31,12 @@ import {
   type EmailBlocks,
   type EmailDraft,
   type EmailStyle,
+  emailBase,
   newDraft,
   saveDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
+import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
 
 export function EmailGenApp() {
   const [draft, setDraft] = useState<EmailDraft>(() => newDraft());
@@ -210,6 +212,7 @@ export function EmailGenApp() {
           presetTemplate: presetTemplate || undefined,
           logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
           logoMode: draft.logoMode,
+          palette: { accent: draft.accent, base: emailBase(draft) },
           feature: "email-hero",
         },
       });
@@ -331,7 +334,7 @@ export function EmailGenApp() {
           <input className={inputCls} value={draft.preheader} onChange={(e) => set("preheader", e.target.value)} />
         </Field>
 
-        <div className="grid grid-cols-[1fr_auto] gap-3">
+        <div>
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <label className="ds-h4">Бренд</label>
@@ -393,20 +396,16 @@ export function EmailGenApp() {
               />
             )}
           </div>
-          <div>
-            <label className="mb-2 block ds-h4">Акцент</label>
-            <input
-              type="color"
-              value={/^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : "#7B5CFF"}
-              onChange={(e) => set("accent", e.target.value)}
-              aria-label="Акцентный цвет"
-              className="h-12 w-12 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated"
-            />
-          </div>
         </div>
 
+        <EmailGammaPicker
+          accent={draft.accent}
+          base={emailBase(draft)}
+          onChange={(accent, base) => setDraft((d) => ({ ...d, accent, base }))}
+        />
+
         <OptionalBlock {...blockProps("hero")}>
-        <div className="grid grid-cols-[1fr_auto] gap-3">
+        <div>
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
             {draft.heroImage ? (
@@ -435,27 +434,6 @@ export function EmailGenApp() {
                 />
               </label>
             )}
-          </div>
-          <div>
-            <label className="mb-2 block ds-h4">Тёмная</label>
-            <div className="flex h-11 items-center">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.dark}
-                aria-label="Тёмная тема"
-                onClick={() => set("dark", !draft.dark)}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  draft.dark ? "bg-accent-green" : "bg-white/15"
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                    draft.dark ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </div>
 

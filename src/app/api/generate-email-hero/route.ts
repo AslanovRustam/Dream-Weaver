@@ -43,6 +43,8 @@ type Body = {
   styleReferenceImage?: string;
   model?: string;
   presetTemplate?: string;
+  /** Гамма письма {accent,base} — баннер должен попадать в её цвета. */
+  palette?: { accent?: string; base?: string };
   aspectRatio?: string;
   feature?: string;
 };
@@ -79,6 +81,19 @@ async function composePrompt(brief: string, apiKey: string): Promise<string> {
   } catch {
     return "";
   }
+}
+
+/**
+ * Гамма письма в бриф: баннер, который не попадает в цвета письма, выглядит
+ * наклеенным. Цвета пропускаем через строгий hex — в промпт не должно
+ * попадать ничего, кроме цвета.
+ */
+function gammaLine(palette: Body["palette"]): string {
+  const hex = (v: string | undefined) => (v && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "");
+  const accent = hex(palette?.accent);
+  const base = hex(palette?.base);
+  if (!accent && !base) return "";
+  return `Цветовая гамма письма: ${[base && `фон ${base}`, accent && `акцент ${accent}`].filter(Boolean).join(", ")}. Баннер должен жить в этой гамме.`;
 }
 
 export async function POST(request: Request) {
@@ -120,6 +135,7 @@ export async function POST(request: Request) {
     body.brand ? `Бренд: ${body.brand}.` : "",
     body.heroTitle ? `Оффер/заголовок: ${body.heroTitle}.` : "",
     body.body ? `Текст письма: ${body.body}.` : "",
+    gammaLine(body.palette),
   ]
     .filter(Boolean)
     .join("\n")

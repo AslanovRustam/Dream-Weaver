@@ -27,7 +27,8 @@
 // который отсекает javascript: и пропускает макросы трекера как есть.
 
 import { safeCtaUrl } from "./exportUtils";
-import { EMAIL_BLOCK_DEFAULTS, type EmailBlocks, type EmailDraft } from "./mailing";
+import { buildPalette, type EmailPalette } from "./emailPalette";
+import { EMAIL_BLOCK_DEFAULTS, emailBase, type EmailBlocks, type EmailDraft } from "./mailing";
 
 const AMP = /&/g;
 const LT = /</g;
@@ -59,8 +60,6 @@ function mdMultiline(text: string | undefined, accent: string): string {
   return md(text, accent).split("\n").join("<br />");
 }
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
-
 // Свод: если fontFamily не задан — Arial,Helvetica,sans-serif, без дублей в
 // стеке. Веб-шрифты (Google Fonts) запрещены отдельным пунктом.
 const FONT = "Arial,Helvetica,sans-serif";
@@ -68,45 +67,10 @@ const FONT = "Arial,Helvetica,sans-serif";
 /** Обязательный набор стилей для картинок из layout.images. */
 const IMG_STYLE = "display:block;border:none;max-width:100%;-ms-interpolation-mode:bicubic;";
 
-type Palette = {
-  accent: string;
-  /** Фон письма — идёт на body, внешнюю таблицу и её td (сборка, п.3). */
-  page: string;
-  /** Полотно письма: отличается от фона страницы, поэтому bgcolor разрешён. */
-  panel: string;
-  text: string;
-  muted: string;
-  footerBg: string;
-  divider: string;
-  chipBg: string;
-  onAccent: string;
-};
+type Palette = EmailPalette;
 
 function palette(draft: EmailDraft): Palette {
-  const accent = HEX.test(draft.accent) ? draft.accent : "#22c55e";
-  return draft.dark
-    ? {
-        accent,
-        page: "#060a16",
-        panel: "#0b1226",
-        text: "#eaf0ff",
-        muted: "#93a4cc",
-        footerBg: "#080d1c",
-        divider: "#1b2440",
-        chipBg: "#131c33",
-        onAccent: "#ffffff",
-      }
-    : {
-        accent,
-        page: "#e9edf2",
-        panel: "#ffffff",
-        text: "#0f172a",
-        muted: "#475569",
-        footerBg: "#f7f8fa",
-        divider: "#eef1f4",
-        chipBg: "#f1f3f7",
-        onAccent: "#ffffff",
-      };
+  return buildPalette(draft.accent, emailBase(draft));
 }
 
 /** Текстовая ячейка: line-height обязателен (чеклист п.54). */
@@ -179,7 +143,7 @@ function stepsBlock(draft: EmailDraft, p: Palette): string {
                           </tr>
                         </table>
                       </td>
-                      <td valign="top" style="padding:${i === 0 ? "14px" : "10px"} 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accent)}</td>
+                      <td valign="top" style="padding:${i === 0 ? "14px" : "10px"} 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accentText)}</td>
                     </tr>`,
     )
     .join("\n");
@@ -256,7 +220,7 @@ function footerBlock(draft: EmailDraft, p: Palette, unsubscribe: string): string
 ${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, padding: "0" })}
               </tr>
               <tr>
-                <td align="center" style="padding:8px 0 0 0;font-family:${FONT};font-size:11px;line-height:17px;text-align:center;"><a href="${esc(unsubscribe)}" target="_blank" style="font-family:${FONT};font-size:11px;line-height:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.accent};text-decoration:none;">Unsubscribe</a></td>
+                <td align="center" style="padding:8px 0 0 0;font-family:${FONT};font-size:11px;line-height:17px;text-align:center;"><a href="${esc(unsubscribe)}" target="_blank" style="font-family:${FONT};font-size:11px;line-height:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.accentText};text-decoration:none;">Unsubscribe</a></td>
               </tr>
             </table>
           </td>
@@ -294,7 +258,7 @@ ${preheader}
       <table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.panel}" style="width:600px;min-width:600px;background-color:${p.panel};border-radius:16px;border-collapse:separate;">
 ${blocks.hero ? heroBlock(draft, p) : ""}
         <tr>
-${textCell(md(title, p.accent), {
+${textCell(md(title, p.accentText), {
   color: p.text,
   size: 26,
   lineHeight: 32,
@@ -306,7 +270,7 @@ ${textCell(md(title, p.accent), {
 ${
   blocks.subtitle && draft.heroSubtitle
     ? `        <tr>
-${textCell(md(draft.heroSubtitle, p.accent), { color: p.muted, size: 14, lineHeight: 20, padding: "8px 28px 0 28px" })}
+${textCell(md(draft.heroSubtitle, p.accentText), { color: p.muted, size: 14, lineHeight: 20, padding: "8px 28px 0 28px" })}
         </tr>`
     : ""
 }
@@ -322,7 +286,7 @@ ${
 ${
   blocks.body && draft.body
     ? `        <tr>
-${textCell(mdMultiline(draft.body, p.accent), { color: p.muted, size: 14, lineHeight: 22, padding: "20px 28px 0 28px" })}
+${textCell(mdMultiline(draft.body, p.accentText), { color: p.muted, size: 14, lineHeight: 22, padding: "20px 28px 0 28px" })}
         </tr>`
     : ""
 }
