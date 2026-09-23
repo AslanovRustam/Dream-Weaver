@@ -76,6 +76,8 @@ export function withBlocks(draft: EmailDraft): EmailDraft {
     base: emailBase(draft),
     // Черновики до появления поля показывали зашитый в код список.
     payments: draft.payments ?? DEFAULT_PAYMENTS,
+    // У старых черновиков исходник не хранился — берём то, что есть.
+    heroSource: draft.heroSource || draft.heroImage,
     blocks: { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) },
   };
 }
@@ -147,7 +149,10 @@ export interface EmailDraft {
    * Поле осталось только для чтения старых черновиков — см. `emailBase`.
    */
   dark?: boolean;
+  /** Картинка, которая уходит в письмо: баннер, возможно склеенный с лого. */
   heroImage: string;
+  /** Исходный баннер без логотипа — из него пересобирается heroImage. */
+  heroSource: string;
   logo: string;
   logoMode: "reference" | "overlay";
   heroTitle: string;
@@ -180,6 +185,7 @@ export function newDraft(): EmailDraft {
     accent: DEFAULT_EMAIL_ACCENT,
     base: DEFAULT_EMAIL_BASE,
     heroImage: "",
+    heroSource: "",
     logo: "",
     logoMode: "reference",
     heroTitle: "",
@@ -209,6 +215,7 @@ export function sampleDraft(id: string): EmailDraft {
     accent: DEFAULT_EMAIL_ACCENT,
     base: DEFAULT_EMAIL_BASE,
     heroImage: "",
+    heroSource: "",
     logo: "",
     logoMode: "reference",
     heroTitle: "50 ФРИСПИНОВ BIG BASS BLAST + БОНУС **100% ДО 50 EUR**",

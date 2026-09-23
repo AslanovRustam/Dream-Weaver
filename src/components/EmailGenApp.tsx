@@ -25,6 +25,7 @@ import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
 import { simulateDarkClient } from "@/lib/emailDarkMode";
 import { HERO_ASPECT_RATIO, HERO_MAX_BYTES, HERO_RETINA_WIDTH, measureDataUrl } from "@/lib/emailHeroRules";
 import { compressForEmail, rasterizeSvg } from "@/lib/imageCompress";
+import { composeHeroWithLogo } from "@/lib/emailHeroCompose";
 import { buildPalette } from "@/lib/emailPalette";
 import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
@@ -176,6 +177,36 @@ export function EmailGenApp() {
     reader.readAsDataURL(file);
   };
 
+  /**
+   * Картинка письма собирается из исходного баннера: в режиме «Поверх» к нему
+   * приклеивается логотип медальоном на верхней кромке. Пересобирать нужно на
+   * каждую смену логотипа, режима и гаммы — полоса над баннером красится
+   * цветом полотна письма.
+   */
+  useEffect(() => {
+    const source = draft.heroSource;
+    if (!source) {
+      if (draft.heroImage) set("heroImage", "");
+      return;
+    }
+    if (!(draft.logo && draft.logoMode === "overlay")) {
+      if (draft.heroImage !== source) set("heroImage", source);
+      return;
+    }
+    let alive = true;
+    void composeHeroWithLogo({
+      banner: source,
+      logo: draft.logo,
+      background: buildPalette(draft.accent, emailBase(draft)).panel,
+    }).then((url) => {
+      if (alive) set("heroImage", url);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.heroSource, draft.logo, draft.logoMode, draft.accent, draft.base]);
+
   /** Сколько весил баннер до сжатия — показываем рядом с новым весом. */
   const [heroSaved, setHeroSaved] = useState<{ before: number; after: number } | null>(null);
   const [heroBusy, setHeroBusy] = useState(false);
@@ -193,11 +224,11 @@ export function EmailGenApp() {
         maxBytes: HERO_MAX_BYTES,
         background: buildPalette(draft.accent, emailBase(draft)).panel,
       });
-      set("heroImage", out.dataUrl);
+      set("heroSource", out.dataUrl);
       setHeroSaved(out.skipped ? null : { before: out.bytesBefore, after: out.bytes });
     } catch {
       // Не смогли сжать — кладём как есть, подсказка про вес всё равно придёт.
-      set("heroImage", dataUrl);
+      set("heroSource", dataUrl);
       setHeroSaved(null);
     } finally {
       setHeroBusy(false);
@@ -235,36 +266,6 @@ export function EmailGenApp() {
     reader.readAsDataURL(file);
   };
 
-  const overlayLogo = (baseUrl: string, logoUrl: string) =>
-    new Promise<string>((resolve) => {
-      const base = new Image();
-      base.crossOrigin = "anonymous";
-      base.onload = () => {
-        const logo = new Image();
-        logo.crossOrigin = "anonymous";
-        logo.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = base.naturalWidth;
-          canvas.height = base.naturalHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return resolve(baseUrl);
-          ctx.drawImage(base, 0, 0);
-          const lw = canvas.width * 0.24;
-          const lh = lw * (logo.naturalHeight / Math.max(1, logo.naturalWidth));
-          ctx.drawImage(logo, (canvas.width - lw) / 2, canvas.height * 0.06, lw, lh);
-          try {
-            resolve(canvas.toDataURL("image/png"));
-          } catch {
-            resolve(baseUrl);
-          }
-        };
-        logo.onerror = () => resolve(baseUrl);
-        logo.src = logoUrl;
-      };
-      base.onerror = () => resolve(baseUrl);
-      base.src = baseUrl;
-    });
-
   const generateHero = async () => {
     setGenning(true);
     setGenError("");
@@ -300,11 +301,7 @@ export function EmailGenApp() {
         return;
       }
       if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
-      const finalUrl =
-        draft.logo && draft.logoMode === "overlay"
-          ? await overlayLogo(data.imageUrl, draft.logo)
-          : data.imageUrl;
-      await putHero(finalUrl);
+      await putHero(data.imageUrl);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -476,17 +473,17 @@ export function EmailGenApp() {
 
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
-            {draft.heroImage ? (
+            {draft.heroSource ? (
               <div className="flex items-center gap-2">
                 <img
-                  src={draft.heroImage}
+                  src={draft.heroSource}
                   alt=""
                   className="h-11 w-20 rounded-md border border-border object-cover"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    set("heroImage", "");
+                    set("heroSource", "");
                     setHeroSaved(null);
                   }}
                   className="text-xs text-muted-foreground transition hover:text-foreground"
@@ -531,7 +528,7 @@ export function EmailGenApp() {
             {genning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {genning
               ? "Генерирую баннер…"
-              : `${draft.heroImage ? "Перегенерировать баннер" : "Сгенерировать баннер"} · ${IMG_PRICE}`}
+              : `${draft.heroSource ? "Перегенерировать баннер" : "Сгенерировать баннер"} · ${IMG_PRICE}`}
           </button>
           <p className="mt-2 ds-caption">
             Баннер заполняется автоматически по полям письма. На картинке не будет текста — только
@@ -583,7 +580,7 @@ export function EmailGenApp() {
               <p className="mt-1.5 ds-caption">
                 {draft.logoMode === "reference"
                   ? "ИИ впишет лого в картинку сам."
-                  : "Лого наложим на готовую картинку — форма не пострадает."}
+                  : "Лого ляжет медальоном на верхнюю кромку баннера — форма не пострадает."}
               </p>
             </div>
           </div>
