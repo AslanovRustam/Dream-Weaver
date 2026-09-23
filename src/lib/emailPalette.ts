@@ -6,8 +6,8 @@
 // устроено так же — базовый цвет задаёт полотно, подложки, разделители и
 // текст, акцент отвечает за кнопки и выделения.
 //
-// Считаем гамму здесь, а не в exporter'е: те же числа нужны предпросмотру
-// свотчей в форме и брифу генератора баннера, чтобы картинка попадала в цвет.
+// Считаем гамму здесь, а не в exporter'е: те же числа нужны образцу текста
+// в форме и брифу генератора баннера, чтобы картинка попадала в цвет.
 
 export type EmailPalette = {
   /** Кнопки, номера шагов — фон под текстом. */
@@ -29,31 +29,14 @@ export type EmailPalette = {
   dark: boolean;
 };
 
-export type EmailGamma = {
-  id: string;
-  label: string;
-  accent: string;
-  base: string;
-};
-
 /**
- * Готовые гаммы. Не «темы» с зашитыми наборами цветов: каждая — это просто
- * пара «акцент + база», из которой считается всё остальное. Поэтому любую
- * можно взять за старт и подкрутить пипеткой, не ломая письмо.
+ * Гамма по умолчанию. Готовых наборов цветов намеренно нет: письмо красится
+ * двумя пипетками, а остальное считается от них.
  */
-export const EMAIL_GAMMAS: EmailGamma[] = [
-  { id: "night", label: "Ночь", accent: "#22c55e", base: "#060a16" },
-  { id: "graphite", label: "Графит", accent: "#f97316", base: "#111317" },
-  { id: "royal", label: "Роял", accent: "#FFC53D", base: "#1B1038" },
-  { id: "crimson", label: "Кримсон", accent: "#FF3B5C", base: "#190A10" },
-  { id: "ocean", label: "Океан", accent: "#35D0FF", base: "#061826" },
-  { id: "forest", label: "Лес", accent: "#B7F14A", base: "#0A1A12" },
-  { id: "paper", label: "Бумага", accent: "#7B5CFF", base: "#EDF0F5" },
-  { id: "cream", label: "Крем", accent: "#C8102E", base: "#F6F1E7" },
-];
-
-export const DEFAULT_EMAIL_ACCENT = EMAIL_GAMMAS[0].accent;
-export const DEFAULT_EMAIL_BASE = EMAIL_GAMMAS[0].base;
+export const DEFAULT_EMAIL_ACCENT = "#22c55e";
+export const DEFAULT_EMAIL_BASE = "#060a16";
+/** Светлая база: ею открываются письма, сохранённые со старым `dark: false`. */
+export const LEGACY_LIGHT_BASE = "#EDF0F5";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 

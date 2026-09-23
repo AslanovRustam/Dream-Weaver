@@ -2,16 +2,16 @@
 
 import { Pipette } from "lucide-react";
 
-import { buildPalette, EMAIL_GAMMAS, isHex } from "@/lib/emailPalette";
+import { buildPalette, isHex } from "@/lib/emailPalette";
 
 /**
- * Цветовая гамма письма — как на лендингах: человек задаёт цвет, остальное
- * считается от него. Готовые пары «акцент + фон» здесь не темы, а стартовые
- * точки: после выбора обе пипетки остаются рабочими.
+ * Цветовая гамма письма — как на лендингах: человек задаёт два цвета, всё
+ * остальное считается от них.
  *
- * Образец справа собран теми же цветами, что уйдут в письмо, поэтому спорные
- * сочетания (кнопка в цвет фона, невидимый акцент в тексте) видны сразу, до
- * предпросмотра.
+ * Образец собран теми же цветами, что уйдут в письмо, и показывает именно
+ * текст: заголовок, обычный абзац, выделение акцентом и кнопку. Спорные
+ * сочетания — невидимый акцент, серый текст на сером полотне — видно сразу,
+ * не доходя до предпросмотра.
  */
 export function EmailGammaPicker({
   accent,
@@ -23,7 +23,6 @@ export function EmailGammaPicker({
   onChange: (accent: string, base: string) => void;
 }) {
   const p = buildPalette(accent, base);
-  const active = EMAIL_GAMMAS.find((g) => g.accent.toLowerCase() === accent.toLowerCase() && g.base.toLowerCase() === base.toLowerCase());
 
   return (
     <div className="rounded-xl border border-border bg-background/40 p-3">
@@ -32,26 +31,7 @@ export function EmailGammaPicker({
         <Pipette className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {EMAIL_GAMMAS.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            title={g.label}
-            aria-label={`Гамма «${g.label}»`}
-            aria-pressed={active?.id === g.id}
-            onClick={() => onChange(g.accent, g.base)}
-            className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
-              active?.id === g.id ? "border-accent-green" : "border-border hover:border-accent-green/50"
-            }`}
-            style={{ backgroundColor: g.base }}
-          >
-            <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: g.accent }} />
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-3 grid grid-cols-[auto_auto_1fr] items-center gap-3">
+      <div className="flex items-center gap-4">
         <label className="flex items-center gap-2">
           <input
             type="color"
@@ -72,29 +52,27 @@ export function EmailGammaPicker({
           />
           <span className="ds-caption">Фон</span>
         </label>
+      </div>
 
-        {/* Образец: полотно, текст, приглушённый текст и кнопка — то же, что в письме. */}
-        <div
-          className="flex items-center justify-end gap-2 rounded-lg px-2.5 py-2"
-          style={{ backgroundColor: p.panel }}
-          aria-hidden="true"
+      {/* Образец текста: полотно, заголовок, абзац, акцент и кнопка — ровно те
+          цвета, которыми это напечатается в письме. */}
+      <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: p.panel }} aria-hidden="true">
+        <p className="text-[13px] font-bold leading-snug" style={{ color: p.text }}>
+          Заголовок письма
+        </p>
+        <p className="mt-1 text-[12px] leading-snug" style={{ color: p.muted }}>
+          Обычный текст письма и{" "}
+          <span className="font-bold" style={{ color: p.accentText }}>
+            выделение акцентом
+          </span>
+          .
+        </p>
+        <span
+          className="mt-2 inline-block rounded-full px-3 py-1.5 text-[11px] font-bold leading-none"
+          style={{ backgroundColor: p.accent, color: p.onAccent }}
         >
-          <span className="text-[11px] font-bold leading-none" style={{ color: p.text }}>
-            Aa
-          </span>
-          <span className="text-[11px] leading-none" style={{ color: p.muted }}>
-            текст
-          </span>
-          <span className="text-[11px] font-bold leading-none" style={{ color: p.accentText }}>
-            акцент
-          </span>
-          <span
-            className="rounded-full px-2 py-1 text-[10px] font-bold leading-none"
-            style={{ backgroundColor: p.accent, color: p.onAccent }}
-          >
-            CTA
-          </span>
-        </div>
+          КНОПКА
+        </span>
       </div>
 
       <p className="mt-2 ds-caption">
