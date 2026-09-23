@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { MailingApp } from "@/components/MailingApp";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { useAuth } from "@/lib/auth-context";
 
 export default function MailingPage() {
@@ -26,7 +27,9 @@ export default function MailingPage() {
     <>
       <AppHeader />
       <AppShell>
-        <MailingApp />
+        <SectionGate id="mailing">
+          <MailingApp />
+        </SectionGate>
       </AppShell>
     </>
   );
