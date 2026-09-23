@@ -24,7 +24,7 @@ import { apiFetch } from "@/lib/api-client";
 import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
 import { simulateDarkClient } from "@/lib/emailDarkMode";
 import { HERO_ASPECT_RATIO, HERO_MAX_BYTES, HERO_RETINA_WIDTH, measureDataUrl } from "@/lib/emailHeroRules";
-import { compressForEmail } from "@/lib/imageCompress";
+import { compressForEmail, rasterizeSvg } from "@/lib/imageCompress";
 import { buildPalette } from "@/lib/emailPalette";
 import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
@@ -226,7 +226,14 @@ export function EmailGenApp() {
     reader.onload = () => void putHero(String(reader.result));
     reader.readAsDataURL(file);
   };
-  const onLogoFile = (file: File | null) => file && readAsDataUrl(file, "logo");
+  const onLogoFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    // SVG генератор картинок не принимает, поэтому переводим его в PNG сразу
+    // при загрузке — иначе «Референс» падал бы с ошибкой про формат файла.
+    reader.onload = () => void rasterizeSvg(String(reader.result)).then((url) => set("logo", url));
+    reader.readAsDataURL(file);
+  };
 
   const overlayLogo = (baseUrl: string, logoUrl: string) =>
     new Promise<string>((resolve) => {
@@ -528,8 +535,8 @@ export function EmailGenApp() {
           </button>
           <p className="mt-2 ds-caption">
             Баннер заполняется автоматически по полям письма. На картинке не будет текста — только
-            цифры, чтобы письмо легко переводилось. Не понравился — смените шаблон или поля и
-            перегенерируйте.
+            цифры и, если выбран режим «Референс», логотип: остальное не переводится вместе с
+            письмом. Не понравился — смените шаблон или поля и перегенерируйте.
           </p>
 
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
@@ -573,6 +580,11 @@ export function EmailGenApp() {
                   </button>
                 ))}
               </div>
+              <p className="mt-1.5 ds-caption">
+                {draft.logoMode === "reference"
+                  ? "ИИ впишет лого в картинку сам."
+                  : "Лого наложим на готовую картинку — форма не пострадает."}
+              </p>
             </div>
           </div>
           {genError ? (

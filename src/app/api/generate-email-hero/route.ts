@@ -54,13 +54,24 @@ const NO_TEXT =
   "ABSOLUTELY NO text, letters, words, captions, watermarks or logos anywhere in the image. " +
   "Numbers/digits are allowed. Leave clean negative space for text to be overlaid later.";
 
-async function composePrompt(brief: string, apiKey: string): Promise<string> {
+// Когда логотип отдан референсом, запрет снимается — но только с него.
+// Остальной текст по-прежнему нельзя: письмо переводят, а текст в картинке не
+// переводится. Логотип — знак бренда, а не надпись, и от языка не зависит.
+const NO_TEXT_WITH_LOGO =
+  "NO text, letters, words, captions or watermarks anywhere in the image — with ONE exception: " +
+  "the brand logo from the attached reference image. Reproduce that logo faithfully: same shapes, " +
+  "proportions and colours, no redesign, no added or altered wording, no distortion. Place it ONCE, " +
+  "in a clean area near the top, at a modest size (about 15% of the image width), so it reads as " +
+  "branding and not as the subject. Numbers/digits are allowed. Leave clean negative space for text " +
+  "to be overlaid later.";
+
+async function composePrompt(brief: string, apiKey: string, noText: string): Promise<string> {
   const system =
     "Ты — арт-директор. По брифу email-рассылки составь ОДИН промпт на английском для " +
     "генерации hero-баннера письма (тематика iGaming: казино/слоты/беттинг). Опиши сюжет, " +
     "персонажа или объект по офферу, атмосферу, свет, стиль (кинематографично, премиально). " +
     "Композиция — рекламный баннер с чистыми зонами. " +
-    NO_TEXT +
+    noText +
     " Верни ТОЛЬКО промпт, без пояснений и кавычек.";
 
   try {
@@ -145,23 +156,37 @@ export async function POST(request: Request) {
 
   // A chosen preset drives the visual style directly; otherwise the agent
   // composes a prompt from the brief (which must then be non-empty).
+  // Логотип в режиме «референс» уходит входной картинкой в image-to-image, и
+  // модель рисует его в баннере. «Поверх» — другой путь: там логотип кладут
+  // на готовую картинку на клиенте, и генератору о нём знать незачем.
+  const drawsLogo = !!(
+    body.logoBase64 &&
+    body.logoMode === "reference" &&
+    body.logoBase64.startsWith("data:")
+  );
+  const noText = drawsLogo ? NO_TEXT_WITH_LOGO : NO_TEXT;
+
   const preset = (body.presetTemplate || "").trim();
   if (!preset && !brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
   const base = preset
     ? preset
-    : (await composePrompt(brief, apiKey)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
+    : (await composePrompt(brief, apiKey, noText)) ||
+      `Cinematic iGaming promotional hero banner for: ${brief}`;
   // Правила композиции идут и к пресету, и к собранному агентом промпту:
   // без них модель ставит объект в угол и режет его краем кадра.
-  const prompt = `${base}\n\n${HERO_PROMPT_RULES}\n\n${NO_TEXT}`;
+  const prompt = `${base}\n\n${HERO_PROMPT_RULES}\n\n${noText}`;
 
   // Reference images (up to 4, per OpenAI's /v1/images/edits limit): the
   // brand logo (style-only, never drawn) and/or a style-reference banner
   // (palette/mood/lighting only, never its composition/text/logo).
   const refs: { dataUrl: string; note: string }[] = [];
-  if (body.logoBase64 && body.logoMode === "reference" && body.logoBase64.startsWith("data:")) {
+  if (drawsLogo) {
     refs.push({
-      dataUrl: body.logoBase64,
-      note: "Reference the brand's colours/mood from this logo, but do NOT draw the logo or any text.",
+      dataUrl: body.logoBase64!,
+      note:
+        "BRAND LOGO: the attached image is the brand's logo. Draw it into the banner exactly as it is — " +
+        "same shapes, proportions and colours — once, near the top, small. Take the brand's colour accents " +
+        "from it as well. Do NOT redesign it, do NOT add any other text.",
     });
   }
   if (body.styleReferenceImage && body.styleReferenceImage.startsWith("data:")) {

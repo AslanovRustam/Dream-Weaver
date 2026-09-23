@@ -52,6 +52,32 @@ function draw(img: HTMLImageElement, width: number, background: string): HTMLCan
 }
 
 /**
+ * Перерисовать SVG в PNG.
+ *
+ * Логотип в режиме «референс» уходит генератору входной картинкой, а он
+ * принимает только растр — SVG он отвергает, и генерация падает с невнятной
+ * ошибкой про формат. Рисуем в канвасе с прозрачным фоном: логотип потом
+ * ложится и на баннер, и в письмо, а белая подложка там была бы лишней.
+ */
+export async function rasterizeSvg(dataUrl: string, width = 512): Promise<string> {
+  if (!dataUrl.startsWith("data:image/svg")) return dataUrl;
+  const img = await load(dataUrl);
+  const scale = width / Math.max(1, img.naturalWidth);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
+/**
  * Ужать картинку до целевого веса.
  *
  * Сначала уменьшаем до нужной ширины, потом понижаем качество JPEG, и только
