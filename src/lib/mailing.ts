@@ -74,6 +74,8 @@ export function withBlocks(draft: EmailDraft): EmailDraft {
     ...draft,
     accent: isHex(draft.accent) ? draft.accent : DEFAULT_EMAIL_ACCENT,
     base: emailBase(draft),
+    // Черновики до появления поля показывали зашитый в код список.
+    payments: draft.payments ?? DEFAULT_PAYMENTS,
     blocks: { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) },
   };
 }
@@ -111,6 +113,24 @@ export function emailNameFromSubject(subject: string): string {
     .slice(0, 60);
 }
 
+/**
+ * Платёжные системы в подвале письма. Хранится строкой ровно так, как её
+ * набрали: список у каждого бренда свой, а порядок в нём — решение
+ * маркетолога, и переупорядочивать его мы не вправе.
+ */
+export const DEFAULT_PAYMENTS = "VISA, Mastercard, Skrill, NETELLER, Yandex, QIWI, Trustly";
+
+/** Больше десятка логотипов в ряд не помещается даже на десктопе. */
+const MAX_PAYMENTS = 12;
+
+export function parsePayments(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, MAX_PAYMENTS);
+}
+
 export interface EmailDraft {
   id: string;
   name: string;
@@ -139,6 +159,8 @@ export interface EmailDraft {
   bonusCtaText: string;
   footer: string;
   unsubscribeUrl: string;
+  /** Платёжные системы через запятую — как ввели, так и покажем. */
+  payments: string;
   /** Какие необязательные блоки входят в письмо. */
   blocks: EmailBlocks;
   updatedAt: string;
@@ -169,6 +191,7 @@ export function newDraft(): EmailDraft {
     bonusCtaText: "",
     footer: "",
     unsubscribeUrl: "",
+    payments: DEFAULT_PAYMENTS,
     blocks: { ...EMAIL_BLOCK_DEFAULTS },
     updatedAt: new Date().toISOString(),
   };
@@ -201,6 +224,7 @@ export function sampleDraft(id: string): EmailDraft {
     bonusCtaText: "GET BONUS",
     footer: "Это автоматическое сообщение, отвечать не нужно.",
     unsubscribeUrl: "https://example.com/unsubscribe",
+    payments: DEFAULT_PAYMENTS,
     blocks: { ...EMAIL_BLOCK_DEFAULTS, bonusCta: true },
     updatedAt: new Date().toISOString(),
   };

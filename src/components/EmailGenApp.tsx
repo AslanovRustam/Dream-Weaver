@@ -609,14 +609,21 @@ export function EmailGenApp() {
 
         <OptionalBlock {...blockProps("apps")}>
           <p className="ds-caption">
-            Ряд «App Store» и «Google Play» в подвале письма. Настроек нет — блок либо есть, либо
-            нет.
+            Чёрные кнопки «App Store» и «Google Play» со значками магазинов. Настроек нет — блок
+            либо есть, либо нет.
           </p>
         </OptionalBlock>
 
         <OptionalBlock {...blockProps("payments")}>
-          <p className="ds-caption">
-            Ряд платёжных систем: VISA, Mastercard, Skrill, NETELLER, Yandex, QIWI, Trustly.
+          <input
+            className={inputCls}
+            value={draft.payments}
+            onChange={(e) => set("payments", e.target.value)}
+            placeholder="VISA, Mastercard, Skrill"
+          />
+          <p className="mt-1.5 ds-caption">
+            Через запятую. В письме встанут тегами в том же порядке; в ряд помещается до
+            двенадцати.
           </p>
         </OptionalBlock>
 

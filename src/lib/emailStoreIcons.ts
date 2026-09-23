@@ -1,0 +1,20 @@
+// Иконки магазинов приложений для письма.
+//
+// SVG почтовые клиенты не показывают, внешние картинки часть клиентов режет
+// до разрешения получателя, поэтому глифы лежат здесь готовыми PNG в base64:
+// они маленькие (по ~1 КБ) и не зависят ни от какого хостинга.
+//
+// Глифы белые: кнопки магазинов по фирменным правилам чёрные, и белый значок
+// одинаково читается в любой гамме письма. Файлы сгенерированы скриптом из
+// векторных контуров, руками их не правят.
+
+/** Высота глифа в письме; картинки испечены вдвое больше — для ретины. */
+export const STORE_ICON_HEIGHT = 22;
+
+/** Ширина глифов при высоте STORE_ICON_HEIGHT: пропорции 33x44 и 44x44. */
+export const APP_STORE_ICON_WIDTH = 17;
+export const GOOGLE_PLAY_ICON_WIDTH = 22;
+
+export const APP_STORE_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACEAAAAsCAYAAADretGxAAAACXBIWXMAAAsTAAALEwEAmpwYAAAB4UlEQVR42u2YSyhEURjHZybPsTAeKcUoU2RloZS9WNl4Li3EtZmVR1ZqdkORGtmwIBtFYYdi8ljJkoVGYUEIGynyOP4n59Z155yZO1zf3cy/fpupufc3Z77z3fNdlysdgjDG8oHfqZu3gV32nVnqm5eCTfYzYUqBchBj8emkEsgChxKBJ+Clkhhi8oSpBDLAjUTghHIVGiQCF6CSsiA1k8AOKKPelprYFWugHbjtvHgFGAbb4AxciwY0Jv4Ct6JP9IFVcCdW5g2cgmXQAbKtttoIeGWJcwkmQCsIgg3wzpKH/5iWRAIBUdUUCckEisE5o023WWKLWGAdFBgFmokFZuIK2/DYpcgeyDQLFFmsajvyAWpkBdlFuAr7qm05SigxpZKIEEoMqCQWCSU0lcQcoURIJTFOKBFVSfQTSvAnakAmUUfcLZdkEh7wQCzSKxNZIZbgnTNoluhhzoQfhKp0CS+4d0hkxKmtqucFlBgl/OJDyszLCnSSuGdIH+uF4JZIYjrRiZvifMGP/b5ks8fCPwrwU1yTlQEoV/G+wY4MpjIG+sBBkgs+giMxBMdEsanyycfK38yjOeL492y42JXYRXwe9UgGKD6LRkVr1nMMGv86HOeBej4kp/idWlCdfplqNV99tjyuzy8uaQAAAABJRU5ErkJggg==";
+
+export const GOOGLE_PLAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAsCAYAAAAehFoBAAAACXBIWXMAAAsTAAALEwEAmpwYAAAB+klEQVR42tWZsU7DMBCG07QgMdGhPAEjYmVkBsED8BIIdWJhZCilaVSKIEAlKCAhJgZGGDowMzAAD0F5AJAwd5IDjnETJw325Zd+Kart6JN7sX1nx+FijJXBPXDTKYIAdIP9qim1LYBr1IAHLKpdoc0F++A6eIIK8BP7q5YEfQZ+Ba9QBUa1FdCoe/A8ReA46E/wEXiGGjDKHwGNegdvgicpAaug+1K7ufjWBGZ8tSgJa3df0ecOPEcFGHWoAf3B47tGARgVSNDnI/oN+aZUsQ2cBhr1Al62DZwWGnULnrUJzHisitAXCf0xvjvgaVvAWaBRbzy+yzaAs0Ifh2NsAKP2BegK+Cqm74EIC89r2mGSI3Bk1vhMXybNLDxvS8tg2SRwCOSOgBbbSnz3lPUIXjQJHPnLeXhcS78hbDdm/Bf4VJk0/BOwClqEDTTfUTcJHDl7CCe9XorxA9PA3TGBH0wCd3MIiS1TwHtjfnSoG/CUCeAgZi0+0VjWMHtZNbWsBRobxw+0YuNIzg9zBO6MuTVXTW7NfsbDj2vj8OMX6XjpS1VQ0gf4tLBWU6S2BBuXzz2Dl2wmobqww8xxmiOwDmwYp1XHsVtIkWFJl6q8BFhSxUAvpnJJrtzqFamg3SrSlcEO5UuZQQIsuWuvdQG2UYSLRZd/QA3KV7bfi58mITFn4YsAAAAASUVORK5CYII=";

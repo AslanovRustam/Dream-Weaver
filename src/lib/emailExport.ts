@@ -28,7 +28,20 @@
 
 import { safeCtaUrl } from "./exportUtils";
 import { buildPalette, type EmailPalette } from "./emailPalette";
-import { EMAIL_BLOCK_DEFAULTS, emailBase, type EmailBlocks, type EmailDraft } from "./mailing";
+import {
+  EMAIL_BLOCK_DEFAULTS,
+  emailBase,
+  parsePayments,
+  type EmailBlocks,
+  type EmailDraft,
+} from "./mailing";
+import {
+  APP_STORE_ICON,
+  APP_STORE_ICON_WIDTH,
+  GOOGLE_PLAY_ICON,
+  GOOGLE_PLAY_ICON_WIDTH,
+  STORE_ICON_HEIGHT,
+} from "./emailStoreIcons";
 
 const AMP = /&/g;
 const LT = /</g;
@@ -155,22 +168,41 @@ ${rows}
               </table>`;
 }
 
-const PAYMENTS = ["VISA", "Mastercard", "Skrill", "NETELLER", "Yandex", "QIWI", "Trustly"];
-const STORES = ["App Store", "Google Play"];
+const STORES = [
+  { label: "App Store", icon: APP_STORE_ICON, width: APP_STORE_ICON_WIDTH },
+  { label: "Google Play", icon: GOOGLE_PLAY_ICON, width: GOOGLE_PLAY_ICON_WIDTH },
+];
 
 /** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div.
  *  Каждый включается своей галочкой, поэтому рисуем только то, что выбрано. */
-function extrasBlock(p: Palette, blocks: EmailBlocks): string {
+function extrasBlock(draft: EmailDraft, p: Palette, blocks: EmailBlocks): string {
   if (!blocks.apps && !blocks.payments) return "";
+  // Кнопка магазина — чёрная плашка со значком и подписью, как того требуют
+  // фирменные правила обоих магазинов. Значок и подпись стоят в отдельных
+  // ячейках: это горизонтальный ряд, а не склейка двух узлов в одной ячейке
+  // (global_anti_glue_rule).
   const stores = STORES.map(
-    (name) =>
-      `<td align="center" style="padding:0 4px;font-family:${FONT};font-size:11px;line-height:17px;color:${p.muted};"><span style="display:inline-block;padding:6px 12px;border:1px solid ${p.divider};border-radius:8px;">${esc(name)}</span></td>`,
+    (s) =>
+      `<td align="center" style="padding:0 4px;">
+                        <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+                          <tr>
+                            <td bgcolor="#000000" style="background-color:#000000;border-radius:8px;padding:8px 14px;">
+                              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
+                                <tr>
+                                  <td valign="middle" style="padding:0;font-size:0;line-height:0;"><img src="${s.icon}" width="${s.width}" height="${STORE_ICON_HEIGHT}" alt="" style="${IMG_STYLE}width:${s.width}px;height:${STORE_ICON_HEIGHT}px;" /></td>
+                                  <td valign="middle" style="padding:0 0 0 8px;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;color:#ffffff;">${esc(s.label)}</td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>`,
   ).join("");
   // global_anti_glue_rule: разные подписи нельзя складывать в одну ячейку —
   // ни через <br/>, ни через два <span> подряд, ни через &nbsp;. Они стоят в
   // одной горизонтальной полосе, значит это ряд из колонок
   // (universal_gap.horizontal_case), а не склейка.
-  const chips = PAYMENTS.map(
+  const chips = parsePayments(draft.payments).map(
     (name) =>
       `<td align="center" style="padding:0 2px;font-family:${FONT};font-size:10px;line-height:14px;font-weight:bold;color:${p.muted};"><span style="display:inline-block;padding:3px 8px;border-radius:4px;background-color:${p.chipBg};">${esc(name)}</span></td>`,
   ).join("");
@@ -308,7 +340,7 @@ ${
         </tr>`
     : ""
 }
-${extrasBlock(p, blocks)}
+${extrasBlock(draft, p, blocks)}
 ${blocks.footer ? footerBlock(draft, p, unsubscribe) : ""}
       </table>
     </td>
