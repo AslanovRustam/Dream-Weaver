@@ -17,7 +17,7 @@ import {
 
 import { SECTION_BY_ID, sectionEntryRoute } from "@/lib/sections";
 import { useTx } from "@/lib/i18n";
-import { MVP_ENABLED_ROUTES } from "@/lib/mvp";
+import { isRouteEnabled } from "@/lib/mvp";
 
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
 // toggled by a button and persisted. Grouped like Krea/Linear/Vercel side-nav;
@@ -34,8 +34,6 @@ type NavItem = {
    *  `href` (the banner links to its catalog but owns all of /banner). */
   match?: string;
 };
-
-const ENABLED_HREFS = MVP_ENABLED_ROUTES;
 
 const s = (id: Parameters<typeof SECTION_BY_ID.get>[0]) => {
   const sec = SECTION_BY_ID.get(id)!;
@@ -144,7 +142,7 @@ export function AppSidebar() {
                     item={item}
                     active={!!isActive(item)}
                     collapsed={collapsed}
-                    soon={!ENABLED_HREFS.has(item.match ?? item.href)}
+                    soon={!isRouteEnabled(item.match ?? item.href)}
                   />
                 </li>
               ))}

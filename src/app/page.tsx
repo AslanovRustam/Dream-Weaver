@@ -17,7 +17,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BANNER_TEMPLATES_ROUTE, CATEGORIES } from "@/components/PresetSidebar";
 import { SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
-import { MVP_ENABLED_SECTION_IDS } from "@/lib/mvp";
+import { isSectionEnabled } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -147,8 +147,6 @@ function FittedHeadline({ lines, fill = 0.72 }: { lines: string[]; fill?: number
 
 const PRESET_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const id of c.presetIds) PRESET_CAT[id] = c.id;
-
-const MVP_ENABLED = MVP_ENABLED_SECTION_IDS;
 
 function Thumb({
   preview,
@@ -430,7 +428,7 @@ export default function HubPage() {
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {TOOL_CHIPS.map((sc) => {
               const Icon = sc.icon;
-              const soon = !MVP_ENABLED.has(sc.id);
+              const soon = !isSectionEnabled(sc.id);
               const chipTitle = tx(`sections.${sc.id}.title`, sc.title);
               if (soon) {
                 return (
@@ -589,7 +587,7 @@ export default function HubPage() {
             </div>
           </div>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
-            {POPULAR_TEMPLATES.filter((t) => MVP_ENABLED.has(t.sectionId)).map((t) => {
+            {POPULAR_TEMPLATES.filter((t) => isSectionEnabled(t.sectionId)).map((t) => {
               const sec = SECTION_BY_ID.get(t.sectionId);
               const SecIcon = sec?.icon;
               return (
