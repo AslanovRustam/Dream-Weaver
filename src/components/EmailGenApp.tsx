@@ -9,10 +9,12 @@ import {
   Loader2,
   Mail,
   Monitor,
+  Moon,
   Save,
   Send,
   Smartphone,
   Sparkles,
+  Sun,
   Upload,
 } from "lucide-react";
 
@@ -20,6 +22,7 @@ import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
+import { simulateDarkClient } from "@/lib/emailDarkMode";
 import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
 
@@ -677,6 +680,7 @@ const PHONE_WIDTH = 375;
 
 function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
   const [narrow, setNarrow] = useState(false);
+  const [darkClient, setDarkClient] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [available, setAvailable] = useState(EMAIL_WIDTH);
@@ -701,6 +705,9 @@ function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
 
   const targetWidth = narrow ? PHONE_WIDTH : Math.min(available, EMAIL_WIDTH);
   const scale = Math.min(1, targetWidth / EMAIL_WIDTH);
+  // Экспорт не меняется: тёмная тема — это то, что с письмом делает клиент,
+  // а не другая сборка письма.
+  const shown = useMemo(() => (darkClient ? simulateDarkClient(html) : html), [darkClient, html]);
 
   return (
     <div>
@@ -708,6 +715,30 @@ function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
         <span className="flex items-center gap-2 ds-caption">
           <Mail className="h-4 w-4" /> Предпросмотр письма
         </span>
+        <div className="flex items-center gap-2">
+        <div className="flex rounded-lg border border-border p-0.5">
+          {[
+            { id: "light", label: "Светлая тема почтовика", icon: Sun, on: !darkClient },
+            { id: "dark", label: "Тёмная тема почтовика", icon: Moon, on: darkClient },
+          ].map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setDarkClient(m.id === "dark")}
+                aria-pressed={m.on}
+                title={m.label}
+                aria-label={m.label}
+                className={`flex min-h-8 items-center rounded-md px-2.5 text-xs font-medium transition ${
+                  m.on ? "bg-accent-green text-on-accent" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            );
+          })}
+        </div>
         <div className="flex rounded-lg border border-border p-0.5">
           {[
             { id: "wide", label: "Десктоп", icon: Monitor, on: !narrow },
@@ -731,27 +762,36 @@ function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
             );
           })}
         </div>
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-[#e9edf2] p-3 sm:p-4">
+      {/* Обрамление тоже переключается: письмо в тёмном клиенте видно в тёмном
+          интерфейсе, и сравнивать его со светлой рамкой бессмысленно. */}
+      <div
+        className={`overflow-hidden rounded-2xl border border-border p-3 sm:p-4 ${
+          darkClient ? "bg-[#1b1c1f]" : "bg-[#e9edf2]"
+        }`}
+      >
         {/* Обрамление почтовика: тема и прехедер — это то, что человек видит
             до того, как откроет письмо. */}
         <div className="mb-3 px-1">
-          <p className="truncate text-sm font-semibold text-[#111827]">
+          <p className={`truncate text-sm font-semibold ${darkClient ? "text-[#e8eaed]" : "text-[#111827]"}`}>
             {draft.subject || "Без темы"}
           </p>
-          <p className="truncate text-xs text-[#4b5563]">{draft.preheader}</p>
+          <p className={`truncate text-xs ${darkClient ? "text-[#9aa0a6]" : "text-[#4b5563]"}`}>
+            {draft.preheader}
+          </p>
         </div>
         <div ref={boxRef} className="mx-auto" style={{ maxWidth: EMAIL_WIDTH }}>
           <div
-            className="mx-auto overflow-hidden rounded-xl bg-white"
+            className={`mx-auto overflow-hidden rounded-xl ${darkClient ? "bg-[#202124]" : "bg-white"}`}
             style={{ width: EMAIL_WIDTH * scale, height: Math.min(docHeight, 1600) * scale }}
           >
             <iframe
               ref={frameRef}
               title="Предпросмотр письма"
               sandbox="allow-same-origin"
-              srcDoc={html}
+              srcDoc={shown}
               onLoad={onLoad}
               scrolling="no"
               style={{
@@ -767,8 +807,20 @@ function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
       </div>
 
       <p className="mt-2 ds-caption">
-        Это ровно тот HTML, который скачивается кнопкой «Скачать HTML»: таблицы, инлайн-стили,
-        фиксированные 600 пикселей — так письмо собирают по нашему своду правил вёрстки.
+        {darkClient ? (
+          <>
+            Так письмо покажет клиент, который перекрашивает его целиком, — Gmail на Android.
+            Apple Mail и Gmail в вебе оставят ваши цвета: об этом им говорят мета-теги
+            color-scheme в письме. Outlook.com перекрасит только фон и текст, бренд не тронет.
+            Картинки не перекрашиваются нигде — если в баннере впечатан текст, здесь видно, как
+            он останется от прошлой темы. Экспорт от переключателя не меняется.
+          </>
+        ) : (
+          <>
+            Это ровно тот HTML, который скачивается кнопкой «Скачать HTML»: таблицы, инлайн-стили,
+            фиксированные 600 пикселей — так письмо собирают по нашему своду правил вёрстки.
+          </>
+        )}
         {scale < 1 ? " Показан в уменьшенном масштабе, чтобы поместиться в колонку." : ""}
       </p>
     </div>
