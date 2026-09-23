@@ -328,7 +328,6 @@ export function EmailGenApp() {
             className={inputCls}
             value={draft.name}
             onChange={(e) => set("name", sanitizeEmailName(e.target.value))}
-            placeholder="welcome-september"
           />
           <p className="mt-1.5 ds-caption">
             Ярлык для списка черновиков, имени файла и названия кампании — получатель его не
