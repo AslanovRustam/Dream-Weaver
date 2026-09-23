@@ -13,15 +13,32 @@ import { checkHeroImage, HERO_RULES } from "@/lib/emailHeroRules";
  * список требований свёрнут: он нужен тому, кто идёт её готовить, и мешает
  * тому, кто просто нажмёт «Сгенерировать».
  */
-export function HeroRules({ meta }: { meta: { width: number; height: number; bytes: number } | null }) {
+export function HeroRules({
+  meta,
+  saved,
+  busy,
+}: {
+  meta: { width: number; height: number; bytes: number } | null;
+  /** Вес до и после автоматического сжатия, если оно понадобилось. */
+  saved?: { before: number; after: number } | null;
+  busy?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const hints = meta ? checkHeroImage(meta) : [];
 
   return (
     <div className="mt-2">
-      {meta ? (
+      {busy ? <p className="ds-caption">Сжимаем картинку…</p> : null}
+
+      {meta && !busy ? (
         <p className="ds-caption">
           {meta.width}×{meta.height} px, {Math.round(meta.bytes / 1024)} КБ
+          {saved ? (
+            <span className="text-accent-green">
+              {" "}
+              · сжато с {Math.round(saved.before / 1024)} КБ
+            </span>
+          ) : null}
         </p>
       ) : null}
 

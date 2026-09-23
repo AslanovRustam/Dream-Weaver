@@ -23,7 +23,9 @@ import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
 import { simulateDarkClient } from "@/lib/emailDarkMode";
-import { HERO_ASPECT_RATIO, measureDataUrl } from "@/lib/emailHeroRules";
+import { HERO_ASPECT_RATIO, HERO_MAX_BYTES, HERO_RETINA_WIDTH, measureDataUrl } from "@/lib/emailHeroRules";
+import { compressForEmail } from "@/lib/imageCompress";
+import { buildPalette } from "@/lib/emailPalette";
 import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
 
@@ -173,6 +175,34 @@ export function EmailGenApp() {
     reader.onload = () => set(key, String(reader.result));
     reader.readAsDataURL(file);
   };
+
+  /** Сколько весил баннер до сжатия — показываем рядом с новым весом. */
+  const [heroSaved, setHeroSaved] = useState<{ before: number; after: number } | null>(null);
+  const [heroBusy, setHeroBusy] = useState(false);
+
+  /**
+   * Баннер жмётся сразу, а не по кнопке: письмо на 2 МБ — это не выбор между
+   * «лучше» и «легче», это письмо, которое половина получателей не дождётся.
+   * Прозрачность теряется, поэтому подкладываем цвет полотна письма.
+   */
+  const putHero = async (dataUrl: string) => {
+    setHeroBusy(true);
+    try {
+      const out = await compressForEmail(dataUrl, {
+        maxWidth: HERO_RETINA_WIDTH,
+        maxBytes: HERO_MAX_BYTES,
+        background: buildPalette(draft.accent, emailBase(draft)).panel,
+      });
+      set("heroImage", out.dataUrl);
+      setHeroSaved(out.skipped ? null : { before: out.bytesBefore, after: out.bytes });
+    } catch {
+      // Не смогли сжать — кладём как есть, подсказка про вес всё равно придёт.
+      set("heroImage", dataUrl);
+      setHeroSaved(null);
+    } finally {
+      setHeroBusy(false);
+    }
+  };
   // Размеры и вес баннера нужны только для подсказок, поэтому живут рядом с
   // формой, а не в черновике: у сохранённого письма их можно померить заново.
   const [heroMeta, setHeroMeta] = useState<{ width: number; height: number; bytes: number } | null>(null);
@@ -190,7 +220,12 @@ export function EmailGenApp() {
     };
   }, [draft.heroImage]);
 
-  const onHeroFile = (file: File | null) => file && readAsDataUrl(file, "heroImage");
+  const onHeroFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => void putHero(String(reader.result));
+    reader.readAsDataURL(file);
+  };
   const onLogoFile = (file: File | null) => file && readAsDataUrl(file, "logo");
 
   const overlayLogo = (baseUrl: string, logoUrl: string) =>
@@ -262,7 +297,7 @@ export function EmailGenApp() {
         draft.logo && draft.logoMode === "overlay"
           ? await overlayLogo(data.imageUrl, draft.logo)
           : data.imageUrl;
-      set("heroImage", finalUrl);
+      await putHero(finalUrl);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -443,7 +478,10 @@ export function EmailGenApp() {
                 />
                 <button
                   type="button"
-                  onClick={() => set("heroImage", "")}
+                  onClick={() => {
+                    set("heroImage", "");
+                    setHeroSaved(null);
+                  }}
                   className="text-xs text-muted-foreground transition hover:text-foreground"
                 >
                   Убрать
@@ -460,7 +498,7 @@ export function EmailGenApp() {
                 />
               </label>
             )}
-            <HeroRules meta={heroMeta} />
+            <HeroRules meta={heroMeta} saved={heroSaved} busy={heroBusy} />
           </div>
 
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
