@@ -35,7 +35,9 @@ import {
   type EmailDraft,
   type EmailStyle,
   emailBase,
+  emailNameFromSubject,
   newDraft,
+  sanitizeEmailName,
   saveDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
@@ -47,6 +49,21 @@ export function EmailGenApp() {
 
   const set = <K extends keyof EmailDraft>(key: K, value: EmailDraft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
+    setSaved(false);
+  };
+
+  /**
+   * Тема меняется — вместе с ней меняется и внутреннее имя, но только пока
+   * его не трогали руками. Признак «не трогали» выводим из самого значения:
+   * оно либо пустое, либо ровно то, что дала прошлая тема. Отдельный флаг
+   * «правили вручную» пришлось бы хранить в черновике и починять у старых.
+   */
+  const setSubject = (subject: string) => {
+    setDraft((d) => ({
+      ...d,
+      subject,
+      name: !d.name || d.name === emailNameFromSubject(d.subject) ? emailNameFromSubject(subject) : d.name,
+    }));
     setSaved(false);
   };
 
@@ -135,7 +152,7 @@ export function EmailGenApp() {
         ctaText: str(f.ctaText) ?? d.ctaText,
         bonusCtaText: str(f.bonusCtaText) ?? d.bonusCtaText,
         footer: str(f.footer) ?? d.footer,
-        name: d.name || (str(f.subject) ? String(f.subject).slice(0, 40) : d.name),
+        name: d.name || (str(f.subject) ? emailNameFromSubject(String(f.subject)) : d.name),
         blocks: enableFilled(d.blocks, {
           subtitle: !!str(f.heroSubtitle),
           body: !!str(f.body),
@@ -310,9 +327,14 @@ export function EmailGenApp() {
           <input
             className={inputCls}
             value={draft.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder="Напр. Welcome — сентябрь"
+            onChange={(e) => set("name", sanitizeEmailName(e.target.value))}
+            placeholder="welcome-september"
           />
+          <p className="mt-1.5 ds-caption">
+            Ярлык для списка черновиков, имени файла и названия кампании — получатель его не
+            видит. Подставляется из темы, пока не измените вручную. Только латиница и дефисы:
+            имя уезжает в файлы и на почтовый сервис, где кириллица и пробелы ломают ссылки.
+          </p>
         </Field>
 
         <div>
@@ -331,7 +353,7 @@ export function EmailGenApp() {
         </div>
 
         <Field label="Тема письма">
-          <input className={inputCls} value={draft.subject} onChange={(e) => set("subject", e.target.value)} />
+          <input className={inputCls} value={draft.subject} onChange={(e) => setSubject(e.target.value)} />
         </Field>
         <Field label="Прехедер">
           <input className={inputCls} value={draft.preheader} onChange={(e) => set("preheader", e.target.value)} />

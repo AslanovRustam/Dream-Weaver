@@ -78,6 +78,46 @@ export function withBlocks(draft: EmailDraft): EmailDraft {
   };
 }
 
+/**
+ * Внутреннее имя письма — латиница без пробелов. Оно становится именем файла
+ * при выгрузке и именем кампании при отправке, а эти имена уезжают на почтовые
+ * сервисы и файловые хранилища, где кириллица и пробелы превращаются в
+ * %D0%BF%D0%B8 и ломают ссылки.
+ */
+const TRANSLIT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh", щ: "sch",
+  ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  // Украинские и белорусские буквы: те же письма верстаются и на них.
+  і: "i", ї: "yi", є: "ye", ґ: "g", ў: "u",
+};
+
+function translit(s: string): string {
+  return s
+    .toLowerCase()
+    .split("")
+    .map((ch) => (ch in TRANSLIT ? TRANSLIT[ch] : ch))
+    .join("");
+}
+
+/**
+ * Привести введённое имя к латинице без пробелов. Хвостовой дефис не срезаем:
+ * человек печатает, и слово, которое он ещё не дописал, не должно прыгать.
+ */
+export function sanitizeEmailName(raw: string): string {
+  return translit(raw)
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+/, "")
+    .slice(0, 60);
+}
+
+/** Имя, которое подставляется из темы письма. */
+export function emailNameFromSubject(subject: string): string {
+  return sanitizeEmailName(subject).replace(/-+$/, "");
+}
+
 export interface EmailDraft {
   id: string;
   name: string;
@@ -144,7 +184,7 @@ export function newDraft(): EmailDraft {
 export function sampleDraft(id: string): EmailDraft {
   return {
     id,
-    name: "Промо — 50 фриспинов",
+    name: "promo-50-freespins",
     subject: "50 фриспинов + бонус 100% на депозит",
     preheader: "Только до конца недели — заряжайте удочки!",
     brand: "20BET",
