@@ -396,70 +396,6 @@ export function EmailGenApp() {
           <input className={inputCls} value={draft.preheader} onChange={(e) => set("preheader", e.target.value)} />
         </Field>
 
-        <div>
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <label className="ds-h4">Бренд</label>
-              <div className="flex rounded-md border border-border p-0.5 text-[11px]">
-                {(
-                  [
-                    ["text", "Текст"],
-                    ["logo", "Лого"],
-                  ] as const
-                ).map(([m, l]) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => set("brandMode", m)}
-                    className={`min-h-7 rounded px-2 font-medium transition ${
-                      draft.brandMode === m
-                        ? "bg-white/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {draft.brandMode === "logo" ? (
-              draft.logo ? (
-                <div className="flex h-12 items-center gap-2">
-                  <img
-                    src={draft.logo}
-                    alt=""
-                    className="h-12 w-24 rounded-md border border-border bg-white object-contain p-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => set("logo", "")}
-                    className="text-xs text-muted-foreground transition hover:text-foreground"
-                  >
-                    Убрать
-                  </button>
-                </div>
-              ) : (
-                <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-elevated px-3 text-sm text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground">
-                  <Upload className="h-4 w-4" /> Загрузить лого
-                  <input
-                    type="file"
-                    accept="image/*,.svg"
-                    className="hidden"
-                    onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-              )
-            ) : (
-              <input
-                className={inputCls}
-                value={draft.brand}
-                onChange={(e) => set("brand", e.target.value)}
-                placeholder="Ваш бренд"
-              />
-            )}
-          </div>
-        </div>
-
         <EmailGammaPicker
           accent={draft.accent}
           base={emailBase(draft)}
@@ -467,6 +403,70 @@ export function EmailGenApp() {
         />
 
         <OptionalBlock {...blockProps("hero")}>
+          <div>
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label className="ds-h4">Бренд</label>
+                <div className="flex rounded-md border border-border p-0.5 text-[11px]">
+                  {(
+                    [
+                      ["text", "Текст"],
+                      ["logo", "Лого"],
+                    ] as const
+                  ).map(([m, l]) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => set("brandMode", m)}
+                      className={`min-h-7 rounded px-2 font-medium transition ${
+                        draft.brandMode === m
+                          ? "bg-white/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {draft.brandMode === "logo" ? (
+                draft.logo ? (
+                  <div className="flex h-12 items-center gap-2">
+                    <img
+                      src={draft.logo}
+                      alt=""
+                      className="h-12 w-24 rounded-md border border-border bg-white object-contain p-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => set("logo", "")}
+                      className="text-xs text-muted-foreground transition hover:text-foreground"
+                    >
+                      Убрать
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex h-12 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-elevated px-3 text-sm text-muted-foreground transition hover:border-accent-green/50 hover:text-foreground">
+                    <Upload className="h-4 w-4" /> Загрузить лого
+                    <input
+                      type="file"
+                      accept="image/*,.svg"
+                      className="hidden"
+                      onChange={(e) => onLogoFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                )
+              ) : (
+                <input
+                  className={inputCls}
+                  value={draft.brand}
+                  onChange={(e) => set("brand", e.target.value)}
+                  placeholder="Ваш бренд"
+                />
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="mb-2 block ds-h4">Hero-картинка</label>
             {draft.heroImage ? (
@@ -546,7 +546,7 @@ export function EmailGenApp() {
                 </div>
               ) : (
                 <p className="flex h-10 items-center ds-caption">
-                  Загрузите лого в поле «Бренд» → «Лого».
+                  Загрузите выше — лого пойдёт и в письмо, и в баннер.
                 </p>
               )}
             </div>
