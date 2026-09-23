@@ -45,7 +45,7 @@ export function HeroRules({ meta }: { meta: { width: number; height: number; byt
         aria-expanded={open}
         className="mt-1 flex items-center gap-1 ds-caption transition hover:text-foreground"
       >
-        Каким должен быть баннер
+        Рекомендации
         <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
       </button>
 
