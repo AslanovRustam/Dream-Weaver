@@ -124,11 +124,6 @@ function textCell(html: string, opts: {
   return `<td align="${opts.align ?? "center"}" style="padding:${opts.padding};font-family:${FONT};font-size:${opts.size}px;line-height:${opts.lineHeight}px;color:${opts.color};${weight}${transform}text-align:${opts.align ?? "center"};">${html}</td>`;
 }
 
-/** Вертикальный зазор строкой-спейсером (layout.spacers). */
-function spacer(height: number): string {
-  return `<tr><td height="${height}" style="height:${height}px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
-}
-
 /**
  * Кнопка по cta_structure / чеклист п.8: ссылка внутри ячейки, display:block,
  * явные width и height, line-height равен высоте за вычетом вертикальных
@@ -148,6 +143,11 @@ function button(label: string, href: string, p: Palette, width = 440): string {
               </table>`;
 }
 
+// roles.hero в своде требует background= на таблице с высотой из данных и
+// запрещает <img>. Высота там приходит из фигмы; у нас баннер загружает
+// пользователь, и его высота неизвестна до отрисовки — таблица с background=
+// без height схлопнется в ничто. Поэтому картинка остаётся <img> во всю
+// ширину: зон с кликами у неё нет, а именно ради них правило и написано.
 function heroBlock(draft: EmailDraft, p: Palette): string {
   if (draft.heroImage) {
     return `        <tr>
@@ -166,23 +166,26 @@ function heroBlock(draft: EmailDraft, p: Palette): string {
 function stepsBlock(draft: EmailDraft, p: Palette): string {
   const steps = (draft.steps ?? []).filter((s) => s.trim());
   if (steps.length === 0) return "";
+  // universal_gap: соседей разделяет padding-top у следующего, а не
+  // padding-bottom у предыдущего — иначе последний шаг тащит за собой лишний
+  // отступ, которого в макете нет.
   const rows = steps
     .map(
       (step, i) => `                    <tr>
-                      <td width="24" valign="top" style="padding:0 12px 10px 0;">
+                      <td width="24" valign="top" style="padding:${i === 0 ? "14px" : "10px"} 12px 0 0;">
                         <table width="24" cellpadding="0" cellspacing="0" border="0" style="width:24px;min-width:24px;border-collapse:separate;">
                           <tr>
                             <td width="24" height="24" align="center" valign="middle" bgcolor="${p.accent}" style="width:24px;height:24px;background-color:${p.accent};border-radius:12px;font-family:${FONT};font-size:12px;line-height:24px;font-weight:bold;color:${p.onAccent};text-align:center;">${i + 1}</td>
                           </tr>
                         </table>
                       </td>
-                      <td valign="top" style="padding:0 0 10px 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accent)}</td>
+                      <td valign="top" style="padding:${i === 0 ? "14px" : "10px"} 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${p.muted};">${md(step, p.accent)}</td>
                     </tr>`,
     )
     .join("\n");
   return `              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
                     <tr>
-                      <td colspan="2" align="center" style="padding:0 0 14px 0;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;text-transform:uppercase;color:${p.text};text-align:center;">Чтобы активировать бонус:</td>
+                      <td colspan="2" align="center" style="padding:0;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;text-transform:uppercase;color:${p.text};text-align:center;">Чтобы активировать бонус:</td>
                     </tr>
 ${rows}
               </table>`;
@@ -197,25 +200,33 @@ function extrasBlock(p: Palette): string {
     (name) =>
       `<td align="center" style="padding:0 4px;font-family:${FONT};font-size:11px;line-height:17px;color:${p.muted};"><span style="display:inline-block;padding:6px 12px;border:1px solid ${p.divider};border-radius:8px;">${esc(name)}</span></td>`,
   ).join("");
+  // global_anti_glue_rule: разные подписи нельзя складывать в одну ячейку —
+  // ни через <br/>, ни через два <span> подряд, ни через &nbsp;. Они стоят в
+  // одной горизонтальной полосе, значит это ряд из колонок
+  // (universal_gap.horizontal_case), а не склейка.
   const chips = PAYMENTS.map(
     (name) =>
-      `<span style="display:inline-block;padding:3px 8px;border-radius:4px;background-color:${p.chipBg};font-family:${FONT};font-size:10px;line-height:14px;font-weight:bold;color:${p.muted};">${esc(name)}</span>`,
-  ).join("&nbsp;");
+      `<td align="center" style="padding:0 2px;font-family:${FONT};font-size:10px;line-height:14px;font-weight:bold;color:${p.muted};"><span style="display:inline-block;padding:3px 8px;border-radius:4px;background-color:${p.chipBg};">${esc(name)}</span></td>`,
+  ).join("");
   return `        <tr>
-          <td align="center" style="padding:20px 24px 24px 24px;border-top:1px solid ${p.divider};">
+          <td align="center" style="padding:24px 24px 24px 24px;border-top:1px solid ${p.divider};">
             <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
               <tr>
-                <td align="center" style="padding:0 0 12px 0;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.muted};text-align:center;">Download our mobile app</td>
+                <td align="center" style="padding:0;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.muted};text-align:center;">Download our mobile app</td>
               </tr>
               <tr>
-                <td align="center" style="padding:0 0 14px 0;">
+                <td align="center" style="padding:12px 0 0 0;">
                   <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
                     <tr>${stores}</tr>
                   </table>
                 </td>
               </tr>
               <tr>
-                <td align="center" style="font-family:${FONT};font-size:10px;line-height:18px;text-align:center;">${chips}</td>
+                <td align="center" style="padding:14px 0 0 0;">
+                  <table cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;">
+                    <tr>${chips}</tr>
+                  </table>
+                </td>
               </tr>
             </table>
           </td>
@@ -233,10 +244,10 @@ function footerBlock(draft: EmailDraft, p: Palette, unsubscribe: string): string
           <td align="center" bgcolor="${p.footerBg}" style="background-color:${p.footerBg};padding:18px 28px;border-top:1px solid ${p.divider};">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
               <tr>
-${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, padding: "0 0 8px 0" })}
+${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, padding: "0" })}
               </tr>
               <tr>
-                <td align="center" style="font-family:${FONT};font-size:11px;line-height:17px;text-align:center;"><a href="${esc(unsubscribe)}" target="_blank" style="font-family:${FONT};font-size:11px;line-height:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.accent};text-decoration:none;">Unsubscribe</a></td>
+                <td align="center" style="padding:8px 0 0 0;font-family:${FONT};font-size:11px;line-height:17px;text-align:center;"><a href="${esc(unsubscribe)}" target="_blank" style="font-family:${FONT};font-size:11px;line-height:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;color:${p.accent};text-decoration:none;">Unsubscribe</a></td>
               </tr>
             </table>
           </td>
@@ -322,7 +333,6 @@ ${
         </tr>`
     : ""
 }
-${spacer(24)}
 ${extrasBlock(p)}
 ${footerBlock(draft, p, unsubscribe)}
       </table>

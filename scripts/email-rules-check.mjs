@@ -143,6 +143,20 @@ const checks = [
     },
   },
   {
+    id: "anti-glue",
+    rule: "Разные тексты не склеены в одной ячейке (global_anti_glue_rule)",
+    ok: () => {
+      const cells = [...html.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)];
+      return cells.every(([, inner]) => {
+        // Ячейка-обёртка вокруг вложенной таблицы склейкой не считается.
+        if (/<table\b/i.test(inner)) return true;
+        const spans = [...inner.matchAll(/<span\b[^>]*>([\s\S]*?)<\/span>/g)];
+        const withText = spans.filter((m) => m[1].replace(/<[^>]+>/g, "").trim());
+        return withText.length <= 1;
+      });
+    },
+  },
+  {
     id: "margin",
     rule: "Нет margin на таблицах (layout.no_margin)",
     ok: () => !/<table[^>]*style="[^"]*margin:/.test(html),
