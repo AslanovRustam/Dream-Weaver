@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Loader2, Mail, Save, Send, Sparkles, Upload } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  Loader2,
+  Mail,
+  Monitor,
+  Save,
+  Send,
+  Smartphone,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 
 import { BriefUploader } from "@/components/BriefUploader";
 import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
+import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
+import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
 
 const IMG_PRICE = imageCredits(1);
@@ -30,6 +44,22 @@ export function EmailGenApp() {
   const onSave = () => {
     saveDraft(draft);
     setSaved(true);
+  };
+
+  // The single source of truth for both the preview and the download: the
+  // preview used to be a React look-alike, which is exactly how a preview
+  // drifts away from what actually gets sent.
+  const html = useMemo(() => buildEmailHtml(draft), [draft]);
+  const [copied, setCopied] = useState(false);
+  const copyHtml = async () => {
+    try {
+      await navigator.clipboard.writeText(html);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked (no permission, insecure origin) — download instead */
+      downloadText(emailFileName(draft), html, "text/html;charset=utf-8", "email_exported");
+    }
   };
 
   const [genning, setGenning] = useState(false);
@@ -534,6 +564,24 @@ export function EmailGenApp() {
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             {saved ? "Сохранено" : "Сохранить письмо"}
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              downloadText(emailFileName(draft), html, "text/html;charset=utf-8", "email_exported")
+            }
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
+          >
+            <Download className="h-4 w-4 text-accent-green" />
+            Скачать HTML
+          </button>
+          <button
+            type="button"
+            onClick={copyHtml}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
+          >
+            {copied ? <Check className="h-4 w-4 text-accent-green" /> : <Copy className="h-4 w-4 text-accent-green" />}
+            {copied ? "Скопировано" : "Скопировать HTML"}
+          </button>
           <Link
             href="/mailing"
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
@@ -548,158 +596,72 @@ export function EmailGenApp() {
       </div>
 
       <div className="lg:sticky lg:top-6 lg:h-fit">
-        <div className="mb-2 flex items-center gap-2 ds-caption">
-          <Mail className="h-4 w-4" /> Предпросмотр письма
-        </div>
-        <EmailPreview draft={draft} />
+        <EmailPreview draft={draft} html={html} />
       </div>
     </div>
   );
 }
 
-function renderMd(text: string, accent: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
-    const m = /^\*\*([^*]+)\*\*$/.exec(p);
-    return m ? (
-      <strong key={i} style={{ color: accent }}>
-        {m[1]}
-      </strong>
-    ) : (
-      <span key={i}>{p}</span>
-    );
-  });
-}
-
-const PAYMENTS = ["VISA", "Mastercard", "Skrill", "NETELLER", "Yandex", "QIWI", "Trustly"];
-
-function EmailPreview({ draft }: { draft: EmailDraft }) {
-  const accent = /^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : "#22c55e";
-  const dark = draft.dark;
-  const bg = dark ? "#0b1226" : "#ffffff";
-  const textMain = dark ? "#eaf0ff" : "#0f172a";
-  const textMuted = dark ? "#93a4cc" : "#475569";
-  const footerBg = dark ? "#080d1c" : "#f7f8fa";
-  const divider = dark ? "rgba(255,255,255,0.08)" : "#eef1f4";
-  const chipBg = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
-
-  const Cta = ({ label }: { label: string }) => (
-    <span
-      className="inline-block w-full rounded-full py-3.5 text-center text-base font-extrabold uppercase tracking-wide text-white shadow-lg"
-      style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)`, boxShadow: `0 8px 24px -8px ${accent}` }}
-    >
-      {label}
-    </span>
-  );
+// Renders the exported file in an iframe, so the preview cannot disagree with
+// the download. Scripts are off: an email has none, and a sandboxed frame also
+// keeps the CTA from navigating the builder away.
+function EmailPreview({ draft, html }: { draft: EmailDraft; html: string }) {
+  const [narrow, setNarrow] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-[#e9edf2] p-4 sm:p-6">
-      <div className="mb-3 px-1">
-        <p className="truncate text-sm font-semibold text-[#111827]">{draft.subject || "Без темы"}</p>
-        <p className="truncate text-xs text-[#4b5563]">{draft.preheader}</p>
-      </div>
-
-      <div className="mx-auto max-w-[500px] overflow-hidden rounded-2xl shadow-sm" style={{ background: bg }}>
-        {draft.heroImage ? (
-          <img src={draft.heroImage} alt="" className="block h-auto w-full" draggable={false} />
-        ) : (
-          <div
-            className="flex h-40 w-full items-center justify-center px-6"
-            style={{ background: `linear-gradient(160deg, ${accent}44, ${dark ? "#0b1226" : "#eef2ff"})` }}
-          >
-            {draft.brandMode === "logo" && draft.logo ? (
-              <img src={draft.logo} alt="" className="max-h-16 max-w-[60%] object-contain" />
-            ) : (
-              <span className="text-2xl font-extrabold tracking-tight" style={{ color: dark ? "#fff" : accent }}>
-                {draft.brand || "ВАШ БРЕНД"}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="px-6 pb-2 pt-6 text-center">
-          <h2 className="text-2xl font-extrabold uppercase leading-tight" style={{ color: textMain }}>
-            {renderMd(draft.heroTitle || "Заголовок акции", accent)}
-          </h2>
-          {draft.heroSubtitle ? (
-            <p className="mt-1.5 text-sm" style={{ color: textMuted }}>
-              {draft.heroSubtitle}
-            </p>
-          ) : null}
-          {draft.ctaText ? <div className="mt-4">{<Cta label={draft.ctaText} />}</div> : null}
-        </div>
-
-        <div className="px-6 py-5">
-          <p className="whitespace-pre-line text-center text-sm leading-relaxed" style={{ color: textMuted }}>
-            {renderMd(draft.body || "Текст письма появится здесь.", accent)}
-          </p>
-
-          {draft.steps?.filter(Boolean).length ? (
-            <div className="mt-5">
-              <p className="mb-3 text-center text-sm font-extrabold uppercase" style={{ color: textMain }}>
-                Чтобы активировать бонус:
-              </p>
-              <ul className="flex flex-col gap-2.5">
-                {draft.steps.filter(Boolean).map((s, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span
-                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style={{ backgroundColor: accent }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="text-sm leading-snug" style={{ color: textMuted }}>
-                      {renderMd(s, accent)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {draft.bonusCtaText ? <div className="mt-5">{<Cta label={draft.bonusCtaText} />}</div> : null}
-        </div>
-
-        <div className="px-6 pb-5" style={{ borderTop: `1px solid ${divider}` }}>
-          <p className="mb-3 mt-4 text-center text-xs font-bold uppercase tracking-wide" style={{ color: textMuted }}>
-            Download our mobile app
-          </p>
-            <div className="mb-4 flex justify-center gap-2">
-              {["App Store", "Google Play"].map((a) => (
-                <span
-                  key={a}
-                  className="rounded-lg border px-3 py-1.5 text-[11px] font-medium"
-                  style={{ borderColor: divider, color: textMuted }}
-                >
-                  {a}
-                </span>
-              ))}
-            </div>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {PAYMENTS.map((p) => (
-                <span
-                  key={p}
-                  className="rounded px-2 py-0.5 text-[10px] font-semibold"
-                  style={{ background: chipBg, color: textMuted }}
-                >
-                  {p}
-                </span>
-              ))}
-            </div>
-          </div>
-
-        <div className="px-6 py-4 text-center" style={{ background: footerBg, borderTop: `1px solid ${divider}` }}>
-          <p className="text-[11px] leading-relaxed" style={{ color: textMuted }}>
-            {draft.footer}
-          </p>
-          <a
-            href={draft.unsubscribeUrl || undefined}
-            className="mt-2 inline-block text-[11px] font-semibold uppercase tracking-wide underline-offset-2 hover:underline"
-            style={{ color: accent }}
-          >
-            Unsubscribe
-          </a>
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 ds-caption">
+          <Mail className="h-4 w-4" /> Предпросмотр письма
+        </span>
+        <div className="flex rounded-lg border border-border p-0.5">
+          {[
+            { id: "wide", label: "Десктоп", icon: Monitor, on: !narrow },
+            { id: "narrow", label: "Телефон", icon: Smartphone, on: narrow },
+          ].map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setNarrow(m.id === "narrow")}
+                aria-pressed={m.on}
+                title={m.label}
+                className={`flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition ${
+                  m.on ? "bg-accent-green text-on-accent" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-[#e9edf2] p-3 sm:p-4">
+        {/* The inbox chrome around the message — subject and preheader are what
+            a reader sees before opening anything. */}
+        <div className="mb-3 px-1">
+          <p className="truncate text-sm font-semibold text-[#111827]">
+            {draft.subject || "Без темы"}
+          </p>
+          <p className="truncate text-xs text-[#4b5563]">{draft.preheader}</p>
+        </div>
+        <div className="mx-auto transition-[max-width]" style={{ maxWidth: narrow ? 380 : 620 }}>
+          <iframe
+            title="Предпросмотр письма"
+            sandbox=""
+            srcDoc={html}
+            className="h-[560px] w-full rounded-xl border-0 bg-white lg:h-[640px]"
+          />
+        </div>
+      </div>
+
+      <p className="mt-2 ds-caption">
+        Это ровно тот HTML, который скачивается кнопкой «Скачать HTML»: таблицы, инлайн-стили и
+        кнопки, которые переживают Outlook.
+      </p>
     </div>
   );
 }

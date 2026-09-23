@@ -14,6 +14,7 @@ export const ANALYTICS_EVENTS = [
   // Landing
   "landing_template_selected",
   "landing_exported",
+  "email_exported",
   // Onboarding
   "onboarding_opened",
   "tour_started",

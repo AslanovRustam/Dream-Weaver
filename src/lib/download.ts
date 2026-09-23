@@ -1,8 +1,19 @@
 import { track } from "@/lib/analytics";
+import type { AnalyticsEventName } from "@/lib/analyticsEvents";
+
 // Trigger a client-side file download from an in-memory string (HTML, SVG, …).
-export function downloadText(filename: string, content: string, mime = "text/html;charset=utf-8") {
-  // Every landing builder ends here, so one call covers all of them.
-  track("landing_exported", { bytes: content.length });
+//
+// Every builder ends here, so the export event is recorded in one place — but
+// the name is a parameter: the email generator downloads through the same
+// helper, and counting its files as landing exports would quietly corrupt the
+// funnel in the admin report.
+export function downloadText(
+  filename: string,
+  content: string,
+  mime = "text/html;charset=utf-8",
+  event: AnalyticsEventName = "landing_exported",
+) {
+  track(event, { bytes: content.length });
   if (typeof window === "undefined") return;
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
