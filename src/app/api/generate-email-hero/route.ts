@@ -22,6 +22,7 @@ import { EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 import { openAiSizeString } from "@/lib/imageSizes";
+import { HERO_PROMPT_RULES } from "@/lib/emailHeroRules";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -149,7 +150,9 @@ export async function POST(request: Request) {
   const base = preset
     ? preset
     : (await composePrompt(brief, apiKey)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
-  const prompt = `${base}\n\n${NO_TEXT}`;
+  // Правила композиции идут и к пресету, и к собранному агентом промпту:
+  // без них модель ставит объект в угол и режет его краем кадра.
+  const prompt = `${base}\n\n${HERO_PROMPT_RULES}\n\n${NO_TEXT}`;
 
   // Reference images (up to 4, per OpenAI's /v1/images/edits limit): the
   // brand logo (style-only, never drawn) and/or a style-reference banner

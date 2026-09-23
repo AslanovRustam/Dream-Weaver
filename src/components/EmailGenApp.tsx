@@ -23,6 +23,7 @@ import { PRESETS } from "@/components/PresetSidebar";
 import { apiFetch } from "@/lib/api-client";
 import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
 import { simulateDarkClient } from "@/lib/emailDarkMode";
+import { HERO_ASPECT_RATIO, measureDataUrl } from "@/lib/emailHeroRules";
 import { downloadText } from "@/lib/download";
 import { imageCredits } from "@/lib/credit-estimate";
 
@@ -41,6 +42,7 @@ import {
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
 import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
+import { HeroRules } from "@/components/email/HeroRules";
 
 export function EmailGenApp() {
   const [draft, setDraft] = useState<EmailDraft>(() => newDraft());
@@ -171,6 +173,23 @@ export function EmailGenApp() {
     reader.onload = () => set(key, String(reader.result));
     reader.readAsDataURL(file);
   };
+  // Размеры и вес баннера нужны только для подсказок, поэтому живут рядом с
+  // формой, а не в черновике: у сохранённого письма их можно померить заново.
+  const [heroMeta, setHeroMeta] = useState<{ width: number; height: number; bytes: number } | null>(null);
+  useEffect(() => {
+    if (!draft.heroImage) {
+      setHeroMeta(null);
+      return;
+    }
+    let alive = true;
+    measureDataUrl(draft.heroImage)
+      .then((m) => alive && setHeroMeta(m))
+      .catch(() => alive && setHeroMeta(null));
+    return () => {
+      alive = false;
+    };
+  }, [draft.heroImage]);
+
   const onHeroFile = (file: File | null) => file && readAsDataUrl(file, "heroImage");
   const onLogoFile = (file: File | null) => file && readAsDataUrl(file, "logo");
 
@@ -229,6 +248,7 @@ export function EmailGenApp() {
           logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
           logoMode: draft.logoMode,
           palette: { accent: draft.accent, base: emailBase(draft) },
+          aspectRatio: HERO_ASPECT_RATIO,
           feature: "email-hero",
         },
       });
@@ -440,6 +460,7 @@ export function EmailGenApp() {
                 />
               </label>
             )}
+            <HeroRules meta={heroMeta} />
           </div>
 
         <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
