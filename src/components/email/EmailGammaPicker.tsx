@@ -4,6 +4,16 @@ import { Pipette } from "lucide-react";
 
 import { buildPalette, isHex } from "@/lib/emailPalette";
 
+// Нативная пипетка рисует образец цвета внутри своей рамки, и получается
+// квадрат в квадрате. Убираем внутренние отступы и рамку образца — цвет
+// заливает всю кнопку, остаётся только тонкий контур, чтобы цвет в тон
+// интерфейса не сливался с фоном.
+const SWATCH_CLS =
+  "h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated p-0 " +
+  "[&::-moz-color-swatch]:rounded-[7px] [&::-moz-color-swatch]:border-0 " +
+  "[&::-webkit-color-swatch]:rounded-[7px] [&::-webkit-color-swatch]:border-0 " +
+  "[&::-webkit-color-swatch-wrapper]:rounded-[7px] [&::-webkit-color-swatch-wrapper]:p-0";
+
 /**
  * Цветовая гамма письма — как на лендингах: человек задаёт два цвета, всё
  * остальное считается от них.
@@ -38,7 +48,7 @@ export function EmailGammaPicker({
             value={isHex(accent) ? accent : p.accent}
             onChange={(e) => onChange(e.target.value, base)}
             aria-label="Акцентный цвет письма"
-            className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated p-0"
+            className={SWATCH_CLS}
           />
           <span className="ds-caption">Акцент</span>
         </label>
@@ -48,7 +58,7 @@ export function EmailGammaPicker({
             value={isHex(base) ? base : p.page}
             onChange={(e) => onChange(accent, e.target.value)}
             aria-label="Базовый цвет письма"
-            className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated p-0"
+            className={SWATCH_CLS}
           />
           <span className="ds-caption">Фон</span>
         </label>
