@@ -37,7 +37,6 @@ import {
   emailBase,
   emailNameFromSubject,
   newDraft,
-  sanitizeEmailName,
   saveDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
@@ -53,17 +52,14 @@ export function EmailGenApp() {
   };
 
   /**
-   * Тема меняется — вместе с ней меняется и внутреннее имя, но только пока
-   * его не трогали руками. Признак «не трогали» выводим из самого значения:
-   * оно либо пустое, либо ровно то, что дала прошлая тема. Отдельный флаг
-   * «правили вручную» пришлось бы хранить в черновике и починять у старых.
+   * Внутреннее имя черновика человек не заполняет: поля для него в форме нет,
+   * а нужно оно списку черновиков, имени файла при выгрузке и названию
+   * кампании. Выводим из темы — латиницей и без пробелов, потому что имя
+   * уезжает в файлы и на почтовый сервис, где кириллица и пробелы ломают
+   * ссылки.
    */
   const setSubject = (subject: string) => {
-    setDraft((d) => ({
-      ...d,
-      subject,
-      name: !d.name || d.name === emailNameFromSubject(d.subject) ? emailNameFromSubject(subject) : d.name,
-    }));
+    setDraft((d) => ({ ...d, subject, name: emailNameFromSubject(subject) }));
     setSaved(false);
   };
 
@@ -152,7 +148,7 @@ export function EmailGenApp() {
         ctaText: str(f.ctaText) ?? d.ctaText,
         bonusCtaText: str(f.bonusCtaText) ?? d.bonusCtaText,
         footer: str(f.footer) ?? d.footer,
-        name: d.name || (str(f.subject) ? emailNameFromSubject(String(f.subject)) : d.name),
+        name: str(f.subject) ? emailNameFromSubject(String(f.subject)) : d.name,
         blocks: enableFilled(d.blocks, {
           subtitle: !!str(f.heroSubtitle),
           body: !!str(f.body),
@@ -322,19 +318,6 @@ export function EmailGenApp() {
             }
           }}
         />
-
-        <Field label="Название письма (внутреннее)">
-          <input
-            className={inputCls}
-            value={draft.name}
-            onChange={(e) => set("name", sanitizeEmailName(e.target.value))}
-          />
-          <p className="mt-1.5 ds-caption">
-            Ярлык для списка черновиков, имени файла и названия кампании — получатель его не
-            видит. Подставляется из темы, пока не измените вручную. Только латиница и дефисы:
-            имя уезжает в файлы и на почтовый сервис, где кириллица и пробелы ломают ссылки.
-          </p>
-        </Field>
 
         <div>
           <label className="mb-2 block ds-h4">Стиль</label>
