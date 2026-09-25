@@ -10,6 +10,7 @@ import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -192,10 +193,38 @@ export function MatchLandingApp() {
         setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
-      void generateBg(bgPrompt, bannerImg || undefined);
-      if (bannerHasCharacter) void generateCharacter("left", charPrompt, bannerImg || undefined);
+      // Сборка из баннера идёт тем же раннером, что и кнопка «все ассеты»:
+      // те же ограничения по параллельности, та же проверка баланса и тот же
+      // список шагов, который видно в оверлее поверх превью.
+      void assetRun.start([
+        {
+          id: "bg",
+          label: "Фон лендинга",
+          credits: BG_PRICE,
+          blocking: true,
+          run: () => generateBg(bgPrompt, bannerImg || undefined),
+        },
+        ...(bannerHasCharacter
+          ? [
+              {
+                id: "char-left",
+                label: "Персонаж слева",
+                credits: CHAR_PRICE,
+                run: () => generateCharacter("left", charPrompt, bannerImg || undefined),
+              },
+            ]
+          : []),
+        ...(["home", "away"] as const)
+          .filter((side) => teams[side].trim())
+          .map((side) => ({
+            id: `crest-${side}`,
+            label: `Эмблема: ${teams[side].trim()}`,
+            credits: CREST_PRICE,
+            run: () => generateCrest(side),
+          })),
+      ]);
       window.localStorage.removeItem("dw:landingSeed");
-      toast.success("Данные баннера перенесены — генерируем фон и персонажа…");
+      toast.success("Данные баннера перенесены — собираем лендинг…");
     } catch {
       /* ignore */
     }
@@ -797,6 +826,7 @@ export function MatchLandingApp() {
           }`}
           style={{ background: "#071022" }}
         >
+          {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
           {bgImage ? (
             <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (

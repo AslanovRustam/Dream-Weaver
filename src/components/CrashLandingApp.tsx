@@ -16,6 +16,7 @@ import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -194,10 +195,36 @@ export function CrashLandingApp() {
         setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
-      void generateBg(bgPrompt, bannerImg || undefined);
-      if (bannerHasCharacter) void generateCharacter("left", charPrompt, bannerImg || undefined);
+      // Сборка из баннера идёт тем же раннером, что и кнопка «все ассеты»:
+      // те же ограничения по параллельности, та же проверка баланса и тот же
+      // список шагов, который видно в оверлее поверх превью.
+      void assetRun.start([
+        {
+          id: "bg",
+          label: "Фон лендинга",
+          credits: BG_PRICE,
+          blocking: true,
+          run: () => generateBg(bgPrompt, bannerImg || undefined),
+        },
+        ...(bannerHasCharacter
+          ? [
+              {
+                id: "char-left",
+                label: "Персонаж слева",
+                credits: CHAR_PRICE,
+                run: () => generateCharacter("left", charPrompt, bannerImg || undefined),
+              },
+            ]
+          : []),
+        {
+          id: "rocket",
+          label: "Иконка ракеты",
+          credits: ROCKET_PRICE,
+          run: () => generateRocketIcon(),
+        },
+      ]);
       window.localStorage.removeItem("dw:landingSeed");
-      toast.success("Данные баннера перенесены — генерируем фон и персонажа…");
+      toast.success("Данные баннера перенесены — собираем лендинг…");
     } catch {
       /* malformed seed — ignore */
     }
@@ -863,6 +890,7 @@ export function CrashLandingApp() {
           }`}
           style={{ background: dark ? "#1a1030" : "#fde8b0" }}
         >
+          {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
           {bgImage ? (
             <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
