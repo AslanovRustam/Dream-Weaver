@@ -24,7 +24,7 @@ import { apiFetch } from "@/lib/api-client";
 import { buildEmailHtml, emailFileName } from "@/lib/emailExport";
 import { simulateDarkClient } from "@/lib/emailDarkMode";
 import { HERO_ASPECT_RATIO, HERO_MAX_BYTES, HERO_RETINA_WIDTH, measureDataUrl } from "@/lib/emailHeroRules";
-import { compressForEmail, rasterizeSvg } from "@/lib/imageCompress";
+import { compressImage, rasterizeSvg } from "@/lib/imageCompress";
 import { composeHeroWithLogo } from "@/lib/emailHeroCompose";
 import { buildPalette } from "@/lib/emailPalette";
 import { downloadText } from "@/lib/download";
@@ -219,7 +219,7 @@ export function EmailGenApp() {
   const putHero = async (dataUrl: string) => {
     setHeroBusy(true);
     try {
-      const out = await compressForEmail(dataUrl, {
+      const out = await compressImage(dataUrl, {
         maxWidth: HERO_RETINA_WIDTH,
         maxBytes: HERO_MAX_BYTES,
         background: buildPalette(draft.accent, emailBase(draft)).panel,

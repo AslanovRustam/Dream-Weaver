@@ -18,6 +18,7 @@ import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { analyzeSeedBanner } from "@/lib/landingSeed";
+import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -461,6 +462,32 @@ export function CrashLandingApp() {
    */
   const assetRun = useAssetRun();
   const [seedAnalyzing, setSeedAnalyzing] = useState(false);
+
+  /**
+   * Загруженный клиентом баннер: разбираем его так же, как свой, и оставляем
+   * стилевым референсом — дальше фон и персонаж рисуются от него (i2i).
+   * Генерацию не запускаем: она платная, а загрузка файла — ещё не согласие
+   * потратить кредиты.
+   */
+  const onBannerRefPick = (dataUrl: string) => {
+    setBannerRef(dataUrl);
+    if (!bgImage) setBgImage(dataUrl);
+    void (async () => {
+      setSeedAnalyzing(true);
+      const a = await analyzeSeedBanner(dataUrl, "crash");
+      setSeedAnalyzing(false);
+      if (!a) {
+        toast.error("Не удалось разобрать баннер — поля оставили как есть");
+        return;
+      }
+      if (a.headline) setHeadline(a.headline.toUpperCase());
+      if (a.cta) setCtaText(a.cta);
+      if (a.accent) setAccent(a.accent);
+      if (a.bgPrompt) setTheme(a.bgPrompt);
+      if (a.charPrompt) setCharPrompts((p) => ({ ...p, left: a.charPrompt as string }));
+      toast.success("Баннер разобран — поля заполнены, можно генерировать ассеты");
+    })();
+  };
   const assetSteps = (): AssetStep[] => {
     const steps: AssetStep[] = [
       { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
@@ -656,6 +683,13 @@ export function CrashLandingApp() {
               </div>
           )}
         </Field>
+
+        <BannerReferenceField
+          value={bannerRef}
+          analyzing={seedAnalyzing}
+          onPick={onBannerRefPick}
+          onClear={() => setBannerRef("")}
+        />
 
         <AssetRunPanel
           steps={assetRun.steps}

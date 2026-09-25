@@ -1,5 +1,5 @@
-// Сжатие картинок для письма — в браузере, перед тем как картинка попадёт в
-// черновик.
+// Сжатие картинок в браузере — перед тем как картинка попадёт в черновик или
+// уедет генератору.
 //
 // Генератор отдаёт баннер 1792px и под два мегабайта: на экране это незаметно,
 // а в письме означает долгую загрузку на мобильном интернете. Письмо шириной
@@ -88,7 +88,7 @@ export async function rasterizeSvg(dataUrl: string, width = 512): Promise<string
  * из полученного: картинка всё равно легче исходной, а решение показывать её
  * или менять — за человеком.
  */
-export async function compressForEmail(
+export async function compressImage(
   dataUrl: string,
   opts: { maxWidth: number; maxBytes: number; background: string },
 ): Promise<CompressResult> {
