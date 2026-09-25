@@ -6,6 +6,8 @@ import { centerCrop } from "@/lib/resizePlan";
 
 export type GeneratePayload = {
   preset_id: string;
+  /** Директива варианта: чем этот кадр отличается от соседних в пачке. */
+  variation?: string;
   button_text: string;
   banner_text: string;
   prompt: string;
@@ -227,6 +229,7 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
         side_b_players: payload.side_b_players || "",
         quality: payload.quality || "medium",
         template_options: payload.template_options || "",
+        variation: payload.variation || "",
         source_image: payload.source_image,
         target_w: payload.target_w,
         target_h: payload.target_h,

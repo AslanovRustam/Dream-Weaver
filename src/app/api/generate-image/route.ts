@@ -156,6 +156,7 @@ type Body = {
   quality?: "low" | "medium" | "high";
   /** Compiled per-template custom-field selections (CUSTOMISATION block). */
   template_options?: string;
+  variation?: string;
   prompt?: string;
 };
 
@@ -1137,6 +1138,17 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
         const templateOptions = (body.template_options || "").trim().slice(0, 600);
         if (templateOptions && !hasSourceImage) {
           finalPrompt += `\n\nCUSTOMISATION (apply strictly): ${templateOptions}`;
+        }
+
+        // Директива варианта: пачка из нескольких баннеров по одному брифу
+        // иначе выходит почти одинаковой. Меняем только кадр — тексты, логотип
+        // и фирменные цвета остаются теми, что человек задал в форме.
+        const variation = (body.variation || "").trim().slice(0, 300);
+        if (variation && !hasSourceImage) {
+          finalPrompt +=
+            `\n\nVARIATION (this render only): ${variation}` +
+            " Change ONLY what this VARIATION line asks for. Every text string, the brand logo," +
+            " the brand colours and the offer itself stay exactly as specified above.";
         }
 
         // Belt-and-suspenders TEXT FIDELITY block — applied to EVERY

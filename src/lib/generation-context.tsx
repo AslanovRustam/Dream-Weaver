@@ -37,6 +37,7 @@ import {
   type MasterDetails,
   type UsageInfo,
 } from "./imageGen";
+import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
@@ -68,6 +69,8 @@ export type MasterVariant = {
   cardId?: string | null;
   usage?: UsageInfo | null;
   error?: string;
+  /** Чем этот вариант отличался от соседей — уезжает в бриф вместе с ним. */
+  variation?: string;
 };
 
 /** Сколько вариантов разрешаем за раз: роут держит 4 запроса от юзера в лёте. */
@@ -404,7 +407,9 @@ export function GenerationProvider({ children }: ProviderProps) {
         imageUrl: v.imageUrl,
         cardId: v.cardId ?? null,
         lastUsage: v.usage ?? null,
-        lastPayload: { ...payload, card_id: v.cardId ?? undefined },
+        // Бриф запоминаем вместе с директивой варианта: «сгенерировать заново»
+        // и карточка истории должны повторять именно этот кадр.
+        lastPayload: { ...payload, variation: v.variation ?? "", card_id: v.cardId ?? undefined },
         lastMasterRatio: payload.aspect_ratio,
         activeVariantId: v.id,
         tiles: [],
@@ -428,9 +433,11 @@ export function GenerationProvider({ children }: ProviderProps) {
     async (payload, count) => {
       const n = Math.max(1, Math.min(MAX_MASTER_VARIANTS, Math.round(count)));
       cancelRef.current = false;
+      const hints = variationsFor(n);
       const variants: MasterVariant[] = Array.from({ length: n }, (_, i) => ({
         id: `v${Date.now().toString(36)}${i}`,
         status: "running" as const,
+        variation: hints[i],
       }));
       patch({
         status: "master_running",
@@ -448,7 +455,7 @@ export function GenerationProvider({ children }: ProviderProps) {
 
       const run = async (v: MasterVariant) => {
         try {
-          const result = await generateImage(payload);
+          const result = await generateImage({ ...payload, variation: v.variation ?? "" });
           if (cancelRef.current) return;
           const done: MasterVariant = {
             ...v,

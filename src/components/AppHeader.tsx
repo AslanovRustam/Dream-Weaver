@@ -81,6 +81,22 @@ export function refreshMe() {
     .catch(() => {});
 }
 
+/**
+ * Баланс на этот момент — свежий, не из кэша: между открытием страницы и
+ * нажатием кнопки кредиты могли уйти в другой вкладке. Заодно обновляет
+ * шапку. null — узнать не удалось (гость, сеть); звонящий не должен на этом
+ * останавливаться, сервер всё равно проверит.
+ */
+export async function fetchBalance(): Promise<number | null> {
+  try {
+    const me = await apiJson<MeResponse>("/api/me");
+    setMe(me);
+    return Number(me.profile.credits_balance) || 0;
+  } catch {
+    return null;
+  }
+}
+
 const LOW_CREDIT_THRESHOLD = 20;
 
 type ProjectItem = { id: string; name: string; thumb: string | null; updated: string };

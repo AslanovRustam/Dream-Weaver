@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
+import { fetchBalance } from "@/components/AppHeader";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -1061,6 +1062,23 @@ export function ImageGenApp() {
       quality,
       template_options: templateOptions,
     };
+    // Пачку проверяем по балансу заранее. Иначе из четырёх вариантов два
+    // сгенерируются, а третий вернёт 402 — деньги списаны, результат неполный,
+    // и человек узнаёт о нехватке кредитов постфактум. Узнать баланс не
+    // удалось — не мешаем: сервер всё равно проверит при списании.
+    const balance = await fetchBalance();
+    if (balance !== null && balance < estCredits) {
+      const single = estimateBannerCredits({ model, quality });
+      const affordable = Math.floor(balance / Math.max(1, single));
+      setStatus("idle");
+      toast.error(
+        affordable > 0
+          ? `Нужно ${estCredits} кредитов, на балансе ${balance}. Хватит на ${affordable} ${affordable === 1 ? "вариант" : "варианта"}.`
+          : `Нужно ${estCredits} кредитов, на балансе ${balance}.`,
+      );
+      return;
+    }
+
     try {
       // runMaster pushes imageUrl + lastPayload + lastMasterRatio into
       // the context directly, but it ALSO returns the fresh image
