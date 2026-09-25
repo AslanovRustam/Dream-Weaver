@@ -662,6 +662,13 @@ export function MatchLandingApp() {
           <p className="mt-1.5 ds-caption">Обязательно. По тематике ИИ подбирает тексты, команды и промпты — жмите ✨ у полей.</p>
         </div>
 
+        <BannerReferenceField
+          value={bannerRef}
+          analyzing={seedAnalyzing}
+          onPick={onBannerRefPick}
+          onClear={() => setBannerRef("")}
+        />
+
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <label className="ds-h4">Цветовая гамма</label>
@@ -810,13 +817,6 @@ export function MatchLandingApp() {
           ) : null}
           <p className="mt-2 ds-caption">На нуле таймер переключается в «LIVE».</p>
         </CollapsibleSection>
-
-        <BannerReferenceField
-          value={bannerRef}
-          analyzing={seedAnalyzing}
-          onPick={onBannerRefPick}
-          onClear={() => setBannerRef("")}
-        />
 
         <AssetRunPanel
           steps={assetRun.steps}

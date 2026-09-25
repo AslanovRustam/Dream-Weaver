@@ -638,6 +638,13 @@ export function WheelLandingApp() {
           </p>
         </Field>
 
+        <BannerReferenceField
+          value={bannerRef}
+          analyzing={seedAnalyzing}
+          onPick={onBannerRefPick}
+          onClear={() => setBannerRef("")}
+        />
+
         <Field label="Заголовок">
           <div className="flex items-center gap-2">
             <input className={inputCls} value={headline} onChange={(e) => setHeadline(e.target.value)} />
@@ -686,13 +693,6 @@ export function WheelLandingApp() {
             </div>
           )}
         </Field>
-
-        <BannerReferenceField
-          value={bannerRef}
-          analyzing={seedAnalyzing}
-          onPick={onBannerRefPick}
-          onClear={() => setBannerRef("")}
-        />
 
         <AssetRunPanel
           steps={assetRun.steps}

@@ -57,7 +57,10 @@ export function BannerReferenceField({
 
   return (
     <div className="rounded-xl border border-border bg-background/40 p-3">
-      <label className="mb-2 block ds-h4">Свой баннер</label>
+      <label className="mb-1 block ds-h4">Или загрузите свой баннер</label>
+      <p className="mb-2 ds-caption">
+        Не хотите описывать тематику — дайте готовый креатив, остальное ИИ подберёт по нему.
+      </p>
 
       {value ? (
         <div className="flex items-center gap-2">
@@ -94,7 +97,7 @@ export function BannerReferenceField({
 
       <p className="mt-1.5 ds-caption">
         Разберём тексты, цвет и сюжет, заполним поля и будем рисовать фон с персонажем от этого
-        баннера. Генерацию запустите кнопкой ниже — кредиты списываются только за неё.
+        баннера. Разбор бесплатный; генерацию ассетов запустите кнопкой ниже.
       </p>
     </div>
   );

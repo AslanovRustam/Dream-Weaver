@@ -756,6 +756,13 @@ export function SlotLandingApp() {
           </p>
         </div>
 
+        <BannerReferenceField
+          value={bannerRef}
+          analyzing={seedAnalyzing}
+          onPick={onBannerRefPick}
+          onClear={() => setBannerRef("")}
+        />
+
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <label className="ds-h4">Цветовая гамма</label>
@@ -820,13 +827,6 @@ export function SlotLandingApp() {
               </div>
           )}
         </Field>
-
-        <BannerReferenceField
-          value={bannerRef}
-          analyzing={seedAnalyzing}
-          onPick={onBannerRefPick}
-          onClear={() => setBannerRef("")}
-        />
 
         <AssetRunPanel
           steps={assetRun.steps}
