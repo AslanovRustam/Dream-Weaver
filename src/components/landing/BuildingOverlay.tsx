@@ -33,7 +33,10 @@ export function BuildingOverlay({ steps }: { steps: AssetStepState[] }) {
   const done = steps.filter((s) => s.status === "done").length;
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/85 backdrop-blur-sm">
+    // z-40: внутри превью есть слои посерьёзнее — персонажи (z-20), колонка с
+    // колесом и кнопкой (z-30). Лоадер должен закрывать их все, иначе он
+    // оказывается за колесом.
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/85 backdrop-blur-sm">
       <div className="flex max-w-xs flex-col items-center gap-3 px-6 text-center">
         <Loader2 className="h-7 w-7 animate-spin text-accent-green" />
         <p className="text-sm font-medium text-foreground">
