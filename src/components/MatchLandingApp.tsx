@@ -11,6 +11,7 @@ import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
+import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -182,21 +183,45 @@ export function MatchLandingApp() {
       if (head) setHeadline(String(head).toUpperCase());
       if (typeof s.cta === "string" && s.cta) setCtaText(s.cta);
       if (typeof s.subject === "string" && s.subject) setTopic(s.subject);
-      const bannerHasCharacter = typeof s.character_prompt === "string" && s.character_prompt.length > 0;
-      const bgPrompt = typeof s.background_prompt === "string" && s.background_prompt ? s.background_prompt : DEFAULT_THEME;
-      const charPrompt = bannerHasCharacter ? (s.character_prompt as string) : DEFAULT_CHAR;
-      setTheme(bgPrompt);
-      setCharPrompts((p) => ({ ...p, left: charPrompt }));
-      setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
         setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
-      // Сборка из баннера идёт тем же раннером, что и кнопка «все ассеты»:
-      // те же ограничения по параллельности, та же проверка баланса и тот же
-      // список шагов, который видно в оверлее поверх превью.
-      void assetRun.start([
+      // AUTHORITATIVE и для самой картинки персонажа: восстановленный черновик
+      // мог оставить персонажа от прошлого баннера. Если на этом баннере
+      // человек есть, шаг сборки вернёт картинку через несколько секунд.
+      setChars((c) => ({ ...c, left: "" }));
+      window.localStorage.removeItem("dw:landingSeed");
+
+      // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
+      // Тексты, акцент и промпты перекрываем только тем, что модель реально
+      // вернула: пустой ответ не должен затирать данные из баннер-генератора.
+      void (async () => {
+        setSeedAnalyzing(true);
+        const a = s.needs_analysis ? await analyzeSeedBanner(bannerImg, "crash") : null;
+        setSeedAnalyzing(false);
+        if (a?.headline) setHeadline(a.headline.toUpperCase());
+        if (a?.cta) setCtaText(a.cta);
+        if (a?.accent) setAccent(a.accent);
+
+        const bannerHasCharacter = a
+          ? a.hasPerson
+          : typeof s.character_prompt === "string" && s.character_prompt.length > 0;
+        const bgPrompt =
+          a?.bgPrompt ||
+          (typeof s.background_prompt === "string" && s.background_prompt
+            ? s.background_prompt
+            : DEFAULT_THEME);
+        const charPrompt =
+          a?.charPrompt ||
+          (typeof s.character_prompt === "string" && s.character_prompt
+            ? s.character_prompt
+            : DEFAULT_CHAR);
+        setTheme(bgPrompt);
+        setCharPrompts((p) => ({ ...p, left: charPrompt }));
+
+        await assetRun.start([
         {
           id: "bg",
           label: "Фон лендинга",
@@ -222,8 +247,8 @@ export function MatchLandingApp() {
             credits: CREST_PRICE,
             run: () => generateCrest(side),
           })),
-      ]);
-      window.localStorage.removeItem("dw:landingSeed");
+        ]);
+      })();
       toast.success("Данные баннера перенесены — собираем лендинг…");
     } catch {
       /* ignore */
@@ -403,6 +428,7 @@ export function MatchLandingApp() {
    * которую всё равно выбросят.
    */
   const assetRun = useAssetRun();
+  const [seedAnalyzing, setSeedAnalyzing] = useState(false);
   const assetSteps = (): AssetStep[] => {
     const steps: AssetStep[] = [
       { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
@@ -826,7 +852,15 @@ export function MatchLandingApp() {
           }`}
           style={{ background: "#071022" }}
         >
-          {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
+          {assetRun.running || seedAnalyzing ? (
+            <BuildingOverlay
+              steps={
+                assetRun.steps.length > 0
+                  ? assetRun.steps
+                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+              }
+            />
+          ) : null}
           {bgImage ? (
             <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (

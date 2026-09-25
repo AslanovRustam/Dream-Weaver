@@ -17,6 +17,7 @@ import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
+import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
@@ -173,32 +174,45 @@ export function CrashLandingApp() {
       // immediately (not just prefill-and-wait): pass the fresh values
       // directly rather than relying on the state just set here, which
       // hasn't committed yet in this same effect tick.
-      const bannerHasCharacter = typeof s.character_prompt === "string" && s.character_prompt.length > 0;
-      const bgPrompt =
-        typeof s.background_prompt === "string" && s.background_prompt
-          ? s.background_prompt
-          : "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база";
-      const charPrompt = bannerHasCharacter
-        ? (s.character_prompt as string)
-        : "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль";
-      setTheme(bgPrompt);
-      setCharPrompts((p) => ({ ...p, left: charPrompt }));
-      // AUTHORITATIVE for the rendered character image too, not just its
-      // prompt text: clear the left slot outright (a restored draft above
-      // may have left an OLD character image showing from a previous banner
-      // that DID have one). If this banner has a character, generateCharacter
-      // below fills it back in moments later; if it doesn't, the slot now
-      // correctly stays empty instead of keeping the stale one.
-      setChars((c) => ({ ...c, left: "" }));
       const bannerImg = gen.imageUrl || "";
       if (bannerImg) {
         setBgImage(bannerImg);
         setBannerRef(bannerImg);
       }
-      // Сборка из баннера идёт тем же раннером, что и кнопка «все ассеты»:
-      // те же ограничения по параллельности, та же проверка баланса и тот же
-      // список шагов, который видно в оверлее поверх превью.
-      void assetRun.start([
+      // AUTHORITATIVE и для самой картинки персонажа: восстановленный черновик
+      // мог оставить персонажа от прошлого баннера. Если на этом баннере
+      // человек есть, шаг сборки вернёт картинку через несколько секунд.
+      setChars((c) => ({ ...c, left: "" }));
+      window.localStorage.removeItem("dw:landingSeed");
+
+      // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
+      // Тексты, акцент и промпты перекрываем только тем, что модель реально
+      // вернула: пустой ответ не должен затирать данные из баннер-генератора.
+      void (async () => {
+        setSeedAnalyzing(true);
+        const a = s.needs_analysis ? await analyzeSeedBanner(bannerImg, "crash") : null;
+        setSeedAnalyzing(false);
+        if (a?.headline) setHeadline(a.headline.toUpperCase());
+        if (a?.cta) setCtaText(a.cta);
+        if (a?.accent) setAccent(a.accent);
+
+        const bannerHasCharacter = a
+          ? a.hasPerson
+          : typeof s.character_prompt === "string" && s.character_prompt.length > 0;
+        const bgPrompt =
+          a?.bgPrompt ||
+          (typeof s.background_prompt === "string" && s.background_prompt
+            ? s.background_prompt
+            : "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база");
+        const charPrompt =
+          a?.charPrompt ||
+          (typeof s.character_prompt === "string" && s.character_prompt
+            ? s.character_prompt
+            : "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль");
+        setTheme(bgPrompt);
+        setCharPrompts((p) => ({ ...p, left: charPrompt }));
+
+        await assetRun.start([
         {
           id: "bg",
           label: "Фон лендинга",
@@ -222,8 +236,8 @@ export function CrashLandingApp() {
           credits: ROCKET_PRICE,
           run: () => generateRocketIcon(),
         },
-      ]);
-      window.localStorage.removeItem("dw:landingSeed");
+        ]);
+      })();
       toast.success("Данные баннера перенесены — собираем лендинг…");
     } catch {
       /* malformed seed — ignore */
@@ -446,6 +460,7 @@ export function CrashLandingApp() {
    * которую всё равно выбросят.
    */
   const assetRun = useAssetRun();
+  const [seedAnalyzing, setSeedAnalyzing] = useState(false);
   const assetSteps = (): AssetStep[] => {
     const steps: AssetStep[] = [
       { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
@@ -890,7 +905,15 @@ export function CrashLandingApp() {
           }`}
           style={{ background: dark ? "#1a1030" : "#fde8b0" }}
         >
-          {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
+          {assetRun.running || seedAnalyzing ? (
+            <BuildingOverlay
+              steps={
+                assetRun.steps.length > 0
+                  ? assetRun.steps
+                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+              }
+            />
+          ) : null}
           {bgImage ? (
             <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (

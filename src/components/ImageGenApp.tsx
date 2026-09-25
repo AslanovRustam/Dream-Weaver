@@ -31,7 +31,7 @@ import { GenerationErrorCard } from "./GenerationErrorCard";
 import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
-import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
+import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
 import { GenerationSteps } from "@/components/banner/GenerationSteps";
@@ -914,55 +914,41 @@ export function ImageGenApp() {
     });
   };
 
-  // "Сделать лендинг из баннера": a vision pass over the APPROVED banner's
-  // actual pixels (analyzeBannerForLanding — see api/analyze-banner-for-
-  // landing) extracts its texts, accent colour, and — if a person is on the
-  // banner — ready background/character generation prompts. The seed also
-  // carries `banner_reference` (the banner image itself) so the landing
-  // builder can pass it as a STYLE reference (i2i) when the user generates
-  // its background/character, not just as literal reused pixels.
-  const makeLandingFromBanner = async (mechanic: "wheel" | "slot" | "crash") => {
+  // "Сделать лендинг из баннера": переносит в конструктор лендинга то, что
+  // известно баннер-генератору (бренд, лого, тексты полей, цвет), и уходит на
+  // страницу механики. Сам баннер лендинг возьмёт из общего контекста
+  // генерации: он же станет стилевым референсом для фона и персонажа.
+  const makeLandingFromBanner = (mechanic: "wheel" | "slot" | "crash") => {
     if (!imageUrl) return;
-    const toastId = toast.loading("Анализируем баннер…");
-    const analysis = await analyzeBannerForLanding(imageUrl, mechanic).catch(() => null);
-    toast.dismiss(toastId);
+    // Разбор баннера переехал на лендинг: там он первый шаг сборки и виден в
+    // общем списке. Здесь бы он означал несколько секунд тоста на уходящем
+    // экране — ожидание без единого признака, что дальше будет ещё дольше.
     try {
       const hexRe = /^#[0-9a-fA-F]{6}$/;
       const seedAccent =
-        (analysis?.accent_color_hex && hexRe.test(analysis.accent_color_hex)
-          ? analysis.accent_color_hex
-          : "") ||
-        // accent_color_hex can occasionally miss the regex (model formatting
-        // slip) even when the broader palette came back fine — fall back to
-        // the first valid palette colour before giving up on the banner
-        // entirely, so the landing's accent almost always ends up banner-derived.
-        analysis?.palette?.find((c) => hexRe.test(c)) ||
         colorRoles.find((r) => r.id === "accent" && r.enabled && hexRe.test(r.hex))?.hex ||
         colorRoles.find((r) => r.enabled && hexRe.test(r.hex))?.hex ||
         "";
       window.localStorage.setItem(
         "dw:landingSeed",
         JSON.stringify({
-          brand_name: analysis?.brand_name || brandName,
+          brand_name: brandName,
           brand_logo: brandLogo,
           subject: isSlotPreset ? slotName : prompt,
           language,
-          banner_text: analysis?.headline || (bannerTextEnabled ? bannerText : ""),
-          subheadline: analysis?.subheadline || "",
-          cta: analysis?.cta_text || (buttonTextEnabled ? buttonText : ""),
+          banner_text: bannerTextEnabled ? bannerText : "",
+          cta: buttonTextEnabled ? buttonText : "",
           accent: seedAccent,
           vertical: bannerPresetToVertical(preset),
-          background_prompt: analysis?.background_prompt || "",
-          character_prompt: analysis?.has_person ? analysis.character_prompt : "",
-          symbols: analysis?.symbols?.length ? analysis.symbols : undefined,
           from_banner: true,
+          // Лендинг разберёт баннер сам и перекроет этим тексты, акцент и
+          // промпты — но только те поля, которые модель реально вернула.
+          needs_analysis: true,
+          mechanic,
         }),
       );
     } catch {
       /* quota — landing just opens empty */
-    }
-    if (!analysis) {
-      toast.error("Не удалось проанализировать баннер — открываем с базовыми данными");
     }
     router.push(`/${mechanic}`);
   };
@@ -2098,21 +2084,21 @@ export function ImageGenApp() {
                               Выберите шаблон
                             </div>
                             <DropdownMenuItem
-                              onClick={() => void makeLandingFromBanner("wheel")}
+                              onClick={() => makeLandingFromBanner("wheel")}
                               className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                             >
                               <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
                               Колесо фортуны
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => void makeLandingFromBanner("slot")}
+                              onClick={() => makeLandingFromBanner("slot")}
                               className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                             >
                               <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
                               Слот-машина
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => void makeLandingFromBanner("crash")}
+                              onClick={() => makeLandingFromBanner("crash")}
                               className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
                             >
                               <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
