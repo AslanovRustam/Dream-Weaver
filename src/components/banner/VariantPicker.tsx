@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 import { MAX_MASTER_VARIANTS, type MasterVariant } from "@/lib/generation-context";
 
@@ -67,7 +67,7 @@ export function VariantStrip({
   return (
     <div>
       <p className="mb-1.5 ds-caption">Варианты · выберите тот, с которым работаем дальше</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {variants.map((v, i) => {
           const active = v.id === activeId;
           if (v.status === "done" && v.imageUrl) {
@@ -78,7 +78,7 @@ export function VariantStrip({
                 onClick={() => onPick(v.id)}
                 aria-pressed={active}
                 title={`Вариант ${i + 1}`}
-                className={`h-20 w-20 overflow-hidden rounded-lg border-2 transition ${
+                className={`aspect-square overflow-hidden rounded-xl border-2 transition ${
                   active ? "border-accent-green" : "border-border hover:border-accent-green/50"
                 }`}
               >
@@ -89,13 +89,19 @@ export function VariantStrip({
           return (
             <div
               key={v.id}
-              title={v.error}
-              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-border bg-background/40 p-1 text-center"
+              className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/40 p-3 text-center"
             >
               {v.status === "running" ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
-                <span className="ds-caption line-clamp-3 text-[10px]">{v.error || "Ошибка"}</span>
+                <>
+                  <AlertTriangle className="h-5 w-5 text-amber-400" aria-hidden="true" />
+                  <span className="ds-caption line-clamp-4">{v.error || "Не получилось"}</span>
+                  {/* Списание идёт только за удавшуюся генерацию, поэтому
+                      возвращать нечего — но человеку надо это сказать, иначе он
+                      считает, что заплатил за пустую плитку. */}
+                  <span className="ds-caption text-accent-green">Кредиты не списаны</span>
+                </>
               )}
             </div>
           );

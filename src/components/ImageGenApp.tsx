@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
+import { GenerationSteps } from "@/components/banner/GenerationSteps";
 import { fetchBalance } from "@/components/AppHeader";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
@@ -1893,7 +1894,9 @@ export function ImageGenApp() {
               ? ({ preset_id: preset } as unknown as GeneratePayload)
               : gen.lastPayload;
             const isLoading =
-              !DEV_PREVIEW_RESULT && (status === "loading" || gen.status === "master_running");
+              !DEV_PREVIEW_RESULT &&
+              (status === "loading" || gen.status === "master_running") &&
+              !imageUrl;
             const [rw, rh] = ratio.split(":").map(Number);
             const frameAspect = rw && rh ? `${rw} / ${rh}` : "1 / 1";
             // Placeholders (empty / loading) must fit the column so they never
@@ -1914,12 +1917,11 @@ export function ImageGenApp() {
                   <div className="absolute inset-0 animate-pulse bg-muted" />
                   <div className="relative flex flex-col items-center gap-3 px-6 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-accent-green" />
-                    <p className="text-sm font-medium text-foreground">Генерируем баннер…</p>
-                    <p className="text-xs text-muted-foreground">
-                      {genSeconds >= 40
-                        ? `Занимает дольше обычного… ${genSeconds} с`
-                        : `Обычно занимает 10–30 секунд · ${genSeconds} с`}
-                    </p>
+                    <GenerationSteps
+                      seconds={genSeconds}
+                      done={gen.variants.filter((v) => v.status === "done").length}
+                      total={gen.variants.length || 1}
+                    />
                     <button
                       type="button"
                       onClick={cancelMaster}
