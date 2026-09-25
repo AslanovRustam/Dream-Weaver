@@ -253,10 +253,10 @@ export function SlotLandingApp() {
       // itself still always shows something sensible (below), but we must
       // not invent/auto-render a generic character for a banner that had none.
       const bannerImg = gen.imageUrl || "";
-      if (bannerImg) {
-        setBgImage(bannerImg);
-        setBannerRef(bannerImg);
-      }
+      // Баннер идёт только референсом. Фоном он раньше вставал сразу — и
+      // лендинг успевал показаться с чужой композицией, текстом и кнопкой
+      // поперёк экрана, пока настоящий фон ещё рисовался.
+      if (bannerImg) setBannerRef(bannerImg);
       // AUTHORITATIVE и для самой картинки персонажа: восстановленный черновик
       // мог оставить персонажа от прошлого баннера. Если на этом баннере
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
@@ -574,7 +574,6 @@ export function SlotLandingApp() {
    */
   const onBannerRefPick = (dataUrl: string) => {
     setBannerRef(dataUrl);
-    if (!bgImage) setBgImage(dataUrl);
     void (async () => {
       setSeedAnalyzing(true);
       const a = await analyzeSeedBanner(dataUrl, "slot");

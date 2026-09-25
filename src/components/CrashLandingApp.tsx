@@ -133,8 +133,8 @@ export function CrashLandingApp() {
     // Banner → crash handoff: prefill from the approved banner (analysed by
     // analyzeBannerForLanding — see ImageGenApp's "Сделать лендинг из баннера").
     // Its texts, brand and accent fill the fields; the AI-written background/
-    // character prompts replace the placeholders; the banner itself becomes an
-    // eager backdrop AND a style reference for later i2i regeneration.
+    // character prompts replace the placeholders; the banner itself becomes a
+    // style reference for the i2i generation that follows (never the backdrop).
     // Overrides the draft just restored above, then clears the seed.
     try {
       const raw = window.localStorage.getItem("dw:landingSeed");
@@ -176,10 +176,10 @@ export function CrashLandingApp() {
       // directly rather than relying on the state just set here, which
       // hasn't committed yet in this same effect tick.
       const bannerImg = gen.imageUrl || "";
-      if (bannerImg) {
-        setBgImage(bannerImg);
-        setBannerRef(bannerImg);
-      }
+      // Баннер идёт только референсом. Фоном он раньше вставал сразу — и
+      // лендинг успевал показаться с чужой композицией, текстом и кнопкой
+      // поперёк экрана, пока настоящий фон ещё рисовался.
+      if (bannerImg) setBannerRef(bannerImg);
       // AUTHORITATIVE и для самой картинки персонажа: восстановленный черновик
       // мог оставить персонажа от прошлого баннера. Если на этом баннере
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
@@ -471,7 +471,6 @@ export function CrashLandingApp() {
    */
   const onBannerRefPick = (dataUrl: string) => {
     setBannerRef(dataUrl);
-    if (!bgImage) setBgImage(dataUrl);
     void (async () => {
       setSeedAnalyzing(true);
       const a = await analyzeSeedBanner(dataUrl, "crash");
