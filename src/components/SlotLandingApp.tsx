@@ -27,6 +27,8 @@ import { imageCredits, CHARACTER_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } fro
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
 const BG_PRICE = imageCredits(1);
@@ -370,15 +372,15 @@ export function SlotLandingApp() {
   // list outright, keeping each slot's existing bonus/glyph text where the
   // new list is at least as long (so re-rolling doesn't wipe bonus amounts
   // the user already typed in).
-  const generateSlotIcons = async () => {
+  const generateSlotIcons = async (): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (symbolTheme || topic).trim();
     if (!prompt) {
       toast.error("Укажите тематику иконок (или тематику лендинга выше)");
-      return;
+      return false;
     }
     setSymbolsGenning(true);
     setGenError("");
@@ -408,8 +410,10 @@ export function SlotLandingApp() {
         })),
       );
       toast.success(`Сгенерировано ${tiles.length} иконок символов`);
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setSymbolsGenning(false);
     }
@@ -429,10 +433,11 @@ export function SlotLandingApp() {
   // seed effect can trigger generation immediately with the just-fetched
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
-  const generateBg = async (themeOverride?: string, refOverride?: string) => {
+  // Возвращают успех: пакетной сборке нужно знать, какой шаг не удался.
+  const generateBg = async (themeOverride?: string, refOverride?: string): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
@@ -446,8 +451,10 @@ export function SlotLandingApp() {
           ...(ref ? { styleReferenceImage: ref } : {}),
         }),
       );
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setGenning(false);
     }
@@ -457,13 +464,13 @@ export function SlotLandingApp() {
     side: "left" | "right",
     promptOverride?: string,
     refOverride?: string,
-  ) => {
+  ): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
-    if (!prompt) return;
+    if (!prompt) return false;
     const ref = refOverride ?? bannerRef;
     setCharGenning(side);
     setGenError("");
@@ -483,7 +490,7 @@ export function SlotLandingApp() {
         if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
         const trimmed = await trimTransparent(data.imageUrl);
         setChars((c) => ({ ...c, [side]: trimmed }));
-        return;
+        return true;
       }
       throw new Error(
         [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
@@ -498,13 +505,47 @@ export function SlotLandingApp() {
         });
         const cut = await removeBackground(raw);
         setChars((c) => ({ ...c, [side]: cut }));
+        return true;
       } catch (e) {
         setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+        return false;
       }
     } finally {
       setCharGenning(null);
     }
   };
+
+  /**
+   * Пакетная сборка: фон первым и в одиночку, остальное следом парами.
+   * Шаг без исходных данных (пустое описание персонажа, не введённая команда)
+   * пропускаем — генерировать «что-нибудь» значит списать кредиты за картинку,
+   * которую всё равно выбросят.
+   */
+  const assetRun = useAssetRun();
+  const assetSteps = (): AssetStep[] => {
+    const steps: AssetStep[] = [
+      { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
+    ];
+    for (const side of ["left", "right"] as const) {
+      if (!charPrompts[side].trim()) continue;
+      steps.push({
+        id: `char-${side}`,
+        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+        credits: CHAR_PRICE,
+        run: () => generateCharacter(side),
+      });
+    }
+    if ((symbolTheme || topic).trim()) {
+      steps.push({
+        id: "symbols",
+        label: `Иконки символов (${symbolCount})`,
+        credits: SYMBOLS_PRICE,
+        run: () => generateSlotIcons(),
+      });
+    }
+    return steps;
+  };
+  const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
@@ -676,6 +717,21 @@ export function SlotLandingApp() {
               </div>
           )}
         </Field>
+
+        <AssetRunPanel
+          steps={assetRun.steps}
+          running={assetRun.running}
+          notEnough={assetRun.notEnough}
+          credits={assetCredits}
+          onStart={() => {
+            if (isGuest) {
+              openGate();
+              return;
+            }
+            void assetRun.start(assetSteps());
+          }}
+          onCancel={assetRun.cancel}
+        />
 
         <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">

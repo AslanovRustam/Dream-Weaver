@@ -15,6 +15,8 @@ import { imageCredits, CHARACTER_PRICE_CREDITS, CRASH_ROCKET_PRICE_CREDITS } fro
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 
 const BG_PRICE = imageCredits(1);
@@ -290,10 +292,11 @@ export function CrashLandingApp() {
   // seed effect can trigger generation immediately with the just-fetched
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
-  const generateBg = async (themeOverride?: string, refOverride?: string) => {
+  // Возвращают успех: пакетной сборке нужно знать, какой шаг не удался.
+  const generateBg = async (themeOverride?: string, refOverride?: string): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
@@ -307,8 +310,10 @@ export function CrashLandingApp() {
           ...(ref ? { styleReferenceImage: ref } : {}),
         }),
       );
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setGenning(false);
     }
@@ -318,13 +323,13 @@ export function CrashLandingApp() {
     side: "left" | "right",
     promptOverride?: string,
     refOverride?: string,
-  ) => {
+  ): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
-    if (!prompt) return;
+    if (!prompt) return false;
     const ref = refOverride ?? bannerRef;
     setCharGenning(side);
     setGenError("");
@@ -344,7 +349,7 @@ export function CrashLandingApp() {
         if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
         const trimmed = await trimTransparent(data.imageUrl);
         setChars((c) => ({ ...c, [side]: trimmed }));
-        return;
+        return true;
       }
       throw new Error(
         [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
@@ -358,8 +363,10 @@ export function CrashLandingApp() {
         });
         const cut = await removeBackground(raw);
         setChars((c) => ({ ...c, [side]: cut }));
+        return true;
       } catch (e) {
         setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+        return false;
       }
     } finally {
       setCharGenning(null);
@@ -370,15 +377,15 @@ export function CrashLandingApp() {
   // the ~45° baseline CrashGame's rotation math assumes. Trimmed to its own
   // bounding box (same helper used for characters) so it sits tight in the
   // small trail-line footprint instead of carrying empty padding.
-  const generateRocketIcon = async () => {
+  const generateRocketIcon = async (): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (rocketTheme || topic).trim();
     if (!prompt) {
       toast.error("Укажите тематику иконки (или тематику лендинга выше)");
-      return;
+      return false;
     }
     setRocketGenning(true);
     setGenError("");
@@ -396,12 +403,46 @@ export function CrashLandingApp() {
       if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
       setRocketIcon(await trimTransparent(data.imageUrl));
       toast.success("Иконка ракеты сгенерирована");
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setRocketGenning(false);
     }
   };
+
+  /**
+   * Пакетная сборка: фон первым и в одиночку, остальное следом парами.
+   * Шаг без исходных данных (пустое описание персонажа, не введённая команда)
+   * пропускаем — генерировать «что-нибудь» значит списать кредиты за картинку,
+   * которую всё равно выбросят.
+   */
+  const assetRun = useAssetRun();
+  const assetSteps = (): AssetStep[] => {
+    const steps: AssetStep[] = [
+      { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
+    ];
+    for (const side of ["left", "right"] as const) {
+      if (!charPrompts[side].trim()) continue;
+      steps.push({
+        id: `char-${side}`,
+        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+        credits: CHAR_PRICE,
+        run: () => generateCharacter(side),
+      });
+    }
+    if ((rocketTheme || topic).trim()) {
+      steps.push({
+        id: "rocket",
+        label: "Иконка ракеты",
+        credits: ROCKET_PRICE,
+        run: () => generateRocketIcon(),
+      });
+    }
+    return steps;
+  };
+  const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
@@ -573,6 +614,21 @@ export function CrashLandingApp() {
               </div>
           )}
         </Field>
+
+        <AssetRunPanel
+          steps={assetRun.steps}
+          running={assetRun.running}
+          notEnough={assetRun.notEnough}
+          credits={assetCredits}
+          onStart={() => {
+            if (isGuest) {
+              openGate();
+              return;
+            }
+            void assetRun.start(assetSteps());
+          }}
+          onCancel={assetRun.cancel}
+        />
 
         <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">

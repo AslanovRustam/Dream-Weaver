@@ -9,6 +9,8 @@ import { MatchCard } from "@/components/MatchCard";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
@@ -262,10 +264,11 @@ export function MatchLandingApp() {
     return data.imageUrl as string;
   };
 
-  const generateBg = async (themeOverride?: string, refOverride?: string) => {
+  // Возвращают успех: пакетной сборке нужно знать, какой шаг не удался.
+  const generateBg = async (themeOverride?: string, refOverride?: string): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
@@ -275,20 +278,26 @@ export function MatchLandingApp() {
       setBgImage(
         await genImage({ presetTemplate: bgPreset(useTheme), feature: "landing-bg", ...(ref ? { styleReferenceImage: ref } : {}) }),
       );
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setGenning(false);
     }
   };
 
-  const generateCharacter = async (side: "left" | "right", promptOverride?: string, refOverride?: string) => {
+  const generateCharacter = async (
+    side: "left" | "right",
+    promptOverride?: string,
+    refOverride?: string,
+  ): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
-    if (!prompt) return;
+    if (!prompt) return false;
     const ref = refOverride ?? bannerRef;
     setCharGenning(side);
     setGenError("");
@@ -301,7 +310,7 @@ export function MatchLandingApp() {
       if (res.ok && data.imageUrl) {
         const trimmed = await trimTransparent(data.imageUrl);
         setChars((c) => ({ ...c, [side]: trimmed }));
-        return;
+        return true;
       }
       throw new Error([data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
     } catch {
@@ -309,23 +318,25 @@ export function MatchLandingApp() {
         const raw = await genImage({ presetTemplate: characterPreset(prompt), aspectRatio: "3:4", feature: "landing-character" });
         const cut = await removeBackground(raw);
         setChars((c) => ({ ...c, [side]: cut }));
+        return true;
       } catch (e) {
         setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+        return false;
       }
     } finally {
       setCharGenning(null);
     }
   };
 
-  const generateCrest = async (side: Side) => {
+  const generateCrest = async (side: Side): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const team = teams[side].trim();
     if (!team) {
       toast.error("Сначала введите название команды");
-      return;
+      return false;
     }
     setCrestGenning(side);
     setGenError("");
@@ -341,8 +352,10 @@ export function MatchLandingApp() {
       const trimmed = await trimTransparent(data.imageUrl);
       setCrests((c) => ({ ...c, [side]: trimmed }));
       toast.success(`Эмблема «${team}» сгенерирована`);
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setCrestGenning(null);
     }
@@ -353,6 +366,39 @@ export function MatchLandingApp() {
     if (m) setTeams({ home: m[1].trim(), away: m[2].trim() });
     else setTeams((t) => ({ ...t, home: text.trim() }));
   };
+
+  /**
+   * Пакетная сборка: фон первым и в одиночку, остальное следом парами.
+   * Шаг без исходных данных (пустое описание персонажа, не введённая команда)
+   * пропускаем — генерировать «что-нибудь» значит списать кредиты за картинку,
+   * которую всё равно выбросят.
+   */
+  const assetRun = useAssetRun();
+  const assetSteps = (): AssetStep[] => {
+    const steps: AssetStep[] = [
+      { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
+    ];
+    for (const side of ["left", "right"] as const) {
+      if (!charPrompts[side].trim()) continue;
+      steps.push({
+        id: `char-${side}`,
+        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+        credits: CHAR_PRICE,
+        run: () => generateCharacter(side),
+      });
+    }
+    for (const side of ["home", "away"] as const) {
+      if (!teams[side].trim()) continue;
+      steps.push({
+        id: `crest-${side}`,
+        label: `Эмблема: ${teams[side].trim()}`,
+        credits: CREST_PRICE,
+        run: () => generateCrest(side),
+      });
+    }
+    return steps;
+  };
+  const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
   const inputCls = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
   const sportMeta = SPORTS.find((s) => s.id === sport) ?? SPORTS[0];
@@ -650,6 +696,21 @@ export function MatchLandingApp() {
           ) : null}
           <p className="mt-2 ds-caption">На нуле таймер переключается в «LIVE».</p>
         </CollapsibleSection>
+
+        <AssetRunPanel
+          steps={assetRun.steps}
+          running={assetRun.running}
+          notEnough={assetRun.notEnough}
+          credits={assetCredits}
+          onStart={() => {
+            if (isGuest) {
+              openGate();
+              return;
+            }
+            void assetRun.start(assetSteps());
+          }}
+          onCancel={assetRun.cancel}
+        />
 
         <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена (для фона)">

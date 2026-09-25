@@ -27,6 +27,8 @@ import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -308,10 +310,12 @@ export function WheelLandingApp() {
   // seed effect can trigger generation immediately with the just-fetched
   // values — reading `theme`/`bannerRef` from closure there would race the
   // setState calls that set them (still holding the PREVIOUS render's value).
-  const generateBg = async (themeOverride?: string, refOverride?: string) => {
+  // Возвращают успех: пакетной сборке нужно знать, какой шаг не удался, а
+  // отдельным кнопкам возвращаемое значение не мешает.
+  const generateBg = async (themeOverride?: string, refOverride?: string): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const useTheme = themeOverride ?? theme;
     const ref = refOverride ?? bannerRef;
@@ -325,8 +329,10 @@ export function WheelLandingApp() {
           ...(ref ? { styleReferenceImage: ref } : {}),
         }),
       );
+      return true;
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+      return false;
     } finally {
       setGenning(false);
     }
@@ -336,13 +342,13 @@ export function WheelLandingApp() {
     side: "left" | "right",
     promptOverride?: string,
     refOverride?: string,
-  ) => {
+  ): Promise<boolean> => {
     if (isGuest) {
       openGate();
-      return;
+      return false;
     }
     const prompt = (promptOverride ?? charPrompts[side]).trim();
-    if (!prompt) return;
+    if (!prompt) return false;
     const ref = refOverride ?? bannerRef;
     setCharGenning(side);
     setGenError("");
@@ -363,7 +369,7 @@ export function WheelLandingApp() {
         if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
         const trimmed = await trimTransparent(data.imageUrl);
         setChars((c) => ({ ...c, [side]: trimmed }));
-        return;
+        return true;
       }
       throw new Error(
         [data?.error, data?.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать",
@@ -378,13 +384,45 @@ export function WheelLandingApp() {
         });
         const cut = await removeBackground(raw);
         setChars((c) => ({ ...c, [side]: cut }));
+        return true;
       } catch (e) {
         setGenError(e instanceof Error ? e.message : "Ошибка запроса");
+        return false;
       }
     } finally {
       setCharGenning(null);
     }
   };
+
+  /**
+   * Пакетная сборка: фон первым и в одиночку, персонажи следом.
+   *
+   * Персонаж без описания пропускается — генерировать «кого-нибудь» значит
+   * списать кредиты за картинку, которую всё равно выбросят.
+   */
+  const assetRun = useAssetRun();
+  const assetSteps = (): AssetStep[] => {
+    const steps: AssetStep[] = [
+      {
+        id: "bg",
+        label: "Фон лендинга",
+        credits: BG_PRICE,
+        blocking: true,
+        run: () => generateBg(),
+      },
+    ];
+    for (const side of ["left", "right"] as const) {
+      if (!charPrompts[side].trim()) continue;
+      steps.push({
+        id: `char-${side}`,
+        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+        credits: CHARACTER_PRICE_CREDITS,
+        run: () => generateCharacter(side),
+      });
+    }
+    return steps;
+  };
+  const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
@@ -551,6 +589,22 @@ export function WheelLandingApp() {
             </div>
           )}
         </Field>
+
+        <AssetRunPanel
+          steps={assetRun.steps}
+          running={assetRun.running}
+          notEnough={assetRun.notEnough}
+          credits={assetCredits}
+          disabled={genning || charGenning !== null}
+          onStart={() => {
+            if (isGuest) {
+              openGate();
+              return;
+            }
+            void assetRun.start(assetSteps());
+          }}
+          onCancel={assetRun.cancel}
+        />
 
         <CollapsibleSection title="Фон" tone="accent">
           <Field label="Сцена / персонаж (для фона)">
