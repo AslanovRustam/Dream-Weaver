@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Check, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles, X } from "lucide-react";
 
 import { CrashGame } from "@/components/CrashGame";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
@@ -46,7 +46,21 @@ export function CrashLandingApp() {
     "неоновый киберпанк-фон: фиолетово-циановое свечение, геометрические параллелограммы, голографический UI, тёмная база",
   );
   const [bgImage, setBgImage] = useState("");
-  const [chars, setChars] = useState<{ left: string; right: string }>({ left: "", right: "" });
+  const [charImages, setCharImages] = useState<{ left: string; right: string }>({
+    left: "",
+    right: "",
+  });
+  const [charOn, setCharOn] = useState<{ left: boolean; right: boolean }>({
+    left: true,
+    right: true,
+  });
+  const chars = useMemo(
+    () => ({
+      left: charOn.left ? charImages.left : "",
+      right: charOn.right ? charImages.right : "",
+    }),
+    [charImages, charOn],
+  );
   const [charPrompts, setCharPrompts] = useState<{ left: string; right: string }>({
     left: "кибер-девушка в неоновой экипировке, наушники, футуристичный стиль",
     right: "",
@@ -116,9 +130,15 @@ export function CrashLandingApp() {
         if (typeof d.rocketIcon === "string") setRocketIcon(d.rocketIcon);
         if (typeof d.theme === "string") setTheme(d.theme);
         if (typeof d.bgImage === "string") setBgImage(d.bgImage);
+        if (typeof d.charOnLeft === "boolean" || typeof d.charOnRight === "boolean") {
+          setCharOn({
+            left: d.charOnLeft !== false,
+            right: d.charOnRight !== false,
+          });
+        }
         const cl = typeof d.charLeft === "string" ? d.charLeft : "";
         const cr = typeof d.charRight === "string" ? d.charRight : "";
-        if (cl || cr) setChars({ left: cl, right: cr });
+        if (cl || cr) setCharImages({ left: cl, right: cr });
         if (typeof d.charPromptLeft === "string" || typeof d.charPromptRight === "string") {
           setCharPrompts((p) => ({
             left: typeof d.charPromptLeft === "string" ? d.charPromptLeft : p.left,
@@ -183,7 +203,7 @@ export function CrashLandingApp() {
       // AUTHORITATIVE и для самой картинки персонажа: восстановленный черновик
       // мог оставить персонажа от прошлого баннера. Если на этом баннере
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
-      setChars((c) => ({ ...c, left: "" }));
+      setCharImages((c) => ({ ...c, left: "" }));
       window.localStorage.removeItem("dw:landingSeed");
 
       // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
@@ -263,8 +283,10 @@ export function CrashLandingApp() {
         rocketIcon,
         theme,
         bgImage,
-        charLeft: chars.left,
-        charRight: chars.right,
+        charLeft: charImages.left,
+        charRight: charImages.right,
+        charOnLeft: charOn.left,
+        charOnRight: charOn.right,
         charPromptLeft: charPrompts.left,
         charPromptRight: charPrompts.right,
       };
@@ -382,7 +404,7 @@ export function CrashLandingApp() {
       const res = await apiFetch("/api/generate-character", {
         method: "POST",
         json: {
-          prompt: characterPreset(prompt),
+          prompt: characterPreset(prompt, side),
           ...(ref ? { reference_image: ref } : {}),
         },
       });
@@ -390,7 +412,7 @@ export function CrashLandingApp() {
       if (res.ok && data.imageUrl) {
         if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
         const trimmed = await trimTransparent(data.imageUrl);
-        setChars((c) => ({ ...c, [side]: trimmed }));
+        setCharImages((c) => ({ ...c, [side]: trimmed }));
         return true;
       }
       throw new Error(
@@ -399,12 +421,12 @@ export function CrashLandingApp() {
     } catch {
       try {
         const raw = await genImage({
-          presetTemplate: characterPreset(prompt),
+          presetTemplate: characterPreset(prompt, side),
           aspectRatio: "3:4",
           feature: "landing-character",
         });
         const cut = await removeBackground(raw);
-        setChars((c) => ({ ...c, [side]: cut }));
+        setCharImages((c) => ({ ...c, [side]: cut }));
         return true;
       } catch (e) {
         setGenError(e instanceof Error ? e.message : "Ошибка запроса");
@@ -519,13 +541,25 @@ export function CrashLandingApp() {
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-xs font-semibold text-foreground">{title}</span>
-        {chars[side] ? (
+        {charImages[side] ? (
           <button
             type="button"
-            onClick={() => setChars((c) => ({ ...c, [side]: "" }))}
-            className="text-[11px] text-muted-foreground transition hover:text-foreground"
+            role="checkbox"
+            aria-checked={charOn[side]}
+            aria-label={`${title} — показывать на лендинге`}
+            onClick={() => setCharOn((c) => ({ ...c, [side]: !c[side] }))}
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition hover:text-foreground"
           >
-            Убрать
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-[5px] border transition ${
+                charOn[side]
+                  ? "border-accent-green bg-accent-green text-on-accent"
+                  : "border-border text-transparent"
+              }`}
+            >
+              <Check className="h-3 w-3" />
+            </span>
+            {charOn[side] ? "На лендинге" : "Выключен"}
           </button>
         ) : null}
       </div>

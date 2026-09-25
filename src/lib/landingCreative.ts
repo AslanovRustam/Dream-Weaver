@@ -10,8 +10,18 @@ export function bgPreset(theme: string): string {
 /** Character prompt — a big head-to-thigh promo mascot crop on a plain,
  *  high-contrast backdrop so it cuts out cleanly. Style is fixed (3D Pixar);
  *  the subject/details come from the user's `prompt`. Pair with aspectRatio "3:4". */
-export function characterPreset(prompt: string): string {
-  return `Half-body 3D stylized character portrait: ${prompt}. MEDIUM SHOT — the character is BIG and fills most of the frame and is CROPPED ONLY by the BOTTOM edge at about mid-thigh (do NOT show the full body, do NOT show feet). CRITICAL FRAMING: the ENTIRE head with EVERYTHING on top of it — ears, hat, crown, hair, antennae — must be FULLY inside the frame with a clear empty margin ABOVE them; nothing on top of the head may touch or be cut by the top edge. Leave a small uniform margin of background on the left and right too. Facing the camera, confident expressive pose. Soft studio lighting, smooth shadows, high detail textures, Pixar-quality 3D render, ultra-clean composition, 8K resolution. CRITICAL — BACKGROUND: a PLAIN UNIFORM FLAT SINGLE SOLID COLOUR studio backdrop, and that colour MUST strongly CONTRAST with every colour on the character (pick a saturated backdrop hue far from any colour the character wears, e.g. a solid magenta/orange behind a blue-green character). The exact background colour must NOT appear anywhere on the character, its outfit or accessories, so the silhouette stays crisp and easy to cut out. No scenery, no props, no gradient, no shadows cast on the backdrop.`;
+export function characterPreset(prompt: string, side?: "left" | "right"): string {
+  // Персонажи по бокам должны быть разными людьми, а не одним в двух позах:
+  // один и тот же промпт на оба слота давал зеркальных близнецов. Сторону
+  // передаём отдельно, чтобы человеку не приходилось выдумывать различия
+  // самому — описание оффера у него обычно одно.
+  const sideHint =
+    side === "left"
+      ? " The character is placed on the LEFT of the layout and turns slightly toward the centre (to the right)."
+      : side === "right"
+        ? " The character is placed on the RIGHT of the layout and turns slightly toward the centre (to the left). It must be a VISIBLY DIFFERENT character from the one on the left: different hair, different outfit and colours, different pose and expression — same world and style, not the same person mirrored."
+        : "";
+  return `Half-body 3D stylized character portrait: ${prompt}.${sideHint} MEDIUM SHOT — the character is BIG and fills most of the frame and is CROPPED ONLY by the BOTTOM edge at about mid-thigh (do NOT show the full body, do NOT show feet). CRITICAL FRAMING: the ENTIRE head with EVERYTHING on top of it — ears, hat, crown, hair, antennae — must be FULLY inside the frame with a clear empty margin ABOVE them; nothing on top of the head may touch or be cut by the top edge. Leave a small uniform margin of background on the left and right too. Facing the camera, confident expressive pose. Soft studio lighting, smooth shadows, high detail textures, Pixar-quality 3D render, ultra-clean composition, 8K resolution. CRITICAL — BACKGROUND: a PLAIN UNIFORM FLAT SINGLE SOLID COLOUR studio backdrop, and that colour MUST strongly CONTRAST with every colour on the character (pick a saturated backdrop hue far from any colour the character wears, e.g. a solid magenta/orange behind a blue-green character). The exact background colour must NOT appear anywhere on the character, its outfit or accessories, so the silhouette stays crisp and easy to cut out. No scenery, no props, no gradient, no shadows cast on the backdrop.`;
 }
 
 /**
