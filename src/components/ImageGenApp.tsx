@@ -33,6 +33,7 @@ import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { analyzeBannerForLanding, downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
 import { formatGenerationError } from "@/lib/generation-errors";
 import { bannerPresetToVertical } from "@/lib/landingGen";
 import { ResizeBatchPanel, type SelectedSize } from "@/components/resize/ResizeBatchPanel";
@@ -43,7 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useGeneration, type BatchTile } from "@/lib/generation-context";
+import { MAX_MASTER_VARIANTS, useGeneration, type BatchTile } from "@/lib/generation-context";
 import { useWorkspace } from "@/lib/workspace-context";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useConfirm } from "@/components/ui/confirm";
@@ -816,7 +817,27 @@ export function ImageGenApp() {
 
   const onLogoFile = (file: File | null) => compressImageFile(file, setBrandLogo, 256);
 
-  const estCredits = useMemo(() => estimateBannerCredits({ model, quality }), [model, quality]);
+  // Сколько вариантов баннера просить за одну кнопку. Выбор помним между
+  // сессиями: у человека обычно есть своя привычка — одному хватает одного,
+  // другой всегда смотрит четыре.
+  const [variantCount, setVariantCount] = useState(1);
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem("dw_banner_variants"));
+    if (saved >= 1 && saved <= MAX_MASTER_VARIANTS) setVariantCount(saved);
+  }, []);
+  const pickVariantCount = (n: number) => {
+    setVariantCount(n);
+    try {
+      window.localStorage.setItem("dw_banner_variants", String(n));
+    } catch {
+      /* приватный режим — переживём без запоминания */
+    }
+  };
+
+  const estCredits = useMemo(
+    () => estimateBannerCredits({ model, quality }) * variantCount,
+    [model, quality, variantCount],
+  );
   const currentPreset = PRESETS.find((p) => p.id === preset);
 
   // Reset custom-field values to the preset's defaults whenever the template
@@ -1045,7 +1066,7 @@ export function ImageGenApp() {
       // the context directly, but it ALSO returns the fresh image
       // string. We use the return value (not gen.imageUrl, which would
       // be stale in this closure) to seed the in-memory thumbnail list.
-      const img = await gen.runMaster(payload);
+      const img = await gen.runMasterVariants(payload, variantCount);
       // runMaster never throws: on failure it patches gen.status="error" +
       // gen.errorMsg and returns null. Don't force "success" in that case —
       // otherwise the error branch below (driven off gen.status) is masked
@@ -1672,6 +1693,13 @@ export function ImageGenApp() {
           </div>
 
           <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
+            <div className="mb-2">
+              <VariantCount
+                value={variantCount}
+                onChange={pickVariantCount}
+                disabled={status === "loading" || gen.isBusy}
+              />
+            </div>
             <button
               type="button"
               data-tour="banner-generate"
@@ -1780,6 +1808,12 @@ export function ImageGenApp() {
           {/* Master-generate button. On mobile it lives only on the settings
               screen (single sticky CTA); here it's desktop-only to avoid a
               duplicate. */}
+          <VariantCount
+            value={variantCount}
+            onChange={pickVariantCount}
+            disabled={status === "loading" || gen.isBusy}
+          />
+
           <button
             type="button"
             data-tour="banner-generate"
@@ -1898,6 +1932,11 @@ export function ImageGenApp() {
             if (imageUrl) {
               return (
                 <div className="flex flex-col gap-6">
+                  <VariantStrip
+                    variants={gen.variants}
+                    activeId={gen.activeVariantId}
+                    onPick={gen.pickVariant}
+                  />
                   <div
                     className="group relative w-full overflow-hidden rounded-2xl border border-border bg-card"
                     title="Кликните для увеличения"

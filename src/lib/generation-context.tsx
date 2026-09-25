@@ -56,6 +56,23 @@ export type BatchTile = {
   error?: string;
 };
 
+/**
+ * Вариант мастера. Одна генерация — один вариант: провайдер отдаёт по картинке
+ * на запрос, и каждая стоит как отдельная, поэтому «4 варианта» — это честно
+ * четыре оплаченные генерации, а не бесплатная развилка.
+ */
+export type MasterVariant = {
+  id: string;
+  status: "running" | "done" | "error";
+  imageUrl?: string;
+  cardId?: string | null;
+  usage?: UsageInfo | null;
+  error?: string;
+};
+
+/** Сколько вариантов разрешаем за раз: роут держит 4 запроса от юзера в лёте. */
+export const MAX_MASTER_VARIANTS = 4;
+
 interface GenerationStateSnapshot {
   status: GenerationStatus;
   imageUrl: string | null;
@@ -66,6 +83,10 @@ interface GenerationStateSnapshot {
   errorMsg: string;
   /** Generation card id assigned by the server. */
   cardId: string | null;
+  /** Варианты последней генерации. Пусто, когда вариант был один. */
+  variants: MasterVariant[];
+  /** Какой из вариантов сейчас лежит на холсте. */
+  activeVariantId: string | null;
 }
 
 interface GenerationContextValue extends GenerationStateSnapshot {
@@ -80,6 +101,12 @@ interface GenerationContextValue extends GenerationStateSnapshot {
    *  the caller can immediately use it without waiting for a re-render
    *  to read it from context state. */
   runMaster: (payload: GeneratePayload) => Promise<string | null>;
+  /** То же, но несколькими вариантами разом. Возвращает первую удавшуюся
+   *  картинку — она же сразу встаёт на холст, не дожидаясь остальных. */
+  runMasterVariants: (payload: GeneratePayload, count: number) => Promise<string | null>;
+  /** Перенести вариант на холст. Ресайзы прошлого мастера при этом сбрасываются:
+   *  они сделаны из другой картинки. */
+  pickVariant: (id: string) => void;
   /** Start a resize batch — same args we used to feed useResizeBatch. */
   runBatch: (args: {
     sizes: SelectedSize[];
@@ -132,6 +159,8 @@ const INITIAL: GenerationStateSnapshot = {
   tiles: [],
   errorMsg: "",
   cardId: null,
+  variants: [],
+  activeVariantId: null,
 };
 
 const Ctx = createContext<GenerationContextValue | null>(null);
@@ -160,6 +189,9 @@ interface ProviderProps {
  *     can be huge stacked, and the form re-attaches them on the next
  *     generation if the user still wants them.
  *   • Tile dataURLs — already on FTP / in history.
+ *   • Варианты целиком: четыре мастера по 1–2 МБ не влезут в квоту, а полоса
+ *     из пустых плиток после перезагрузки только путает. Сами картинки никуда
+ *     не деваются — каждая генерация лежит в истории своей карточкой.
  */
 function sanitizeForStorage(s: GenerationStateSnapshot): GenerationStateSnapshot {
   const stripPayload = (p: GeneratePayload | null): GeneratePayload | null => {
@@ -186,6 +218,8 @@ function sanitizeForStorage(s: GenerationStateSnapshot): GenerationStateSnapshot
     imageUrl: s.imageUrl,
     lastPayload: stripPayload(s.lastPayload),
     tiles: s.tiles.map((t) => ({ ...t, dataUrl: undefined })),
+    variants: [],
+    activeVariantId: null,
   };
 }
 
@@ -292,6 +326,9 @@ export function GenerationProvider({ children }: ProviderProps) {
     cancelRef.current = true;
     setState((prev) => ({
       ...prev,
+      variants: prev.variants.map((v) =>
+        v.status === "running" ? { ...v, status: "error" as const, error: "Отменено" } : v,
+      ),
       status:
         prev.status === "batch_running"
           ? "done"
@@ -344,9 +381,57 @@ export function GenerationProvider({ children }: ProviderProps) {
     }));
   }, []);
 
-  const runMaster = useCallback<GenerationContextValue["runMaster"]>(
-    async (payload) => {
+  const updateVariant = useCallback((id: string, p: Partial<MasterVariant>) => {
+    setState((prev) => ({
+      ...prev,
+      variants: prev.variants.map((v) => (v.id === id ? { ...v, ...p } : v)),
+    }));
+  }, []);
+
+  /**
+   * Сделать вариант активным мастером.
+   *
+   * Смена мастера обнуляет ресайзы и кэш источников: плитки нарезаны из другой
+   * картинки, и оставить их — значит выдать чужие форматы за форматы этого
+   * баннера.
+   */
+  const activate = useCallback(
+    (v: MasterVariant, payload: GeneratePayload) => {
+      if (!v.imageUrl) return;
+      masterEpochRef.current += 1;
+      sourceCacheRef.current.clear();
+      patch({
+        imageUrl: v.imageUrl,
+        cardId: v.cardId ?? null,
+        lastUsage: v.usage ?? null,
+        lastPayload: { ...payload, card_id: v.cardId ?? undefined },
+        lastMasterRatio: payload.aspect_ratio,
+        activeVariantId: v.id,
+        tiles: [],
+      });
+    },
+    [patch],
+  );
+
+  /**
+   * Несколько вариантов за одну кнопку.
+   *
+   * Запросы идут параллельно, но не все разом: роут пускает от одного
+   * пользователя четыре генерации в лёте, и упереться в этот предел — значит
+   * получить 429 вместо картинки. Первый же готовый вариант встаёт на холст,
+   * чтобы не ждать самого медленного; остальные догружаются в полосу выбора.
+   *
+   * Упавший вариант не роняет остальные: генерация платная, и терять три
+   * удачные картинки из-за одной неудачной нельзя.
+   */
+  const runMasterVariants = useCallback<GenerationContextValue["runMasterVariants"]>(
+    async (payload, count) => {
+      const n = Math.max(1, Math.min(MAX_MASTER_VARIANTS, Math.round(count)));
       cancelRef.current = false;
+      const variants: MasterVariant[] = Array.from({ length: n }, (_, i) => ({
+        id: `v${Date.now().toString(36)}${i}`,
+        status: "running" as const,
+      }));
       patch({
         status: "master_running",
         imageUrl: null,
@@ -354,30 +439,68 @@ export function GenerationProvider({ children }: ProviderProps) {
         tiles: [],
         cardId: null,
         lastPayload: null,
+        variants: n > 1 ? variants : [],
+        activeVariantId: null,
       });
-      try {
-        const result = await generateImage(payload);
-        if (cancelRef.current) return null;
-        masterEpochRef.current += 1;
-        sourceCacheRef.current.clear();
-        patch({
-          status: "done",
-          imageUrl: result.image,
-          lastUsage: result.usage,
-          lastPayload: { ...payload, card_id: result.card_id ?? undefined },
-          lastMasterRatio: payload.aspect_ratio,
-          cardId: result.card_id ?? null,
-        });
-        return result.image;
-      } catch (e) {
-        patch({
-          status: "error",
-          errorMsg: formatGenerationError(e instanceof Error ? e.message : "Unknown error"),
-        });
-        return null;
-      }
+
+      let first: string | null = null;
+      let firstError = "";
+
+      const run = async (v: MasterVariant) => {
+        try {
+          const result = await generateImage(payload);
+          if (cancelRef.current) return;
+          const done: MasterVariant = {
+            ...v,
+            status: "done",
+            imageUrl: result.image,
+            cardId: result.card_id ?? null,
+            usage: result.usage,
+          };
+          if (n > 1) updateVariant(v.id, done);
+          if (!first) {
+            first = result.image;
+            activate(done, payload);
+          }
+        } catch (e) {
+          if (cancelRef.current) return;
+          const message = formatGenerationError(e instanceof Error ? e.message : "Unknown error");
+          if (!firstError) firstError = message;
+          if (n > 1) updateVariant(v.id, { status: "error", error: message });
+        }
+      };
+
+      const queue = [...variants];
+      const workers = Array.from({ length: Math.min(n, MAX_MASTER_VARIANTS) }, async () => {
+        for (;;) {
+          const next = queue.shift();
+          if (!next || cancelRef.current) return;
+          await run(next);
+        }
+      });
+      await Promise.all(workers);
+
+      if (cancelRef.current) return first;
+      patch(first ? { status: "done" } : { status: "error", errorMsg: firstError });
+      return first;
     },
-    [patch],
+    [patch, updateVariant, activate],
+  );
+
+  const runMaster = useCallback<GenerationContextValue["runMaster"]>(
+    (payload) => runMasterVariants(payload, 1),
+    [runMasterVariants],
+  );
+
+  const pickVariant = useCallback<GenerationContextValue["pickVariant"]>(
+    (id) => {
+      const snap = stateRef.current;
+      const v = snap.variants.find((x) => x.id === id);
+      // lastPayload — это бриф, общий для всех вариантов: они сгенерированы
+      // одним запросом, отличается только результат.
+      if (v?.status === "done" && snap.lastPayload) activate(v, snap.lastPayload);
+    },
+    [activate],
   );
 
   const runBatch = useCallback<GenerationContextValue["runBatch"]>(
@@ -698,6 +821,8 @@ export function GenerationProvider({ children }: ProviderProps) {
       runningTiles,
       isBusy,
       runMaster,
+      runMasterVariants,
+      pickVariant,
       runBatch,
       cancel,
       regenerateTile,
@@ -713,6 +838,8 @@ export function GenerationProvider({ children }: ProviderProps) {
       runningTiles,
       isBusy,
       runMaster,
+      runMasterVariants,
+      pickVariant,
       runBatch,
       cancel,
       regenerateTile,
