@@ -240,31 +240,11 @@ export function MatchLandingApp() {
         setCharPrompts((p) => ({ ...p, left: charPrompt }));
 
         await assetRun.start([
-        {
-          id: "bg",
-          label: "Фон лендинга",
-          credits: BG_PRICE,
-          blocking: true,
-          run: () => generateBg(bgPrompt, bannerImg || undefined),
-        },
-        ...(bannerHasCharacter
-          ? [
-              {
-                id: "char-left",
-                label: "Персонаж слева",
-                credits: CHAR_PRICE,
-                run: () => generateCharacter("left", charPrompt, bannerImg || undefined),
-              },
-            ]
-          : []),
-        ...(["home", "away"] as const)
-          .filter((side) => teams[side].trim())
-          .map((side) => ({
-            id: `crest-${side}`,
-            label: `Эмблема: ${teams[side].trim()}`,
-            credits: CREST_PRICE,
-            run: () => generateCrest(side),
-          })),
+          bgStep(bgPrompt, bannerImg || undefined),
+          ...(bannerHasCharacter ? [charStep("left", charPrompt, bannerImg || undefined)] : []),
+          ...(["home", "away"] as const)
+            .filter((side) => teams[side].trim())
+            .map((side) => crestStep(side, teams[side].trim())),
         ]);
       })();
       toast.success("Данные баннера перенесены — собираем лендинг…");
@@ -445,7 +425,67 @@ export function MatchLandingApp() {
    * пропускаем — генерировать «что-нибудь» значит списать кредиты за картинку,
    * которую всё равно выбросят.
    */
-  const assetRun = useAssetRun();
+  /**
+   * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
+   * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
+   */
+  const applyAsset = async (key: string, dataUrl: string) => {
+    if (key === "bg") {
+      setBgImage(dataUrl);
+      return;
+    }
+    if (key === "char-left" || key === "char-right") {
+      const side = key === "char-left" ? "left" : "right";
+      const trimmed = await trimTransparent(dataUrl);
+      setCharImages((c) => ({ ...c, [side]: trimmed }));
+      return;
+    }
+    if (key === "crest-home" || key === "crest-away") {
+      const side: Side = key === "crest-home" ? "home" : "away";
+      const trimmed = await trimTransparent(dataUrl);
+      setCrests((c) => ({ ...c, [side]: trimmed }));
+    }
+  };
+  const assetRun = useAssetRun({ resumeKey: "dw_jobs_match", apply: applyAsset });
+
+  /**
+   * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что
+   * отправила бы кнопка) и во вкладке (run — прежняя функция генерации), если
+   * очереди на сервере ещё нет. Значения приходят явно: сборка из баннера
+   * вызывает их в эффекте, где состояние формы ещё не обновилось.
+   */
+  const bgStep = (themeText: string, ref?: string): AssetStep => ({
+    id: "bg",
+    label: "Фон лендинга",
+    credits: BG_PRICE,
+    blocking: true,
+    run: () => generateBg(themeText, ref),
+    server: {
+      route: "/api/generate-email-hero",
+      body: { presetTemplate: bgPreset(themeText), feature: "landing-bg", ...(ref ? { styleReferenceImage: ref } : {}) },
+    },
+  });
+  const charStep = (side: "left" | "right", prompt: string, ref?: string): AssetStep => ({
+    id: `char-${side}`,
+    label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+    credits: CHAR_PRICE,
+    run: () => generateCharacter(side, prompt, ref),
+    server: {
+      route: "/api/generate-character",
+      body: { prompt: characterPreset(prompt, side), ...(ref ? { reference_image: ref } : {}) },
+    },
+  });
+  const crestStep = (side: Side, team: string): AssetStep => ({
+    id: `crest-${side}`,
+    label: `Эмблема: ${team}`,
+    credits: CREST_PRICE,
+    run: () => generateCrest(side),
+    server: {
+      route: "/api/generate-team-crest",
+      body: { team, sport, theme: crestTheme || topic, ...(bannerRef ? { reference_image: bannerRef } : {}) },
+    },
+  });
+
   const [seedAnalyzing, setSeedAnalyzing] = useState(false);
 
   /**
@@ -473,26 +513,15 @@ export function MatchLandingApp() {
     })();
   };
   const assetSteps = (): AssetStep[] => {
-    const steps: AssetStep[] = [
-      { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
-    ];
+    const ref = bannerRef || undefined;
+    const steps: AssetStep[] = [bgStep(theme, ref)];
     for (const side of ["left", "right"] as const) {
-      if (!charPrompts[side].trim()) continue;
-      steps.push({
-        id: `char-${side}`,
-        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
-        credits: CHAR_PRICE,
-        run: () => generateCharacter(side),
-      });
+      const prompt = charPrompts[side].trim();
+      if (prompt) steps.push(charStep(side, prompt, ref));
     }
     for (const side of ["home", "away"] as const) {
-      if (!teams[side].trim()) continue;
-      steps.push({
-        id: `crest-${side}`,
-        label: `Эмблема: ${teams[side].trim()}`,
-        credits: CREST_PRICE,
-        run: () => generateCrest(side),
-      });
+      const team = teams[side].trim();
+      if (team) steps.push(crestStep(side, team));
     }
     return steps;
   };

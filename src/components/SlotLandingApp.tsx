@@ -312,29 +312,9 @@ export function SlotLandingApp() {
         setCharPrompts((p) => ({ ...p, left: charPrompt }));
 
         await assetRun.start([
-        {
-          id: "bg",
-          label: "Фон лендинга",
-          credits: BG_PRICE,
-          blocking: true,
-          run: () => generateBg(bgPrompt, bannerImg || undefined),
-        },
-        ...(bannerHasCharacter
-          ? [
-              {
-                id: "char-left",
-                label: "Персонаж слева",
-                credits: CHAR_PRICE,
-                run: () => generateCharacter("left", charPrompt, bannerImg || undefined),
-              },
-            ]
-          : []),
-        {
-          id: "symbols",
-          label: `Иконки символов (${symbolCount})`,
-          credits: SYMBOLS_PRICE,
-          run: () => generateSlotIcons(),
-        },
+          bgStep(bgPrompt, bannerImg || undefined),
+          ...(bannerHasCharacter ? [charStep("left", charPrompt, bannerImg || undefined)] : []),
+          symbolsStep((symbolTheme || (typeof s.subject === "string" ? s.subject : "") || topic).trim()),
         ]);
       })();
       toast.success("Данные баннера перенесены — собираем лендинг…");
@@ -586,7 +566,72 @@ export function SlotLandingApp() {
    * пропускаем — генерировать «что-нибудь» значит списать кредиты за картинку,
    * которую всё равно выбросят.
    */
-  const assetRun = useAssetRun();
+  /**
+   * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
+   * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
+   */
+  const applyAsset = async (key: string, dataUrl: string) => {
+    if (key === "bg") {
+      setBgImage(dataUrl);
+      return;
+    }
+    if (key === "char-left" || key === "char-right") {
+      const side = key === "char-left" ? "left" : "right";
+      const trimmed = await trimTransparent(dataUrl);
+      setCharImages((c) => ({ ...c, [side]: trimmed }));
+      return;
+    }
+    if (key === "symbols") {
+      const rows = 2;
+      const tiles = await sliceIconGrid(dataUrl, symbolCount / rows, rows);
+      setSymbols((prev) =>
+        tiles.map((imageUrl, i) => ({
+          symbol: prev[i]?.symbol || DEFAULT_SYMBOLS[i % DEFAULT_SYMBOLS.length].symbol,
+          imageUrl,
+        })),
+      );
+    }
+  };
+  const assetRun = useAssetRun({ resumeKey: "dw_jobs_slot", apply: applyAsset });
+
+  /**
+   * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что
+   * отправила бы кнопка) и во вкладке (run — прежняя функция генерации), если
+   * очереди на сервере ещё нет. Значения приходят явно: сборка из баннера
+   * вызывает их в эффекте, где состояние формы ещё не обновилось.
+   */
+  const bgStep = (themeText: string, ref?: string): AssetStep => ({
+    id: "bg",
+    label: "Фон лендинга",
+    credits: BG_PRICE,
+    blocking: true,
+    run: () => generateBg(themeText, ref),
+    server: {
+      route: "/api/generate-email-hero",
+      body: { presetTemplate: bgPreset(themeText), feature: "landing-bg", ...(ref ? { styleReferenceImage: ref } : {}) },
+    },
+  });
+  const charStep = (side: "left" | "right", prompt: string, ref?: string): AssetStep => ({
+    id: `char-${side}`,
+    label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+    credits: CHAR_PRICE,
+    run: () => generateCharacter(side, prompt, ref),
+    server: {
+      route: "/api/generate-character",
+      body: { prompt: characterPreset(prompt, side), ...(ref ? { reference_image: ref } : {}) },
+    },
+  });
+  const symbolsStep = (prompt: string): AssetStep => ({
+    id: "symbols",
+    label: `Иконки символов (${symbolCount})`,
+    credits: SYMBOLS_PRICE,
+    run: () => generateSlotIcons(),
+    server: {
+      route: "/api/generate-slot-symbols",
+      body: { prompt, count: symbolCount, ...(symbolRef ? { reference_image: symbolRef } : {}) },
+    },
+  });
+
   const [seedAnalyzing, setSeedAnalyzing] = useState(false);
 
   /**
@@ -614,26 +659,14 @@ export function SlotLandingApp() {
     })();
   };
   const assetSteps = (): AssetStep[] => {
-    const steps: AssetStep[] = [
-      { id: "bg", label: "Фон лендинга", credits: BG_PRICE, blocking: true, run: () => generateBg() },
-    ];
+    const ref = bannerRef || undefined;
+    const steps: AssetStep[] = [bgStep(theme, ref)];
     for (const side of ["left", "right"] as const) {
-      if (!charPrompts[side].trim()) continue;
-      steps.push({
-        id: `char-${side}`,
-        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
-        credits: CHAR_PRICE,
-        run: () => generateCharacter(side),
-      });
+      const prompt = charPrompts[side].trim();
+      if (prompt) steps.push(charStep(side, prompt, ref));
     }
-    if ((symbolTheme || topic).trim()) {
-      steps.push({
-        id: "symbols",
-        label: `Иконки символов (${symbolCount})`,
-        credits: SYMBOLS_PRICE,
-        run: () => generateSlotIcons(),
-      });
-    }
+    const symbolsPrompt = (symbolTheme || topic).trim();
+    if (symbolsPrompt) steps.push(symbolsStep(symbolsPrompt));
     return steps;
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);

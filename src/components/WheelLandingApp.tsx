@@ -250,23 +250,8 @@ export function WheelLandingApp() {
         setCharPrompts((p) => ({ ...p, left: charPrompt }));
 
         await assetRun.start([
-        {
-          id: "bg",
-          label: "Фон лендинга",
-          credits: BG_PRICE,
-          blocking: true,
-          run: () => generateBg(bgPrompt, bannerImg || undefined),
-        },
-        ...(bannerHasCharacter
-          ? [
-              {
-                id: "char-left",
-                label: "Персонаж слева",
-                credits: CHAR_PRICE,
-                run: () => generateCharacter("left", charPrompt, bannerImg || undefined),
-              },
-            ]
-          : []),
+          bgStep(bgPrompt, bannerImg || undefined),
+          ...(bannerHasCharacter ? [charStep("left", charPrompt, bannerImg || undefined)] : []),
         ]);
       })();
       toast.success("Данные баннера перенесены — собираем лендинг…");
@@ -459,7 +444,52 @@ export function WheelLandingApp() {
    * Персонаж без описания пропускается — генерировать «кого-нибудь» значит
    * списать кредиты за картинку, которую всё равно выбросят.
    */
-  const assetRun = useAssetRun();
+  /**
+   * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
+   * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
+   */
+  const applyAsset = async (key: string, dataUrl: string) => {
+    if (key === "bg") {
+      setBgImage(dataUrl);
+      return;
+    }
+    if (key === "char-left" || key === "char-right") {
+      const side = key === "char-left" ? "left" : "right";
+      const trimmed = await trimTransparent(dataUrl);
+      setCharImages((c) => ({ ...c, [side]: trimmed }));
+      return;
+    }
+  };
+  const assetRun = useAssetRun({ resumeKey: "dw_jobs_wheel", apply: applyAsset });
+
+  /**
+   * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что
+   * отправила бы кнопка) и во вкладке (run — прежняя функция генерации), если
+   * очереди на сервере ещё нет. Значения приходят явно: сборка из баннера
+   * вызывает их в эффекте, где состояние формы ещё не обновилось.
+   */
+  const bgStep = (themeText: string, ref?: string): AssetStep => ({
+    id: "bg",
+    label: "Фон лендинга",
+    credits: BG_PRICE,
+    blocking: true,
+    run: () => generateBg(themeText, ref),
+    server: {
+      route: "/api/generate-email-hero",
+      body: { presetTemplate: bgPreset(themeText), feature: "landing-bg", ...(ref ? { styleReferenceImage: ref } : {}) },
+    },
+  });
+  const charStep = (side: "left" | "right", prompt: string, ref?: string): AssetStep => ({
+    id: `char-${side}`,
+    label: side === "left" ? "Персонаж слева" : "Персонаж справа",
+    credits: CHAR_PRICE,
+    run: () => generateCharacter(side, prompt, ref),
+    server: {
+      route: "/api/generate-character",
+      body: { prompt: characterPreset(prompt, side), ...(ref ? { reference_image: ref } : {}) },
+    },
+  });
+
   const [seedAnalyzing, setSeedAnalyzing] = useState(false);
 
   /**
@@ -487,23 +517,11 @@ export function WheelLandingApp() {
     })();
   };
   const assetSteps = (): AssetStep[] => {
-    const steps: AssetStep[] = [
-      {
-        id: "bg",
-        label: "Фон лендинга",
-        credits: BG_PRICE,
-        blocking: true,
-        run: () => generateBg(),
-      },
-    ];
+    const ref = bannerRef || undefined;
+    const steps: AssetStep[] = [bgStep(theme, ref)];
     for (const side of ["left", "right"] as const) {
-      if (!charPrompts[side].trim()) continue;
-      steps.push({
-        id: `char-${side}`,
-        label: side === "left" ? "Персонаж слева" : "Персонаж справа",
-        credits: CHARACTER_PRICE_CREDITS,
-        run: () => generateCharacter(side),
-      });
+      const prompt = charPrompts[side].trim();
+      if (prompt) steps.push(charStep(side, prompt, ref));
     }
     return steps;
   };
