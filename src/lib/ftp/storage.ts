@@ -14,7 +14,8 @@
 import { randomBytes } from "node:crypto";
 import { uploadFile, deleteFiles } from "./uploader";
 
-export type ImageKind = "master" | "resize";
+// asset — результаты серверной очереди: фон, персонажи и иконки лендинга.
+export type ImageKind = "master" | "resize" | "asset";
 export type ImageFormat = "png" | "jpg";
 
 export interface UploadResult {

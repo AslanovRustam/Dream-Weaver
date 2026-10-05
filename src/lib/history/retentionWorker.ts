@@ -195,9 +195,42 @@ async function tick(): Promise<void> {
     } catch (err) {
       console.error("retention-worker: analytics_prune threw", err);
     }
+
+    // Серверная очередь генераций (миграция 0015). Результаты шагов — ассеты
+    // лендинга, которые человек уже забрал к себе в черновик; через неделю они
+    // нужны только как мусор на FTP. Best-effort: до 0015 таблицы нет.
+    try {
+      await pruneGenerationJobs(supa);
+    } catch (err) {
+      console.error("retention-worker: generation_jobs prune threw", err);
+    }
   } catch (err) {
     console.error("retention-worker: tick crashed", err);
   }
+}
+
+const JOB_TTL_DAYS = 7;
+
+async function pruneGenerationJobs(supa: SupabaseClient): Promise<void> {
+  const cutoff = new Date(Date.now() - JOB_TTL_DAYS * 24 * 60 * 60_000).toISOString();
+  const { data, error } = await supa
+    .from("generation_jobs")
+    .select("id,result")
+    .lt("created_at", cutoff)
+    .limit(500);
+  if (error) {
+    console.error("retention-worker: generation_jobs select failed", error);
+    return;
+  }
+  const rows = (data ?? []) as { id: string; result: { ftp_path?: unknown } | null }[];
+  if (rows.length === 0) return;
+  const paths = rows
+    .map((r) => r.result?.ftp_path)
+    .filter((p): p is string => typeof p === "string" && p.length > 0);
+  // Сначала файлы, потом строки: наоборот — и ссылки на файлы потеряются, а
+  // сами файлы останутся на FTP навсегда.
+  if (paths.length > 0) await deleteCardFiles(paths);
+  await supa.from("generation_jobs").delete().in("id", rows.map((r) => r.id));
 }
 
 /**
