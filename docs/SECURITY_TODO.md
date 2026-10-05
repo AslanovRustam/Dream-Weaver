@@ -39,6 +39,7 @@ supabase db push
 | 0012 | `0012_analytics_events.sql` | таблица собственных продуктовых событий + `analytics_prune`. Без неё вкладка «Аналитика» покажет просьбу применить миграцию, события будут теряться (роут отвечает 202 и пишет в лог) |
 | 0013 | `0013_backfill_llm_cost_usd.sql` | data-only: проставляет стоимость $ старым LLM-генерациям (модели с префиксом провайдера) |
 | 0014 | `0014_analytics_events_cascade.sql` | удаление аккаунта уносит его события. Применять после 0012 |
+| 0015 | `0015_generation_jobs.sql` | серверная очередь генераций: сборка ассетов лендинга идёт на сервере и не теряется при закрытой вкладке. Без неё сборка работает по-старому, во вкладке |
 
 Проверка после:
 
@@ -48,6 +49,7 @@ select email, role from public.profiles where role = 'superadmin';    -- тол�
 select count(*) from public.rate_limits;                              -- 0, без ошибки
 select proname from pg_proc
  where proname in ('refund_credits','rate_limit_hit','admin_set_user_role'); -- 3 строки
+select count(*) from public.generation_jobs;                           -- 0, без ошибки
 select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
   from public.generations where created_at > now() - interval '90 days'
  group by model order by usd desc;                                    -- у gpt-image-* сумма > 0
