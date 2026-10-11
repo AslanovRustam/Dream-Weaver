@@ -40,6 +40,7 @@ supabase db push
 | 0013 | `0013_backfill_llm_cost_usd.sql` | data-only: проставляет стоимость $ старым LLM-генерациям (модели с префиксом провайдера) |
 | 0014 | `0014_analytics_events_cascade.sql` | удаление аккаунта уносит его события. Применять после 0012 |
 | 0015 | `0015_generation_jobs.sql` | серверная очередь генераций: сборка ассетов лендинга идёт на сервере и не теряется при закрытой вкладке. Без неё сборка работает по-старому, во вкладке |
+| 0016 | `0016_email_drafts.sql` | черновики писем в базе: доступны с любого устройства. Без неё черновики живут только в браузере |
 
 Проверка после:
 
@@ -50,6 +51,7 @@ select count(*) from public.rate_limits;                              -- 0, бе
 select proname from pg_proc
  where proname in ('refund_credits','rate_limit_hit','admin_set_user_role'); -- 3 строки
 select count(*) from public.generation_jobs;                           -- 0, без ошибки
+select count(*) from public.email_drafts;                              -- 0, без ошибки
 select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
   from public.generations where created_at > now() - interval '90 days'
  group by model order by usd desc;                                    -- у gpt-image-* сумма > 0

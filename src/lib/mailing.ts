@@ -388,7 +388,10 @@ export function getCampaigns(): MailCampaign[] {
  * Mock "send": create a campaign from a draft + audience and mark it sent with
  * seeded delivery stats. Real impl would enqueue the send with the ESP.
  */
-export function sendCampaign(opts: { draft: EmailDraft; audienceId: string }): MailCampaign {
+export function sendCampaign(opts: {
+  draft: Pick<EmailDraft, "name" | "subject">;
+  audienceId: string;
+}): MailCampaign {
   const aud = AUDIENCE_BY_ID.get(opts.audienceId) ?? AUDIENCES[0];
   const id = "c_" + Math.random().toString(36).slice(2, 9);
   const stats = seedSentStats(id, aud.count);
@@ -411,7 +414,7 @@ export function sendCampaign(opts: { draft: EmailDraft; audienceId: string }): M
  * time passes, then `processDueCampaigns` flips it to "sent" with delivery stats.
  */
 export function scheduleCampaign(opts: {
-  draft: EmailDraft;
+  draft: Pick<EmailDraft, "name" | "subject">;
   audienceId: string;
   scheduledAt: string;
 }): MailCampaign {

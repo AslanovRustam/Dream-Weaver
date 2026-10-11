@@ -5,17 +5,17 @@ import Link from "next/link";
 import { CalendarClock, Download, Mail, Send, Users } from "lucide-react";
 
 import { downloadCsv, num2 } from "@/lib/csv";
+import { useAuthGate } from "@/components/AuthGate";
+import { listDrafts, type DraftMeta } from "@/lib/emailDraftsStore";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import {
   AUDIENCES,
   AUDIENCE_BY_ID,
-  type EmailDraft,
   type MailCampaign,
   fmtInt,
   fmtPct,
   getCampaigns,
-  getDrafts,
   getMailOverview,
   processDueCampaigns,
   scheduleCampaign,
@@ -29,7 +29,8 @@ const RANGES = [
 ];
 
 export function MailingApp() {
-  const [drafts, setDrafts] = useState<EmailDraft[]>([]);
+  const [drafts, setDrafts] = useState<DraftMeta[]>([]);
+  const { isGuest } = useAuthGate();
   const [campaigns, setCampaigns] = useState<MailCampaign[]>([]);
   const [days, setDays] = useState(30);
   const [draftId, setDraftId] = useState("");
@@ -39,13 +40,15 @@ export function MailingApp() {
   const [justSent, setJustSent] = useState<string | null>(null);
 
   const refresh = () => {
-    setDrafts(getDrafts());
+    // Письма — из базы (если она есть и человек вошёл), иначе из браузера.
+    void listDrafts(!isGuest).then(setDrafts);
     setCampaigns(getCampaigns());
   };
   useEffect(() => {
     processDueCampaigns();
     refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGuest]);
   useEffect(() => {
     if (drafts.length && !draftId) setDraftId(drafts[0].id);
   }, [drafts, draftId]);
@@ -240,10 +243,18 @@ export function MailingApp() {
                 >
                   {drafts.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.name} — {d.subject}
+                      {d.subject || d.name || "Без темы"}
                     </option>
                   ))}
                 </select>
+                {draftId ? (
+                  <Link
+                    href={`/email?draft=${encodeURIComponent(draftId)}`}
+                    className="mt-1.5 inline-block ds-caption transition hover:text-foreground"
+                  >
+                    Открыть в генераторе →
+                  </Link>
+                ) : null}
               </div>
               <div>
                 <label className="mb-2 block ds-label">Аудитория</label>

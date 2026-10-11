@@ -41,11 +41,13 @@ import {
   emailBase,
   emailNameFromSubject,
   newDraft,
-  saveDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
 import { useAuthGate } from "@/components/AuthGate";
 import { emailImages, hostEmailImages } from "@/lib/emailAssets";
+import { DraftPicker } from "@/components/email/DraftPicker";
+import { useConfirm } from "@/components/ui/confirm";
+import { listDrafts, loadDraft, persistDraft, removeDraft, type DraftMeta } from "@/lib/emailDraftsStore";
 import { toast } from "sonner";
 import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
 import { HeroRules } from "@/components/email/HeroRules";
@@ -101,9 +103,108 @@ export function EmailGenApp() {
     };
   };
 
-  const onSave = () => {
-    saveDraft(draft);
+  const { isGuest: guest } = useAuthGate();
+  const confirm = useConfirm();
+  const [drafts, setDrafts] = useState<DraftMeta[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  // Снимок письма на момент последнего сохранения или открытия: по нему
+  // понимаем, есть ли что терять при переключении на другое письмо.
+  const baselineRef = useRef(JSON.stringify(draft));
+  const isDirty = () => JSON.stringify(draft) !== baselineRef.current;
+
+  const refreshDrafts = async () => {
+    setDraftsLoading(true);
+    try {
+      setDrafts(await listDrafts(!guest));
+    } finally {
+      setDraftsLoading(false);
+    }
+  };
+
+  /** Адрес страницы помнит открытое письмо — его можно обновить и не потерять. */
+  const rememberInUrl = (id: string | null) => {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("draft", id);
+    else url.searchParams.delete("draft");
+    window.history.replaceState(null, "", url);
+  };
+
+  const openDraft = async (id: string, ask = true) => {
+    if (ask && id !== draft.id && isDirty()) {
+      const ok = await confirm({
+        title: "Открыть другое письмо?",
+        body: "Несохранённые изменения в текущем письме пропадут.",
+        confirmLabel: "Открыть",
+      });
+      if (!ok) return;
+    }
+    const d = await loadDraft(id, !guest);
+    if (!d) {
+      toast.error("Письмо не найдено");
+      return;
+    }
+    setDraft(d);
+    baselineRef.current = JSON.stringify(d);
     setSaved(true);
+    rememberInUrl(d.id);
+  };
+
+  const startNew = async () => {
+    if (isDirty()) {
+      const ok = await confirm({
+        title: "Начать новое письмо?",
+        body: "Несохранённые изменения в текущем письме пропадут.",
+        confirmLabel: "Начать новое",
+      });
+      if (!ok) return;
+    }
+    const d = newDraft();
+    setDraft(d);
+    baselineRef.current = JSON.stringify(d);
+    setSaved(false);
+    rememberInUrl(null);
+  };
+
+  const deleteDraftById = async (id: string) => {
+    const meta = drafts.find((d) => d.id === id);
+    const ok = await confirm({
+      title: "Удалить письмо?",
+      body: `«${meta?.subject || meta?.name || "Без темы"}» пропадёт из списка насовсем.`,
+      destructive: true,
+      confirmLabel: "Удалить",
+    });
+    if (!ok) return;
+    await removeDraft(id, !guest);
+    // Открытое письмо при этом остаётся в редакторе — но уже несохранённым.
+    if (id === draft.id) {
+      baselineRef.current = "";
+      setSaved(false);
+      rememberInUrl(null);
+    }
+    await refreshDrafts();
+  };
+
+  // Список писем — при входе на страницу и когда человек вошёл или вышел.
+  // Письмо из адреса (?draft=…) открываем сразу: так работает обновление
+  // страницы и ссылка из кабинета рассылок.
+  useEffect(() => {
+    void refreshDrafts();
+    const id = new URLSearchParams(window.location.search).get("draft");
+    if (id) void openDraft(id, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guest]);
+
+  const onSave = async () => {
+    const where = await persistDraft(draft, !guest);
+    baselineRef.current = JSON.stringify(draft);
+    setSaved(true);
+    rememberInUrl(draft.id);
+    if (guest) {
+      toast.info("Сохранено в этом браузере. Войдите — и письма будут доступны с любого устройства.");
+    } else if (where === "local") {
+      toast.warning("Сохранено только в этом браузере: база недоступна. Попробуйте сохранить ещё раз позже.");
+    }
+    void refreshDrafts();
   };
 
   // The single source of truth for both the preview and the download: the
@@ -112,7 +213,7 @@ export function EmailGenApp() {
   const html = useMemo(() => buildEmailHtml(draft), [draft]);
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const { isGuest } = useAuthGate();
+  const isGuest = guest;
 
   /**
    * HTML для выгрузки. Предпросмотр рисуется с картинками внутри (base64) —
@@ -407,6 +508,15 @@ export function EmailGenApp() {
             Соберите письмо для рассылки — сохраните и отправьте из кабинета.
           </p>
         </header>
+
+        <DraftPicker
+          drafts={drafts}
+          loading={draftsLoading}
+          currentId={draft.id}
+          onOpen={(id) => void openDraft(id)}
+          onNew={() => void startNew()}
+          onDelete={(id) => void deleteDraftById(id)}
+        />
 
         <button
           type="button"
@@ -753,7 +863,7 @@ export function EmailGenApp() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={onSave}
+            onClick={() => void onSave()}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
           >
             {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
