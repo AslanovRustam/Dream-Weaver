@@ -82,6 +82,18 @@ const IMG_STYLE = "display:block;border:none;max-width:100%;-ms-interpolation-mo
 
 type Palette = EmailPalette;
 
+/**
+ * Ссылки на картинки, уже размещённые на хостинге. Без них письмо собирается с
+ * картинками внутри (base64) — так рисует предпросмотр, но в Gmail и Outlook
+ * такие картинки не показываются, поэтому для выгрузки ссылки обязательны.
+ */
+export type EmailAssetUrls = {
+  hero?: string;
+  logo?: string;
+  appStore?: string;
+  googlePlay?: string;
+};
+
 function palette(draft: EmailDraft): Palette {
   return buildPalette(draft.accent, emailBase(draft));
 }
@@ -125,15 +137,15 @@ function button(label: string, href: string, p: Palette, width = 440): string {
 // пользователь, и его высота неизвестна до отрисовки — таблица с background=
 // без height схлопнется в ничто. Поэтому картинка остаётся <img> во всю
 // ширину: зон с кликами у неё нет, а именно ради них правило и написано.
-function heroBlock(draft: EmailDraft, p: Palette): string {
+function heroBlock(draft: EmailDraft, p: Palette, assets: EmailAssetUrls): string {
   if (draft.heroImage) {
     return `        <tr>
-          <td style="font-size:0;line-height:0;"><img src="${esc(draft.heroImage)}" width="600" alt="" style="${IMG_STYLE}width:600px;" /></td>
+          <td style="font-size:0;line-height:0;"><img src="${esc(assets.hero ?? draft.heroImage)}" width="600" alt="" style="${IMG_STYLE}width:600px;" /></td>
         </tr>`;
   }
   const inner =
     draft.brandMode === "logo" && draft.logo
-      ? `<img src="${esc(draft.logo)}" width="180" alt="${esc(draft.brand)}" style="${IMG_STYLE}margin:0 auto;" />`
+      ? `<img src="${esc(assets.logo ?? draft.logo)}" width="180" alt="${esc(draft.brand)}" style="${IMG_STYLE}margin:0 auto;" />`
       : `<span style="font-family:${FONT};font-size:28px;line-height:34px;font-weight:bold;color:${p.text};">${esc(draft.brand || "ВАШ БРЕНД")}</span>`;
   return `        <tr>
           <td align="center" bgcolor="${p.chipBg}" style="background-color:${p.chipBg};padding:44px 24px;font-family:${FONT};font-size:28px;line-height:34px;">${inner}</td>
@@ -175,12 +187,16 @@ const STORES = [
 
 /** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div.
  *  Каждый включается своей галочкой, поэтому рисуем только то, что выбрано. */
-function extrasBlock(draft: EmailDraft, p: Palette, blocks: EmailBlocks): string {
+function extrasBlock(draft: EmailDraft, p: Palette, blocks: EmailBlocks, assets: EmailAssetUrls): string {
   if (!blocks.apps && !blocks.payments) return "";
   // Кнопка магазина — чёрная плашка со значком и подписью, как того требуют
   // фирменные правила обоих магазинов. Значок и подпись стоят в отдельных
   // ячейках: это горизонтальный ряд, а не склейка двух узлов в одной ячейке
   // (global_anti_glue_rule).
+  const icons: Record<string, string | undefined> = {
+    "App Store": assets.appStore,
+    "Google Play": assets.googlePlay,
+  };
   const stores = STORES.map(
     (s) =>
       `<td align="center" style="padding:0 4px;">
@@ -189,7 +205,7 @@ function extrasBlock(draft: EmailDraft, p: Palette, blocks: EmailBlocks): string
                             <td bgcolor="#000000" style="background-color:#000000;border-radius:8px;padding:8px 14px;">
                               <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
                                 <tr>
-                                  <td valign="middle" style="padding:0;font-size:0;line-height:0;"><img src="${s.icon}" width="${s.width}" height="${STORE_ICON_HEIGHT}" alt="" style="${IMG_STYLE}width:${s.width}px;height:${STORE_ICON_HEIGHT}px;" /></td>
+                                  <td valign="middle" style="padding:0;font-size:0;line-height:0;"><img src="${esc(icons[s.label] ?? s.icon)}" width="${s.width}" height="${STORE_ICON_HEIGHT}" alt="" style="${IMG_STYLE}width:${s.width}px;height:${STORE_ICON_HEIGHT}px;" /></td>
                                   <td valign="middle" style="padding:0 0 0 8px;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;color:#ffffff;">${esc(s.label)}</td>
                                 </tr>
                               </table>
@@ -263,7 +279,7 @@ ${textCell(esc(draft.footer), { color: p.muted, size: 11, lineHeight: 17, paddin
  * Готовый файл письма. Его же показывает предпросмотр в конструкторе, поэтому
  * на экране и в почте одно и то же.
  */
-export function buildEmailHtml(draft: EmailDraft): string {
+export function buildEmailHtml(draft: EmailDraft, assets: EmailAssetUrls = {}): string {
   const p = palette(draft);
   // Черновик мог быть сохранён до появления настройки состава.
   const blocks: EmailBlocks = { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) };
@@ -288,7 +304,7 @@ ${preheader}
   <tr>
     <td align="center" bgcolor="${p.page}" style="background-color:${p.page};padding:24px 12px;">
       <table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.panel}" style="width:600px;min-width:600px;background-color:${p.panel};border-radius:16px;border-collapse:separate;">
-${blocks.hero ? heroBlock(draft, p) : ""}
+${blocks.hero ? heroBlock(draft, p, assets) : ""}
         <tr>
 ${textCell(md(title, p.accentText), {
   color: p.text,
@@ -340,7 +356,7 @@ ${
         </tr>`
     : ""
 }
-${extrasBlock(draft, p, blocks)}
+${extrasBlock(draft, p, blocks, assets)}
 ${blocks.footer ? footerBlock(draft, p, unsubscribe) : ""}
       </table>
     </td>

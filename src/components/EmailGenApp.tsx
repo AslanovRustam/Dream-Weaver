@@ -44,6 +44,9 @@ import {
   saveDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
+import { useAuthGate } from "@/components/AuthGate";
+import { emailImages, hostEmailImages } from "@/lib/emailAssets";
+import { toast } from "sonner";
 import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
 import { HeroRules } from "@/components/email/HeroRules";
 
@@ -108,14 +111,66 @@ export function EmailGenApp() {
   // drifts away from what actually gets sent.
   const html = useMemo(() => buildEmailHtml(draft), [draft]);
   const [copied, setCopied] = useState(false);
-  const copyHtml = async () => {
+  const [exporting, setExporting] = useState(false);
+  const { isGuest } = useAuthGate();
+
+  /**
+   * HTML для выгрузки. Предпросмотр рисуется с картинками внутри (base64) —
+   * так быстрее и не нужно ничего никуда грузить, пока человек правит. Но в
+   * Gmail и Outlook base64-картинки не показываются, поэтому при выгрузке они
+   * уходят на хостинг, а в HTML встают ссылки.
+   *
+   * Гостю разместить картинки негде — отдаём письмо как есть и честно
+   * предупреждаем, что картинки у получателя не откроются.
+   */
+  const exportHtml = async (): Promise<string> => {
+    const hasImages = Object.keys(emailImages(draft)).length > 0;
+    if (!hasImages) return html;
+    if (isGuest) {
+      toast.warning("Картинки встроены в письмо — Gmail и Outlook их не покажут. Войдите, и мы разместим их по ссылке.");
+      return html;
+    }
     try {
-      await navigator.clipboard.writeText(html);
+      return buildEmailHtml(draft, await hostEmailImages(draft));
+    } catch (e) {
+      toast.error(
+        `${e instanceof Error ? e.message : "Не удалось разместить картинки"}. Письмо выгружено с картинками внутри — в Gmail и Outlook они не откроются.`,
+      );
+      return html;
+    }
+  };
+
+  const downloadHtml = async () => {
+    setExporting(true);
+    try {
+      downloadText(emailFileName(draft), await exportHtml(), "text/html;charset=utf-8", "email_exported");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const copyHtml = async () => {
+    setExporting(true);
+    const pending = exportHtml();
+    try {
+      // Буфер обмена принимает запись только в ответ на действие человека, а
+      // размещение картинок занимает секунды. ClipboardItem берёт обещание и
+      // держит право на запись, пока оно не выполнится; writeText после
+      // ожидания браузер бы отклонил.
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "text/plain": pending.then((h) => new Blob([h], { type: "text/plain" })) }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(await pending);
+      }
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       /* clipboard blocked (no permission, insecure origin) — download instead */
-      downloadText(emailFileName(draft), html, "text/html;charset=utf-8", "email_exported");
+      downloadText(emailFileName(draft), await pending, "text/html;charset=utf-8", "email_exported");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -706,18 +761,22 @@ export function EmailGenApp() {
           </button>
           <button
             type="button"
-            onClick={() =>
-              downloadText(emailFileName(draft), html, "text/html;charset=utf-8", "email_exported")
-            }
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
+            onClick={() => void downloadHtml()}
+            disabled={exporting}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
           >
-            <Download className="h-4 w-4 text-accent-green" />
-            Скачать HTML
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
+            ) : (
+              <Download className="h-4 w-4 text-accent-green" />
+            )}
+            {exporting ? "Размещаем картинки…" : "Скачать HTML"}
           </button>
           <button
             type="button"
-            onClick={copyHtml}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
+            onClick={() => void copyHtml()}
+            disabled={exporting}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
           >
             {copied ? <Check className="h-4 w-4 text-accent-green" /> : <Copy className="h-4 w-4 text-accent-green" />}
             {copied ? "Скопировано" : "Скопировать HTML"}

@@ -11,7 +11,7 @@
  *   serial generations.id (which would leak activity volume).
  * - random suffix: 8 chars, anti-guess (URLs are public — see HANDOVER §5).
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { uploadFile, deleteFiles } from "./uploader";
 
 // asset — результаты серверной очереди: фон, персонажи и иконки лендинга.
@@ -91,6 +91,22 @@ export async function uploadImage(buffer: Buffer, args: BuildPathArgs): Promise<
   const { ftpPath, url, filename } = buildPath(args);
   await uploadFile(buffer, ftpPath);
   return { url, ftpPath, filename };
+}
+
+/**
+ * Картинка для письма: путь — хеш содержимого.
+ *
+ * Письмо уходит на почтовый сервис и живёт в ящиках годами, поэтому картинки
+ * в нём — публичные ссылки, а не base64 (его Gmail и Outlook не показывают).
+ * Адрес по хешу делает загрузку идемпотентной: одно и то же лого или значок
+ * магазина из сотни писем лежит одним файлом, и повторная выгрузка письма не
+ * плодит копий. Хеш длинный — по адресу картинку не угадать.
+ */
+export async function uploadEmailAsset(buffer: Buffer, format: ImageFormat): Promise<{ url: string }> {
+  const hash = createHash("sha256").update(buffer).digest("hex").slice(0, 40);
+  const file = `${hash}.${format}`;
+  await uploadFile(buffer, `${getBasePath()}/email/${file}`);
+  return { url: `${getBaseUrl()}/email/${file}` };
 }
 
 /**

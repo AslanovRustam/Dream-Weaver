@@ -161,6 +161,13 @@ const checks = [
     rule: "Нет margin на таблицах (layout.no_margin)",
     ok: () => !/<table[^>]*style="[^"]*margin:/.test(html),
   },
+  {
+    id: "hosted-images",
+    // Не из свода, а из опыта: base64-картинки Gmail и Outlook не показывают
+    // вовсе. Письмо собирается и скачивается, а у получателя пустые места.
+    rule: "Картинки по ссылкам, не base64",
+    ok: () => !/<img[^>]+src="data:/i.test(html),
+  },
 ];
 
 const failed = checks.filter((c) => {
