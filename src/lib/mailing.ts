@@ -76,6 +76,8 @@ export function withBlocks(draft: EmailDraft): EmailDraft {
     base: emailBase(draft),
     // Черновики до появления поля показывали зашитый в код список.
     payments: draft.payments ?? DEFAULT_PAYMENTS,
+    // До появления поля заголовок шагов был зашит в вёрстку именно таким.
+    stepsTitle: draft.stepsTitle ?? DEFAULT_STEPS_TITLE,
     // У старых черновиков исходник не хранился — берём то, что есть.
     heroSource: draft.heroSource || draft.heroImage,
     blocks: { ...EMAIL_BLOCK_DEFAULTS, ...(draft.blocks ?? {}) },
@@ -133,6 +135,8 @@ export function parsePayments(raw: string | undefined): string[] {
     .slice(0, MAX_PAYMENTS);
 }
 
+export const DEFAULT_STEPS_TITLE = "Чтобы активировать бонус:";
+
 export interface EmailDraft {
   id: string;
   name: string;
@@ -159,6 +163,8 @@ export interface EmailDraft {
   heroSubtitle: string;
   body: string;
   steps: string[];
+  /** Заголовок над шагами. Пусто — без заголовка. */
+  stepsTitle: string;
   ctaText: string;
   ctaUrl: string;
   bonusCtaText: string;
@@ -191,6 +197,7 @@ export function newDraft(): EmailDraft {
     heroTitle: "",
     heroSubtitle: "",
     body: "",
+    stepsTitle: DEFAULT_STEPS_TITLE,
     steps: ["", "", ""],
     ctaText: "",
     ctaUrl: "",
@@ -221,6 +228,7 @@ export function sampleDraft(id: string): EmailDraft {
     heroTitle: "50 ФРИСПИНОВ BIG BASS BLAST + БОНУС **100% ДО 50 EUR**",
     heroSubtitle: "",
     body: "Лучшие слоты нашей коллекции ещё интереснее с бонусом! На этой неделе — **100% буст** и 50 фриспинов в слоте **Big Bass Blast** от **Pragmatic Play**. Внесите депозит от **20 EUR** до конца недели и активируйте бонус.",
+    stepsTitle: DEFAULT_STEPS_TITLE,
     steps: [
       "Выберите карточку бонуса при пополнении счёта",
       "Сделайте депозит от **20 EUR**",

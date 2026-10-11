@@ -33,11 +33,9 @@ import { imageCredits } from "@/lib/credit-estimate";
 const IMG_PRICE = imageCredits(1);
 import {
   EMAIL_BLOCKS,
-  EMAIL_STYLES,
   type EmailBlockId,
   type EmailBlocks,
   type EmailDraft,
-  type EmailStyle,
   emailBase,
   emailNameFromSubject,
   newDraft,
@@ -46,6 +44,8 @@ import { OptionalBlock } from "@/components/email/OptionalBlock";
 import { useAuthGate } from "@/components/AuthGate";
 import { emailImages, hostEmailImages } from "@/lib/emailAssets";
 import { DraftPicker } from "@/components/email/DraftPicker";
+import { TemplatePicker } from "@/components/email/TemplatePicker";
+import { applyTemplate, type EmailTemplate } from "@/lib/emailTemplates";
 import { useConfirm } from "@/components/ui/confirm";
 import { listDrafts, loadDraft, persistDraft, removeDraft, type DraftMeta } from "@/lib/emailDraftsStore";
 import { toast } from "sonner";
@@ -147,6 +147,25 @@ export function EmailGenApp() {
     baselineRef.current = JSON.stringify(d);
     setSaved(true);
     rememberInUrl(d.id);
+  };
+
+  /**
+   * Шаблон заменяет тексты, состав и гамму. Бренд, лого, баннер, ссылки и
+   * платёжки остаются: это данные бренда, а не повода. Если письмо уже правили,
+   * спрашиваем — иначе один промах по карточке стирает час работы.
+   */
+  const pickTemplate = async (t: EmailTemplate) => {
+    const touched = isDirty() || !!(draft.heroTitle || draft.body || draft.subject);
+    if (touched) {
+      const ok = await confirm({
+        title: `Применить шаблон «${t.name}»?`,
+        body: "Тексты, состав блоков и цвета письма заменятся. Бренд, лого, баннер и ссылки останутся.",
+        confirmLabel: "Применить",
+      });
+      if (!ok) return;
+    }
+    setDraft((d) => ({ ...applyTemplate(d, t), name: emailNameFromSubject(t.fields.subject) }));
+    setSaved(false);
   };
 
   const startNew = async () => {
@@ -544,18 +563,7 @@ export function EmailGenApp() {
         />
 
         <div>
-          <label className="mb-2 block ds-h4">Стиль</label>
-          <select
-            className={`${inputCls} h-12`}
-            value={draft.style}
-            onChange={(e) => set("style", e.target.value as EmailStyle)}
-          >
-            {EMAIL_STYLES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <TemplatePicker onPick={(t) => void pickTemplate(t)} />
         </div>
 
         <Field label="Тема письма">
@@ -783,6 +791,13 @@ export function EmailGenApp() {
         </OptionalBlock>
 
         <OptionalBlock {...blockProps("steps")}>
+          <input
+            className={inputCls}
+            value={draft.stepsTitle ?? ""}
+            onChange={(e) => set("stepsTitle", e.target.value)}
+            placeholder="Заголовок над шагами — пусто, если не нужен"
+            aria-label="Заголовок над шагами"
+          />
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
               <input

@@ -29,6 +29,7 @@
 import { safeCtaUrl } from "./exportUtils";
 import { buildPalette, type EmailPalette } from "./emailPalette";
 import {
+  DEFAULT_STEPS_TITLE,
   EMAIL_BLOCK_DEFAULTS,
   emailBase,
   parsePayments,
@@ -172,11 +173,17 @@ function stepsBlock(draft: EmailDraft, p: Palette): string {
                     </tr>`,
     )
     .join("\n");
-  return `              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
-                    <tr>
-                      <td colspan="2" align="center" style="padding:0;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;text-transform:uppercase;color:${p.text};text-align:center;">Чтобы активировать бонус:</td>
+  // Заголовок — из письма: «Чтобы активировать бонус» уместно в бонусном
+  // письме и неверно в турнирном. Пустой — строки нет вовсе.
+  const title = (draft.stepsTitle ?? DEFAULT_STEPS_TITLE).trim();
+  const head = title
+    ? `                    <tr>
+                      <td colspan="2" align="center" style="padding:0;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;text-transform:uppercase;color:${p.text};text-align:center;">${esc(title)}</td>
                     </tr>
-${rows}
+`
+    : "";
+  return `              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;">
+${head}${rows}
               </table>`;
 }
 
