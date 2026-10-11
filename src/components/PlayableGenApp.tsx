@@ -25,8 +25,11 @@ import {
   RefreshCw,
   Smartphone,
   Trash2,
+  Ticket,
   Upload,
+  Vault,
   X,
+  FerrisWheel,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,6 +64,9 @@ import {
 } from "@/lib/playableGen";
 import { type PlayableTemplate } from "@/lib/playableTemplates";
 import { PlayableTemplatePicker } from "@/components/playable/PlayableTemplatePicker";
+import { SceneStudio } from "@/components/playable/SceneStudio";
+import { SCENES } from "@/lib/scenes/presets";
+import type { SceneId } from "@/lib/scenes/build";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
@@ -133,6 +139,8 @@ function compressImageFile(file: File | null, setter: (v: string) => void, maxPx
 export function PlayableGenApp() {
   const { isGuest, openGate } = useAuthGate();
   const [mechanic, setMechanic] = useState<PlayableMechanic>("slot");
+  /** Выбрана премиум-сцена — вместо конструктора открыт её редактор. */
+  const [scene, setScene] = useState<SceneId | null>(null);
   const [offer, setOffer] = useState("");
   const [brandName, setBrandName] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
@@ -289,6 +297,11 @@ export function PlayableGenApp() {
 
   const selectMechanic = (id: PlayableMechanic) => {
     setMechanic(id);
+    setScene(null);
+    setMobileTab("settings");
+  };
+  const selectScene = (id: SceneId) => {
+    setScene(id);
     setMobileTab("settings");
   };
 
@@ -667,13 +680,13 @@ export function PlayableGenApp() {
         <h1 className="sr-only">Плейбл-реклама</h1>
 
         <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
-          <MechanicSidebar value={mechanic} onSelect={selectMechanic} />
+          <MechanicSidebar value={scene ? null : mechanic} onSelect={selectMechanic} scene={scene} onSelectScene={selectScene} />
         </div>
 
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
             mobileTab !== "settings" ? "max-lg:hidden" : ""
-          }`}
+          } ${scene ? "hidden" : ""}`}
         >
           <div className="flex items-center gap-3 px-2 pb-2 pt-3 lg:hidden">
             <button
@@ -1206,7 +1219,7 @@ export function PlayableGenApp() {
         <div
           className={`flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none max-lg:p-4 lg:h-full lg:flex-[4] ${
             mobileTab !== "result" ? "max-lg:hidden" : ""
-          }`}
+          } ${scene ? "hidden" : ""}`}
         >
           {status !== "loading" ? (
             <button
@@ -1384,6 +1397,16 @@ export function PlayableGenApp() {
             />
           )}
         </div>
+
+        {scene ? (
+          <SceneStudio
+            scene={scene}
+            brandName={brandName}
+            brandLogo={brandLogo}
+            hiddenOnMobile={mobileTab === "templates"}
+            onBack={() => setMobileTab("templates")}
+          />
+        ) : null}
       </div>
 
       {/* Fullscreen playable overlay — opens the interactive slot / wheel / etc.
@@ -1604,12 +1627,18 @@ function MechanicAnim({ mechanic }: { mechanic: PlayableMechanic }) {
   );
 }
 
+const SCENE_ICONS = { safe: Vault, wheel: FerrisWheel, scratch: Ticket } as const;
+
 function MechanicSidebar({
   value,
   onSelect,
+  scene,
+  onSelectScene,
 }: {
-  value: PlayableMechanic;
+  value: PlayableMechanic | null;
   onSelect: (id: PlayableMechanic) => void;
+  scene: SceneId | null;
+  onSelectScene: (id: SceneId) => void;
 }) {
   // Single category for now → show every mechanic at once. The "Все" collapse
   // (below) is kept but disabled; restore it once mechanics are grouped into
@@ -1635,8 +1664,37 @@ function MechanicSidebar({
       {/* Desktop: mechanics column stays fixed — no internal scroll (the list
           fits), only the middle settings column scrolls. Mobile: full-screen
           tab, keep scrollable. */}
-      <div className="flex-1 overflow-y-auto p-3 lg:overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-3">
         <div className="flex flex-col gap-3">
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-accent-green">Премиум-сцены</p>
+          {SCENES.map((sc) => {
+            const active = scene === sc.id;
+            const Icon = SCENE_ICONS[sc.id];
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                onClick={() => onSelectScene(sc.id)}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                  active
+                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
+                    : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
+                }`}
+              >
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-[#5a3410] to-[#1d0f07] text-[#ffcf6a]">
+                  <Icon className="h-7 w-7" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold">
+                    {sc.label}
+                    {active ? <Check className="h-3.5 w-3.5 text-accent-green" /> : null}
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 block ds-caption">{sc.description}</span>
+                </span>
+              </button>
+            );
+          })}
+          <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Конструктор</p>
           {shown.map((m) => {
             const active = value === m.id;
             return (

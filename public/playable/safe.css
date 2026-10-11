@@ -1,0 +1,80 @@
+/* Сценарий «Сейф»: 3 нажатия на замок → дверь открывается → бонус.
+   Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: 40px; top: 300px; width: 1000px; height: 1100px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .85), rgba(255, 140, 40, .25) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 190px; width: 1200px; height: 1200px; opacity: 0; }
+
+#safe { left: 140px; top: 420px; width: 800px; height: 860px; perspective: 2000px; filter: drop-shadow(0 40px 50px rgba(0, 0, 0, .6)); }
+#door { left: 60px; top: 58px; width: 680px; height: 744px; transform-origin: 0 50%; transform-style: preserve-3d; }
+#sfInterior { opacity: 0; }
+.open #sfInterior { opacity: 1; }
+
+#dial { left: 160px; top: 132px; width: 360px; height: 360px; }
+#dialWig, #dialSpr { transform-origin: 50% 50%; }
+#dialSpr { will-change: transform; }
+#dialHub { left: 276px; top: 248px; width: 128px; height: 128px; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5)); }
+
+/* Подсказка: одна петля на всех. В момент «нажатия» руки (~48%) диск
+   чуть доворачивается, ступица вдавливается, от замка расходятся кольца. */
+.idle #dialWig { animation: dialNudge var(--tap) ease-out infinite; }
+.idle #dialHub { animation: hubPress var(--tap) ease-out infinite; }
+@keyframes dialNudge { 0%, 44% { transform: rotate(0); } 52% { transform: rotate(14deg); } 70% { transform: rotate(-3deg); } 100% { transform: rotate(0); } }
+@keyframes hubPress { 0%, 44% { transform: scale(1); } 50% { transform: scale(.9); } 62%, 100% { transform: scale(1); } }
+
+#waves { left: 330px; top: 580px; width: 420px; height: 420px; pointer-events: none; }
+#waves i {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%;
+  border: 6px solid rgba(255, 214, 130, .8); opacity: 0;
+}
+.idle #waves i { animation: wave var(--tap) ease-out infinite; }
+.idle #waves i:nth-child(2) { animation-delay: .18s; }
+@keyframes wave { 0%, 46% { transform: scale(.45); opacity: 0; } 50% { opacity: .9; } 100% { transform: scale(1.15); opacity: 0; } }
+
+/* ---------- панель «нажатий осталось» ---------- */
+#panel {
+  left: 140px; top: 1300px; width: 800px; height: 252px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 0 0 10px rgba(50, 22, 6, .9), 0 24px 50px rgba(0, 0, 0, .55), inset 0 2px 0 rgba(255, 220, 160, .25);
+}
+#label { left: 0; top: 22px; width: 100%; text-align: center; font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+#track { left: 150px; top: 158px; width: 500px; height: 22px; border-radius: 11px; background: #120804; box-shadow: inset 0 3px 6px rgba(0, 0, 0, .7); overflow: hidden; }
+#bar { left: 0; top: 0; width: 0; height: 100%; border-radius: 11px; background: linear-gradient(180deg, #ffe58a, #f2a12e); box-shadow: 0 0 16px rgba(255, 190, 70, .8); }
+
+.slot, .coin { width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; top: 168px; }
+.slot { background: radial-gradient(circle at 50% 40%, #241208, #0b0502 70%); box-shadow: inset 0 6px 14px rgba(0, 0, 0, .8), 0 0 0 4px rgba(150, 90, 40, .55); }
+.slot[data-slot="0"], .coin[data-slot="0"] { left: 150px; }
+.slot[data-slot="1"], .coin[data-slot="1"] { left: 400px; }
+.slot[data-slot="2"], .coin[data-slot="2"] { left: 650px; }
+.coin {
+  opacity: 0;
+  background: radial-gradient(circle at 38% 32%, #fff6c8 0, #ffd35a 30%, #e3901f 70%, #9a4d10 100%);
+  box-shadow: 0 0 0 6px #b86a1c, inset 0 0 0 10px rgba(255, 236, 170, .45), 0 0 28px rgba(255, 186, 60, .75);
+}
+.coin::after {
+  content: ""; position: absolute; left: 30px; top: 28px; width: 64px; height: 64px;
+  background: #9a4d10; opacity: .8;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.coin.broken { background: radial-gradient(circle at 38% 32%, #d8ccbe 0, #8f8172 45%, #4a3e34 100%); box-shadow: 0 0 0 6px #4a3a2c, inset 0 0 0 10px rgba(220, 210, 200, .25); }
+.coin.broken::after { background: #3a2f26; }
+.coin.broken svg { position: absolute; inset: 0; }
+
+.check {
+  width: 58px; height: 58px; border-radius: 50%; top: 92px; opacity: 0;
+  background: radial-gradient(circle at 40% 35%, #8af07a, #23a832 70%);
+  box-shadow: 0 0 0 5px #0e3b12, 0 6px 12px rgba(0, 0, 0, .5);
+}
+.check::after {
+  content: ""; position: absolute; left: 17px; top: 11px; width: 14px; height: 26px;
+  border: solid #fff; border-width: 0 7px 7px 0; transform: rotate(42deg);
+}
+.check[data-slot="0"] { left: 183px; }
+.check[data-slot="1"] { left: 433px; }
+.check[data-slot="2"] { left: 683px; }
+
+#hand { left: 528px; top: 818px; }
+.open #hand, .open #waves { display: none; }

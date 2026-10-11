@@ -1,0 +1,40 @@
+/* Сценарий «Колесо»: первое вращение — почти джекпот, второе — выигрыш.
+   Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: 40px; top: 400px; width: 1000px; height: 1000px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 300px; width: 1200px; height: 1200px; opacity: 0; }
+
+#wheelBox { left: 120px; top: 470px; width: 840px; height: 840px; filter: drop-shadow(0 40px 50px rgba(0, 0, 0, .6)); }
+#wheelSway { transform-origin: 50% 50%; }
+.idle #wheelSway { animation: sway 3.2s ease-in-out infinite; }
+@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+#wheelRot { transform-origin: 0 0; }
+
+#pointer { left: 360px; top: -46px; width: 120px; height: 150px; transform-origin: 50% 30%; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .5)); }
+
+/* Лампочки на ободе: бегущие огни в покое, быстрые при вращении, все разом при выигрыше. */
+.bulb { fill: #ffe9a0; }
+.bulb.b2 { fill: #ff8a3c; }
+#wheelBox .bulb { animation: chase 1s steps(1) infinite; }
+#wheelBox .bulb.b2 { animation-delay: .5s; }
+.spinning #wheelBox .bulb { animation-duration: .25s; }
+.spinning #wheelBox .bulb.b2 { animation-delay: .125s; }
+.won #wheelBox .bulb { animation: winBlink .3s steps(1) infinite; }
+@keyframes chase { 0% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes winBlink { 0% { opacity: 1; fill: #fff; } 50% { opacity: .5; } }
+
+#spinPill {
+  left: 290px; top: 1360px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1500px; font-size: 86px; }
+#hand { left: 503px; top: 918px; }
+.won #hand { display: none; }
