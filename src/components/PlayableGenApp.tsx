@@ -7,7 +7,7 @@
 // preview (a sandboxed iframe running the generated mini-game). Generation is
 // client-side today (see src/lib/playableGen.ts); the shape matches the other
 // generators so a real API can be slotted in later.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BriefUploader } from "@/components/BriefUploader";
 import {
@@ -49,17 +49,33 @@ import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import { useAuthGate } from "@/components/AuthGate";
 import {
   PLAYABLE_MECHANICS,
+  PLAYABLE_NETWORKS,
   PLAYABLE_RATIOS,
   PLAYABLE_DURATIONS,
+  buildPlayableHtml,
   generatePlayable,
+  type PlayableInput,
   type PlayableMechanic,
+  type PlayableNetwork,
   type PlayableResult,
 } from "@/lib/playableGen";
+import { type PlayableTemplate } from "@/lib/playableTemplates";
+import { PlayableTemplatePicker } from "@/components/playable/PlayableTemplatePicker";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
+import { apiFetch } from "@/lib/api-client";
+import { bgPreset } from "@/lib/landingCreative";
+import { compressImage, shrinkPng } from "@/lib/imageCompress";
+import { sliceIconGrid } from "@/lib/spriteSlice";
+import { EMAIL_HERO_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 
 type MobileTab = "templates" | "settings" | "result";
 type Status = "idle" | "loading" | "done" | "error";
 
 const ACCENT = "#d4ff3d";
+/** Черновик формы плейбла в localStorage. */
+const DRAFT_KEY = "dw_playable_draft";
 
 function compressImageFile(file: File | null, setter: (v: string) => void, maxPx = 256) {
   if (!file) return;
@@ -123,6 +139,15 @@ export function PlayableGenApp() {
   const [language, setLanguage] = useState("auto");
   const [alwaysWin, setAlwaysWin] = useState(true);
   const [ctaText, setCtaText] = useState("");
+  /** Куда ведёт кнопка. Без неё MRAID-сеть плейбл не примет. */
+  const [clickUrl, setClickUrl] = useState("");
+  const [network, setNetwork] = useState<PlayableNetwork>("mraid");
+  const [accent, setAccent] = useState(ACCENT);
+  /** Темы для ИИ-оформления: фон и символы слота / Match-3. */
+  const [bgTheme, setBgTheme] = useState("");
+  const [symbolTheme, setSymbolTheme] = useState("");
+  const [bgImage, setBgImage] = useState("");
+  const [symbolImages, setSymbolImages] = useState<string[]>([]);
   const applyBrief = (f: Record<string, string>) => {
     if (f.subject) setOffer(f.subject);
     if (f.brand) setBrandName(f.brand);
@@ -161,11 +186,20 @@ export function PlayableGenApp() {
       : { w: 1280, h: 800 },
   );
 
-  const [openSec, setOpenSec] = useState({ offer: true, mechanic: false, format: false, brand: false, lang: false });
+  const [openSec, setOpenSec] = useState({
+    offer: true,
+    mechanic: false,
+    look: false,
+    format: false,
+    brand: false,
+    lang: false,
+  });
   const toggleSec = (id: keyof typeof openSec) => setOpenSec((p) => ({ ...p, [id]: !p[id] }));
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const initedRef = useRef(false);
+  // Пока черновик не прочитан, сохранять нельзя — иначе пустая форма затрёт его.
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     if (initedRef.current) return;
@@ -175,6 +209,45 @@ export function PlayableGenApp() {
     setBrandName(b.brand_name);
     setBrandLogo(b.brand_logo);
     setLanguage(b.language || "auto");
+
+    // Черновик формы: раньше при перезагрузке терялось всё, кроме бренда.
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      const d = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      if (d) {
+        const str = (k: string, set: (v: string) => void) => {
+          if (typeof d[k] === "string") set(d[k] as string);
+        };
+        const arr = (k: string, set: (v: string[]) => void) => {
+          if (Array.isArray(d[k]) && (d[k] as unknown[]).every((x) => typeof x === "string")) set(d[k] as string[]);
+        };
+        if (PLAYABLE_MECHANICS.some((m) => m.id === d.mechanic)) setMechanic(d.mechanic as PlayableMechanic);
+        str("offer", setOffer);
+        str("ctaText", setCtaText);
+        str("clickUrl", setClickUrl);
+        if (d.network === "mraid" || d.network === "google") setNetwork(d.network);
+        if (typeof d.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(d.accent)) setAccent(d.accent);
+        if (typeof d.alwaysWin === "boolean") setAlwaysWin(d.alwaysWin);
+        if (d.duration === "short" || d.duration === "medium") setDuration(d.duration);
+        if (PLAYABLE_RATIOS.some((r) => r.id === d.ratio)) setRatio(d.ratio as string);
+        if (typeof d.reels === "number" && [3, 4, 5].includes(d.reels)) setReels(d.reels);
+        if (typeof d.customSymbols === "boolean") setCustomSymbols(d.customSymbols);
+        arr("slotSymbols", setSlotSymbols);
+        arr("wheelPrizes", setWheelPrizes);
+        str("scratchPrize", setScratchPrize);
+        str("quizQuestion", setQuizQuestion);
+        arr("quizAnswers", setQuizAnswers);
+        if (typeof d.quizCorrect === "number") setQuizCorrect(d.quizCorrect);
+        if (typeof d.match3Moves === "number" && [5, 8, 12].includes(d.match3Moves)) setMatch3Moves(d.match3Moves);
+        str("bgTheme", setBgTheme);
+        str("symbolTheme", setSymbolTheme);
+        str("bgImage", setBgImage);
+        arr("symbolImages", setSymbolImages);
+      }
+    } catch {
+      /* битый черновик — начинаем с чистой формы */
+    }
+    setRestored(true);
   }, []);
 
   useEffect(() => {
@@ -230,6 +303,7 @@ export function PlayableGenApp() {
     { id: "brand", title: "Бренд", done: true },
     { id: "lang", title: "Языки", done: true },
     { id: "mechanic", title: "Механика", done: mechanicValid },
+    { id: "look", title: "Оформление", done: true },
     { id: "format", title: "Формат и результат", done: true },
   ];
 
@@ -256,6 +330,182 @@ export function PlayableGenApp() {
     toast("Генерация отменена");
   };
 
+  /**
+   * Всё, из чего собирается плейбл, одним объектом — и для генерации, и для
+   * пересборки после ассетов, и для выгрузки. preview: без подключений сети
+   * (mraid.js, ExitApi) — в предпросмотре их нет, а кнопка должна открывать
+   * ссылку обычной вкладкой.
+   */
+  const buildInput = (preview: boolean): PlayableInput => ({
+    mechanic,
+    offer,
+    brandName,
+    brandLogo,
+    language,
+    accent,
+    alwaysWin,
+    ctaText,
+    duration,
+    ratio,
+    reels,
+    // Символы от ИИ важнее ручных: их рисовали под этот оффер.
+    slotSymbols: symbolImages.length ? symbolImages : customSymbols ? slotSymbols : [],
+    wheelPrizes,
+    scratchPrize,
+    quizQuestion,
+    quizAnswers,
+    quizCorrect,
+    match3Moves,
+    clickUrl,
+    network,
+    bgImage,
+    preview,
+  });
+
+  // Ассеты, сеть, ссылка и цвет не требуют «генерации» — готовый плейбл
+  // пересобирается сразу, чтобы превью не показывало вчерашнее.
+  useEffect(() => {
+    if (!result) return;
+    setResult({ html: buildPlayableHtml(buildInput(true)) });
+    setGenId((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgImage, symbolImages, network, clickUrl, accent]);
+
+  // Черновик — с задержкой, чтобы не писать на каждую букву. Не влезли в
+  // квоту с картинками — сохраняем без них: форма важнее оформления.
+  useEffect(() => {
+    if (!restored) return;
+    const id = window.setTimeout(() => {
+      const data = {
+        mechanic, offer, ctaText, clickUrl, network, accent, alwaysWin, duration, ratio, reels,
+        customSymbols, slotSymbols, wheelPrizes, scratchPrize, quizQuestion, quizAnswers, quizCorrect,
+        match3Moves, bgTheme, symbolTheme, bgImage, symbolImages,
+      };
+      try {
+        window.localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+      } catch {
+        try {
+          window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, bgImage: "", symbolImages: [] }));
+        } catch {
+          /* приватный режим */
+        }
+      }
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [
+    restored, mechanic, offer, ctaText, clickUrl, network, accent, alwaysWin, duration, ratio, reels,
+    customSymbols, slotSymbols, wheelPrizes, scratchPrize, quizQuestion, quizAnswers, quizCorrect,
+    match3Moves, bgTheme, symbolTheme, bgImage, symbolImages,
+  ]);
+
+  /**
+   * ИИ-оформление. Картинки встраиваются в файл плейбла — сети запрещают
+   * внешние запросы, — поэтому сразу ужимаются: фон до 1080 px JPEG, символы
+   * до 128 px PNG с прозрачностью.
+   */
+  const applyAsset = async (key: string, dataUrl: string) => {
+    if (key === "bg") {
+      const out = await compressImage(dataUrl, { maxWidth: 1080, maxBytes: 250 * 1024, background: "#000000" });
+      setBgImage(out.dataUrl);
+      return;
+    }
+    if (key === "symbols") {
+      const tiles = await sliceIconGrid(dataUrl, 3, 2);
+      setSymbolImages(await Promise.all(tiles.map((t) => shrinkPng(t, 128))));
+    }
+  };
+  const assetRun = useAssetRun({ resumeKey: "dw_jobs_playable", apply: applyAsset });
+
+  /** Сборка во вкладке — если очереди на сервере нет. */
+  const runInTab = (route: string, body: Record<string, unknown>, key: string) => async () => {
+    try {
+      const res = await apiFetch(route, { method: "POST", json: body });
+      const data = (await res.json()) as { imageUrl?: string; error?: string; detail?: string };
+      if (!res.ok || !data.imageUrl) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
+      await applyAsset(key, data.imageUrl);
+      return true;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
+      return false;
+    }
+  };
+
+  const usesSymbols = mechanic === "slot" || mechanic === "match3";
+  const assetSteps = (): AssetStep[] => {
+    const theme = (bgTheme || offer).trim();
+    const bgBody = { presetTemplate: bgPreset(theme), feature: "playable-bg", aspectRatio: ratio };
+    const steps: AssetStep[] = [
+      {
+        id: "bg",
+        label: "Фон плейбла",
+        credits: EMAIL_HERO_PRICE_CREDITS,
+        blocking: true,
+        run: runInTab("/api/generate-email-hero", bgBody, "bg"),
+        server: { route: "/api/generate-email-hero", body: bgBody },
+      },
+    ];
+    if (usesSymbols) {
+      const symBody = { prompt: (symbolTheme || offer).trim(), count: 6 };
+      steps.push({
+        id: "symbols",
+        label: "Символы (6)",
+        credits: SLOT_SYMBOLS_PRICE_CREDITS,
+        run: runInTab("/api/generate-slot-symbols", symBody, "symbols"),
+        server: { route: "/api/generate-slot-symbols", body: symBody },
+      });
+    }
+    return steps;
+  };
+  const assetCredits = assetSteps().reduce((sum, st) => sum + st.credits, 0);
+
+  const startAssets = () => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
+    if (!(bgTheme || offer).trim()) {
+      toast.error("Опишите сцену для фона или заполните оффер");
+      return;
+    }
+    void assetRun.start(assetSteps());
+  };
+
+  /**
+   * Шаблон заменяет механику, оффер, настройки игры, цвет и темы оформления.
+   * Бренд, ссылка по кнопке и сеть — данные кампании, их не трогаем.
+   */
+  const pickTemplate = async (t: PlayableTemplate) => {
+    const hasAssets = !!bgImage || symbolImages.length > 0;
+    if (offer.trim() || result || hasAssets) {
+      const ok = await confirm({
+        title: `Применить шаблон «${t.name}»?`,
+        body:
+          "Механика, оффер, настройки игры и цвет заменятся. Бренд, ссылка по кнопке и сеть останутся." +
+          (hasAssets ? " Сгенерированные фон и символы сбросятся — они рисовались под прошлый оффер." : ""),
+        confirmLabel: "Применить",
+      });
+      if (!ok) return;
+    }
+    setMechanic(t.mechanic);
+    setOffer(t.offer);
+    setCtaText(t.ctaText);
+    setAccent(t.accent);
+    setDuration(t.duration);
+    setBgTheme(t.bgTheme);
+    setSymbolTheme(t.symbolTheme ?? "");
+    if (t.reels) setReels(t.reels);
+    if (t.wheelPrizes) setWheelPrizes([...t.wheelPrizes]);
+    if (t.scratchPrize !== undefined) setScratchPrize(t.scratchPrize);
+    if (t.quizQuestion !== undefined) setQuizQuestion(t.quizQuestion);
+    if (t.quizAnswers) setQuizAnswers([...t.quizAnswers]);
+    if (t.quizCorrect !== undefined) setQuizCorrect(t.quizCorrect);
+    if (t.match3Moves) setMatch3Moves(t.match3Moves);
+    setCustomSymbols(false);
+    setBgImage("");
+    setSymbolImages([]);
+    setMobileTab("settings");
+  };
+
   const onGenerate = async () => {
     if (isGuest) {
       openGate();
@@ -274,26 +524,7 @@ export function PlayableGenApp() {
     setStatus("loading");
     setErrorMsg("");
     try {
-      const res = await generatePlayable({
-        mechanic,
-        offer,
-        brandName,
-        brandLogo,
-        language,
-        accent: ACCENT,
-        alwaysWin,
-        ctaText,
-        duration,
-        ratio,
-        reels,
-        slotSymbols: customSymbols ? slotSymbols : [],
-        wheelPrizes,
-        scratchPrize,
-        quizQuestion,
-        quizAnswers,
-        quizCorrect,
-        match3Moves,
-      });
+      const res = await generatePlayable(buildInput(true));
       if (genCancelledRef.current) return;
       setResult(res);
       setGenId((n) => n + 1);
@@ -306,18 +537,51 @@ export function PlayableGenApp() {
     }
   };
 
-  const download = () => {
+  const net = PLAYABLE_NETWORKS.find((n) => n.id === network) ?? PLAYABLE_NETWORKS[0];
+  // Вес выгрузки считаем от того, что реально уйдёт в сеть, а не от превью.
+  const exportBytes = useMemo(
+    () => (result ? new Blob([buildPlayableHtml(buildInput(false))]).size : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [result],
+  );
+  const mb = (b: number) => `${(b / 1024 / 1024).toFixed(2)} МБ`;
+
+  const download = async () => {
     if (!result) return;
-    const blob = new Blob([result.html], { type: "text/html;charset=utf-8" });
+    // MRAID-сеть открывает ссылку из файла: без неё кнопка мёртвая, и сеть
+    // плейбл отклонит. У Google ссылка живёт в настройках объявления.
+    if (network === "mraid" && !clickUrl.trim()) {
+      toast.error("Укажите ссылку по кнопке — без неё MRAID-сеть не примет плейбл");
+      setOpenSec((p) => ({ ...p, format: true }));
+      return;
+    }
+    const html = buildPlayableHtml(buildInput(false));
+    let blob: Blob;
+    let name: string;
+    if (network === "google") {
+      // Google принимает HTML5-объявления только архивом с index.html.
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      zip.file("index.html", html);
+      blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+      name = `playable-${mechanic}-google.zip`;
+    } else {
+      blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      name = `playable-${mechanic}-mraid.html`;
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `playable-${mechanic}-${Date.now()}.html`;
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast.success("Плейбл скачан (HTML5)");
+    if (blob.size > net.limit) {
+      toast.warning(`Файл ${mb(blob.size)} — больше лимита сети (${mb(net.limit)}). Уберите фон или символы.`);
+    } else {
+      toast.success(`Плейбл скачан для «${net.label}» · ${mb(blob.size)}`);
+    }
   };
 
   const openInNewTab = () => {
@@ -425,6 +689,7 @@ export function PlayableGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              <PlayableTemplatePicker onPick={(t) => void pickTemplate(t)} />
               <BriefUploader
                 product="playable"
                 onApply={applyBrief}
@@ -722,6 +987,94 @@ export function PlayableGenApp() {
               </SettingsSection>
 
               <SettingsSection
+                title="Оформление"
+                done
+                open={openSec.look}
+                onToggle={() => toggleSec("look")}
+              >
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={accent}
+                      onChange={(e) => setAccent(e.target.value)}
+                      aria-label="Акцентный цвет плейбла"
+                      className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-border bg-elevated p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-[7px] [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-[7px] [&::-moz-color-swatch]:border-0"
+                    />
+                    <span className="ds-caption">Акцент — кнопки, указатель колеса, множитель.</span>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block ds-label">Сцена для фона</label>
+                    <textarea
+                      value={bgTheme}
+                      onChange={(e) => setBgTheme(e.target.value)}
+                      rows={2}
+                      className="min-h-[64px] w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
+                      placeholder="Пусто — возьмём оффер. Например: вечерний зал казино, золото и неон"
+                    />
+                  </div>
+
+                  {usesSymbols ? (
+                    <div>
+                      <label className="mb-1.5 block ds-label">Тема символов</label>
+                      <input
+                        type="text"
+                        value={symbolTheme}
+                        onChange={(e) => setSymbolTheme(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                        placeholder="Например: драгоценные камни разных цветов"
+                      />
+                    </div>
+                  ) : null}
+
+                  {bgImage || symbolImages.length ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {bgImage ? (
+                        <span className="flex items-center gap-1.5">
+                          <img src={bgImage} alt="Фон" className="h-12 w-8 rounded border border-border object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setBgImage("")}
+                            className="text-xs text-muted-foreground transition hover:text-foreground"
+                          >
+                            Убрать фон
+                          </button>
+                        </span>
+                      ) : null}
+                      {symbolImages.length ? (
+                        <span className="flex items-center gap-1">
+                          {symbolImages.map((src, i) => (
+                            <img key={i} src={src} alt="" className="h-7 w-7 rounded bg-white/5 object-contain" />
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setSymbolImages([])}
+                            className="ml-1 text-xs text-muted-foreground transition hover:text-foreground"
+                          >
+                            Убрать
+                          </button>
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <AssetRunPanel
+                    steps={assetRun.steps}
+                    running={assetRun.running}
+                    notEnough={assetRun.notEnough}
+                    credits={assetCredits}
+                    onStart={startAssets}
+                    onCancel={assetRun.cancel}
+                  />
+                  <p className="ds-caption">
+                    Картинки встраиваются в файл плейбла: сети не разрешают внешние запросы. Мы
+                    сразу ужимаем их, чтобы файл уложился в лимит.
+                  </p>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
                 title="Формат и результат"
                 done
                 open={openSec.format}
@@ -748,6 +1101,46 @@ export function PlayableGenApp() {
                   className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   placeholder="Забрать бонус · Играть · Установить"
                 />
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block ds-label">Куда выгружаем</label>
+                <div className="flex gap-2">
+                  {PLAYABLE_NETWORKS.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => setNetwork(n.id)}
+                      aria-pressed={network === n.id}
+                      className={`flex-1 rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                        network === n.id
+                          ? "border-accent-green bg-accent-green/10 text-accent-green"
+                          : "border-border text-foreground/70 hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="block font-medium">{n.label}</span>
+                      <span className="mt-0.5 block ds-caption">{n.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block ds-label">
+                  Ссылка по кнопке{network === "mraid" ? " *" : ""}
+                </label>
+                <input
+                  type="url"
+                  value={clickUrl}
+                  onChange={(e) => setClickUrl(e.target.value)}
+                  className="h-12 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
+                  placeholder="https://… — стор, лендинг или трекинговая ссылка"
+                />
+                <p className="mt-1.5 ds-caption">
+                  {network === "google"
+                    ? "Для Google необязательно: ссылку перехода задаёте в настройках объявления, кнопка вызовет её сама. Здесь — только для проверки в превью."
+                    : "Обязательно: по ней MRAID-контейнер откроет стор или лендинг. В превью кнопка откроет её в новой вкладке."}
+                </p>
               </div>
 
               <div className="mt-4">
@@ -938,7 +1331,8 @@ export function PlayableGenApp() {
                 </div>
               </div>
 
-              <div className="flex justify-center rounded-2xl border border-border bg-card p-3">
+              <div className="relative flex justify-center overflow-hidden rounded-2xl border border-border bg-card p-3">
+                {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
                 <div
                   className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl transition-all"
                   style={{ width: f.w, maxWidth: "100%" }}
@@ -947,7 +1341,9 @@ export function PlayableGenApp() {
                     key={`${genId}-${previewMode}`}
                     srcDoc={result.html}
                     title="Интерактивный плейбл"
-                    sandbox="allow-scripts"
+                    // allow-popups — чтобы кнопка в превью открыла ссылку. Без
+                    // allow-same-origin песочница по-прежнему не видит нашу вкладку.
+                    sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
                     className="block w-full bg-black"
                     style={{ height: f.h, border: 0 }}
                   />
@@ -957,11 +1353,11 @@ export function PlayableGenApp() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={download}
+                  onClick={() => void download()}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                 >
                   <Download className="h-4 w-4" />
-                  Скачать
+                  {network === "google" ? "Скачать ZIP для Google" : "Скачать для MRAID"}
                 </button>
                 <button
                   type="button"
@@ -972,9 +1368,12 @@ export function PlayableGenApp() {
                   Получить код
                 </button>
               </div>
+              <p className={`text-center ds-caption ${exportBytes > net.limit ? "text-amber-400" : ""}`}>
+                Файл для «{net.label}»: {mb(exportBytes)} из {mb(net.limit)}
+                {exportBytes > net.limit ? " — больше лимита, сеть его не примет" : ""}
+              </p>
               <p className="text-center ds-caption">
-                Интерактивное превью — можно играть прямо здесь. «Скачать» — HTML5-пакет для рекламных
-                сетей.
+                Интерактивное превью — можно играть прямо здесь, кнопка откроет ссылку в новой вкладке.
               </p>
             </div>
           ) : (

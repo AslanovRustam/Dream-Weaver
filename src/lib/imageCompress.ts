@@ -78,6 +78,31 @@ export async function rasterizeSvg(dataUrl: string, width = 512): Promise<string
 }
 
 /**
+ * Уменьшить PNG до заданной стороны, сохранив прозрачность.
+ *
+ * Для иконок, которые встраиваются в файл плейбла: JPEG им не подходит —
+ * у символа слота прозрачный фон, — а исходник с генератора весит в разы
+ * больше, чем нужно ячейке в 46 пикселей.
+ */
+export async function shrinkPng(dataUrl: string, maxSide: number): Promise<string> {
+  const img = await load(dataUrl);
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  if (scale >= 1) return dataUrl;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
+/**
  * Ужать картинку до целевого веса.
  *
  * Сначала уменьшаем до нужной ширины, потом понижаем качество JPEG, и только

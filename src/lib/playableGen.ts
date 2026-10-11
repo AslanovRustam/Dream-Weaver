@@ -13,6 +13,8 @@
 // with this module's own template literals. RUNTIME must contain NO backticks and
 // NO `${` sequences.
 
+import { embedJson, safeCtaUrl } from "./exportUtils";
+
 export type PlayableMechanic = "slot" | "wheel" | "crash" | "scratch" | "quiz" | "match3";
 
 export const PLAYABLE_MECHANICS: {
@@ -36,6 +38,51 @@ export const PLAYABLE_RATIOS: { id: string; label: string }[] = [
   { id: "1:1", label: "Квадрат 1:1" },
 ];
 
+/**
+ * Куда выгружается плейбл. От сети зависят три вещи: как кнопка уводит
+ * пользователя, что подключается в <head> и в каком виде отдаётся файл.
+ *
+ * MRAID — общий стандарт in-app сетей (AppLovin, Unity, ironSource,
+ * Mintegral, Liftoff): контейнер сам подкладывает mraid.js, кнопка зовёт
+ * mraid.open(ссылка), файл — один HTML без внешних запросов.
+ *
+ * Google Ads — HTML5-объявление: ZIP с index.html, мета-тег размера и ExitApi.
+ * Ссылку перехода Google берёт из настроек объявления, в файл её не пишем.
+ */
+export type PlayableNetwork = "mraid" | "google";
+
+export const PLAYABLE_NETWORKS: {
+  id: PlayableNetwork;
+  label: string;
+  hint: string;
+  /** Лимит выгрузки в байтах. */
+  limit: number;
+}[] = [
+  {
+    id: "mraid",
+    label: "MRAID-сети",
+    hint: "AppLovin, Unity, ironSource, Mintegral, Liftoff · один HTML",
+    limit: 5 * 1024 * 1024,
+  },
+  {
+    id: "google",
+    label: "Google Ads",
+    hint: "HTML5-объявление · ZIP с index.html",
+    limit: 5 * 1024 * 1024,
+  },
+];
+
+/**
+ * Размер объявления для мета-тега Google. Google принимает HTML5 только
+ * стандартных размеров: для полноэкранного мобильного — 320×480 и 480×320,
+ * для квадрата — 250×250.
+ */
+export function googleAdSize(ratio: string): { w: number; h: number } {
+  if (ratio === "16:9") return { w: 480, h: 320 };
+  if (ratio === "1:1") return { w: 250, h: 250 };
+  return { w: 320, h: 480 };
+}
+
 export const PLAYABLE_DURATIONS: { id: "short" | "medium"; label: string }[] = [
   { id: "short", label: "Короткая · 5–10 сек" },
   { id: "medium", label: "Средняя · 15–20 сек" },
@@ -43,6 +90,13 @@ export const PLAYABLE_DURATIONS: { id: "short" | "medium"; label: string }[] = [
 
 export type PlayableInput = {
   mechanic: PlayableMechanic;
+  /** Куда ведёт кнопка. Для Google не используется — там ссылка в объявлении. */
+  clickUrl: string;
+  network: PlayableNetwork;
+  /** Фон плейбла (data URL). Пусто — фирменный градиент. */
+  bgImage?: string;
+  /** Превью в приложении: без подключений сети, кнопка — обычная вкладка. */
+  preview?: boolean;
   offer: string;
   brandName: string;
   brandLogo: string;
@@ -123,7 +177,16 @@ const RUNTIME =
   "  if(DATA.logo){ var im=el('img'); im.src=DATA.logo; im.alt=''; brand.appendChild(im); }\n" +
   "  else if(DATA.brand){ brand.textContent=DATA.brand; }\n" +
   "  function showEnd(prize){ $('endTitle').textContent=I.youWon; $('endPrize').textContent=prize||DATA.offer; $('ctaBtn').textContent=DATA.cta; $('end').removeAttribute('hidden'); }\n" +
-  "  $('ctaBtn').addEventListener('click', function(){ $('ctaBtn').textContent='\\u2197 '+DATA.cta; });\n" +
+  // Выход по кнопке. Сеть сама решает, что делать с переходом: MRAID —
+  // mraid.open, Google — ExitApi.exit (ссылка в настройках объявления). Вне
+  // сети (предпросмотр, свой сайт) — обычная новая вкладка.
+  "  function exitAd(){\n" +
+  "    try{ if(window.mraid&&typeof mraid.open==='function'){ if(DATA.clickUrl) mraid.open(DATA.clickUrl); return; }\n" +
+  "      if(window.ExitApi&&typeof ExitApi.exit==='function'){ ExitApi.exit(); return; } }catch(e){}\n" +
+  "    if(DATA.clickUrl){ window.open(DATA.clickUrl,'_blank'); }\n" +
+  "  }\n" +
+  "  $('ctaBtn').addEventListener('click', exitAd);\n" +
+  "  if(DATA.bg){ document.body.style.backgroundImage='linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.55)),url(\"'+DATA.bg+'\")'; document.body.style.backgroundSize='cover'; document.body.style.backgroundPosition='center'; }\n" +
   "  function setSym(node, s){ if(/^data:|^https?:/.test(s)){ node.innerHTML=''; var i2=el('img'); i2.src=s; node.appendChild(i2); } else { node.textContent=s; } }\n" +
   "  function slot(){\n" +
   "    var wrap=el('div','slot'); var reels=el('div','reels'); wrap.appendChild(reels);\n" +
@@ -169,12 +232,12 @@ const RUNTIME =
   "    wrap.appendChild(opts); stage.appendChild(wrap);\n" +
   "  }\n" +
   "  function match3(){\n" +
-  "    var pal=['\\uD83C\\uDF52','\\u2B50','\\uD83D\\uDC8E','\\uD83D\\uDD14','\\uD83C\\uDF4B']; var cols=5, rows=5, moves=DATA.moves||8;\n" +
+  "    var pal=(DATA.symbols&&DATA.symbols.length>=3)?DATA.symbols.slice(0,5):['\\uD83C\\uDF52','\\u2B50','\\uD83D\\uDC8E','\\uD83D\\uDD14','\\uD83C\\uDF4B']; var cols=5, rows=5, moves=DATA.moves||8;\n" +
   "    var wrap=el('div','m3'); var hud=el('div','hud'); var ml=el('span'); ml.textContent=I.movesLabel+': '+moves; hud.appendChild(ml); wrap.appendChild(hud);\n" +
   "    var grid=el('div','grid'); grid.style.gridTemplateColumns='repeat('+cols+',1fr)'; var data=[]; function rnd(){ return pal[Math.floor(Math.random()*pal.length)]; }\n" +
   "    for(var i=0;i<cols*rows;i++){ data.push(rnd()); }\n" +
   "    function neighbors(idx){ var r=Math.floor(idx/cols), c=idx%cols, out=[]; if(c>0)out.push(idx-1); if(c<cols-1)out.push(idx+1); if(r>0)out.push(idx-cols); if(r<rows-1)out.push(idx+cols); return out; }\n" +
-  "    function render(){ grid.innerHTML=''; for(var i=0;i<data.length;i++){ (function(idx){ var t=el('button','tile'); t.textContent=data[idx]; t.addEventListener('click', function(){ pop(idx); }); grid.appendChild(t); })(i); } }\n" +
+  "    function render(){ grid.innerHTML=''; for(var i=0;i<data.length;i++){ (function(idx){ var t=el('button','tile'); setSym(t, data[idx]); t.addEventListener('click', function(){ pop(idx); }); grid.appendChild(t); })(i); } }\n" +
   "    function pop(idx){ if(moves<=0) return; var sym=data[idx]; var seen={}, stack=[idx], group=[]; while(stack.length){ var cur=stack.pop(); if(seen[cur]) continue; seen[cur]=1; if(data[cur]===sym){ group.push(cur); var nb=neighbors(cur); for(var k=0;k<nb.length;k++){ if(!seen[nb[k]]) stack.push(nb[k]); } } }\n" +
   "      for(var g=0;g<group.length;g++){ data[group[g]]=rnd(); } moves--; ml.textContent=I.movesLabel+': '+moves; render(); if(moves<=0){ setTimeout(function(){ showEnd(DATA.offer); }, 400); } }\n" +
   "    render(); wrap.appendChild(grid); stage.appendChild(wrap);\n" +
@@ -198,7 +261,10 @@ const RUNTIME =
   "    raf=requestAnimationFrame(tick);\n" +
   "  }\n" +
   "  var games={ slot:slot, wheel:wheel, crash:crash, scratch:scratch, quiz:quiz, match3:match3 };\n" +
-  "  (games[DATA.mechanic]||slot)();\n" +
+  // В MRAID-контейнере игру нельзя начинать, пока он не готов: до события
+  // ready mraid.open может не сработать, а анимация крутится в невидимом окне.
+  "  function start(){ (games[DATA.mechanic]||slot)(); }\n" +
+  "  if(window.mraid&&typeof mraid.getState==='function'&&mraid.getState()==='loading'){ mraid.addEventListener('ready', start); } else { start(); }\n" +
   "}\n";
 
 function css(accent: string): string {
@@ -212,7 +278,7 @@ function css(accent: string): string {
     ".brandbar img{height:26px;max-width:130px;object-fit:contain;background:#fff;border-radius:6px;padding:3px 6px}" +
     ".stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;padding:14px}" +
     ".play{margin-top:22px;background:var(--accent);color:#0a0d0a;font-weight:800;border:0;border-radius:12px;padding:14px 30px;font-size:16px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}.play:disabled{opacity:.55;cursor:default}" +
-    ".slot{display:flex;flex-direction:column;align-items:center}.reels{display:flex;gap:10px}.reel{width:72px;height:72px;background:#12160f;border:2px solid #2c3424;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}.sym{font-size:40px;line-height:1}.sym img{width:46px;height:46px;object-fit:contain}.sym.pop{animation:pop .4s}@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}" +
+    ".slot{display:flex;flex-direction:column;align-items:center}.reels{display:flex;gap:10px}.reel{width:72px;height:72px;background:#12160f;border:2px solid #2c3424;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}.sym{font-size:40px;line-height:1}.sym img{width:46px;height:46px;object-fit:contain}.tile img{width:34px;height:34px;object-fit:contain;pointer-events:none}.sym.pop{animation:pop .4s}@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}" +
     ".wheel-wrap{position:relative;display:flex;flex-direction:column;align-items:center}.pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--accent);z-index:3}.wheel{width:228px;height:228px;border-radius:50%;border:6px solid #2c3424;position:relative;transform:rotate(0)}.wlabel{position:absolute;inset:0;display:flex;justify-content:center;padding-top:14px}.wlabel span{color:#fff;font-size:11px;font-weight:700}" +
     ".scratch{position:relative;width:260px;height:170px;border-radius:16px;overflow:hidden;border:2px solid #2c3424}.prizeText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--accent);text-align:center;padding:12px}.scratch canvas{position:absolute;inset:0;touch-action:none;cursor:grab}.scratch .hint{position:absolute;bottom:8px;width:100%;text-align:center;font-size:12px;color:#0a0d0a;font-weight:600;pointer-events:none}" +
     ".quiz{width:100%;max-width:320px;padding:12px}.quiz .q{font-size:18px;margin-bottom:16px;text-align:center}.opts{display:flex;flex-direction:column;gap:10px}.opt{background:#12160f;border:1px solid #2c3424;color:#f5f7f2;border-radius:12px;padding:14px;font-size:15px;cursor:pointer;text-align:left}.opt.right{border-color:var(--accent);background:rgba(212,255,61,.14);color:var(--accent)}.opt.wrong{border-color:#7f1d1d;opacity:.6}" +
@@ -229,6 +295,9 @@ export function buildPlayableHtml(input: PlayableInput): string {
     mechanic: input.mechanic,
     brand: input.brandName || "",
     logo: input.brandLogo || "",
+    // javascript: и data: в ссылке исполнились бы по клику — вычищаем.
+    clickUrl: safeCtaUrl(input.clickUrl),
+    bg: input.bgImage || "",
     offer: input.offer.trim() || c.defaultPrize,
     cta: input.ctaText.trim() || c.claim,
     accent,
@@ -244,12 +313,17 @@ export function buildPlayableHtml(input: PlayableInput): string {
     moves: input.match3Moves,
     i: c,
   };
-  const json = JSON.stringify(data).replace(/</g, "\\u003c");
+  // embedJson: кроме "</script>", закрывает и U+2028/2029 — в строке скрипта
+  // они ломают разбор так же надёжно.
+  const json = embedJson(data);
+  const head = networkHead(input);
   const lang = input.language === "en" ? "en" : input.language === "uk" ? "uk" : "ru";
   return (
     "<!doctype html><html lang=\"" +
     lang +
-    "\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><style>" +
+    "\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>" +
+    head +
+    "<style>" +
     css(accent) +
     "</style></head><body><div class=\"ad\">" +
     "<div class=\"brandbar\"><span id=\"brand\"></span></div>" +
@@ -261,6 +335,25 @@ export function buildPlayableHtml(input: PlayableInput): string {
     json +
     ");</script></body></html>"
   );
+}
+
+/** Что сеть требует в <head>. */
+function networkHead(input: PlayableInput): string {
+  if (input.preview) return "";
+  if (input.network === "google") {
+    const { w, h } = googleAdSize(input.ratio);
+    return (
+      "<meta name=\"ad.size\" content=\"width=" +
+      w +
+      ",height=" +
+      h +
+      "\"/>" +
+      "<script type=\"text/javascript\" src=\"https://tpc.googlesyndication.com/pagead/gadgets/html5/api/exitapi.js\"></script>"
+    );
+  }
+  // MRAID-контейнер подкладывает mraid.js сам; ссылка относительная, и вне
+  // контейнера она просто не загрузится — рантайм это переживает.
+  return "<script src=\"mraid.js\"></script>";
 }
 
 export function generatePlayable(input: PlayableInput): Promise<PlayableResult> {

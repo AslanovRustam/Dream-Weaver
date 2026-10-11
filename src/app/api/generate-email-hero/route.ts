@@ -172,9 +172,11 @@ export async function POST(request: Request) {
     ? preset
     : (await composePrompt(brief, apiKey, noText)) ||
       `Cinematic iGaming promotional hero banner for: ${brief}`;
-  // Правила композиции идут и к пресету, и к собранному агентом промпту:
-  // без них модель ставит объект в угол и режет его краем кадра.
-  const prompt = `${base}\n\n${HERO_PROMPT_RULES}\n\n${noText}`;
+  // Правила композиции — только для баннера письма: они требуют широкий кадр
+  // 16:9. Этот же роут рисует фоны лендингов и плейблов (3:2, 9:16, 1:1), и
+  // там такое правило спорило бы с пропорцией холста.
+  const isEmailHero = (body.feature || "email-hero") === "email-hero";
+  const prompt = isEmailHero ? `${base}\n\n${HERO_PROMPT_RULES}\n\n${noText}` : `${base}\n\n${noText}`;
 
   // Reference images (up to 4, per OpenAI's /v1/images/edits limit): the
   // brand logo (style-only, never drawn) and/or a style-reference banner
