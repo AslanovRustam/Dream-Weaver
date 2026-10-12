@@ -7,7 +7,6 @@
 (function (P) {
   "use strict";
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
-  var BOARD = { x: 60, y: 430 };
   var CX = 480, DX = 84, ROW0 = 110, DY = 68, ROWS = 9, BUCKET_Y = 776;
   var LABELS = ["x100", "x10", "x3", "x1.5", "x0.5", "x0.5", "x1.5", "x3", "x10", "x100"];
   var COLORS = ["#ff3b3b", "#ff6a2c", "#ff9a2c", "#ffc23c", "#ffe46a", "#ffe46a", "#ffc23c", "#ff9a2c", "#ff6a2c", "#ff3b3b"];
@@ -91,7 +90,8 @@
       void b.offsetWidth;
       b.classList.add("land");
       anim(ball, [{ opacity: 1 }, { opacity: 0 }], { duration: 250, delay: 120 });
-      return { x: BOARD.x + x, y: BOARD.y + BUCKET_Y };
+      var bd = P.pos($("board"), 0, 0);
+      return { x: bd.x + x, y: bd.y + BUCKET_Y };
     });
   }
 
@@ -130,7 +130,8 @@
     anim(tapText, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
     ripple(at.x, at.y, 2.6);
     sparks(at.x, at.y, 40, { angle: -Math.PI / 2, spread: 1.5, dist: 560, size: 1.6, dur: 1300, gravity: 260, stagger: 450 });
-    sparks(540, 860, 30, { jx: 420, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
+    var bc = P.pos($("board"));
+    sparks(bc.x, bc.y, 30, { jx: 420, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
     P.wait(1700).then(P.showPopup);
   }
 

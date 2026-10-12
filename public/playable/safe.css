@@ -78,3 +78,12 @@
 
 #hand { left: 528px; top: 818px; }
 .open #hand, .open #waves { display: none; }
+
+/* ---- горизонталь: сейф слева, панель нажатий и тексты — колонкой справа */
+.land #safe { left: 120px; top: 90px; }
+.land #waves { left: 310px; top: 250px; }
+.land #panel { left: 1060px; top: 500px; }
+#stage.land #tapText { top: 800px; }
+.land #glowBack { left: 20px; top: -30px; }
+.land #raysBack { left: -80px; top: -140px; }
+.land #hand { left: 508px; top: 488px; }

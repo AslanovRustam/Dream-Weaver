@@ -64,3 +64,9 @@
 #tapText { top: 1320px; font-size: 86px; }
 #hand { left: 500px; top: 900px; }
 .won #hand { display: none; }
+
+/* ---- горизонталь: сундуки слева, тексты — колонкой справа */
+.land #chests { left: -10px; top: 300px; }
+.land #glowBack { left: -70px; top: 120px; }
+.land #raysBack { left: -70px; top: -20px; }
+.land #hand { left: 490px; top: 500px; }

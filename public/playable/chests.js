@@ -7,7 +7,6 @@
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var TRIES = 2, W = 320;
   var LEFT = [30, 380, 730]; // левый край сундуков на сцене
-  var TOP = 700 + 60;        // верх сундука на сцене
   var stage = P.stage, label = $("label"), tapText = $("tapText"), hand = $("hand");
 
   var BODY =
@@ -53,19 +52,26 @@
 
   label.textContent = (T.triesLeft || "") + TRIES;
 
+  /** Рука — над следующим закрытым сундуком (после первого выбора). */
+  function moveHand() {
+    var next = opened.indexOf(false);
+    if (!picks || next < 0) return;
+    var c = centerOf(next);
+    hand.style.left = c.x - 40 + "px";
+    hand.style.top = c.y - 10 + "px";
+  }
+  P.onLayout(function () { requestAnimationFrame(moveHand); });
+
   var picks = 0, busy = false, done = false, opened = [false, false, false];
 
-  function centerOf(i) { return { x: LEFT[i] + W / 2, y: TOP + 150 }; }
+  function centerOf(i) { return P.pos(chests[i], 0.5, 0.47); }
 
   /** Какой сундук выбран: тот, что под пальцем, иначе ближайший закрытый. */
   function chosen(e) {
     var el = e && e.target && e.target.closest ? e.target.closest(".chest") : null;
     if (el && !opened[+el.getAttribute("data-i")]) return +el.getAttribute("data-i");
-    var x = 540;
-    if (e && e.clientX != null) {
-      var r = stage.getBoundingClientRect();
-      x = (e.clientX - r.left) / (r.width / P.W);
-    }
+    var x = centerOf(1).x;
+    if (e && e.clientX != null) x = P.toStage(e.clientX, e.clientY).x;
     var best = -1, dist = 1e9;
     opened.forEach(function (o, i) {
       var d = Math.abs(centerOf(i).x - x);
@@ -108,8 +114,7 @@
       P.setGradText(tapText, P.rich(T.tryAgain || ""));
       animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
       // Рука переезжает к соседнему закрытому сундуку.
-      var next = opened.indexOf(false);
-      if (next >= 0) hand.style.left = centerOf(next).x - 40 + "px";
+      moveHand();
       setTimeout(function () { busy = false; P.scheduleHint(1400); }, 900);
     });
   }
@@ -137,7 +142,8 @@
       ripple(pt.x, pt.y - 60, 2.6);
       // Фонтан монет из сундука.
       sparks(pt.x, pt.y - 60, 40, { angle: -Math.PI / 2, spread: 1.4, dist: 520, size: 1.6, dur: 1300, gravity: 260, stagger: 500 });
-      sparks(540, 900, 30, { jx: 420, jy: 360, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
+      var cc = centerOf(1);
+      sparks(cc.x, cc.y, 30, { jx: 420, jy: 360, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
       P.wait(1800).then(P.showPopup);
     });
   }

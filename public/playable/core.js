@@ -9,7 +9,9 @@
 
   var CFG = window.PLAYABLE_CONFIG || {};
   var T = CFG.text || {};
-  var W = 1080, H = 1920;
+  // Сцена 1080×1920 на вертикальном экране и 1920×1080 на горизонтальном:
+  // в горизонтали объект встаёт слева, тексты — колонкой справа (класс .land).
+  var W = 1080, H = 1920, land = false;
   var w = window;
 
   // ------------------------------------------------------------ сети
@@ -58,14 +60,38 @@
   /** Пользовательский текст → безопасный HTML: экранируем, \n → <br>. */
   function rich(s) { return esc(s).replace(/\r?\n/g, "<br>"); }
 
+  var onLayout = []; // сцены подписываются, если что-то ставят кодом
   function fit() {
     var vw = w.innerWidth, vh = w.innerHeight;
+    var wasLand = land;
+    land = vw > vh * 1.05;
+    W = land ? 1920 : 1080;
+    H = land ? 1080 : 1920;
+    stage.classList.toggle("land", land);
     var s = Math.min(vw / W, vh / H);
     stage.style.transform = "translate(" + (vw - W * s) / 2 + "px," + (vh - H * s) / 2 + "px) scale(" + s + ")";
+    if (wasLand !== land) {
+      Array.prototype.forEach.call(stage.querySelectorAll(".gt:not(#popText)"), fitText);
+      onLayout.forEach(function (cb) { cb(land); });
+    }
   }
   w.addEventListener("resize", fit);
   w.addEventListener("orientationchange", function () { setTimeout(fit, 120); });
   fit();
+
+  /** Точка элемента в координатах сцены (fx, fy — доли ширины и высоты; по умолчанию центр). */
+  function pos(el, fx, fy) {
+    var sr = stage.getBoundingClientRect(), s = sr.width / W, r = el.getBoundingClientRect();
+    return {
+      x: (r.left - sr.left + r.width * (fx == null ? 0.5 : fx)) / s,
+      y: (r.top - sr.top + r.height * (fy == null ? 0.5 : fy)) / s,
+    };
+  }
+  /** Точка экрана (clientX/Y) в координатах сцены. */
+  function toStage(cx, cy) {
+    var sr = stage.getBoundingClientRect(), s = sr.width / W;
+    return { x: (cx - sr.left) / s, y: (cy - sr.top) / s };
+  }
 
   /** Градиентный текст = слой обводки + слой заливки. html — уже безопасный. */
   function setGradText(el, html) {
@@ -75,6 +101,7 @@
   /** Длинный (переведённый) текст ужимается до data-max, а не вылезает за край. */
   function fitText(el) {
     var max = parseFloat(el.getAttribute("data-max"));
+    if (max && el.clientWidth) max = Math.min(max, el.clientWidth * 0.94);
     var f = el.querySelector(".f");
     if (!max || !f) return;
     el.style.fontSize = "";
@@ -199,7 +226,8 @@
       { opacity: 1, transform: "translateY(18px) scale(1.06)", offset: 0.65 },
       { opacity: 1, transform: "none" },
     ], { duration: 650, delay: 220, easing: "ease-out" });
-    sparks(540, 730, 24, { dist: 320, size: 1.4, delay: 640, dur: 900 });
+    var rw = pos($("popReward"));
+    sparks(rw.x, rw.y, 24, { dist: 320, size: 1.4, delay: 640, dur: 900 });
 
     var pt = $("popText");
     var amount = Number(CFG.amount) || 0;
@@ -278,7 +306,10 @@
 
   // ------------------------------------------------------------ запуск
   w.P = {
-    CFG: CFG, T: T, AD: AD, W: W, H: H, stage: stage,
+    CFG: CFG, T: T, AD: AD, stage: stage, pos: pos, toStage: toStage,
+    isLand: function () { return land; },
+    /** Сцена ставит что-то кодом по координатам — перестроить при повороте экрана. */
+    onLayout: function (cb) { onLayout.push(cb); },
     $: $, rich: rich, setGradText: setGradText, fitText: fitText,
     anim: anim, animIn: animIn, wait: wait, rnd: rnd, sparks: sparks, ripple: ripple, flash: flash,
     setIdle: setIdle, scheduleHint: scheduleHint, showPopup: showPopup, SYM: SYM,

@@ -55,3 +55,9 @@
 #hubImg { pointer-events: none; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); }
 #pointer.art { transform-origin: 50% 20%; }
 #pointer.art img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* ---- горизонталь: колесо слева, тексты — колонкой справа (core.css) */
+.land #wheelBox { left: 110px; top: 110px; }
+.land #glowBack { left: 30px; top: 30px; }
+.land #raysBack { left: -70px; top: -70px; }
+.land #hand { left: 493px; top: 558px; }

@@ -7,7 +7,6 @@
   var stage = P.stage, foil = $("foil"), ctx = foil.getContext("2d"), tapText = $("tapText");
 
   var FW = 760, FH = 686; // фольга в пикселях сцены
-  var ORIGIN = { x: 120 + 40, y: 540 + 40 }; // левый верхний угол фольги на сцене
   var CW = 236, CH = 330, GAP = 26;
   var REVEAL_AT = 0.55;
 
@@ -53,9 +52,11 @@
 
   // ---- стирание
   var scratching = false, last = null, moves = 0, revealed = false, cleared = 0, warmed = false;
+  /** Левый верхний угол фольги на сцене (свой в вертикали и горизонтали). */
+  function origin() { return P.pos(foil, 0, 0); }
   function toFoil(e) {
-    var r = stage.getBoundingClientRect(), s = r.width / P.W;
-    return { x: (e.clientX - r.left) / s - ORIGIN.x, y: (e.clientY - r.top) / s - ORIGIN.y };
+    var p = P.toStage(e.clientX, e.clientY), o = origin();
+    return { x: p.x - o.x, y: p.y - o.y };
   }
   function brush(a, b, rad) {
     ctx.globalCompositeOperation = "destination-out";
@@ -75,7 +76,7 @@
   }
 
   function dust(p) {
-    if (Math.random() < 0.35) sparks(ORIGIN.x + p.x, ORIGIN.y + p.y, 2, { cls: "dust", dist: 70, gravity: 120, dur: 500 });
+    if (Math.random() < 0.35) sparks(origin().x + p.x, origin().y + p.y, 2, { cls: "dust", dist: 70, gravity: 120, dur: 500 });
   }
 
   function press(e) {
@@ -130,7 +131,7 @@
       setTimeout(function () {
         c.classList.add("win");
         animIn(c, [{ transform: "scale(1)" }, { transform: "scale(1.14)", offset: 0.4 }, { transform: "scale(1)" }], { duration: 450, easing: "ease-out" });
-        var x = ORIGIN.x + parseFloat(c.style.left) + CW / 2, y = ORIGIN.y + parseFloat(c.style.top) + CH / 2;
+        var cp = P.pos(c), x = cp.x, y = cp.y;
         ripple(x, y, 2);
         sparks(x, y, 16, { dist: 220, size: 1.2, dur: 800 });
       }, 220 * k);

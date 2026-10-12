@@ -63,3 +63,11 @@
 #hand { left: 790px; top: 1330px; }
 .won #hand { display: none; }
 .won #cashBtn { animation: none; }
+
+/* ---- горизонталь: небо слева, кнопка и тексты — колонкой справа */
+.land #sky { left: 50px; top: 110px; }
+.land #cashBtn { left: 1080px; top: 540px; width: 760px; }
+#stage.land #tapText { top: 790px; }
+.land #glowBack { left: -70px; top: 70px; }
+.land #raysBack { left: -70px; top: -30px; }
+.land #hand { left: 1660px; top: 570px; }

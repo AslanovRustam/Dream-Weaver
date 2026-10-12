@@ -64,13 +64,16 @@ const REWARD_SVG =
 const POPUP =
   '<div id="popup" class="abs fill">' +
   '<div id="popDim" class="abs fill"></div>' +
+  // Содержимое попапа свёрстано под 1080×1920; в горизонтали core.css
+  // переносит его целиком в центр экрана.
+  '<div id="popInner" class="abs">' +
   '<div id="popBox" class="abs"></div>' +
   '<div id="popRays" class="abs rays"></div>' +
   '<div id="popReward" class="abs">' + REWARD_SVG + "</div>" +
   '<div id="popText" class="abs gt" data-max="780"></div>' +
   '<div id="popBtn" class="abs"><span class="lbl"></span><i class="shine"></i></div>' +
   '<div id="popHand" class="abs hand"></div>' +
-  "</div>";
+  "</div></div>";
 
 function networkHead(network: PlayableNetwork, preview: boolean): string {
   if (preview) return "";
@@ -140,7 +143,6 @@ export async function buildScenePlayable(
     "<!DOCTYPE html>" +
     `<html lang="${lang}"><head><meta charset="utf-8">` +
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
-    '<meta name="ad.orientation" content="portrait">' +
     networkHead(opts.network, opts.preview) +
     `<style>${fonts}${coreCss}${sceneCss}${bg}</style></head><body>` +
     '<div id="stage" class="loading">' +

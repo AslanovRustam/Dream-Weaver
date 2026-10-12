@@ -6,9 +6,9 @@
   "use strict";
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var TAPS = 3;
-  var DIAL = { x: 540, y: 790 }; // центр диска в координатах сцены
-  var PANEL = { x: 140, y: 1300 };
-  var SLOT_X = [150, 400, 650], SLOT_Y = 168;
+  // Точки для эффектов меряем по элементам: раскладка своя в вертикали и горизонтали.
+  function dial() { return P.pos($("dial")); }
+  function slotAt(i) { return P.pos(stage.querySelector('.slot[data-slot="' + i + '"]')); }
   var BAR_W = [0, 0, 250, 500]; // заполнение дорожки после каждого нажатия
   var DIAL_ANGLE = [0, 0, 360, 720]; // полные обороты — свет на шкале остаётся на месте
   var EASE_OUT = "cubic-bezier(.22,.8,.3,1)", EASE_BACK = "cubic-bezier(.3,1.45,.5,1)";
@@ -93,7 +93,7 @@
       { transform: "translateX(-6px)" }, { transform: "translateX(4px)" },
       { transform: "none" },
     ], { duration: 420, delay: 220, easing: "ease-out" });
-    sparks(DIAL.x, DIAL.y, 10, { dist: 160, cls: "dust", delay: 220, dur: 700, gravity: 90 });
+    sparks(dial().x, dial().y, 10, { dist: 160, cls: "dust", delay: 220, dur: 700, gravity: 90 });
 
     animIn(label, [
       { transform: "translateX(0)", color: "#ff7a5c" },
@@ -107,7 +107,7 @@
       { opacity: 1, transform: "scale(1) rotate(4deg)", offset: 0.85 },
       { opacity: 1, transform: "scale(1) rotate(0deg)" },
     ], { duration: 600, delay: 120, easing: "ease-out" });
-    sparks(PANEL.x + SLOT_X[0], PANEL.y + SLOT_Y, 12, { dist: 130, cls: "dust", delay: 380, dur: 650, gravity: 80 });
+    sparks(slotAt(0).x, slotAt(0).y, 12, { dist: 130, cls: "dust", delay: 380, dur: 650, gravity: 80 });
 
     P.setGradText(tapText, P.rich(T.tryAgain || ""));
     clearTimeout(tryTimer);
@@ -128,8 +128,9 @@
       { transform: "translate(-2px,1px) rotate(-0.2deg)" },
       { transform: "none" },
     ], { duration: 320, easing: "ease-out" });
-    ripple(DIAL.x, DIAL.y, 2.6);
-    sparks(DIAL.x, DIAL.y, 14, { dist: 230, size: 1.2, dur: 650 });
+    var dp = dial();
+    ripple(dp.x, dp.y, 2.6);
+    sparks(dp.x, dp.y, 14, { dist: 230, size: 1.2, dur: 650 });
     animIn(label, [{ transform: "scale(1.3)", color: "#fff3c4" }, { transform: "scale(1)", color: "#ffbb58" }], { duration: 380, easing: EASE_OUT });
 
     fillSlot(k - 1, 160);
@@ -155,7 +156,7 @@
       { opacity: 1, transform: "scale(0.9) rotate(0deg)", offset: 0.7 },
       { opacity: 1, transform: "scale(1)" },
     ], { duration: 320, delay: delay + 360, easing: "ease-in" });
-    var sx = PANEL.x + SLOT_X[i], sy = PANEL.y + SLOT_Y;
+    var sp = slotAt(i), sx = sp.x, sy = sp.y;
     sparks(sx, sy, 12, { dist: 150, delay: delay + 140, dur: 600 });
     setTimeout(function () { ripple(sx, sy, 1.6); }, delay);
   }
@@ -186,8 +187,9 @@
       anim($("raysBack"), [{ opacity: 0 }, { opacity: 0.75 }], { duration: 900 });
       anim(tapText, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
       // свет из проёма и вспышка у замка
-      sparks(540, 860, 40, { jx: 300, jy: 320, dist: 280, size: 1.3, dur: 1100, stagger: 500, gravity: -80 });
-      sparks(DIAL.x, DIAL.y, 26, { dist: 420, size: 1.6, dur: 1000 });
+      var sf = P.pos(safe);
+      sparks(sf.x, sf.y, 40, { jx: 300, jy: 320, dist: 280, size: 1.3, dur: 1100, stagger: 500, gravity: -80 });
+      sparks(dial().x, dial().y, 26, { dist: 420, size: 1.6, dur: 1000 });
       return P.wait(1250);
     }).then(P.showPopup);
   }

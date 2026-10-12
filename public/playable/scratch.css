@@ -46,3 +46,9 @@
   100% { transform: translate(0, 0) rotate(-8deg); }
 }
 .won #hand { display: none; }
+
+/* ---- горизонталь: билет слева, тексты — колонкой справа */
+.land #ticket { left: 110px; top: 150px; }
+.land #glowBack { left: 30px; top: 30px; }
+.land #raysBack { left: -70px; top: -30px; }
+.land #hand { left: 210px; top: 290px; }

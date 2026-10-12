@@ -45,14 +45,16 @@ const html = await buildScenePlayable(
 );
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 360, height: 640 } });
+// LAND=1 — горизонтальный экран 640×360 (координаты тапов — в нём же).
+const land = process.env.LAND === "1";
+const page = await browser.newPage({ viewport: land ? { width: 640, height: 360 } : { width: 360, height: 640 } });
 const errors: string[] = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.setContent(html, { waitUntil: "load" });
 
 let n = 0;
 for (const s of steps) {
-  if (s === "tap") await page.mouse.click(180, 320);
+  if (s === "tap") await page.mouse.click(land ? 320 : 180, land ? 180 : 320);
   else if (s.startsWith("tap")) {
     const [x, y] = s.slice(3).split(":").map(Number);
     await page.mouse.click(x, y);
@@ -64,7 +66,7 @@ for (const s of steps) {
     await page.mouse.up();
   } else {
     await page.waitForTimeout(Number(s));
-    await page.screenshot({ path: join(out, `${scene}-${n++}.png`) });
+    await page.screenshot({ path: join(out, `${scene}${land ? "-land" : ""}-${n++}.png`) });
   }
 }
 console.log(errors.length ? "Ошибки страницы:\n" + errors.join("\n") : `ок, снимков: ${n}`);

@@ -12,9 +12,8 @@
   var SPINS = 2, H = 200;
   var WIN = "seven";
   var FILL = ["cherry", "bell", "bar", "diamond", "star", "coin", "cherry", "bell", "bar", "diamond", "star"];
-  // Центр окна на сцене: машина 70/470, окно 58/174, линия на 300 от верха окна.
-  var LINE_Y = 470 + 174 + 300;
-  var REEL_X = [70 + 58 + 6 + 120, 70 + 58 + 272 + 120, 70 + 58 + 538 + 120];
+  /** Точка на линии выигрыша барабана i (row: 0 — верхний ряд, 1 — линия). */
+  function on(i, row) { return P.pos($("reel" + i), 0.5, row == null ? 0.5 : (row + 0.5) / 3); }
 
   var stage = P.stage, label = $("label"), tapText = $("tapText");
   var reels = [0, 1, 2].map(function (i) { return $("reel" + i); });
@@ -105,9 +104,9 @@
     var r2 = spinReel(2, finals[2], 34, 3200);
     r1.then(function () {
       reels[2].classList.add("tease");
-      sparks(REEL_X[1], LINE_Y, 8, { dist: 120, size: 0.8 });
+      sparks(on(1).x, on(1).y, 8, { dist: 120, size: 0.8 });
     });
-    r0.then(function () { sparks(REEL_X[0], LINE_Y, 8, { dist: 120, size: 0.8 }); });
+    r0.then(function () { sparks(on(0).x, on(0).y, 8, { dist: 120, size: 0.8 }); });
 
     Promise.all([r0, r1, r2]).then(function (cells) {
       reels[2].classList.remove("tease");
@@ -117,7 +116,7 @@
           { transform: "none" }, { transform: "translateX(-10px)" }, { transform: "translateX(8px)" },
           { transform: "translateX(-4px)" }, { transform: "none" },
         ], { duration: 380, easing: "ease-out" });
-        sparks(REEL_X[2], LINE_Y - H, 12, { cls: "dust", dist: 140, gravity: 90 });
+        sparks(on(2, 0).x, on(2, 0).y, 12, { cls: "dust", dist: 140, gravity: 90 });
         P.setGradText(tapText, P.rich(T.tryAgain || ""));
         busy = false;
         P.scheduleHint(1600);
@@ -137,13 +136,15 @@
     anim($("glowBack"), [{ opacity: 0 }, { opacity: 1 }], { duration: 700 });
     anim($("raysBack"), [{ opacity: 0 }, { opacity: 0.75 }], { duration: 900 });
     anim(tapText, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
-    REEL_X.forEach(function (x, k) {
+    [0, 1, 2].forEach(function (k) {
       setTimeout(function () {
-        ripple(x, LINE_Y, 2);
-        sparks(x, LINE_Y, 18, { dist: 260, size: 1.3, dur: 900 });
+        var p = on(k);
+        ripple(p.x, p.y, 2);
+        sparks(p.x, p.y, 18, { dist: 260, size: 1.3, dur: 900 });
       }, 160 * k);
     });
-    sparks(540, 900, 36, { jx: 420, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
+    var mc = P.pos($("machine"));
+    sparks(mc.x, mc.y, 36, { jx: 420, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
     P.wait(1700).then(P.showPopup);
   }
 

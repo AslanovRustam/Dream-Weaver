@@ -6,7 +6,7 @@
 (function (P) {
   "use strict";
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
-  var SKY = { x: 60, y: 440, w: 960, h: 820 };
+  var SKY = { w: 960, h: 820 };
   var ORIGIN = { x: 70, y: 740 };         // точка взлёта в координатах неба
   var SPAN = { w: 780, h: 600 };          // куда может дотянуться кривая
   var MIN_FLIGHT = 1000, AUTO_AT = 10;
@@ -87,7 +87,8 @@
       P.setIdle(false);
       P.setGradText(tapText, P.rich(T.cashoutHint || ""));
       animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
-      sparks(SKY.x + ORIGIN.x, SKY.y + ORIGIN.y, 14, { cls: "dust", dist: 120, angle: Math.PI, spread: 1.2, gravity: -20 });
+      var sk = P.pos($("sky"), 0, 0);
+      sparks(sk.x + ORIGIN.x, sk.y + ORIGIN.y, 14, { cls: "dust", dist: 120, angle: Math.PI, spread: 1.2, gravity: -20 });
       requestAnimationFrame(frame);
       // Рука показывает на кнопку, когда уже есть что забрать.
       setTimeout(function () { if (!done) P.setIdle(true); }, 1600);
@@ -116,9 +117,10 @@
     anim($("glowBack"), [{ opacity: 0 }, { opacity: 1 }], { duration: 700 });
     anim($("raysBack"), [{ opacity: 0 }, { opacity: 0.7 }], { duration: 900 });
     anim(tapText, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
-    ripple(540, 1400, 2.6);
-    sparks(540, 1400, 36, { angle: -Math.PI / 2, spread: 1.6, dist: 520, size: 1.5, dur: 1200, gravity: 240, stagger: 400 });
-    sparks(540, 760, 24, { jx: 360, jy: 260, dist: 200, size: 1.2, dur: 1000, stagger: 500, gravity: -60 });
+    var bp = P.pos(btn), sc = P.pos($("sky"));
+    ripple(bp.x, bp.y, 2.6);
+    sparks(bp.x, bp.y, 36, { angle: -Math.PI / 2, spread: 1.6, dist: 520, size: 1.5, dur: 1200, gravity: 240, stagger: 400 });
+    sparks(sc.x, sc.y, 24, { jx: 360, jy: 260, dist: 200, size: 1.2, dur: 1000, stagger: 500, gravity: -60 });
     P.wait(1700).then(P.showPopup);
   }
 

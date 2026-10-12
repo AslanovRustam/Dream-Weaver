@@ -168,3 +168,20 @@ body::before {
 @keyframes shine { 0% { left: -40%; } 55%, 100% { left: 130%; } }
 /* Рука — у правого края кнопки, чтобы не закрывала надпись. */
 #popHand { left: 790px; top: 1372px; }
+
+/* ---------- горизонталь (.land, сцена 1920×1080) ----------
+   Игровой объект — слева в квадрате 1060×1080 (раскладка в CSS сцены),
+   заголовок, счётчик и подсказка — колонкой справа: x 1080…1840. */
+#stage.land { width: 1920px; height: 1080px; }
+.land #bg { width: 2000px; height: 1200px; }
+.land #shadeTop { left: auto; right: 0; width: 1000px; height: 100%; background: linear-gradient(90deg, #0000, #0009 45%); }
+.land #shadeBot { height: 300px; }
+.land #logo { left: 1080px; width: 760px; top: 70px; }
+.land #title { left: 1080px; width: 760px; top: 210px; font-size: 84px; }
+.land #spinPill { left: 1210px; top: 560px; }
+.land #tapText { left: 1080px; width: 760px; top: 700px; font-size: 76px; }
+.land #legal { left: 60px; right: 60px; bottom: 22px; }
+
+/* Попап свёрстан под 1080×1920 — в горизонтали переносим его в центр целиком. */
+#popInner { left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 540px 960px; }
+.land #popInner { transform: translate(420px, -450px) scale(.78); }

@@ -87,3 +87,10 @@
 #tapText { top: 1500px; font-size: 86px; }
 #hand { left: 450px; top: 780px; }
 .won #hand { display: none; }
+
+/* ---- горизонталь: автомат с рычагом слева, тексты — колонкой справа */
+.land #machine { left: 30px; top: 90px; }
+.land #lever { left: 926px; top: 180px; }
+.land #glowBack { left: -60px; top: -30px; }
+.land #raysBack { left: -120px; top: -80px; }
+.land #hand { left: 410px; top: 400px; }

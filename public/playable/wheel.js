@@ -7,8 +7,9 @@
   var $ = P.$, T = P.T, CFG = P.CFG, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var NS = "http://www.w3.org/2000/svg";
   var SPINS = 2;
-  var CENTER = { x: 540, y: 890 };
-  var POINTER = { x: 540, y: 560 };
+  // Точки для эффектов меряем по элементам: раскладка своя в вертикали и горизонтали.
+  function center() { return P.pos($("wheelBox")); }
+  function tip() { return P.pos($("pointer"), 0.5, 0.9); }
 
   var prizes = (CFG.prizes && CFG.prizes.length >= 2 ? CFG.prizes : ["100", "x2", "50", "500", "200%", "25", "x3", "JACKPOT"]).slice(0, 12);
   var N = prizes.length, SEG = 360 / N;
@@ -155,7 +156,8 @@
           { transform: "none" }, { transform: "translateX(-10px)" }, { transform: "translateX(8px)" },
           { transform: "translateX(-4px)" }, { transform: "none" },
         ], { duration: 380, easing: "ease-out" });
-        sparks(POINTER.x, POINTER.y, 10, { cls: "dust", dist: 140, gravity: 90 });
+        var tp = tip();
+        sparks(tp.x, tp.y, 10, { cls: "dust", dist: 140, gravity: 90 });
         P.setGradText(tapText, P.rich(T.tryAgain || ""));
         busy = false;
         P.scheduleHint(1600);
@@ -177,9 +179,10 @@
     anim($("raysBack"), [{ opacity: 0 }, { opacity: 0.75 }], { duration: 900 });
     anim(tapText, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
     animIn($("wheelBox"), [{ transform: "scale(1)" }, { transform: "scale(1.05)", offset: 0.3 }, { transform: "scale(1)" }], { duration: 650, easing: "ease-out" });
-    ripple(POINTER.x, POINTER.y, 2.4);
-    sparks(POINTER.x, POINTER.y, 30, { dist: 380, size: 1.5, dur: 1000 });
-    sparks(CENTER.x, CENTER.y, 36, { jx: 380, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 500, gravity: -60 });
+    var tp = tip(), c = center();
+    ripple(tp.x, tp.y, 2.4);
+    sparks(tp.x, tp.y, 30, { dist: 380, size: 1.5, dur: 1000 });
+    sparks(c.x, c.y, 36, { jx: 380, jy: 380, dist: 200, size: 1.2, dur: 1100, stagger: 500, gravity: -60 });
     P.wait(1400).then(P.showPopup);
   }
 
