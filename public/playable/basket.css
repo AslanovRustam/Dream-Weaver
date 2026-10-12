@@ -1,0 +1,47 @@
+/* Сценарий «Баскетбол»: первый бросок — звон о дужку и отскок, второй —
+   чисто в сетку. Координаты — в пикселях сцены 1080×1920 (горизонталь — внизу). */
+
+#glowBack {
+  left: -60px; top: 300px; width: 1200px; height: 1000px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 160px; width: 1200px; height: 1200px; opacity: 0; }
+
+.hoop { left: 290px; top: 460px; width: 500px; height: 520px; pointer-events: none; }
+#hoopBack { z-index: 1; filter: drop-shadow(0 20px 30px rgba(0, 0, 0, .5)); }
+#hoopFront { z-index: 3; }
+#rimSpot { left: 540px; top: 760px; width: 0; height: 0; }
+#net { transform-origin: 250px 300px; }
+.swish #net { animation: swish .6s ease-out; }
+@keyframes swish { 25% { transform: scaleY(1.28) scaleX(.9); } 60% { transform: scaleY(.92); } }
+.rimhit #hoopBack, .rimhit #hoopFront { animation: rimShake .45s ease-out; }
+@keyframes rimShake { 20% { transform: translateY(8px) rotate(1deg); } 50% { transform: translateY(-4px) rotate(-.6deg); } }
+
+#ball { left: 450px; top: 1290px; width: 180px; height: 180px; z-index: 4; will-change: transform; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
+#ball.behind { z-index: 2; }
+.idle #ball { animation: ballBounce 1.2s ease-in-out infinite; }
+@keyframes ballBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-26px); } }
+
+#spinPill {
+  left: 290px; top: 1520px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1650px; font-size: 80px; }
+/* Подсказка: свайп вверх от мяча */
+#hand { left: 500px; top: 1330px; }
+#hand.on { animation: handFlick 1.6s ease-in-out infinite; }
+@keyframes handFlick { 0%, 20% { transform: translateY(40px); opacity: 0; } 35% { opacity: 1; } 70% { transform: translateY(-200px); opacity: 1; } 100% { transform: translateY(-240px); opacity: 0; } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: кольцо и мяч слева, тексты — колонкой справа */
+.land .hoop { left: 280px; top: 30px; }
+.land #rimSpot { left: 530px; top: 330px; }
+.land #ball { left: 440px; top: 800px; }
+.land #glowBack { left: -70px; top: -60px; }
+.land #raysBack { left: -70px; top: -160px; }
+.land #hand { left: 490px; top: 820px; }

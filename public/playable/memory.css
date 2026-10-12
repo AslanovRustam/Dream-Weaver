@@ -1,0 +1,55 @@
+/* Сценарий «Мемори»: карты на миг открываются, потом ищем пары.
+   Координаты — в пикселях сцены 1080×1920 (горизонталь — внизу файла). */
+
+#glowBack {
+  left: -60px; top: 400px; width: 1200px; height: 1000px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 300px; width: 1200px; height: 1200px; opacity: 0; }
+
+#grid { left: 84px; top: 590px; width: 912px; height: 604px; }
+.card { position: absolute; width: 210px; height: 290px; perspective: 1000px; cursor: pointer; }
+.card .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .42s cubic-bezier(.3, 1.3, .5, 1); }
+.card.open .flip, .card.matched .flip { transform: rotateY(180deg); }
+.card .face {
+  position: absolute; inset: 0; border-radius: 26px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.card .back {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 210, 120, .35), rgba(255, 210, 120, 0) 55%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .05) 0 14px, rgba(255, 255, 255, 0) 14px 28px),
+    linear-gradient(160deg, #5a2fb0, #22104a);
+  box-shadow: inset 0 0 0 6px #e7a64a, inset 0 0 0 12px rgba(40, 14, 70, .9), 0 16px 26px rgba(0, 0, 0, .5);
+}
+.card .back svg { width: 110px; height: 110px; opacity: .9; }
+.card .front {
+  transform: rotateY(180deg);
+  background: radial-gradient(120% 90% at 50% 30%, #fff8e6 0%, #f3dcae 70%, #d9b67a 100%);
+  box-shadow: inset 0 0 0 6px #c98f3c, 0 16px 26px rgba(0, 0, 0, .5);
+}
+.card .front svg { width: 150px; height: 150px; overflow: visible; filter: drop-shadow(0 8px 8px rgba(80, 40, 10, .35)); }
+.card.matched .front { box-shadow: inset 0 0 0 7px #ffcf4a, 0 0 0 5px #ffe9a0, 0 0 44px 10px rgba(255, 200, 80, .8); }
+.card.matched .front svg { animation: memoPop .7s ease-in-out infinite alternate; }
+@keyframes memoPop { from { transform: scale(1); } to { transform: scale(1.1) rotate(-4deg); } }
+.idle .card:not(.open):not(.matched):nth-child(1) .flip { animation: cardNudge var(--tap) ease-in-out infinite; }
+@keyframes cardNudge { 0%, 40%, 100% { transform: none; } 50% { transform: rotateY(18deg) scale(1.04); } }
+
+#spinPill {
+  left: 290px; top: 1250px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1390px; font-size: 86px; }
+#hand { left: 150px; top: 750px; }
+.won #hand { display: none; }
+
+/* ---- горизонталь: карты слева, тексты — колонкой справа */
+.land #grid { left: 74px; top: 238px; }
+.land #glowBack { left: -70px; top: 40px; }
+.land #raysBack { left: -70px; top: -60px; }
+.land #hand { left: 140px; top: 400px; }

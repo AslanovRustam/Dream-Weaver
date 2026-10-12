@@ -2,7 +2,8 @@
 //
 //   npx tsx scripts/scene-play.mts <scene> "<шаги>" [папка для снимков]
 //
-// Шаги через запятую: число — пауза в мс, после неё снимок; "tap" — нажатие
+// Шаги через «;»: число — пауза в мс, после неё снимок; "js=<код>" — выполнить
+// код на странице (например, нажать нужную карту); "tap" — нажатие
 // в центр экрана; "tapX:Y" — нажатие в точку окна 360×640; "dragX:Y>X:Y" —
 // протяжка пальцем (для скретча). Ошибки страницы печатаются в конце.
 
@@ -21,7 +22,11 @@ const load: SceneLoader = {
 };
 
 const scene = process.argv[2] as SceneId;
-const steps = (process.argv[3] || "1500").split(",");
+// "@путь" — шаги из файла, по одному на строку (удобно для длинных js=…).
+const rawSteps = process.argv[3] || "1500";
+const steps = rawSteps.startsWith("@")
+  ? readFileSync(rawSteps.slice(1), "utf8").split(/\r?\n/).filter((l) => l.trim())
+  : rawSteps.split(";");
 const out = process.argv[4] || join(import.meta.dirname, "..", ".scene-shots");
 mkdirSync(out, { recursive: true });
 
@@ -54,7 +59,8 @@ await page.setContent(html, { waitUntil: "load" });
 
 let n = 0;
 for (const s of steps) {
-  if (s === "tap") await page.mouse.click(land ? 320 : 180, land ? 180 : 320);
+  if (s.startsWith("js=")) await page.evaluate(s.slice(3));
+  else if (s === "tap") await page.mouse.click(land ? 320 : 180, land ? 180 : 320);
   else if (s.startsWith("tap")) {
     const [x, y] = s.slice(3).split(":").map(Number);
     await page.mouse.click(x, y);

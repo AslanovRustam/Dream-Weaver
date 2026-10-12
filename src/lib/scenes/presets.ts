@@ -136,6 +136,48 @@ export const SCENES: SceneMeta[] = [
     bgTheme: "Cosmic purple arcade with neon pink and violet glow, floating sparkles, soft bokeh",
     rewardTheme: "A glowing pink plinko ball on top of a pile of gold coins, casino win, 3D render",
   },
+  {
+    id: "memory",
+    label: "Мемори",
+    description: "Карты на миг открываются — запомни и найди четыре пары символов.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "memo", label: "Пока карты открыты" },
+      { key: "tap", label: "Призыв искать пары" },
+      { key: "pairs", label: "Счётчик пар (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Elegant casino card table with purple velvet and gold trim, soft spotlight, sparkles, bokeh",
+    rewardTheme: "A fan of golden playing cards over a pile of gold coins, casino win, 3D render",
+  },
+  {
+    id: "catcher",
+    label: "Ловец",
+    description: "Веди котёл пальцем: лови монеты, уворачивайся от бомб — десять монет и бонус твой.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв начать" },
+      { key: "go", label: "Во время игры" },
+      { key: "caught", label: "Счётчик монет (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Magical golden coin rain over a fairy-tale casino landscape at dusk, sparkles, bokeh",
+    rewardTheme: "A pot of gold overflowing with shiny coins, lucky casino win, 3D render",
+  },
+  {
+    id: "basket",
+    label: "Баскетбол",
+    description: "Свайп вверх — бросок: первый звенит о дужку, второй чисто в сетку. Для беттинга.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв бросить" },
+      { key: "tryAgain", label: "После промаха" },
+      { key: "shotsLeft", label: "Счётчик бросков (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Night basketball arena with bright floodlights, glowing parquet court, cheering crowd blurred in bokeh",
+    rewardTheme: "A golden basketball trophy on a pile of gold coins, sports betting win, 3D render",
+  },
 ];
 
 export function sceneMeta(id: SceneId): SceneMeta {
@@ -149,6 +191,11 @@ const LEGAL: Record<SceneLang, string> = {
   uk: "18+. Грайте відповідально. Бонус для нових гравців, умови на сайті.",
   en: "18+. Play responsibly. New players only. T&Cs apply.",
   es: "18+. Juega con responsabilidad. Solo nuevos jugadores. Aplican T&C.",
+};
+
+/** Где бонус — не фриспины (фрибет в беттинге). */
+const UNIT_BY_SCENE: Partial<Record<SceneId, Record<SceneLang, string>>> = {
+  basket: { ru: "€", uk: "€", en: "€", es: "€" },
 };
 
 const UNIT: Record<SceneLang, string> = { ru: "фриспинов", uk: "фриспінів", en: "free spins", es: "giros gratis" };
@@ -165,6 +212,24 @@ const TEXT: Record<SceneId, Record<SceneLang, Record<string, string>>> = {
     uk: { title: "Крути колесо\nі вигравай", tap: "Тисни, щоб крутити", tryAgain: "Майже! Ще раз", spinsLeft: "Обертань: ", bonus: "Твій виграш:", cta: "Забрати виграш" },
     en: { title: "Spin the wheel\nand win", tap: "Tap to spin", tryAgain: "So close! Again", spinsLeft: "Spins: ", bonus: "You won:", cta: "Claim prize" },
     es: { title: "Gira la ruleta\ny gana", tap: "Toca para girar", tryAgain: "¡Casi! Otra vez", spinsLeft: "Giros: ", bonus: "Ganaste:", cta: "Reclamar premio" },
+  },
+  basket: {
+    ru: { title: "Забрось мяч —\nзабери фрибет", tap: "Свайп вверх — бросай", tryAgain: "Почти! Ещё бросок", shotsLeft: "Бросков: ", bonus: "Твой фрибет:", cta: "Забрать фрибет" },
+    uk: { title: "Закинь м'яч —\nзабери фрібет", tap: "Свайп угору — кидай", tryAgain: "Майже! Ще кидок", shotsLeft: "Кидків: ", bonus: "Твій фрібет:", cta: "Забрати фрібет" },
+    en: { title: "Sink the shot\nwin a free bet", tap: "Swipe up to shoot", tryAgain: "So close! Again", shotsLeft: "Shots: ", bonus: "Your free bet:", cta: "Claim free bet" },
+    es: { title: "Encesta y gana\nuna apuesta gratis", tap: "Desliza para tirar", tryAgain: "¡Casi! Otra vez", shotsLeft: "Tiros: ", bonus: "Tu apuesta gratis:", cta: "Reclamar" },
+  },
+  catcher: {
+    ru: { title: "Лови монеты —\nзабирай бонус", tap: "Веди котёл пальцем", go: "Лови монеты!", caught: "Монет: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Лови монети —\nзабирай бонус", tap: "Веди казан пальцем", go: "Лови монети!", caught: "Монет: ", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Catch the coins\nand win", tap: "Drag the pot", go: "Catch them!", caught: "Coins: ", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Atrapa monedas\ny gana", tap: "Mueve la olla", go: "¡Atrápalas!", caught: "Monedas: ", bonus: "Tu bono:", cta: "Reclamar bono" },
+  },
+  memory: {
+    ru: { title: "Найди пары\nи забери бонус", memo: "Запоминай!", tap: "Открывай карты", pairs: "Пар: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Знайди пари\nі забери бонус", memo: "Запам'ятовуй!", tap: "Відкривай карти", pairs: "Пар: ", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Match the pairs\nand win", memo: "Remember!", tap: "Flip the cards", pairs: "Pairs: ", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Encuentra parejas\ny gana", memo: "¡Memoriza!", tap: "Voltea las cartas", pairs: "Parejas: ", bonus: "Tu bono:", cta: "Reclamar bono" },
   },
   plinko: {
     ru: { title: "Брось шарик —\nпоймай ×100", tap: "Жми, чтобы бросить", tryAgain: "Мимо! Ещё шарик", ballsLeft: "Шариков: ", bonus: "Твой выигрыш:", cta: "Забрать выигрыш" },
@@ -210,7 +275,7 @@ export const DEFAULT_WIN_INDEX = 3;
 export function scenePreset(id: SceneId, lang: SceneLang): LangPack {
   return {
     text: { ...TEXT[id][lang] },
-    unit: UNIT[lang],
+    unit: UNIT_BY_SCENE[id]?.[lang] ?? UNIT[lang],
     legal: LEGAL[lang],
     ...(id === "wheel" ? { prizes: [...PRIZES[lang]] } : {}),
   };

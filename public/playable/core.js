@@ -196,6 +196,9 @@
   // ------------------------------------------------------------ подсказка
   var hintTimer = 0, ended = false;
   function setIdle(on) {
+    // Игрок что-то сделал — отложенная подсказка больше не нужна: иначе она
+    // включится посреди анимации (и покачивание объекта её перебьёт).
+    if (!on) clearTimeout(hintTimer);
     stage.classList.toggle("idle", on);
     var hand = $("hand");
     if (hand) hand.className = "abs hand " + (on ? "on" : "");
