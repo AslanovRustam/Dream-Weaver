@@ -33,7 +33,7 @@ import { shrinkPng } from "@/lib/imageCompress";
 import { sliceIconGrid } from "@/lib/spriteSlice";
 import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } from "@/lib/scenes/art";
-import { PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/playableGen";
+import { PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/scenes/networks";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
 import {
   DEFAULT_WIN_INDEX,

@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { PLAYABLE_NETWORKS, type PlayableNetwork } from "../src/lib/playableGen";
+import { PLAYABLE_NETWORKS, type PlayableNetwork } from "../src/lib/scenes/networks";
 import { buildScenePlayable, type SceneConfig, type SceneLoader } from "../src/lib/scenes/build";
 import { DEFAULT_WIN_INDEX, SCENES, SCENE_LANGS, scenePreset } from "../src/lib/scenes/presets";
 

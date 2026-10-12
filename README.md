@@ -125,7 +125,7 @@ src/
     ftp/            low-level uploader and high-level storage layer
     i18n/           UI locale (RU source of truth, EN and UK typed against it)
     *.ts            domain modules: rbac, credit-estimate, resizePlan,
-                    imageGen, landingGen, playableGen, videoGen, mailing, ads…
+                    imageGen, landingGen, scenes (playable), videoGen, mailing, ads…
   instrumentation.ts  boots background workers once per server process
 supabase/migrations/  7 SQL migrations (schema, RLS, RPCs)
 scripts/              one-off maintenance and asset scripts

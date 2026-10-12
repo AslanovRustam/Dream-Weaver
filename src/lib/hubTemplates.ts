@@ -3,7 +3,7 @@
 // template data so search results are genuine, not a separate hand-kept list.
 import { PRESETS } from "@/components/PresetSidebar";
 import { LANDING_TEMPLATE_CATEGORIES } from "@/lib/landingGen";
-import { PLAYABLE_MECHANICS } from "@/lib/playableGen";
+import { PLAYABLE_CATALOG } from "@/lib/playableCatalog";
 import { VIDEO_SCENE_TYPES } from "@/lib/videoGen";
 import type { SectionId } from "@/lib/sections";
 
@@ -14,7 +14,7 @@ export type HubTemplate = {
   sectionId: SectionId;
   /** Deep-link that opens the section with this template preselected where the
    *  section supports it (banner/landing read the query param on mount);
-   *  playable/video have no per-item deep-link yet, so they just open. */
+   *  playable opens the chosen scene (?pick=); video has no deep-link yet. */
   href: string;
   /** Real thumbnail image (banner presets ship JPGs). */
   preview?: string;
@@ -45,12 +45,13 @@ export const ALL_TEMPLATES: HubTemplate[] = [
       href: `/landing?template=${t.id}`,
       gradient: t.gradient,
     })),
-  ...PLAYABLE_MECHANICS.map((m) => ({
-    id: m.id,
-    name: m.label,
-    description: m.description,
+  ...PLAYABLE_CATALOG.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
     sectionId: "playable" as const,
-    href: `/playable`,
+    href: `/playable?pick=${p.id}`,
+    preview: p.preview,
   })),
   ...VIDEO_SCENE_TYPES.map((s) => ({
     id: s.id,

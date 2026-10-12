@@ -6,7 +6,7 @@
 // Файлы подаёт загрузчик: в браузере — fetch, в проверочном скрипте — диск.
 
 import { embedJson, safeCtaUrl } from "../exportUtils";
-import type { PlayableNetwork } from "../playableGen";
+import type { PlayableNetwork } from "./networks";
 import type { FrameArt } from "./art";
 import type { UiPalette, WheelPalette } from "./presets";
 

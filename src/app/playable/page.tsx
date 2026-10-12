@@ -2,7 +2,7 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
-import { PlayableGenApp } from "@/components/PlayableGenApp";
+import { PlayableApp } from "@/components/PlayableApp";
 import { useAuth } from "@/lib/auth-context";
 
 export default function PlayablePage() {
@@ -20,7 +20,7 @@ export default function PlayablePage() {
     <>
       <AppHeader />
       <AppShell>
-        <PlayableGenApp />
+        <PlayableApp />
       </AppShell>
     </>
   );
