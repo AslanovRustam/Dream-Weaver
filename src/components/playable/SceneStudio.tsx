@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Check,
   Download,
   ImageIcon,
   Maximize2,
@@ -33,7 +34,8 @@ import { shrinkPng } from "@/lib/imageCompress";
 import { sliceIconGrid } from "@/lib/spriteSlice";
 import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } from "@/lib/scenes/art";
-import { PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/scenes/networks";
+import { NETWORK_BY_ID, PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/scenes/networks";
+import { packageFor } from "@/lib/scenes/export";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
 import {
   DEFAULT_WIN_INDEX,
@@ -80,7 +82,8 @@ type Draft = {
   brandName: string;
   logo: string;
   clickUrl: string;
-  network: PlayableNetwork;
+  /** Куда размещаем: по файлу на каждую площадку. */
+  targets: PlayableNetwork[];
   /** Стиль сцены: промпт для всей ИИ-графики и палитра интерфейса. */
   style: string;
   /** Тема оформления — общая для всех деталей. */
@@ -109,7 +112,7 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
     brandName,
     logo,
     clickUrl: "",
-    network: "mraid",
+    targets: ["mraid"],
     style: "ruby",
     theme: meta.bgTheme,
     parts: {},
@@ -135,7 +138,10 @@ function loadDraft(scene: SceneId, brandName: string, logo: string): Draft {
       symbols: d.symbols ?? [],
       // Черновики до общего стиля хранили его как wheelStyle.
       style: d.style ?? (d as { wheelStyle?: string }).wheelStyle ?? base.style,
-      network: d.network === "google" ? "google" : "mraid",
+      // Черновики до мультивыбора хранили одну сеть в network.
+      targets: (Array.isArray(d.targets) ? d.targets : [(d as { network?: PlayableNetwork }).network ?? "mraid"]).filter((t) =>
+        NETWORK_BY_ID.has(t),
+      ),
     };
   } catch {
     return base;
@@ -175,7 +181,8 @@ export function SceneStudio({
   const [restored, setRestored] = useState(false);
   const [open, setOpen] = useState({ art: true, text: false, prize: false, brand: false, net: true });
   const [html, setHtml] = useState("");
-  const [exportBytes, setExportBytes] = useState(0);
+  /** Вес HTML под каждую выбранную площадку. */
+  const [sizes, setSizes] = useState<Partial<Record<PlayableNetwork, number>>>({});
   const [buildErr, setBuildErr] = useState("");
   const [replay, setReplay] = useState(0);
   /** Как смотреть превью: телефон (9:16) или десктоп (16:9, сцена по центру на размытом фоне). */
@@ -263,13 +270,13 @@ export function SceneStudio({
     const id = window.setTimeout(async () => {
       try {
         const cfg = config();
-        const [preview, real] = await Promise.all([
-          buildScenePlayable(cfg, { network: d.network, preview: true, load: cachedLoader }),
-          buildScenePlayable(cfg, { network: d.network, preview: false, load: cachedLoader }),
-        ]);
+        const preview = await buildScenePlayable(cfg, { network: "web", preview: true, load: cachedLoader });
+        const real = await Promise.all(
+          d.targets.map(async (t) => [t, new Blob([await buildScenePlayable(cfg, { network: t, preview: false, load: cachedLoader })]).size] as const),
+        );
         if (!alive) return;
         setHtml(preview);
-        setExportBytes(new Blob([real]).size);
+        setSizes(Object.fromEntries(real));
         setBuildErr("");
       } catch (e) {
         if (alive) setBuildErr(e instanceof Error ? e.message : "Не удалось собрать сцену");
@@ -310,7 +317,7 @@ export function SceneStudio({
       destructive: true,
     });
     if (!ok) return;
-    setD((p) => ({ ...freshDraft(scene, p.lang, p.brandName, p.logo), clickUrl: p.clickUrl, network: p.network }));
+    setD((p) => ({ ...freshDraft(scene, p.lang, p.brandName, p.logo), clickUrl: p.clickUrl, targets: p.targets }));
   };
 
   const pickLogo = async (file: File | undefined) => {
@@ -449,41 +456,58 @@ export function SceneStudio({
     }
   };
 
-  // ---- выгрузка
-  const net = PLAYABLE_NETWORKS.find((n) => n.id === d.network) ?? PLAYABLE_NETWORKS[0];
+  // ---- выгрузка: по файлу на каждую выбранную площадку
+  const needsUrl = d.targets.some((t) => NETWORK_BY_ID.get(t)?.needsUrl);
+  const toggleTarget = (t: PlayableNetwork) =>
+    setD((p) => ({
+      ...p,
+      // Порядок — как в списке площадок, чтобы файлы скачивались предсказуемо.
+      targets: p.targets.includes(t)
+        ? p.targets.filter((x) => x !== t)
+        : PLAYABLE_NETWORKS.map((n) => n.id).filter((id) => id === t || p.targets.includes(id)),
+    }));
+  const [downloading, setDownloading] = useState(false);
+
   const download = async () => {
-    if (d.network === "mraid" && !d.clickUrl.trim()) {
+    if (!d.targets.length) {
       setOpen((p) => ({ ...p, net: true }));
-      return toast.error("Укажите ссылку по кнопке — без неё MRAID-сеть не примет плейбл");
+      return toast.error("Выберите, куда размещаем");
     }
-    let file: string;
+    if (needsUrl && !d.clickUrl.trim()) {
+      setOpen((p) => ({ ...p, net: true }));
+      const names = d.targets.filter((t) => NETWORK_BY_ID.get(t)?.needsUrl).map((t) => NETWORK_BY_ID.get(t)!.label);
+      return toast.error(`Укажите ссылку по кнопке — она нужна для: ${names.join(", ")}`);
+    }
+    setDownloading(true);
     try {
-      file = await buildScenePlayable(config(), { network: d.network, preview: false, load: cachedLoader });
+      const cfg = config();
+      const base = `playable-${scene}`;
+      const files = [];
+      for (const t of d.targets) {
+        const file = await buildScenePlayable(cfg, { network: t, preview: false, load: cachedLoader });
+        files.push(await packageFor(t, file, base, meta.label));
+      }
+      // Браузер может один раз спросить разрешение на несколько загрузок — поэтому с паузой.
+      for (const p of files) {
+        const url = URL.createObjectURL(p.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = p.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        await new Promise((r) => setTimeout(r, 350));
+      }
+      const over = files.filter((p) => p.bytes > p.limit || /не примет|требует/.test(p.note ?? ""));
+      over.forEach((p) => toast.warning(`${NETWORK_BY_ID.get(p.network)!.label}: ${mb(p.bytes)} — ${p.note ?? `больше лимита ${mb(p.limit)}`}. Уберите фон или награду.`));
+      files.filter((p) => p.note && !over.includes(p)).forEach((p) => toast(`${NETWORK_BY_ID.get(p.network)!.label}: ${p.note}`));
+      toast.success(files.length === 1 ? `Скачан файл для «${NETWORK_BY_ID.get(files[0].network)!.label}»` : `Скачано файлов: ${files.length} — по одному на площадку`);
     } catch (e) {
-      return toast.error(e instanceof Error ? e.message : "Не удалось собрать плейбл");
+      toast.error(e instanceof Error ? e.message : "Не удалось собрать плейбл");
+    } finally {
+      setDownloading(false);
     }
-    let blob: Blob;
-    let name: string;
-    if (d.network === "google") {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      zip.file("index.html", file);
-      blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
-      name = `playable-${scene}-google.zip`;
-    } else {
-      blob = new Blob([file], { type: "text/html;charset=utf-8" });
-      name = `playable-${scene}-mraid.html`;
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    if (blob.size > net.limit) toast.warning(`Файл ${mb(blob.size)} — больше лимита сети (${mb(net.limit)}). Уберите фон или награду.`);
-    else toast.success(`Плейбл скачан для «${net.label}» · ${mb(blob.size)}`);
   };
 
   const prizesOk = scene !== "wheel" || d.prizes.filter((p) => p.trim()).length >= 4;
@@ -749,27 +773,45 @@ export function SceneStudio({
             </SettingsSection>
 
             <SettingsSection
-              title="Сеть и ссылка"
+              title="Куда размещаем"
               required
-              done={d.network === "google" || !!d.clickUrl.trim()}
+              done={d.targets.length > 0 && (!needsUrl || !!d.clickUrl.trim())}
               open={open.net}
               onToggle={() => toggle("net")}
             >
-              <div className="flex gap-2">
-                {PLAYABLE_NETWORKS.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => set("network", n.id)}
-                    aria-pressed={d.network === n.id}
-                    className={`flex-1 rounded-lg border px-3 py-2.5 text-left text-sm transition ${d.network === n.id ? CHIP_ON : CHIP_OFF}`}
-                  >
-                    <span className="block font-medium">{n.label}</span>
-                    <span className="mt-0.5 block ds-caption">{n.hint}</span>
-                  </button>
-                ))}
+              <p className="mb-2 ds-caption">Можно выбрать несколько — скачаете по файлу на каждую площадку, под её требования.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PLAYABLE_NETWORKS.map((n) => {
+                  const on = d.targets.includes(n.id);
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => toggleTarget(n.id)}
+                      aria-pressed={on}
+                      className={`relative rounded-lg border px-3 py-2.5 text-left text-sm transition ${on ? CHIP_ON : CHIP_OFF}`}
+                    >
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${on ? "border-accent-green bg-accent-green text-on-accent" : "border-border"}`}>
+                          {on ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                        {n.label}
+                      </span>
+                      <span className="mt-0.5 block ds-caption">{n.hint}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <label className="mb-1.5 mt-3 block ds-caption">Ссылка по кнопке{d.network === "mraid" ? " *" : ""}</label>
+              {d.targets.length ? (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {d.targets.map((t) => (
+                    <li key={t} className="ds-caption">
+                      <span className="font-medium text-foreground/80">{NETWORK_BY_ID.get(t)!.label}:</span> {NETWORK_BY_ID.get(t)!.rules}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <label className="mb-1.5 mt-3 block ds-caption">Ссылка по кнопке{needsUrl ? " *" : ""}</label>
               <input
                 type="url"
                 value={d.clickUrl}
@@ -778,9 +820,9 @@ export function SceneStudio({
                 placeholder="https://… — стор, лендинг или трекинговая ссылка"
               />
               <p className="mt-1.5 ds-caption">
-                {d.network === "google"
-                  ? "Для Google ссылка берётся из настроек объявления; здесь — только для проверки в превью."
-                  : "По ней MRAID-контейнер откроет стор или лендинг."}
+                {needsUrl
+                  ? "По ней MRAID-сети и сайт откроют стор или лендинг. Google и Meta берут ссылку из кабинета."
+                  : "Google и Meta берут ссылку из кабинета; здесь — только для проверки в превью."}
               </p>
             </SettingsSection>
 
@@ -833,10 +875,15 @@ export function SceneStudio({
           <button
             type="button"
             onClick={() => void download()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-green px-4 py-2.5 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
           >
             <Download className="h-4 w-4" />
-            {d.network === "google" ? "Скачать ZIP для Google" : "Скачать для MRAID"}
+            {downloading
+              ? "Собираем…"
+              : d.targets.length === 1
+                ? `Скачать для «${NETWORK_BY_ID.get(d.targets[0])!.label}»`
+                : `Скачать файлы (${d.targets.length})`}
           </button>
           <button
             type="button"
@@ -847,10 +894,20 @@ export function SceneStudio({
           </button>
         </div>
         {buildErr ? <p className="text-center ds-caption text-[color:var(--status-error)]">{buildErr}</p> : null}
-        <p className={`text-center ds-caption ${exportBytes > net.limit ? "text-amber-400" : ""}`}>
-          Файл для «{net.label}»: {mb(exportBytes)} из {mb(net.limit)}
-          {exportBytes > net.limit ? " — больше лимита, сеть его не примет" : ""}
-        </p>
+        <div className="flex flex-col items-center gap-0.5">
+          {d.targets.map((t) => {
+            const n = NETWORK_BY_ID.get(t)!;
+            const b = sizes[t] ?? 0;
+            const over = b > n.limit;
+            return (
+              <p key={t} className={`text-center ds-caption ${over && t !== "meta" ? "text-amber-400" : ""}`}>
+                {n.label}: {mb(b)}
+                {Number.isFinite(n.limit) ? ` из ${mb(n.limit)}` : ""}
+                {over ? (t === "meta" ? " — будет ZIP: картинки отдельными файлами" : " — больше лимита, площадка не примет") : ""}
+              </p>
+            );
+          })}
+        </div>
         <p className="text-center ds-caption">Превью играется: нажимайте прямо в нём. Шрифт и картинки уже внутри файла.</p>
       </div>
 

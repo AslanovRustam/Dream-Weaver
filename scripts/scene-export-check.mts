@@ -10,7 +10,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import JSZip from "jszip";
+
 import { PLAYABLE_NETWORKS, type PlayableNetwork } from "../src/lib/scenes/networks";
+import { packageFor } from "../src/lib/scenes/export";
 import { buildScenePlayable, type SceneConfig, type SceneLoader } from "../src/lib/scenes/build";
 import { DEFAULT_WIN_INDEX, SCENES, SCENE_LANGS, scenePreset } from "../src/lib/scenes/presets";
 
@@ -99,9 +102,15 @@ for (const meta of SCENES) {
         check(`${tag}: в превью нет сетевых скриптов`, ext.length === 0, ext.join(", "));
       } else if (net.id === "mraid") {
         check(`${tag}: только mraid.js`, ext.length === 1 && ext[0] === "mraid.js", ext.join(", "));
-      } else {
+      } else if (net.id === "google") {
         check(`${tag}: размер Google`, html.includes('<meta name="ad.size" content="width=320,height=480"/>'));
+        check(`${tag}: ориентация Google`, html.includes('<meta name="ad.orientation" content="portrait,landscape"/>'));
         check(`${tag}: только exitapi.js`, ext.length === 1 && ext[0].endsWith("/exitapi.js"), ext.join(", "));
+      } else {
+        // Meta и сайт: ни одного внешнего адреса, mraid.js под запретом.
+        check(`${tag}: без внешних скриптов`, ext.length === 0, ext.join(", "));
+        check(`${tag}: без mraid.js`, !html.includes("mraid.js"));
+        if (net.id === "meta") check(`${tag}: кнопка знает FbPlayableAd`, html.includes("FbPlayableAd.onCTAClick"));
       }
       const bytes = Buffer.byteLength(html);
       check(`${tag}: вес под лимитом сети`, bytes < net.limit, `${(bytes / 1024 / 1024).toFixed(2)} МБ`);
@@ -117,6 +126,42 @@ const bare = await buildScenePlayable(
 check("без картинок: фон по умолчанию", !bare.includes("--img-bg:url"));
 check("без картинок: < 400 КБ", Buffer.byteLength(bare) < 400 * 1024, `${Math.round(Buffer.byteLength(bare) / 1024)} КБ`);
 check("ссылка в конфиге", bare.includes('"clickUrl":"https://x.example"'));
+
+// ---- упаковка: по файлу на площадку, Meta тяжелее 2 МБ — ZIP по её правилам
+{
+  const p = scenePreset("wheel", "ru");
+  const heavy = await buildScenePlayable(
+    {
+      scene: "wheel", text: p.text, amount: 500, unit: p.unit, locale: "ru-RU", clickUrl: "https://x.example", legal: p.legal,
+      brandName: "B", logo: "", lang: "ru", prizes: p.prizes, winIndex: DEFAULT_WIN_INDEX,
+      bgImage: fakeImage(900 * 1024, "image/webp"), reward: fakeImage(700 * 1024, "image/png"),
+      art: { frame: { src: fakeImage(500 * 1024, "image/png"), inner: 0.84 }, pointer: fakeImage(120 * 1024, "image/png") },
+    },
+    { network: "meta", preview: false, load: diskLoader },
+  );
+  check("тяжёлый плейбл > 2 МБ (для проверки ZIP)", Buffer.byteLength(heavy) > 2 * 1024 * 1024);
+  const pkg = await packageFor("meta", heavy, "pl", "Колесо");
+  check("Meta > 2 МБ → ZIP", pkg.filename.endsWith("-meta.zip"), pkg.filename);
+  const zip = await JSZip.loadAsync(await pkg.blob.arrayBuffer());
+  const index = await zip.file("index.html")!.async("string");
+  const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+  check("Meta ZIP: index.html ≤ 2 МБ", Buffer.byteLength(index) <= 2 * 1024 * 1024, `${(Buffer.byteLength(index) / 1024 / 1024).toFixed(2)} МБ`);
+  check("Meta ZIP: ≤ 100 файлов", names.length <= 100, String(names.length));
+  check("Meta ZIP: ≤ 5 МБ", pkg.bytes <= 5 * 1024 * 1024);
+  check("Meta ZIP: картинки отдельными файлами", names.some((n) => n.startsWith("assets/")) && index.includes('"assets/img'));
+  check("Meta ZIP: фон по относительному пути", /--img-bg:url\("assets\/img\d+\.webp"\)/.test(index));
+
+  const small = await buildScenePlayable(
+    { scene: "safe", text: scenePreset("safe", "ru").text, amount: 1, unit: "FS", locale: "ru-RU", clickUrl: "https://x.example", legal: "", brandName: "", logo: "", lang: "ru" },
+    { network: "meta", preview: false, load: diskLoader },
+  );
+  check("Meta ≤ 2 МБ → один HTML", (await packageFor("meta", small, "pl", "Сейф")).filename.endsWith("-meta.html"));
+  check("MRAID → один HTML", (await packageFor("mraid", small, "pl", "Сейф")).filename.endsWith("-mraid.html"));
+  const g = await packageFor("google", small, "pl", "Сейф");
+  check("Google → ZIP с index.html", g.filename.endsWith("-google.zip") && !!(await JSZip.loadAsync(await g.blob.arrayBuffer())).file("index.html"));
+  const w = await JSZip.loadAsync(await (await packageFor("web", small, "pl", "Сейф")).blob.arrayBuffer());
+  check("Сайт → ZIP: index.html и инструкция с iframe", !!w.file("index.html") && (await w.file("README.txt")!.async("string")).includes("<iframe"));
+}
 
 console.log(failed ? `\n${failed} провалено, ${passed} прошло` : `✓ все ${passed} проверок прошли`);
 process.exit(failed ? 1 : 0);

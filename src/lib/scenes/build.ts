@@ -97,12 +97,17 @@ const POPUP =
 function networkHead(network: PlayableNetwork, preview: boolean): string {
   if (preview) return "";
   if (network === "google") {
-    // Сценарии портретные — стандартный полноэкранный мобильный размер Google.
+    // Полноэкранный мобильный размер Google; сцена сама перестраивается под
+    // поворот, поэтому заявляем обе ориентации.
     return (
       '<meta name="ad.size" content="width=320,height=480"/>' +
+      '<meta name="ad.orientation" content="portrait,landscape"/>' +
       '<script type="text/javascript" src="https://tpc.googlesyndication.com/pagead/gadgets/html5/api/exitapi.js"></script>'
     );
   }
+  // Meta подкладывает FbPlayableAd сама и запрещает mraid.js и любые внешние
+  // скрипты; на сайте сетевых скриптов нет вовсе.
+  if (network === "meta" || network === "web") return "";
   // MRAID-контейнер подкладывает mraid.js сам; вне контейнера ссылка просто не загрузится.
   return '<script src="mraid.js"></script>';
 }
