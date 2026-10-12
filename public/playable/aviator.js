@@ -15,6 +15,7 @@
   var plane = $("plane"), mult = $("mult"), btn = $("cashBtn"), btnLbl = btn.querySelector(".lbl"), tapText = $("tapText");
 
   btnLbl.textContent = T.cashout || "";
+  if (P.art("plane")) { plane.innerHTML = P.aiImg(P.art("plane")); plane.classList.add("art"); }
 
   function m(t) { return Math.exp(0.28 * t); } // t в секундах
 

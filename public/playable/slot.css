@@ -94,3 +94,6 @@
 .land #glowBack { left: -60px; top: -30px; }
 .land #raysBack { left: -120px; top: -80px; }
 .land #hand { left: 410px; top: 400px; }
+
+.sym img.ai { width: 170px; height: 170px; filter: drop-shadow(0 6px 6px rgba(80, 40, 10, .35)); }
+.sym.win img.ai { animation: symWin .6s ease-in-out infinite alternate; }

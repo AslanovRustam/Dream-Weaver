@@ -52,6 +52,16 @@
 
   label.textContent = (T.triesLeft || "") + TRIES;
 
+  var ART_CHEST = P.art("chest");
+  if (ART_CHEST) {
+    chests.forEach(function (c) {
+      var bob = c.querySelector(".bob");
+      bob.querySelector(".body").style.display = "none";
+      bob.querySelector(".lid").style.display = "none";
+      bob.insertAdjacentHTML("afterbegin", '<div class="aiChest">' + P.aiImg(ART_CHEST, "shut") + (P.art("chestOpen") ? P.aiImg(P.art("chestOpen"), "open") : "") + "</div>");
+    });
+  }
+
   /** Рука — над следующим закрытым сундуком (после первого выбора). */
   function moveHand() {
     var next = opened.indexOf(false);
@@ -133,6 +143,11 @@
         { transform: "translate(-40px, -330px) rotate(-28deg) rotateX(65deg)" },
       ], { duration: 700, easing: "cubic-bezier(.2,.8,.3,1)" });
       anim(c.querySelector(".loot"), [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 150 });
+      var open = c.querySelector(".aiChest .open"), shut = c.querySelector(".aiChest .shut");
+      if (open) {
+        anim(shut, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 60 });
+        anim(open, [{ opacity: 0, transform: "scale(.9)" }, { opacity: 1, transform: "scale(1.08)", offset: 0.6 }, { opacity: 1, transform: "none" }], { duration: 420, delay: 60 });
+      }
       anim(c.querySelector(".beam"), [{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 150 });
       anim($("glowBack"), [{ opacity: 0 }, { opacity: 1 }], { duration: 700 });
       anim($("raysBack"), [{ opacity: 0 }, { opacity: 0.75 }], { duration: 900 });

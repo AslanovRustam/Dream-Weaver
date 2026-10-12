@@ -10,6 +10,7 @@
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var SHOTS = 2;
   var stage = P.stage, ball = $("ball"), label = $("label"), tapText = $("tapText");
+  if (P.art("ball")) ball.innerHTML = P.aiImg(P.art("ball"));
 
   /** Точки — из раскладки: в вертикали и горизонтали они свои. */
   function rest() { return { x: ball.offsetLeft + ball.offsetWidth / 2, y: ball.offsetTop + ball.offsetHeight / 2 }; }

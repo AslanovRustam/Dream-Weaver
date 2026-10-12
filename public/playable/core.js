@@ -162,6 +162,31 @@
     return anim($("flash"), [{ opacity: 0 }, { opacity: peak || 0.85, offset: 0.2 }, { opacity: 0 }], { duration: 1000, easing: "ease-out" });
   }
 
+  // ------------------------------------------------------------ стиль и ИИ-графика
+  // Палитра интерфейса из выбранного стиля — через CSS-переменные.
+  (function () {
+    var ui = CFG.ui;
+    if (!ui) return;
+    var map = { g1: "--gold-1", g2: "--gold-2", g3: "--gold-3", g4: "--gold-4", ink: "--ink", accent: "--accent", rim: "--rim" };
+    for (var k in map) if (ui[k]) stage.style.setProperty(map[k], ui[k]);
+  })();
+
+  var ART = CFG.art || {}, SYMS = CFG.symbols || [];
+  function aiImg(src, cls) {
+    return '<img class="ai' + (cls ? " " + cls : "") + '" src="' + esc(src) + '" alt="" draggable="false">';
+  }
+  /** Спрайт от ИИ по ключу (door, chest, plane…) или "" — тогда сцена рисует свой вектор. */
+  function art(key) { return typeof ART[key] === "string" ? ART[key] : ""; }
+  /**
+   * Символ: картинка из набора ИИ, если он есть, иначе вектор. order — список
+   * видов символов сцены: вид с индексом i берёт i-ю картинку набора.
+   */
+  function sym(kind, order) {
+    var i = order ? order.indexOf(kind) : -1;
+    if (i >= 0 && SYMS[i]) return aiImg(SYMS[i], "aisym");
+    return SYM[kind] || SYM.star;
+  }
+
   // ------------------------------------------------------------ общее оформление
   // Лого: картинка бренда или его название градиентом.
   (function () {
@@ -316,6 +341,7 @@
     $: $, rich: rich, setGradText: setGradText, fitText: fitText,
     anim: anim, animIn: animIn, wait: wait, rnd: rnd, sparks: sparks, ripple: ripple, flash: flash,
     setIdle: setIdle, scheduleHint: scheduleHint, showPopup: showPopup, SYM: SYM,
+    art: art, sym: sym, aiImg: aiImg,
     isEnded: function () { return ended; },
     boot: function (scene) {
       var started = false;

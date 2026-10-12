@@ -11,7 +11,9 @@
   var SYM = P.SYM;
   var SPINS = 2, H = 200;
   var WIN = "seven";
-  var FILL = ["cherry", "bell", "bar", "diamond", "star", "coin", "cherry", "bell", "bar", "diamond", "star"];
+  // ИИ-набор символов идёт в этом порядке: [0] — джекпот (семёрка).
+  var ORDER = ["seven", "cherry", "bell", "bar", "diamond", "star"];
+  var FILL = ["cherry", "bell", "bar", "diamond", "star", "cherry", "bell", "bar", "diamond", "star"];
   /** Точка на линии выигрыша барабана i (row: 0 — верхний ряд, 1 — линия). */
   function on(i, row) { return P.pos($("reel" + i), 0.5, row == null ? 0.5 : (row + 0.5) / 3); }
 
@@ -32,7 +34,7 @@
   function cell(name) {
     var d = document.createElement("div");
     d.className = "sym";
-    d.innerHTML = SYM[name] || SYM.star;
+    d.innerHTML = P.sym(name, ORDER);
     return d;
   }
   function pick() { return FILL[(Math.random() * FILL.length) | 0]; }

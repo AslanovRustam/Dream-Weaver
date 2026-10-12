@@ -85,7 +85,23 @@ const KINDS: Record<string, Spec> = {
 };
 
 
-type Body = { kind?: string; style?: string; theme?: string };
+/**
+ * Предмет сцены по описанию из пресета (сундук, самолёт, дверь сейфа…):
+ * описание приходит в subject, рамка промпта — здесь.
+ */
+function objectSpec(subject: string): Spec {
+  return {
+    prompt:
+      `A single game object: ${subject}. Centred with a little padding, nothing else in the image, crisp clean ` +
+      "edges, transparent background, no ground, no shadow plate. PEOPLE: any person is an adult, fully clothed, " +
+      "friendly non-sexual pose.",
+    size: "1024x1024",
+    transparent: true,
+    quality: "medium",
+  };
+}
+
+type Body = { kind?: string; style?: string; theme?: string; subject?: string };
 
 export async function POST(request: Request) {
   let user: Awaited<ReturnType<typeof requireUser>>;
@@ -105,7 +121,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const spec = KINDS[body.kind ?? ""];
+  const subject = (body.subject || "").trim().slice(0, 600);
+  const spec = body.kind === "object" ? (subject ? objectSpec(subject) : null) : KINDS[body.kind ?? ""];
   if (!spec) return Response.json({ error: "Неизвестная деталь" }, { status: 400 });
 
   const apiKey = process.env.OPENAI_API_KEY;

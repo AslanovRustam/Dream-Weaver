@@ -64,3 +64,13 @@
 .land #hand { left: 770px; top: 600px; }
 .ans:nth-child(1) { top: 0; } .ans:nth-child(2) { top: 166px; } .ans:nth-child(3) { top: 332px; }
 .land .ans:nth-child(2) { top: 140px; } .land .ans:nth-child(3) { top: 280px; }
+
+/* Ведущий от ИИ: карточка сужается, ведущий стоит справа от неё. */
+#mascot { left: 780px; top: 430px; width: 300px; height: 340px; z-index: 2; pointer-events: none; filter: drop-shadow(0 14px 18px rgba(0, 0, 0, .5)); }
+.idle #mascot { animation: badgeBob 2.4s ease-in-out infinite; }
+.hasMascot #card { width: 700px; }
+.hasMascot #qBadge { left: 290px; }
+.hasMascot #question, .hasMascot #question .s, .hasMascot #question .f { width: 590px; }
+.hasMascot #question { left: 55px; }
+.hasMascot #timer { width: 540px; }
+.land #mascot { left: 790px; top: 130px; width: 290px; height: 340px; }

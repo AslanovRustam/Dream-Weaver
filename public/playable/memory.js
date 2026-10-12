@@ -24,7 +24,8 @@
     c.style.top = Math.floor(i / COLS) * (CH + GAP) + "px";
     c.setAttribute("data-i", i);
     c.innerHTML =
-      '<div class="flip"><div class="face back">' + SYM.star + '</div><div class="face front">' + (SYM[kind] || SYM.bell) + "</div></div>";
+      '<div class="flip"><div class="face back">' + (P.art("cardBack") ? P.aiImg(P.art("cardBack"), "cardArt") : SYM.star) +
+      '</div><div class="face front">' + P.sym(kind, KINDS) + "</div></div>";
     $("grid").appendChild(c);
     return { el: c, kind: kind, open: false, matched: false };
   });

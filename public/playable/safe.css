@@ -87,3 +87,5 @@
 .land #glowBack { left: 20px; top: -30px; }
 .land #raysBack { left: -80px; top: -140px; }
 .land #hand { left: 508px; top: 488px; }
+
+#door img.doorArt { position: absolute; inset: 0; object-fit: fill; border-radius: 32px; }

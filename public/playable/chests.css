@@ -70,3 +70,7 @@
 .land #glowBack { left: -70px; top: 120px; }
 .land #raysBack { left: -70px; top: -20px; }
 .land #hand { left: 490px; top: 500px; }
+
+.chest .aiChest { position: absolute; left: -20px; top: -20px; width: 360px; height: 360px; }
+.chest .aiChest img { position: absolute; inset: 0; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
+.chest .aiChest .open { opacity: 0; }

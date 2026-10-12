@@ -52,3 +52,6 @@
 .land #glowBack { left: 30px; top: 30px; }
 .land #raysBack { left: -70px; top: -30px; }
 .land #hand { left: 210px; top: 290px; }
+
+.cell img.ai { width: 200px; height: 200px; filter: drop-shadow(0 8px 8px rgba(80, 40, 10, .35)); }
+.won .cell.win img.ai { animation: winPop .7s ease-in-out infinite alternate; }

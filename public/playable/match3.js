@@ -52,9 +52,16 @@
   }
 
   var grid = [];
+  // Самоцветы от ИИ — если набор полный; иначе CSS-камни.
+  var GEMS = ["g0", "g1", "g2", "g3", "g4"];
+  var ART_GEMS = (P.CFG.symbols || []).length >= 5;
+  function paint(el, color) {
+    el.className = "tile c" + color + (ART_GEMS ? " art" : "");
+    el.innerHTML = ART_GEMS ? P.sym(GEMS[color], GEMS) : "";
+  }
   function makeTile(color, r, c, fromRow) {
     var el = document.createElement("div");
-    el.className = "tile c" + color;
+    paint(el, color);
     el.style.left = c * S + "px";
     el.style.top = (fromRow == null ? r : fromRow) * S + "px";
     box.appendChild(el);
@@ -175,7 +182,7 @@
     for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
       var t = grid[r][c];
       t.color = m[r][c];
-      t.el.className = "tile c" + t.color;
+      paint(t.el, t.color);
     }
   }
 

@@ -44,3 +44,6 @@
 .land #glowBack { left: -70px; top: 240px; }
 .land #raysBack { left: -70px; top: 140px; }
 .land #hand { left: 435px; top: 720px; }
+
+#items .item img.ai { filter: drop-shadow(0 8px 8px rgba(0, 0, 0, .4)); }
+#pot.art { height: 230px; margin-top: -40px; }

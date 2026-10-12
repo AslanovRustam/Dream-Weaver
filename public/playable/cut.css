@@ -38,3 +38,5 @@
 .land #glowBack { left: -70px; top: 40px; }
 .land #raysBack { left: -70px; top: -60px; }
 .land #hand { left: 290px; top: 300px; }
+
+.obj img.ai, .half img.ai { width: 150px; height: 150px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45)); }

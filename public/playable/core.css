@@ -185,3 +185,9 @@ body::before {
 /* Попап свёрстан под 1080×1920 — в горизонтали переносим его в центр целиком. */
 #popInner { left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 540px 960px; }
 .land #popInner { transform: translate(420px, -450px) scale(.78); }
+
+/* ---------- ИИ-графика и стиль ---------- */
+img.ai { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+/* Плашки и счётчики сцен берут цвета стиля. */
+#stage #label { color: var(--accent); }
+#stage #spinPill { box-shadow: 0 0 0 5px var(--rim, #d99a46), 0 18px 36px rgba(0, 0, 0, .5); }

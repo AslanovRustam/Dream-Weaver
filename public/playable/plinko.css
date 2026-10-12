@@ -68,3 +68,5 @@
 .land #glowBack { left: -70px; top: 180px; }
 .land #raysBack { left: -70px; top: 80px; }
 .land #hand { left: 490px; top: 160px; }
+
+#ball.art { background: none; box-shadow: none; width: 64px; height: 64px; margin: -32px 0 0 -32px; filter: drop-shadow(0 0 14px rgba(255, 255, 255, .5)); }

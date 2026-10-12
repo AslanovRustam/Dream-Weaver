@@ -13,6 +13,7 @@
   var SYM = P.SYM;
   // Монеты стоят «уголком», чтобы их надо было искать по всей карте.
   var LAYOUT = ["coin", "seven", "coin", "cherry", "diamond", "coin"];
+  var ORDER = ["coin", "seven", "cherry", "diamond", "bell", "star"];
   var WIN = [0, 2, 5];
 
   var cells = [];
@@ -23,7 +24,7 @@
       c.className = "cell";
       c.style.left = (i % 3) * (CW + GAP) + "px";
       c.style.top = Math.floor(i / 3) * (CH + GAP) + "px";
-      c.innerHTML = SYM[LAYOUT[i]] || SYM.bell;
+      c.innerHTML = P.sym(LAYOUT[i], ORDER); // ИИ-набор: [0] — выигрышный
       box.appendChild(c);
       cells.push(c);
     }

@@ -364,7 +364,7 @@ export function scenePreset(id: SceneId, lang: SceneLang): LangPack {
   };
 }
 
-// ---- стили колеса: промпт для ИИ-деталей + палитра нашего диска под них
+// ---- стиль сцены: промпт для всей ИИ-графики + палитра интерфейса и колеса
 
 export type WheelPalette = {
   /** Сектора: светлый центр → тёмный край. */
@@ -380,51 +380,189 @@ export type WheelPalette = {
   winStroke: string;
 };
 
-export type WheelStyle = { id: string; label: string; prompt: string; palette: WheelPalette; swatch: string[] };
+/** Цвета интерфейса сцены: градиент заголовков, обводка, плашки. */
+export type UiPalette = { g1: string; g2: string; g3: string; g4: string; ink: string; accent: string; rim: string };
 
-export const WHEEL_STYLES: WheelStyle[] = [
+export type SceneStyle = {
+  id: string;
+  label: string;
+  /** Материалы и палитра для ИИ — общие для всех деталей сцены. */
+  prompt: string;
+  palette: WheelPalette;
+  ui: UiPalette;
+  swatch: string[];
+};
+
+export const SCENE_STYLES: SceneStyle[] = [
   {
     id: "ruby",
     label: "Золото и рубин",
-    prompt: "polished yellow gold with deep red rubies and warm golden light bulbs, classic luxury casino",
+    prompt: "polished yellow gold with deep red rubies and a warm golden glow, classic luxury casino",
     palette: {
       a: ["#ff5c7a", "#9b1030"], b: ["#4a2f9a", "#1a0d44"], win: ["#fff2a8", "#e08a1c"],
       line: "#f2c26a", ink: "#ffffff", stroke: "#3a0a14", winInk: "#5a2406", winStroke: "#fff3c0",
     },
+    ui: { g1: "#fff7c2", g2: "#ffd45c", g3: "#e08a22", g4: "#b9561a", ink: "#2a1205", accent: "#ffbb58", rim: "#d99a46" },
     swatch: ["#e2a23e", "#c2183c", "#3a2580"],
   },
   {
     id: "neon",
     label: "Неон",
-    prompt: "glossy dark chrome with glowing cyan and magenta neon tubes and neon light bulbs, cyberpunk night casino",
+    prompt: "glossy dark chrome with glowing cyan and magenta neon light, cyberpunk night casino",
     palette: {
       a: ["#ff4fd8", "#6a0a5c"], b: ["#2fd4ff", "#06395a"], win: ["#fff7a8", "#ffb21c"],
       line: "#c9f6ff", ink: "#ffffff", stroke: "#1a0630", winInk: "#4a2200", winStroke: "#fffbd8",
     },
+    ui: { g1: "#f0feff", g2: "#7ff0ff", g3: "#ff5ad8", g4: "#9a1a8a", ink: "#1a0630", accent: "#7ff0ff", rim: "#ff5ad8" },
     swatch: ["#2fd4ff", "#ff4fd8", "#1a0630"],
   },
   {
     id: "emerald",
     label: "Изумруд",
-    prompt: "polished gold with large emerald gems and warm light bulbs, lucky irish / royal green casino",
+    prompt: "polished gold with large emerald gems and a warm green glow, lucky royal green casino",
     palette: {
       a: ["#3ddc84", "#0a5a2e"], b: ["#1a2a22", "#050c08"], win: ["#fff2a8", "#e0a21c"],
       line: "#f2d36a", ink: "#ffffff", stroke: "#03200f", winInk: "#4a2a06", winStroke: "#fff6c8",
     },
+    ui: { g1: "#f4fff0", g2: "#a8f59a", g3: "#21b45a", g4: "#0a5a26", ink: "#03200f", accent: "#9cf59a", rim: "#e8c04a" },
     swatch: ["#e8c04a", "#1fa85a", "#0c1a12"],
   },
   {
     id: "ice",
     label: "Серебро и лёд",
-    prompt: "polished silver and platinum with icy blue crystals and cold white light bulbs, frosty premium casino",
+    prompt: "polished silver and platinum with icy blue crystals and a cold white glow, frosty premium casino",
     palette: {
       a: ["#8fd8ff", "#1a5a9a"], b: ["#e8eef6", "#7a8aa0"], win: ["#fff2a8", "#e0a21c"],
       line: "#ffffff", ink: "#0a2a4a", stroke: "#ffffff", winInk: "#4a2a06", winStroke: "#fff6c8",
     },
+    ui: { g1: "#ffffff", g2: "#d8f0ff", g3: "#6ab8f0", g4: "#1a4a8a", ink: "#0a1a3a", accent: "#bfe8ff", rim: "#8fd8ff" },
     swatch: ["#d8e2ee", "#5ab8f0", "#1a3a6a"],
+  },
+  {
+    id: "royal",
+    label: "Королевский пурпур",
+    prompt: "rich royal purple velvet with polished gold ornaments and amethyst gems, regal palace casino",
+    palette: {
+      a: ["#b46cff", "#4a0a8a"], b: ["#ffd45c", "#a8600a"], win: ["#ffffff", "#e8c4ff"],
+      line: "#ffe08a", ink: "#ffffff", stroke: "#2a0650", winInk: "#3a0a6a", winStroke: "#ffffff",
+    },
+    ui: { g1: "#fff2ff", g2: "#e8b4ff", g3: "#a04ae8", g4: "#5a1a9a", ink: "#1e0638", accent: "#e8b4ff", rim: "#ffd45c" },
+    swatch: ["#ffd45c", "#9a3ae8", "#2a0650"],
+  },
+  {
+    id: "fire",
+    label: "Огонь",
+    prompt: "blazing fire and molten lava with glowing orange embers and dark iron, hot volcanic casino",
+    palette: {
+      a: ["#ff8a3c", "#9a2a06"], b: ["#3a1a12", "#120604"], win: ["#fff2a8", "#ffb21c"],
+      line: "#ffc06a", ink: "#ffffff", stroke: "#2a0604", winInk: "#4a1a04", winStroke: "#fff3c0",
+    },
+    ui: { g1: "#fff4d0", g2: "#ffc23c", g3: "#ff6a1c", g4: "#a8200a", ink: "#2a0604", accent: "#ffb05a", rim: "#ff6a1c" },
+    swatch: ["#ffc23c", "#ff4a1c", "#2a0604"],
   },
 ];
 
-export function wheelStyle(id: string | undefined): WheelStyle {
-  return WHEEL_STYLES.find((s) => s.id === id) ?? WHEEL_STYLES[0];
+export function sceneStyle(id: string | undefined): SceneStyle {
+  return SCENE_STYLES.find((s) => s.id === id) ?? SCENE_STYLES[0];
+}
+
+// ---- ИИ-детали сцен: что именно рисует OpenAI для каждой игры
+
+export type PartKind = "object" | "symbols" | "wheel-frame" | "wheel-pointer" | "wheel-hub" | "scene-bg" | "reward";
+
+export type ScenePart = {
+  /** Ключ в art (или "symbols", "bg", "reward"). */
+  id: string;
+  kind: PartKind;
+  label: string;
+  hint: string;
+  /** Что рисовать — для object и symbols. */
+  subject?: string;
+  /** До какого размера ужимать спрайт, px. */
+  size?: number;
+};
+
+const BG_PART: ScenePart = { id: "bg", kind: "scene-bg", label: "Фон", hint: "Квадрат — и для телефона, и для десктопа" };
+const REWARD_PART: ScenePart = { id: "reward", kind: "reward", label: "Награда в попапе", hint: "Предмет на прозрачном фоне" };
+const BOMB_PART: ScenePart = {
+  id: "bomb", kind: "object", label: "Бомба", hint: "Её трогать нельзя", size: 220,
+  subject: "a round cartoon bomb with a short lit fuse and a bright spark, glossy",
+};
+const GEMS =
+  "six different faceted precious GEMS for a match game, each a clearly different colour and cut: red ruby, blue sapphire, green emerald, yellow topaz, purple amethyst, orange citrine";
+
+export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
+  safe: [
+    {
+      id: "door", kind: "object", label: "Дверь сейфа", hint: "Фасад — живой кодовый диск ляжет поверх", size: 700,
+      subject:
+        "a heavy bank vault safe DOOR panel seen perfectly straight-on (flat front view, no perspective), a tall rectangle filling the canvas, thick metal with rivets, hinges and bolts, with a big EMPTY round recess in the upper middle where a combination dial will be placed — draw NO dial, NO numbers, NO handle inside the recess",
+    },
+  ],
+  wheel: [
+    { id: "frame", kind: "wheel-frame", label: "Рама колеса", hint: "Обод с лампочками — главный объект" },
+    { id: "pointer", kind: "wheel-pointer", label: "Указатель", hint: "Щёлкает на каждом секторе" },
+    { id: "hub", kind: "wheel-hub", label: "Центр колеса", hint: "Медальон в середине" },
+  ],
+  scratch: [
+    {
+      id: "symbols", kind: "symbols", label: "Символы под фольгой", hint: "6 иконок; первая — выигрышная, их три",
+      subject: "lucky scratch-card symbols; the FIRST icon (top-left) is the jackpot symbol — a big golden coin with a star; the other five are different lucky symbols",
+    },
+  ],
+  slot: [
+    {
+      id: "symbols", kind: "symbols", label: "Символы барабанов", hint: "6 иконок; первая — джекпот (три в ряд)",
+      subject: "slot reel symbols; the FIRST icon (top-left) is the jackpot symbol — a big glowing lucky seven; the other five are classic slot symbols",
+    },
+  ],
+  chests: [
+    {
+      id: "chest", kind: "object", label: "Сундук", hint: "Закрытый — три одинаковых на сцене", size: 440,
+      subject: "a closed ornate treasure chest, front view slightly from above, wooden with gold bands, corner plates and a big lock",
+    },
+    {
+      id: "chestOpen", kind: "object", label: "Сундук с золотом", hint: "Открытый — в нём выигрыш", size: 440,
+      subject: "the same ornate treasure chest but OPEN with the lid up, overflowing with glowing gold coins and gems, front view slightly from above",
+    },
+  ],
+  aviator: [
+    {
+      id: "plane", kind: "object", label: "Самолёт", hint: "Летит по графику вправо-вверх", size: 380,
+      subject: "a sleek stylized propeller airplane flying to the RIGHT, side view, glossy paint",
+    },
+  ],
+  plinko: [
+    { id: "ball", kind: "object", label: "Шарик", hint: "Скачет по штырькам", size: 140, subject: "a single glowing glossy game ball, perfect sphere" },
+  ],
+  memory: [
+    { id: "symbols", kind: "symbols", label: "Лица карт", hint: "Нужны первые 4 из 6", subject: "card-matching game symbols: six clearly different lucky casino icons" },
+    {
+      id: "cardBack", kind: "object", label: "Рубашка карты", hint: "Одна на все карты", size: 320,
+      subject: "the BACK of a premium playing card: a vertical rounded rectangle filling the canvas, ornate border and an emblem in the centre, NO text",
+    },
+  ],
+  catcher: [
+    { id: "coin", kind: "object", label: "Что ловим", hint: "Падает сверху", size: 200, subject: "a shiny thick gold casino coin with a star emblem, slightly tilted" },
+    { id: "pot", kind: "object", label: "Котёл", hint: "Ловит монеты", size: 360, subject: "a pot of gold / golden cauldron seen from the front, wide open top, empty inside" },
+    BOMB_PART,
+  ],
+  basket: [{ id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" }],
+  cut: [
+    { id: "symbols", kind: "symbols", label: "Что режем", hint: "6 предметов", subject: "six different juicy casino treasures to slice: coins, gems, a lucky seven, a cherry, a star, a gold bar" },
+    BOMB_PART,
+  ],
+  blast: [{ id: "symbols", kind: "symbols", label: "Самоцветы", hint: "Нужны первые 4 из 6", subject: GEMS }],
+  match3: [{ id: "symbols", kind: "symbols", label: "Самоцветы", hint: "Нужны первые 5 из 6", subject: GEMS }],
+  quiz: [
+    {
+      id: "mascot", kind: "object", label: "Ведущий", hint: "Персонаж рядом с вопросом", size: 460,
+      subject: "a friendly cartoon game-show host mascot character, upper body, smiling and pointing, fully clothed",
+    },
+  ],
+};
+
+/** Все детали сцены по порядку: объекты игры, потом фон и награда. */
+export function scenePartsFor(id: SceneId): ScenePart[] {
+  return [...SCENE_PARTS[id], BG_PART, REWARD_PART];
 }

@@ -14,6 +14,7 @@
   var STEP = 165;
 
   var stage = P.stage, ball = $("ball"), label = $("label"), tapText = $("tapText");
+  if (P.art("ball")) { ball.innerHTML = P.aiImg(P.art("ball")); ball.classList.add("art"); }
 
   // ---- штырьки и лунки
   var pegs = [];

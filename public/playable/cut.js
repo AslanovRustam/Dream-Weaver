@@ -50,7 +50,7 @@
       var el = document.createElement("div");
       el.className = "obj";
       var kind = KINDS[(Math.random() * KINDS.length) | 0];
-      el.innerHTML = bomb ? BOMB : SYM[kind];
+      el.innerHTML = bomb ? (P.art("bomb") ? P.aiImg(P.art("bomb")) : BOMB) : P.sym(kind, KINDS);
       box.appendChild(el);
       objs.push({
         el: el, bomb: bomb, kind: kind, x: x0, y: y0,
@@ -83,7 +83,7 @@
       ["a", "b"].forEach(function (side, k) {
         var h = document.createElement("div");
         h.className = "half " + side;
-        h.innerHTML = '<div class="clip" style="transform:rotate(' + deg.toFixed(0) + 'deg)"><div style="transform:rotate(' + (o.r - deg).toFixed(0) + 'deg)">' + SYM[o.kind] + "</div></div>";
+        h.innerHTML = '<div class="clip" style="transform:rotate(' + deg.toFixed(0) + 'deg)"><div style="transform:rotate(' + (o.r - deg).toFixed(0) + 'deg)">' + P.sym(o.kind, KINDS) + "</div></div>";
         box.appendChild(h);
         var dir = k ? 1 : -1;
         halves.push({ el: h, x: o.x, y: o.y, vx: o.vx * 0.4 + nx * 300 * dir, vy: Math.min(o.vy, 0) * 0.3 + ny * 300 * dir - 150, r: 0, vr: dir * 240, born: performance.now() });

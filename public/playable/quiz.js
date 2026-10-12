@@ -8,6 +8,7 @@
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var TIME = 8000;
   var stage = P.stage, box = $("answers"), tapText = $("tapText"), hand = $("hand");
+  if (P.art("mascot")) { $("mascot").innerHTML = P.aiImg(P.art("mascot")); $("mascot").hidden = false; stage.classList.add("hasMascot"); }
 
   var list = [
     { text: T.a1 || "", right: true },

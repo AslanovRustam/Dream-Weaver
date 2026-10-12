@@ -46,6 +46,11 @@
 
   label.textContent = (T.tapsLeft || "") + TAPS;
 
+  if (P.art("door")) {
+    door.querySelector("svg").style.display = "none";
+    door.insertAdjacentHTML("afterbegin", P.aiImg(P.art("door"), "doorArt"));
+  }
+
   // ---- игра
   var taps = 0, busy = false, queued = 0, tryTimer = 0, done = false;
 

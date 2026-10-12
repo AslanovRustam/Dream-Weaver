@@ -47,9 +47,16 @@
     big = largest(colors);
   } while ((big < 3 || big > 7) && ++tries < 60);
 
+  // Самоцветы от ИИ — если набор полный; иначе CSS-камни.
+  var GEMS = ["g0", "g1", "g2", "g3", "g4"];
+  var ART_GEMS = (P.CFG.symbols || []).length >= 4;
+  function paint(el, color) {
+    el.className = "tile c" + color + (ART_GEMS ? " art" : "");
+    el.innerHTML = ART_GEMS ? P.sym(GEMS[color], GEMS) : "";
+  }
   function makeTile(color, row, col, fromRow) {
     var el = document.createElement("div");
-    el.className = "tile c" + color;
+    paint(el, color);
     el.style.left = col * S + "px";
     el.style.top = (fromRow == null ? row : fromRow) * S + "px";
     box.appendChild(el);

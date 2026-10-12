@@ -18,6 +18,7 @@
 
   var stage = P.stage, field = $("field"), itemsBox = $("items"), pot = $("pot"), label = $("label"), tapText = $("tapText");
 
+  if (P.art("pot")) { pot.innerHTML = P.aiImg(P.art("pot")); pot.classList.add("art"); }
   var W = 0, H = 0, potX = 0, targetX = 0, potY = 0;
   function measure() {
     W = field.offsetWidth;
@@ -59,7 +60,7 @@
     }
     var el = document.createElement("div");
     el.className = "item" + (bomb ? " bomb" : "");
-    el.innerHTML = bomb ? BOMB : SYM.coin;
+    el.innerHTML = bomb ? (P.art("bomb") ? P.aiImg(P.art("bomb")) : BOMB) : P.art("coin") ? P.aiImg(P.art("coin")) : SYM.coin;
     itemsBox.appendChild(el);
     items.push({ el: el, x: x, y: -80, v: 520 + count * 28 + Math.random() * 80, spin: (Math.random() - 0.5) * 360, a: 0, bomb: bomb });
   }

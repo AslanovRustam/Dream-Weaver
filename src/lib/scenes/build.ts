@@ -8,7 +8,7 @@
 import { embedJson, safeCtaUrl } from "../exportUtils";
 import type { PlayableNetwork } from "../playableGen";
 import type { FrameArt } from "./art";
-import type { WheelPalette } from "./presets";
+import type { UiPalette, WheelPalette } from "./presets";
 
 export type SceneId = "safe" | "wheel" | "scratch" | "slot" | "chests" | "aviator" | "plinko" | "memory" | "catcher" | "basket" | "cut" | "blast" | "match3" | "quiz";
 
@@ -35,13 +35,32 @@ export type SceneConfig = {
   winIndex?: number;
   /** Язык документа (lang у <html>). */
   lang: string;
-  /** Детали от ИИ для главного объекта сцены (сейчас — колесо). */
-  art?: { frame?: FrameArt; pointer?: string; hub?: string };
+  /**
+   * Детали от ИИ (или загруженные): спрайты по ключам из SCENE_PARTS —
+   * door, chest, plane, ball, pot… Рама колеса — объект с внутренним радиусом.
+   */
+  art?: { frame?: FrameArt } & Record<string, string | FrameArt | undefined>;
+  /** Набор символов (слот, скретч, мемори, разрез, самоцветы); [0] — выигрышный. */
+  symbols?: string[];
   /** Палитра нашего диска колеса под выбранный стиль. */
   palette?: WheelPalette;
+  /** Цвета интерфейса: градиент заголовков, плашки. */
+  ui?: UiPalette;
 };
 
 const isImg = (v: unknown): v is string => typeof v === "string" && /^data:image\//.test(v);
+
+/** В файл — только картинки (data:image) под безопасными ключами. */
+function cleanArt(art: SceneConfig["art"]): Record<string, string | FrameArt> {
+  const out: Record<string, string | FrameArt> = {};
+  if (!art) return out;
+  for (const [key, v] of Object.entries(art)) {
+    if (!/^[a-zA-Z][a-zA-Z0-9]{0,23}$/.test(key) || !v) continue;
+    if (key === "frame" && typeof v === "object" && isImg(v.src)) out.frame = { src: v.src, inner: Number(v.inner) || 0.82 };
+    else if (isImg(v)) out[key] = v;
+  }
+  return out;
+}
 
 export type SceneLoader = {
   text: (path: string) => Promise<string>;
@@ -130,12 +149,10 @@ export async function buildScenePlayable(
     reward: cfg.reward && /^data:image\//.test(cfg.reward) ? cfg.reward : "",
     prizes: cfg.prizes ?? [],
     winIndex: cfg.winIndex ?? 0,
-    art: {
-      frame: cfg.art?.frame && isImg(cfg.art.frame.src) ? { src: cfg.art.frame.src, inner: Number(cfg.art.frame.inner) || 0.82 } : null,
-      pointer: isImg(cfg.art?.pointer) ? cfg.art.pointer : "",
-      hub: isImg(cfg.art?.hub) ? cfg.art.hub : "",
-    },
+    art: cleanArt(cfg.art),
+    symbols: (cfg.symbols ?? []).filter(isImg).slice(0, 8),
     palette: cfg.palette ?? null,
+    ui: cfg.ui && Object.values(cfg.ui).every((c) => /^#[0-9a-fA-F]{3,8}$/.test(c)) ? cfg.ui : null,
   };
 
   const lang = /^[a-z]{2}(-[A-Za-z]{2})?$/.test(cfg.lang) ? cfg.lang : "ru";

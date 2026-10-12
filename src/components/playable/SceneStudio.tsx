@@ -15,6 +15,7 @@ import {
   Plus,
   RefreshCw,
   Smartphone,
+  Sparkles,
   Trash2,
   Upload,
   X,
@@ -29,18 +30,21 @@ import { useAuthGate } from "@/components/AuthGate";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { apiFetch } from "@/lib/api-client";
 import { shrinkPng } from "@/lib/imageCompress";
-import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { sliceIconGrid } from "@/lib/spriteSlice";
+import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } from "@/lib/scenes/art";
 import { PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/playableGen";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
 import {
   DEFAULT_WIN_INDEX,
   SCENE_LANGS,
-  WHEEL_STYLES,
+  SCENE_STYLES,
   sceneMeta,
+  scenePartsFor,
   scenePreset,
-  wheelStyle,
+  sceneStyle,
   type SceneLang,
+  type ScenePart,
 } from "@/lib/scenes/presets";
 
 const INPUT = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
@@ -77,27 +81,19 @@ type Draft = {
   logo: string;
   clickUrl: string;
   network: PlayableNetwork;
-  /** Стиль колеса: промпт для ИИ-деталей и палитра диска. */
-  wheelStyle: string;
+  /** Стиль сцены: промпт для всей ИИ-графики и палитра интерфейса. */
+  style: string;
   /** Тема оформления — общая для всех деталей. */
   theme: string;
   /** Какие детали генерировать. */
   parts: Record<string, boolean>;
   bgImage: string;
   reward: string;
-  art: { frame?: FrameArt; pointer?: string; hub?: string };
+  /** Спрайты деталей по ключам из SCENE_PARTS; рама колеса — с радиусом. */
+  art: Record<string, string | FrameArt>;
+  /** Набор символов (6): [0] — выигрышный. */
+  symbols: string[];
 };
-
-type PartId = "frame" | "pointer" | "hub" | "bg" | "reward";
-const PARTS: { id: PartId; kind: string; label: string; hint: string; wheelOnly?: boolean }[] = [
-  { id: "frame", kind: "wheel-frame", label: "Рама колеса", hint: "Обод с лампочками — главный объект", wheelOnly: true },
-  { id: "pointer", kind: "wheel-pointer", label: "Указатель", hint: "Щёлкает на каждом секторе", wheelOnly: true },
-  { id: "hub", kind: "wheel-hub", label: "Центр колеса", hint: "Медальон в середине", wheelOnly: true },
-  { id: "bg", kind: "scene-bg", label: "Фон", hint: "Квадрат — подходит и для телефона, и для десктопа" },
-  { id: "reward", kind: "reward", label: "Награда в попапе", hint: "Предмет на прозрачном фоне" },
-];
-/** Стиль для сцен без выбора стиля. */
-const DEFAULT_STYLE = "polished yellow gold with warm glowing lights, luxury casino";
 
 function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: string): Draft {
   const p = scenePreset(scene, lang);
@@ -114,12 +110,13 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
     logo,
     clickUrl: "",
     network: "mraid",
-    wheelStyle: "ruby",
+    style: "ruby",
     theme: meta.bgTheme,
-    parts: { frame: true, pointer: true, hub: true, bg: true, reward: true },
+    parts: {},
     bgImage: "",
     reward: "",
     art: {},
+    symbols: [],
   };
 }
 
@@ -135,6 +132,9 @@ function loadDraft(scene: SceneId, brandName: string, logo: string): Draft {
       text: { ...base.text, ...(d.text ?? {}) },
       parts: { ...base.parts, ...(d.parts ?? {}) },
       art: d.art ?? {},
+      symbols: d.symbols ?? [],
+      // Черновики до общего стиля хранили его как wheelStyle.
+      style: d.style ?? (d as { wheelStyle?: string }).wheelStyle ?? base.style,
       network: d.network === "google" ? "google" : "mraid",
     };
   } catch {
@@ -173,7 +173,7 @@ export function SceneStudio({
 
   const [d, setD] = useState<Draft>(() => freshDraft(scene, "ru", brandName, brandLogo));
   const [restored, setRestored] = useState(false);
-  const [open, setOpen] = useState({ text: true, prize: true, brand: false, net: true, art: false });
+  const [open, setOpen] = useState({ art: true, text: false, prize: false, brand: false, net: true });
   const [html, setHtml] = useState("");
   const [exportBytes, setExportBytes] = useState(0);
   const [buildErr, setBuildErr] = useState("");
@@ -222,7 +222,7 @@ export function SceneStudio({
       } catch {
         // Квота: картинки — самое тяжёлое, без них черновик всё равно полезен.
         try {
-          localStorage.setItem(draftKey(scene), JSON.stringify({ ...d, bgImage: "", reward: "", logo: "", art: {} }));
+          localStorage.setItem(draftKey(scene), JSON.stringify({ ...d, bgImage: "", reward: "", logo: "", art: {}, symbols: [] }));
         } catch {
           /* хранилище недоступно — работаем без черновика */
         }
@@ -246,7 +246,10 @@ export function SceneStudio({
       logo: d.logo,
       bgImage: d.bgImage || undefined,
       reward: d.reward || undefined,
-      ...(scene === "wheel" ? { art: d.art, palette: wheelStyle(d.wheelStyle).palette } : {}),
+      art: d.art,
+      symbols: d.symbols,
+      palette: sceneStyle(d.style).palette,
+      ui: sceneStyle(d.style).ui,
       prizes,
       winIndex: Math.min(d.winIndex, Math.max(0, prizes.length - 1)),
       lang: d.lang,
@@ -321,25 +324,41 @@ export function SceneStudio({
     }
   };
 
-  // ---- ИИ-оформление через серверную очередь
-  const applyAsset = async (key: string, dataUrl: string) => {
-    // Каждая деталь ужимается и подгоняется под сцену до встраивания в файл.
-    if (key === "bg") {
-      const out = await prepareBackground(dataUrl);
-      setD((p) => ({ ...p, bgImage: out }));
-    } else if (key === "reward") {
-      const out = await prepareSprite(dataUrl, 600);
-      setD((p) => ({ ...p, reward: out }));
-    } else if (key === "frame") {
-      const frame = await prepareWheelFrame(dataUrl);
-      setD((p) => ({ ...p, art: { ...p.art, frame } }));
-    } else if (key === "pointer") {
-      const pointer = await prepareSprite(dataUrl, 300);
-      setD((p) => ({ ...p, art: { ...p.art, pointer } }));
-    } else if (key === "hub") {
-      const hub = await prepareSprite(dataUrl, 320, true);
-      setD((p) => ({ ...p, art: { ...p.art, hub } }));
+  // ---- ИИ-графика: генерация через серверную очередь или своя картинка
+  const parts = scenePartsFor(scene);
+  const partById = (id: string) => parts.find((p) => p.id === id);
+
+  /** Довести картинку детали до сцены: обрезка, ужатие, у рамы — радиус. */
+  const applyPart = async (part: ScenePart, dataUrl: string) => {
+    switch (part.kind) {
+      case "scene-bg": {
+        const out = await prepareBackground(dataUrl);
+        return setD((p) => ({ ...p, bgImage: out }));
+      }
+      case "reward": {
+        const out = await prepareSprite(dataUrl, 600);
+        return setD((p) => ({ ...p, reward: out }));
+      }
+      case "wheel-frame": {
+        const frame = await prepareWheelFrame(dataUrl);
+        return setD((p) => ({ ...p, art: { ...p.art, frame } }));
+      }
+      case "symbols": {
+        // Сетка 3×2 одним вызовом → шесть иконок.
+        const tiles = await sliceIconGrid(dataUrl, 3, 2);
+        const symbols = await Promise.all(tiles.map((t) => prepareSprite(t, 256, true)));
+        return setD((p) => ({ ...p, symbols }));
+      }
+      default: {
+        const size = part.size ?? (part.kind === "wheel-pointer" ? 300 : part.kind === "wheel-hub" ? 320 : 420);
+        const out = await prepareSprite(dataUrl, size, part.kind === "wheel-hub");
+        return setD((p) => ({ ...p, art: { ...p.art, [part.id]: out } }));
+      }
     }
+  };
+  const applyAsset = async (key: string, dataUrl: string) => {
+    const part = partById(key);
+    if (part) await applyPart(part, dataUrl);
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_scene", apply: applyAsset });
 
@@ -356,38 +375,78 @@ export function SceneStudio({
     }
   };
 
-  const parts = PARTS.filter((p) => scene === "wheel" || !p.wheelOnly);
-  const style = scene === "wheel" ? wheelStyle(d.wheelStyle).prompt : DEFAULT_STYLE;
-  const partImage = (id: PartId): string =>
-    id === "bg" ? d.bgImage : id === "reward" ? d.reward : id === "frame" ? (d.art.frame?.src ?? "") : (d.art[id] ?? "");
-  const clearPart = (id: PartId) =>
+  const style = sceneStyle(d.style).prompt;
+  const partImages = (part: ScenePart): string[] => {
+    if (part.kind === "symbols") return d.symbols;
+    if (part.id === "bg") return d.bgImage ? [d.bgImage] : [];
+    if (part.id === "reward") return d.reward ? [d.reward] : [];
+    const v = d.art[part.id];
+    const src = typeof v === "string" ? v : v?.src;
+    return src ? [src] : [];
+  };
+  const clearPart = (part: ScenePart) =>
     setD((p) => {
-      if (id === "bg") return { ...p, bgImage: "" };
-      if (id === "reward") return { ...p, reward: "" };
+      if (part.kind === "symbols") return { ...p, symbols: [] };
+      if (part.id === "bg") return { ...p, bgImage: "" };
+      if (part.id === "reward") return { ...p, reward: "" };
       const art = { ...p.art };
-      delete art[id];
+      delete art[part.id];
       return { ...p, art };
     });
 
-  const assetSteps = (): AssetStep[] =>
-    parts
-      .filter((p) => d.parts[p.id])
-      .map((p) => {
-        const body = { kind: p.kind, style, theme: d.theme.trim() };
-        return {
-          id: p.id,
-          label: p.label,
-          credits: PLAYABLE_ASSET_PRICE_CREDITS,
-          run: runInTab("/api/generate-playable-asset", body, p.id),
-          server: { route: "/api/generate-playable-asset", body },
-        };
-      });
-  const assetCredits = assetSteps().reduce((s, st) => s + st.credits, 0);
+  /** Шаг генерации детали: символы — одной сеткой, остальное — своим роутом. */
+  const stepFor = (part: ScenePart): AssetStep => {
+    const theme = d.theme.trim();
+    if (part.kind === "symbols") {
+      const body = {
+        prompt: [part.subject, `STYLE (shared by the whole game): ${style}.`, theme ? `THEME: ${theme}.` : ""].filter(Boolean).join(" "),
+        count: 6,
+      };
+      return {
+        id: part.id,
+        label: part.label,
+        credits: SLOT_SYMBOLS_PRICE_CREDITS,
+        run: runInTab("/api/generate-slot-symbols", body, part.id),
+        server: { route: "/api/generate-slot-symbols", body },
+      };
+    }
+    const body = { kind: part.kind, style, theme, ...(part.subject ? { subject: part.subject } : {}) };
+    return {
+      id: part.id,
+      label: part.label,
+      credits: PLAYABLE_ASSET_PRICE_CREDITS,
+      run: runInTab("/api/generate-playable-asset", body, part.id),
+      server: { route: "/api/generate-playable-asset", body },
+    };
+  };
+  const included = (part: ScenePart) => d.parts[part.id] !== false;
+  const assetSteps = (): AssetStep[] => parts.filter(included).map(stepFor);
+  const assetCredits = assetSteps().reduce((sum, st) => sum + st.credits, 0);
   const startAssets = () => {
     if (isGuest) return openGate();
     const steps = assetSteps();
     if (!steps.length) return toast.error("Отметьте хотя бы одну деталь");
     void assetRun.start(steps);
+  };
+  const generateOne = (part: ScenePart) => {
+    if (isGuest) return openGate();
+    if (assetRun.running) return toast("Дождитесь текущей генерации");
+    void assetRun.start([stepFor(part)]);
+  };
+  /** Своя картинка вместо ИИ: для символов — до шести файлов. */
+  const uploadPart = async (part: ScenePart, files: FileList | null) => {
+    const list = Array.from(files ?? []).filter((file) => file.type.startsWith("image/") && file.size <= 8 * 1024 * 1024);
+    if (!list.length) return toast.error("Нужна картинка до 8 МБ");
+    try {
+      if (part.kind === "symbols") {
+        const symbols = await Promise.all(list.slice(0, 6).map(async (file) => prepareSprite(await readFile(file), 256, true)));
+        setD((p) => ({ ...p, symbols }));
+      } else {
+        await applyPart(part, await readFile(list[0]));
+      }
+    } catch {
+      toast.error("Не удалось прочитать картинку");
+    }
   };
 
   // ---- выгрузка
@@ -459,6 +518,75 @@ export function SceneStudio({
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-3">
+            <SettingsSection
+              title="Графика от ИИ"
+              icon={<Sparkles className="h-4 w-4 text-accent-green" />}
+              done={parts.some((p) => partImages(p).length > 0)}
+              open={open.art}
+              onToggle={() => toggle("art")}
+            >
+              <p className="mb-3 ds-caption">
+                OpenAI рисует всё, что видно в игре, в одном стиле. Каждую деталь можно сгенерировать отдельно или заменить своей
+                картинкой; чего нет — остаётся вектор.
+              </p>
+              <label className="mb-1.5 block ds-caption">Стиль — палитра сцены и материалы для ИИ</label>
+              <div className="grid grid-cols-2 gap-2">
+                {SCENE_STYLES.map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => set("style", st.id)}
+                    aria-pressed={d.style === st.id}
+                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.style === st.id ? CHIP_ON : CHIP_OFF}`}
+                  >
+                    <span className="flex shrink-0 -space-x-1">
+                      {st.swatch.map((c) => (
+                        <span key={c} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
+                      ))}
+                    </span>
+                    <span className="truncate">{st.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mb-3 mt-1.5 ds-caption">Цвета заголовков и плашек меняются сразу; картинки — после генерации.</p>
+              <label className="mb-1.5 block ds-caption">Тема — необязательно</label>
+              <textarea
+                rows={2}
+                value={d.theme}
+                maxLength={300}
+                onChange={(e) => set("theme", e.target.value)}
+                className={AREA}
+                placeholder="Например: Древний Египет, Хэллоуин, ночной Лас-Вегас"
+              />
+              <div className="mt-3 flex flex-col gap-2">
+                {parts.map((p) => (
+                  <PartRow
+                    key={p.id}
+                    label={p.label}
+                    hint={p.hint}
+                    images={partImages(p)}
+                    multiple={p.kind === "symbols"}
+                    checked={included(p)}
+                    busy={assetRun.running}
+                    onCheck={(v) => set("parts", { ...d.parts, [p.id]: v })}
+                    onGenerate={() => generateOne(p)}
+                    onUpload={(files) => void uploadPart(p, files)}
+                    onClear={() => clearPart(p)}
+                  />
+                ))}
+              </div>
+              <div className="mt-3">
+                <AssetRunPanel
+                  steps={assetRun.steps}
+                  running={assetRun.running}
+                  notEnough={assetRun.notEnough}
+                  credits={assetCredits}
+                  onStart={startAssets}
+                  onCancel={assetRun.cancel}
+                />
+              </div>
+            </SettingsSection>
+
             <div>
               <label className="mb-2 block ds-label">Язык</label>
               <div className="grid grid-cols-2 gap-2">
@@ -656,73 +784,6 @@ export function SceneStudio({
               </p>
             </SettingsSection>
 
-            <SettingsSection
-              title="Оформление от ИИ"
-              done={parts.some((p) => !!partImage(p.id))}
-              open={open.art}
-              onToggle={() => toggle("art")}
-            >
-              <p className="mb-3 ds-caption">
-                Детали рисует OpenAI в одном стиле и встраивает в файл сжатыми. Чего нет — остаётся вектор, плейбл работает
-                и без картинок.
-              </p>
-              {scene === "wheel" ? (
-                <div className="mb-3">
-                  <label className="mb-1.5 block ds-caption">Стиль колеса</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {WHEEL_STYLES.map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => set("wheelStyle", st.id)}
-                        aria-pressed={d.wheelStyle === st.id}
-                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.wheelStyle === st.id ? CHIP_ON : CHIP_OFF}`}
-                      >
-                        <span className="flex shrink-0 -space-x-1">
-                          {st.swatch.map((c) => (
-                            <span key={c} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
-                          ))}
-                        </span>
-                        {st.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 ds-caption">Сектора перекрашиваются сразу; рама и детали — после генерации.</p>
-                </div>
-              ) : null}
-              <label className="mb-1.5 block ds-caption">Тема — необязательно</label>
-              <textarea
-                rows={2}
-                value={d.theme}
-                maxLength={300}
-                onChange={(e) => set("theme", e.target.value)}
-                className={AREA}
-                placeholder="Например: Древний Египет, Хэллоуин, ночной Лас-Вегас"
-              />
-              <div className="mt-3 flex flex-col gap-2">
-                {parts.map((p) => (
-                  <PartRow
-                    key={p.id}
-                    label={p.label}
-                    hint={p.hint}
-                    image={partImage(p.id)}
-                    checked={!!d.parts[p.id]}
-                    onCheck={(v) => set("parts", { ...d.parts, [p.id]: v })}
-                    onClear={() => clearPart(p.id)}
-                  />
-                ))}
-              </div>
-              <div className="mt-3">
-                <AssetRunPanel
-                  steps={assetRun.steps}
-                  running={assetRun.running}
-                  notEnough={assetRun.notEnough}
-                  credits={assetCredits}
-                  onStart={startAssets}
-                  onCancel={assetRun.cancel}
-                />
-              </div>
-            </SettingsSection>
           </div>
         </div>
       </section>
@@ -871,48 +932,86 @@ function ViewToggle({ view, onChange }: { view: "mobile" | "desktop"; onChange: 
 function PartRow({
   label,
   hint,
-  image,
+  images,
+  multiple,
   checked,
+  busy,
   onCheck,
+  onGenerate,
+  onUpload,
   onClear,
 }: {
   label: string;
   hint: string;
-  image: string;
+  images: string[];
+  /** Набор (символы): превью всех, загрузка — до шести файлов. */
+  multiple?: boolean;
   checked: boolean;
+  busy: boolean;
   onCheck: (v: boolean) => void;
+  onGenerate: () => void;
+  onUpload: (files: FileList | null) => void;
   onClear: () => void;
 }) {
+  const file = useRef<HTMLInputElement>(null);
+  const ICON = "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground disabled:opacity-40";
+  const has = images.length > 0;
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-border p-2">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onCheck(e.target.checked)}
-        aria-label={`Генерировать: ${label}`}
-        className="h-4 w-4 shrink-0 accent-[var(--accent-green)]"
-      />
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:12px_12px]">
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="h-full w-full object-contain" />
-        ) : (
-          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="block ds-caption">{image ? "Готово — уже в превью" : hint}</span>
-      </span>
-      {image ? (
-        <button
-          type="button"
-          onClick={onClear}
-          aria-label={`Убрать: ${label}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-        >
-          <Trash2 className="h-4 w-4" />
+    <div className="rounded-xl border border-border p-2">
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onCheck(e.target.checked)}
+          aria-label={`Генерировать: ${label}`}
+          title="Генерировать в общей сборке"
+          className="h-4 w-4 shrink-0 accent-[var(--accent-green)]"
+        />
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:12px_12px]">
+          {has ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={images[0]} alt="" className="h-full w-full object-contain" />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{label}</span>
+          <span className="block ds-caption">{has ? (multiple ? `Готово: ${images.length} шт. — уже в превью` : "Готово — уже в превью") : hint}</span>
+        </span>
+        <button type="button" onClick={onGenerate} disabled={busy} title="Сгенерировать только эту деталь" aria-label={`Сгенерировать: ${label}`} className={ICON}>
+          <Sparkles className="h-4 w-4" />
         </button>
+        <button type="button" onClick={() => file.current?.click()} title={multiple ? "Загрузить свои (до 6)" : "Загрузить свою"} aria-label={`Загрузить: ${label}`} className={ICON}>
+          <Upload className="h-4 w-4" />
+        </button>
+        {has ? (
+          <button type="button" onClick={onClear} aria-label={`Убрать: ${label}`} title="Убрать — вернётся вектор" className={ICON}>
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
+        <input
+          ref={file}
+          type="file"
+          accept="image/*"
+          multiple={multiple}
+          className="hidden"
+          onChange={(e) => {
+            onUpload(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      {multiple && images.length > 1 ? (
+        <div className="mt-2 grid grid-cols-6 gap-1.5 pl-6">
+          {images.map((src, i) => (
+            <span key={i} className="relative aspect-square overflow-hidden rounded-md bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:10px_10px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="h-full w-full object-contain" />
+              {i === 0 ? <span className="absolute left-0.5 top-0.5 rounded bg-accent-green px-1 text-[9px] font-bold text-on-accent">WIN</span> : null}
+            </span>
+          ))}
+        </div>
       ) : null}
     </div>
   );

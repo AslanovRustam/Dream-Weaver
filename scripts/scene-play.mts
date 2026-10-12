@@ -30,6 +30,29 @@ const steps = rawSteps.startsWith("@")
 const out = process.argv[4] || join(import.meta.dirname, "..", ".scene-shots");
 mkdirSync(out, { recursive: true });
 
+// ART=1 — подложить вместо ИИ-графики цветные заглушки (проверить, что сцена
+// правильно встраивает картинки: символы, спрайты, детали).
+async function stub(color: string, label: string, w = 256, h = 256): Promise<string> {
+  const sharp = (await import("sharp")).default;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect x="8" y="8" width="${w - 16}" height="${h - 16}" rx="40" fill="${color}" stroke="#fff" stroke-width="10"/>` +
+    `<text x="50%" y="56%" font-size="${Math.round(h / 4)}" font-family="Arial" font-weight="bold" fill="#fff" text-anchor="middle">${label}</text></svg>`;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  return "data:image/png;base64," + png.toString("base64");
+}
+const withArt = process.env.ART === "1";
+const COLORS = ["#e8143c", "#1f8fe8", "#21c45a", "#ffbf2c", "#9a3ae8", "#ff6a1c"];
+const symbols = withArt ? await Promise.all(COLORS.map((c, i) => stub(c, i === 0 ? "WIN" : String(i)))) : undefined;
+const art = withArt
+  ? Object.fromEntries(
+      await Promise.all(
+        ["door", "chest", "chestOpen", "plane", "ball", "cardBack", "coin", "pot", "bomb", "mascot", "pointer", "hub"].map(
+          async (k, i) => [k, await stub(COLORS[i % COLORS.length], k.slice(0, 5), 320, 320)] as const,
+        ),
+      ),
+    )
+  : undefined;
+
 const p = scenePreset(scene, "ru");
 const html = await buildScenePlayable(
   {
@@ -45,6 +68,7 @@ const html = await buildScenePlayable(
     prizes: p.prizes,
     winIndex: DEFAULT_WIN_INDEX,
     lang: "ru",
+    ...(withArt ? { art, symbols } : {}),
   },
   { network: "mraid", preview: true, load },
 );
