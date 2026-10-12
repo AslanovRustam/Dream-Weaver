@@ -1,0 +1,55 @@
+/* Сценарий «Бласт»: тапни группу одинаковых самоцветов — она взрывается,
+   сверху падают новые. Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: -60px; top: 420px; width: 1200px; height: 1100px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 330px; width: 1200px; height: 1200px; opacity: 0; }
+
+#board {
+  left: 66px; top: 540px; width: 948px; height: 948px; border-radius: 40px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(40, 20, 80, .92), rgba(16, 8, 36, .95));
+  box-shadow: 0 0 0 6px #e2a23e, 0 0 0 12px rgba(40, 16, 6, .9), 0 40px 80px rgba(0, 0, 0, .6), inset 0 0 80px rgba(160, 110, 255, .2);
+}
+#tiles { left: 16px; top: 16px; width: 916px; height: 916px; }
+.tile {
+  position: absolute; width: 124px; height: 124px; border-radius: 28px; cursor: pointer;
+  transition: top .38s cubic-bezier(.3, 1.35, .5, 1), left .2s;
+  box-shadow: inset 0 -10px 0 rgba(0, 0, 0, .22), inset 0 6px 0 rgba(255, 255, 255, .35), 0 6px 10px rgba(0, 0, 0, .4);
+}
+.tile::before { /* грань самоцвета */
+  content: ""; position: absolute; left: 22%; top: 22%; width: 56%; height: 56%; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%);
+  transform: rotate(45deg);
+}
+.tile::after { /* блик */
+  content: ""; position: absolute; left: 16px; top: 12px; width: 34px; height: 18px; border-radius: 50%;
+  background: rgba(255, 255, 255, .7); transform: rotate(-30deg);
+}
+.tile.c0 { background: radial-gradient(circle at 35% 30%, #ff9aa8, #e8143c 55%, #7a0620); }
+.tile.c1 { background: radial-gradient(circle at 35% 30%, #a8e4ff, #1f8fe8 55%, #0a3a7a); }
+.tile.c2 { background: radial-gradient(circle at 35% 30%, #b4ffb0, #21c45a 55%, #0a5a26); }
+.tile.c3 { background: radial-gradient(circle at 35% 30%, #fff3b0, #ffbf2c 55%, #a8600a); }
+.tile.pop { animation: tilePop .2s ease-in forwards; }
+@keyframes tilePop { to { transform: scale(1.35); opacity: 0; filter: brightness(2); } }
+.tile.nudge { animation: tileNudge .3s ease-out; }
+@keyframes tileNudge { 25% { transform: translateX(-8px); } 60% { transform: translateX(6px); } }
+
+#spinPill {
+  left: 290px; top: 1520px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1650px; font-size: 80px; }
+#hand { left: 500px; top: 1000px; }
+.won #hand { display: none; }
+
+/* ---- горизонталь: поле слева, тексты — колонкой справа */
+.land #board { left: 56px; top: 66px; }
+.land #glowBack { left: -70px; top: -10px; }
+.land #raysBack { left: -70px; top: -60px; }

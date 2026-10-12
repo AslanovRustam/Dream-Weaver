@@ -1,0 +1,40 @@
+/* Сценарий «Разрез»: предметы подлетают снизу, палец режет их пополам.
+   Координаты — в пикселях сцены 1080×1920 (горизонталь — внизу файла). */
+
+#glowBack {
+  left: -60px; top: 500px; width: 1200px; height: 1000px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 400px; width: 1200px; height: 1200px; opacity: 0; }
+
+#field { left: 0; top: 380px; width: 1080px; height: 1100px; touch-action: none; }
+#trail { pointer-events: none; }
+.obj, .half { position: absolute; left: 0; top: 0; width: 150px; height: 150px; margin: -75px 0 0 -75px; will-change: transform; }
+.obj svg, .half svg { width: 150px; height: 150px; overflow: visible; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45)); }
+/* Половинки: обёртка повёрнута вдоль разреза и срезана пополам, символ внутри — обратно. */
+.half .clip { position: absolute; inset: -20px; }
+.half.a .clip { clip-path: inset(0 0 50% 0); }
+.half.b .clip { clip-path: inset(50% 0 0 0); }
+.half .clip > div { position: absolute; left: 20px; top: 20px; width: 150px; height: 150px; }
+
+#spinPill {
+  left: 290px; top: 1500px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1630px; font-size: 80px; }
+/* Подсказка: рука режет по диагонали */
+#hand { left: 300px; top: 700px; }
+#hand.on { animation: handSlash 1.8s ease-in-out infinite; }
+@keyframes handSlash { 0%, 15% { transform: translate(0, 0); opacity: 0; } 25% { opacity: 1; } 60% { transform: translate(440px, 300px); opacity: 1; } 75%, 100% { transform: translate(480px, 330px); opacity: 0; } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: поле слева, тексты — колонкой справа */
+.land #field { left: 0; top: 40px; width: 1060px; height: 1000px; }
+.land #glowBack { left: -70px; top: 40px; }
+.land #raysBack { left: -70px; top: -60px; }
+.land #hand { left: 290px; top: 300px; }
