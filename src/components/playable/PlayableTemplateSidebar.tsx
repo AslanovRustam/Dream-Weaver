@@ -61,7 +61,7 @@ export function PlayableTemplateSidebar({ value, onPick }: { value: string; onPi
               );
             })}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {items.map((item) => (
               <PlayableTile key={item.id} item={item} selected={item.id === value} onSelect={() => onPick(item.id)} compact />
             ))}
