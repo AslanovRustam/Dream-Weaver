@@ -25,11 +25,8 @@ import {
   RefreshCw,
   Smartphone,
   Trash2,
-  Ticket,
   Upload,
-  Vault,
   X,
-  FerrisWheel,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,9 +60,10 @@ import {
   type PlayableResult,
 } from "@/lib/playableGen";
 import { type PlayableTemplate } from "@/lib/playableTemplates";
-import { PlayableTemplatePicker } from "@/components/playable/PlayableTemplatePicker";
+import { PlayableTemplateSidebar } from "@/components/playable/PlayableTemplateSidebar";
+import { PLAYABLE_TEMPLATES } from "@/lib/playableTemplates";
+import { PLAYABLE_CATALOG_BY_ID, PLAYABLE_PICK_KEY } from "@/lib/playableCatalog";
 import { SceneStudio } from "@/components/playable/SceneStudio";
-import { SCENES } from "@/lib/scenes/presets";
 import type { SceneId } from "@/lib/scenes/build";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
@@ -295,15 +293,66 @@ export function PlayableGenApp() {
     };
   }, [fullscreen]);
 
+  /** Что открыто: id из каталога (scene-*, tpl-*, mech-*). Каталог отмечает его плиткой. */
+  const [pickId, setPickIdState] = useState("mech-slot");
+  const setPickId = (id: string) => {
+    setPickIdState(id);
+    try {
+      window.localStorage.setItem(PLAYABLE_PICK_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const selectMechanic = (id: PlayableMechanic) => {
     setMechanic(id);
     setScene(null);
+    setPickId(`mech-${id}`);
     setMobileTab("settings");
   };
   const selectScene = (id: SceneId) => {
     setScene(id);
+    setPickId(`scene-${id}`);
     setMobileTab("settings");
   };
+
+  /** Выбор в каталоге или в левой колонке: сцена, готовый повод или пустая механика. */
+  const applyPick = async (id: string, fromCatalog = false) => {
+    const item = PLAYABLE_CATALOG_BY_ID.get(id);
+    if (!item) return;
+    const t = item.target;
+    if (t.kind === "scene") return selectScene(t.scene);
+    if (t.kind === "mechanic") return selectMechanic(t.mechanic);
+    const tpl = PLAYABLE_TEMPLATES.find((x) => x.id === t.templateId);
+    // Из каталога выбор уже сделан осознанно — без второго вопроса, как у баннеров.
+    if (tpl) await pickTemplate(tpl, { skipConfirm: fromCatalog });
+  };
+
+  // Пришли из каталога (?pick=…) — открываем выбранное поверх черновика.
+  // Без ссылки — возвращаемся туда, где были: черновик помнит форму
+  // конструктора, а открытую сцену — эта метка.
+  const pickApplied = useRef(false);
+  useEffect(() => {
+    if (!restored || pickApplied.current) return;
+    pickApplied.current = true;
+    const fromUrl = new URLSearchParams(window.location.search).get("pick");
+    if (fromUrl && PLAYABLE_CATALOG_BY_ID.has(fromUrl)) {
+      void applyPick(fromUrl, true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("pick");
+      window.history.replaceState(null, "", url.toString());
+      return;
+    }
+    try {
+      const stored = window.localStorage.getItem(PLAYABLE_PICK_KEY) ?? "";
+      const item = PLAYABLE_CATALOG_BY_ID.get(stored);
+      if (item?.target.kind === "scene") selectScene(item.target.scene);
+      else if (item) setPickIdState(item.id);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
 
   const wheelCount = wheelPrizes.map((p) => p.trim()).filter(Boolean).length;
   const quizCount = quizAnswers.map((a) => a.trim()).filter(Boolean).length;
@@ -487,9 +536,9 @@ export function PlayableGenApp() {
    * Шаблон заменяет механику, оффер, настройки игры, цвет и темы оформления.
    * Бренд, ссылка по кнопке и сеть — данные кампании, их не трогаем.
    */
-  const pickTemplate = async (t: PlayableTemplate) => {
+  const pickTemplate = async (t: PlayableTemplate, opts: { skipConfirm?: boolean } = {}) => {
     const hasAssets = !!bgImage || symbolImages.length > 0;
-    if (offer.trim() || result || hasAssets) {
+    if (!opts.skipConfirm && (offer.trim() || result || hasAssets)) {
       const ok = await confirm({
         title: `Применить шаблон «${t.name}»?`,
         body:
@@ -499,6 +548,8 @@ export function PlayableGenApp() {
       });
       if (!ok) return;
     }
+    setScene(null);
+    setPickId(`tpl-${t.id}`);
     setMechanic(t.mechanic);
     setOffer(t.offer);
     setCtaText(t.ctaText);
@@ -680,7 +731,7 @@ export function PlayableGenApp() {
         <h1 className="sr-only">Плейбл-реклама</h1>
 
         <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
-          <MechanicSidebar value={scene ? null : mechanic} onSelect={selectMechanic} scene={scene} onSelectScene={selectScene} />
+          <PlayableTemplateSidebar value={pickId} onPick={(id) => void applyPick(id)} />
         </div>
 
         <section
@@ -702,7 +753,6 @@ export function PlayableGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
-              <PlayableTemplatePicker onPick={(t) => void pickTemplate(t)} />
               <BriefUploader
                 product="playable"
                 onApply={applyBrief}
@@ -1534,193 +1584,5 @@ function IconUpload({
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
     </div>
-  );
-}
-
-const ANIM_CSS = `
-@keyframes pl-roll{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
-@keyframes pl-spin{to{transform:rotate(360deg)}}
-@keyframes pl-shine{0%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(240%) skewX(-18deg)}}
-@keyframes pl-q{0%,100%{opacity:.35}35%{opacity:1}}
-@keyframes pl-pop{0%,100%{transform:scale(.7);opacity:.45}50%{transform:scale(1);opacity:1}}
-.pl-anim{width:56px;height:56px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#0f140e;display:flex;align-items:center;justify-content:center;position:relative}
-.pl-reels{display:flex;gap:2px;height:100%;padding:5px}
-.pl-reel{width:14px;overflow:hidden;border-radius:3px;background:#191f13}
-.pl-strip{display:flex;flex-direction:column;font-size:11px;line-height:16px;animation:pl-roll 1.1s linear infinite}
-.pl-wheel{width:40px;height:40px;border-radius:50%;border:3px solid #2c3424;background:conic-gradient(#2f3a20 0 90deg,#20271a 90deg 180deg,#2f3a20 180deg 270deg,#20271a 270deg 360deg);animation:pl-spin 2.4s linear infinite}
-.pl-scratch{width:40px;height:28px;border-radius:6px;background:#2f3a20;position:relative;overflow:hidden;color:var(--accent-green);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
-.pl-scratch:after{content:'';position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:pl-shine 1.6s linear infinite}
-.pl-quiz{display:flex;flex-direction:column;gap:3px;width:36px}
-.pl-qbar{height:7px;border-radius:3px;background:#2f3a20}
-.pl-qbar:nth-child(1){animation:pl-q 1.5s infinite}
-.pl-qbar:nth-child(2){animation:pl-q 1.5s .3s infinite}
-.pl-qbar:nth-child(3){animation:pl-q 1.5s .6s infinite}
-.pl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
-.pl-dot{width:10px;height:10px;border-radius:3px;background:var(--accent-green)}
-.pl-grid span:nth-child(odd){animation:pl-pop 1.4s infinite}
-.pl-grid span:nth-child(even){animation:pl-pop 1.4s .5s infinite}
-@keyframes pl-fly{0%{transform:translate(-9px,11px) rotate(6deg)}70%{transform:translate(9px,-11px) rotate(10deg)}100%{transform:translate(-9px,11px) rotate(6deg)}}
-.pl-crash{font-size:22px;animation:pl-fly 1.3s ease-in-out infinite}
-`;
-
-function MechanicAnim({ mechanic }: { mechanic: PlayableMechanic }) {
-  if (mechanic === "slot") {
-    return (
-      <div className="pl-anim">
-        <div className="pl-reels">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="pl-reel">
-              <div className="pl-strip" style={{ animationDelay: `${i * 0.22}s` }}>
-                <span>🍒</span>
-                <span>⭐</span>
-                <span>7️⃣</span>
-                <span>🍒</span>
-                <span>⭐</span>
-                <span>7️⃣</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (mechanic === "wheel") {
-    return (
-      <div className="pl-anim">
-        <div className="pl-wheel" />
-      </div>
-    );
-  }
-  if (mechanic === "crash") {
-    return (
-      <div className="pl-anim">
-        <div className="pl-crash">🚀</div>
-      </div>
-    );
-  }
-  if (mechanic === "scratch") {
-    return (
-      <div className="pl-anim">
-        <div className="pl-scratch">★</div>
-      </div>
-    );
-  }
-  if (mechanic === "quiz") {
-    return (
-      <div className="pl-anim">
-        <div className="pl-quiz">
-          <span className="pl-qbar" />
-          <span className="pl-qbar" />
-          <span className="pl-qbar" />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="pl-anim">
-      <div className="pl-grid">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="pl-dot" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const SCENE_ICONS = { safe: Vault, wheel: FerrisWheel, scratch: Ticket } as const;
-
-function MechanicSidebar({
-  value,
-  onSelect,
-  scene,
-  onSelectScene,
-}: {
-  value: PlayableMechanic | null;
-  onSelect: (id: PlayableMechanic) => void;
-  scene: SceneId | null;
-  onSelectScene: (id: SceneId) => void;
-}) {
-  // Single category for now → show every mechanic at once. The "Все" collapse
-  // (below) is kept but disabled; restore it once mechanics are grouped into
-  // multiple categories worth collapsing.
-  // const [expanded, setExpanded] = useState(false);
-  // const shown = expanded ? PLAYABLE_MECHANICS : PLAYABLE_MECHANICS.slice(0, 3);
-  const shown = PLAYABLE_MECHANICS;
-  return (
-    <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border">
-      <style>{ANIM_CSS}</style>
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <h2 className="ds-h4">Игровые механики</h2>
-        {/* "Все" hidden until there are multiple mechanic categories to group:
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-[var(--bg-surface-hover)] px-3 py-1 text-sm font-medium text-accent-green transition hover:bg-white/10"
-        >
-          {expanded ? "Свернуть" : "Все"}
-        </button>
-        */}
-      </div>
-      {/* Desktop: mechanics column stays fixed — no internal scroll (the list
-          fits), only the middle settings column scrolls. Mobile: full-screen
-          tab, keep scrollable. */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <div className="flex flex-col gap-3">
-          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-accent-green">Премиум-сцены</p>
-          {SCENES.map((sc) => {
-            const active = scene === sc.id;
-            const Icon = SCENE_ICONS[sc.id];
-            return (
-              <button
-                key={sc.id}
-                type="button"
-                onClick={() => onSelectScene(sc.id)}
-                className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-                  active
-                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
-                    : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
-                }`}
-              >
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-[#5a3410] to-[#1d0f07] text-[#ffcf6a]">
-                  <Icon className="h-7 w-7" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-sm font-semibold">
-                    {sc.label}
-                    {active ? <Check className="h-3.5 w-3.5 text-accent-green" /> : null}
-                  </span>
-                  <span className="mt-0.5 line-clamp-2 block ds-caption">{sc.description}</span>
-                </span>
-              </button>
-            );
-          })}
-          <p className="mt-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Конструктор</p>
-          {shown.map((m) => {
-            const active = value === m.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => onSelect(m.id)}
-                className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-                  active
-                    ? "border-accent-green bg-accent-green/5 shadow-[0_0_40px_rgba(198,255,61,0.14)]"
-                    : "border-border bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]"
-                }`}
-              >
-                <MechanicAnim mechanic={m.id} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-sm font-semibold">
-                    {m.label}
-                    {active ? <Check className="h-3.5 w-3.5 text-accent-green" /> : null}
-                  </span>
-                  <span className="mt-0.5 line-clamp-2 block ds-caption">{m.description}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </aside>
   );
 }

@@ -68,6 +68,7 @@ export const SECTIONS: Section[] = [
   {
     id: "playable",
     route: "/playable",
+    entryRoute: "/playable/templates",
     title: "Плейбл-реклама",
     description: "Интерактивные игровые баннеры",
     cta: "Создать плейбл",
