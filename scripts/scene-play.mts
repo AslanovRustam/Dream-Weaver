@@ -10,10 +10,15 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium } from "playwright";
 
 import { buildScenePlayable, type SceneId, type SceneLoader } from "../src/lib/scenes/build";
 import { DEFAULT_WIN_INDEX, scenePreset } from "../src/lib/scenes/presets";
+
+// Playwright — только для локальных скриптов, в зависимостях проекта его нет.
+// Грузим по имени из переменной: проверка типов на сборке (Vercel) его не ищет.
+const PLAYWRIGHT = "playwright";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { chromium } = (await import(PLAYWRIGHT)) as { chromium: any };
 
 const ROOT = join(import.meta.dirname, "..", "public");
 const load: SceneLoader = {
@@ -33,7 +38,9 @@ mkdirSync(out, { recursive: true });
 // ART=1 — подложить вместо ИИ-графики цветные заглушки (проверить, что сцена
 // правильно встраивает картинки: символы, спрайты, детали).
 async function stub(color: string, label: string, w = 256, h = 256): Promise<string> {
-  const sharp = (await import("sharp")).default;
+  const SHARP = "sharp";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sharp = ((await import(SHARP)) as { default: any }).default;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect x="8" y="8" width="${w - 16}" height="${h - 16}" rx="40" fill="${color}" stroke="#fff" stroke-width="10"/>` +
     `<text x="50%" y="56%" font-size="${Math.round(h / 4)}" font-family="Arial" font-weight="bold" fill="#fff" text-anchor="middle">${label}</text></svg>`;
@@ -78,7 +85,7 @@ const browser = await chromium.launch();
 const land = process.env.LAND === "1";
 const page = await browser.newPage({ viewport: land ? { width: 640, height: 360 } : { width: 360, height: 640 } });
 const errors: string[] = [];
-page.on("pageerror", (e) => errors.push(String(e)));
+page.on("pageerror", (e: Error) => errors.push(String(e)));
 await page.setContent(html, { waitUntil: "load" });
 
 let n = 0;

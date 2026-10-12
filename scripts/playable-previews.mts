@@ -10,14 +10,21 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium } from "playwright";
-import sharp from "sharp";
 
 import { PLAYABLE_CATALOG } from "../src/lib/playableCatalog";
 import { buildPlayableHtml, type PlayableInput, type PlayableMechanic } from "../src/lib/playableGen";
 import { PLAYABLE_TEMPLATES } from "../src/lib/playableTemplates";
 import { buildScenePlayable, type SceneLoader } from "../src/lib/scenes/build";
 import { DEFAULT_WIN_INDEX, scenePreset } from "../src/lib/scenes/presets";
+
+// Playwright — только для локальных скриптов, в зависимостях проекта его нет.
+// Грузим по имени из переменной: проверка типов на сборке (Vercel) его не ищет.
+const PLAYWRIGHT = "playwright";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { chromium } = (await import(PLAYWRIGHT)) as { chromium: any };
+const SHARP = "sharp"; // транзитивно из Next — тоже по имени
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sharp = ((await import(SHARP)) as { default: any }).default;
 
 const ROOT = join(import.meta.dirname, "..", "public");
 const OUT = join(ROOT, "playable", "previews");
