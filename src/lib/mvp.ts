@@ -39,6 +39,16 @@ const PREVIEW_SECTIONS = new Set(
     .filter(Boolean),
 );
 
+/**
+ * Тестовый стенд (ветка test на Vercel) показывает разделы в работе сам.
+ * Имя ветки Vercel подставляет в сборку системной переменной; на main
+ * (прод) она другая — там всё по-прежнему закрыто, даже после слияния.
+ */
+const TEST_BRANCH_SECTIONS = ["email", "mailing", "playable"];
+if (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF === "test") {
+  TEST_BRANCH_SECTIONS.forEach((id) => PREVIEW_SECTIONS.add(id));
+}
+
 export function isSectionEnabled(id: string): boolean {
   return MVP_ENABLED_SECTION_IDS.has(id) || PREVIEW_SECTIONS.has(id);
 }
