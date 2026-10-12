@@ -10,7 +10,7 @@ import type { PlayableNetwork } from "../playableGen";
 import type { FrameArt } from "./art";
 import type { WheelPalette } from "./presets";
 
-export type SceneId = "safe" | "wheel" | "scratch";
+export type SceneId = "safe" | "wheel" | "scratch" | "slot" | "chests" | "aviator" | "plinko";
 
 export type SceneConfig = {
   scene: SceneId;

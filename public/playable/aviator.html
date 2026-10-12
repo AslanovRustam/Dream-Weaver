@@ -1,0 +1,30 @@
+<div id="glowBack" class="abs"></div>
+<div id="raysBack" class="abs rays"></div>
+
+<div id="title" class="abs gt" data-key="title" data-max="960"></div>
+
+<div id="sky" class="abs">
+  <div id="skyRays" class="abs"></div>
+  <canvas id="graph" class="abs" width="960" height="820"></canvas>
+  <div id="plane" class="abs">
+    <svg class="svg" viewBox="0 0 220 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="avBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a92"/><stop offset=".5" stop-color="#e8143c"/><stop offset="1" stop-color="#8a0620"/></linearGradient>
+        <linearGradient id="avWing" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4d6d"/><stop offset="1" stop-color="#9a0a26"/></linearGradient>
+      </defs>
+      <path d="M30 52 L4 18 L22 18 L52 46 Z" fill="url(#avWing)"/>
+      <path d="M22 60 Q20 44 60 42 L170 44 Q196 46 198 60 Q196 74 170 76 L60 78 Q20 76 22 60 Z" fill="url(#avBody)" stroke="#5a0414" stroke-width="4"/>
+      <path d="M96 60 L70 112 L104 112 L130 60 Z" fill="url(#avWing)" stroke="#5a0414" stroke-width="4"/>
+      <path d="M100 56 L84 14 L112 14 L128 56 Z" fill="url(#avWing)" stroke="#5a0414" stroke-width="4" opacity=".9"/>
+      <ellipse cx="150" cy="54" rx="18" ry="9" fill="#bfe8ff" stroke="#5a0414" stroke-width="3"/>
+      <rect x="196" y="56" width="10" height="8" rx="3" fill="#3a1a06"/>
+      <g id="prop"><ellipse cx="208" cy="60" rx="5" ry="36" fill="#d8d8e0" opacity=".85"/></g>
+      <path d="M60 50 L170 52" stroke="#fff" stroke-width="4" opacity=".4" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div id="mult" class="abs">1.00x</div>
+</div>
+
+<div id="cashBtn" class="abs"><span class="lbl"></span><i class="shine"></i></div>
+<div id="tapText" class="abs gt" data-key="tap" data-max="900"></div>
+<div id="hand" class="abs hand"></div>

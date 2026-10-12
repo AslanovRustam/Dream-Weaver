@@ -44,3 +44,4 @@ next-env.d.ts
 # Local E2E test artifacts
 тест/
 config.bat
+/.scene-shots

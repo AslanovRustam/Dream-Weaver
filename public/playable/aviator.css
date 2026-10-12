@@ -1,0 +1,65 @@
+/* Сценарий «Авиатор»: самолёт взлетает, множитель растёт, игрок жмёт
+   «Забрать». Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: -60px; top: 400px; width: 1200px; height: 1100px;
+  background: radial-gradient(closest-side, rgba(255, 90, 120, .7), rgba(255, 40, 80, .2) 55%, rgba(255, 20, 60, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 300px; width: 1200px; height: 1200px; opacity: 0; }
+
+/* Небо-график: тёмное поле, сетка, медленные лучи из угла взлёта */
+#sky {
+  left: 60px; top: 440px; width: 960px; height: 820px; border-radius: 44px; overflow: hidden;
+  background:
+    linear-gradient(rgba(255, 255, 255, .05) 2px, transparent 2px) 0 0 / 100% 82px,
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 2px, transparent 2px) 0 0 / 96px 100%,
+    radial-gradient(120% 100% at 0% 100%, #2a0a1c, #0c0612 70%);
+  box-shadow: 0 0 0 6px #e8143c, 0 0 0 12px rgba(40, 6, 16, .9), 0 40px 80px rgba(0, 0, 0, .6), inset 0 0 120px rgba(255, 40, 80, .15);
+}
+#skyRays {
+  left: -900px; top: -180px; width: 1800px; height: 1800px; opacity: .5;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 60, 100, .16) 0deg 6deg, rgba(255, 60, 100, 0) 6deg 18deg);
+  border-radius: 50%; animation: spin 40s linear infinite; pointer-events: none;
+}
+.flying #skyRays { animation-duration: 8s; opacity: .8; }
+#graph { left: 0; top: 0; width: 960px; height: 820px; }
+
+#plane { left: 0; top: 0; width: 220px; height: 120px; margin: -88px 0 0 -40px; transform-origin: 18% 73%; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); }
+#prop { transform-origin: 208px 60px; }
+.flying #prop { animation: prop .08s linear infinite; }
+@keyframes prop { 50% { transform: scaleY(.15); } }
+
+#mult {
+  left: 0; top: 230px; width: 100%; text-align: center;
+  font-size: 200px; font-weight: 900; letter-spacing: -.02em; color: #fff;
+  text-shadow: 0 8px 0 rgba(0, 0, 0, .35), 0 0 40px rgba(255, 60, 100, .6);
+  pointer-events: none;
+}
+.won #mult { color: #6dff9a; text-shadow: 0 8px 0 rgba(0, 0, 0, .35), 0 0 50px rgba(80, 255, 140, .9); }
+
+/* Кнопка «Забрать»: серая до взлёта, зелёная и пульсирует в полёте */
+#cashBtn {
+  left: 140px; top: 1310px; width: 800px; height: 180px; border-radius: 90px;
+  background: linear-gradient(180deg, #5a5a66, #34343e);
+  box-shadow: 0 10px 0 #1c1c22, 0 20px 40px rgba(0, 0, 0, .5), inset 0 4px 0 rgba(255, 255, 255, .25);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  color: #fff; font-weight: 900; font-size: 64px; text-transform: uppercase; letter-spacing: .01em;
+}
+#cashBtn .lbl { position: relative; z-index: 1; white-space: nowrap; }
+#cashBtn .shine {
+  position: absolute; top: -40%; left: -40%; width: 30%; height: 180%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .6), rgba(255, 255, 255, 0));
+  transform: rotate(18deg); opacity: 0;
+}
+.flying #cashBtn, .won #cashBtn {
+  background: linear-gradient(180deg, #6dff9a 0%, #21c45a 55%, #0f8a3a 100%);
+  box-shadow: 0 10px 0 #0a5a26, 0 20px 40px rgba(0, 0, 0, .5), inset 0 4px 0 rgba(255, 255, 255, .6);
+  color: #063a18; animation: btnPulse 1s ease-in-out infinite;
+}
+.flying #cashBtn .shine { opacity: 1; animation: shine 1.8s ease-in-out infinite; }
+
+#tapText { top: 1540px; font-size: 80px; }
+#hand { left: 790px; top: 1330px; }
+.won #hand { display: none; }
+.won #cashBtn { animation: none; }

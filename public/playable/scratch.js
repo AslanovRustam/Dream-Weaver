@@ -11,31 +11,7 @@
   var CW = 236, CH = 330, GAP = 26;
   var REVEAL_AT = 0.55;
 
-  // ---- символы: вектор, чтобы сцена работала без картинок
-  var SYM = {
-    coin:
-      '<svg viewBox="0 0 200 200"><defs><radialGradient id="scC" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffd35a"/><stop offset="1" stop-color="#a6561a"/></radialGradient></defs>' +
-      '<circle cx="100" cy="100" r="88" fill="#7a3e10"/><circle cx="100" cy="96" r="86" fill="url(#scC)"/>' +
-      '<circle cx="100" cy="96" r="64" fill="none" stroke="#b9661c" stroke-width="7" opacity=".7"/>' +
-      '<polygon points="100,52 113,84 148,85 121,106 131,140 100,120 69,140 79,106 52,85 87,84" fill="#b9661c"/>' +
-      '<ellipse cx="72" cy="58" rx="22" ry="12" fill="#fff" opacity=".55" transform="rotate(-30 72 58)"/></svg>',
-    seven:
-      '<svg viewBox="0 0 200 200"><path d="M42 34h120v26L104 176H66l54-112H42z" fill="#ff3b5c" stroke="#6a0a1e" stroke-width="10" stroke-linejoin="round"/>' +
-      '<path d="M54 44h92" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".55"/></svg>',
-    cherry:
-      '<svg viewBox="0 0 200 200"><path d="M70 130C80 80 110 50 150 30M130 132C128 90 136 60 150 30" stroke="#2f7a1e" stroke-width="10" fill="none" stroke-linecap="round"/>' +
-      '<path d="M150 30c-30-6-52 6-60 26 24 4 46-6 60-26z" fill="#4caf2e"/>' +
-      '<circle cx="66" cy="140" r="40" fill="#d81b3c" stroke="#6a0a1e" stroke-width="7"/><circle cx="134" cy="142" r="40" fill="#e8264a" stroke="#6a0a1e" stroke-width="7"/>' +
-      '<circle cx="52" cy="124" r="10" fill="#fff" opacity=".6"/><circle cx="120" cy="126" r="10" fill="#fff" opacity=".6"/></svg>',
-    diamond:
-      '<svg viewBox="0 0 200 200"><polygon points="50,40 150,40 186,84 100,176 14,84" fill="#2aa8ff" stroke="#0a3a6a" stroke-width="8" stroke-linejoin="round"/>' +
-      '<polygon points="50,40 76,84 14,84" fill="#8fd6ff"/><polygon points="150,40 124,84 186,84" fill="#1a7fd0"/>' +
-      '<polygon points="76,84 124,84 100,176" fill="#5cc4ff"/><polygon points="50,40 150,40 124,84 76,84" fill="#bfe8ff"/></svg>',
-    bell:
-      '<svg viewBox="0 0 200 200"><defs><linearGradient id="scB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".5" stop-color="#f0b03a"/><stop offset="1" stop-color="#9a4d10"/></linearGradient></defs>' +
-      '<path d="M100 24c-40 0-56 34-56 70 0 30-16 44-24 54h160c-8-10-24-24-24-54 0-36-16-70-56-70z" fill="url(#scB)" stroke="#6a3008" stroke-width="8" stroke-linejoin="round"/>' +
-      '<circle cx="100" cy="166" r="18" fill="#c9781e" stroke="#6a3008" stroke-width="7"/><circle cx="100" cy="20" r="10" fill="#c9781e"/></svg>',
-  };
+  var SYM = P.SYM;
   // Монеты стоят «уголком», чтобы их надо было искать по всей карте.
   var LAYOUT = ["coin", "seven", "coin", "cherry", "diamond", "coin"];
   var WIN = [0, 2, 5];

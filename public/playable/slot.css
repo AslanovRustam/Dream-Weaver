@@ -1,0 +1,89 @@
+/* Сценарий «Слот»: первый спин — 7·7 и третья семёрка застревает над линией,
+   второй — 7·7·7. Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: 0; top: 380px; width: 1080px; height: 1100px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .8), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 300px; width: 1200px; height: 1200px; opacity: 0; }
+
+#machine { left: 70px; top: 470px; width: 900px; height: 860px; filter: drop-shadow(0 40px 50px rgba(0, 0, 0, .6)); }
+.won #machine { animation: machineWin .5s ease-in-out 3; }
+@keyframes machineWin { 50% { transform: scale(1.025); } }
+
+/* Огни по верху корпуса */
+#slBulbs { left: 60px; top: 48px; width: 780px; height: 98px; }
+#slBulbs i {
+  position: absolute; top: 33px; width: 32px; height: 32px; margin-left: -16px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff, #ffe9a0 35%, #ff9a2c 70%, #8a3a06);
+  box-shadow: 0 0 14px rgba(255, 200, 90, .9);
+  animation: bulbChase 1s steps(1) infinite;
+}
+#slBulbs i:nth-child(even) { animation-delay: .5s; }
+.spinning #slBulbs i { animation-duration: .24s; }
+.spinning #slBulbs i:nth-child(even) { animation-delay: .12s; }
+.won #slBulbs i { animation: bulbWin .3s steps(1) infinite; }
+@keyframes bulbChase { 0% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes bulbWin { 0% { opacity: 1; filter: brightness(1.6); } 50% { opacity: .5; } }
+
+/* Окно барабанов: три ленты символов, сверху — тень цилиндра */
+#slWindow { left: 58px; top: 174px; width: 784px; height: 604px; overflow: hidden; border-radius: 26px; }
+.reel {
+  position: absolute; top: 2px; width: 240px; height: 600px; overflow: hidden; border-radius: 16px;
+  background: linear-gradient(90deg, #d9b67a, #fff8e6 30%, #fff8e6 70%, #d9b67a);
+}
+#reel0 { left: 6px; } #reel1 { left: 272px; } #reel2 { left: 538px; }
+.strip { position: absolute; left: 0; top: 0; width: 100%; will-change: transform; }
+.sym { width: 240px; height: 200px; display: flex; align-items: center; justify-content: center; }
+.sym svg { width: 160px; height: 160px; overflow: visible; filter: drop-shadow(0 6px 6px rgba(80, 40, 10, .35)); }
+.reel.blur .strip { filter: blur(3px) brightness(1.05); }
+/* Третий барабан тянет интригу: подсвечен, пока крутится один. */
+.reel.tease { box-shadow: inset 0 0 0 6px #ffcf4a, inset 0 0 40px rgba(255, 200, 80, .8); }
+#slShade { pointer-events: none; background: linear-gradient(#000c, #0000 22%, #0000 78%, #000c); }
+
+#payline {
+  left: 0; top: 300px; width: 100%; height: 8px; margin-top: -4px;
+  background: linear-gradient(90deg, #0000, #ff2e5f 8%, #ff2e5f 92%, #0000);
+  box-shadow: 0 0 18px #ff2e5f; opacity: .35;
+}
+.won #payline { opacity: 1; animation: paylineWin .3s steps(2) infinite; }
+@keyframes paylineWin { 50% { opacity: .4; } }
+.sym.win svg { animation: symWin .6s ease-in-out infinite alternate; }
+@keyframes symWin { from { transform: scale(1); } to { transform: scale(1.18) rotate(-5deg); } }
+
+.arrow { top: 446px; width: 0; height: 0; border-top: 30px solid transparent; border-bottom: 30px solid transparent; filter: drop-shadow(0 0 8px #ff2e5f); }
+.arrow.l { left: 6px; border-left: 40px solid #ff2e5f; }
+.arrow.r { right: 6px; border-right: 40px solid #ff2e5f; }
+
+/* Рычаг справа: на спин опрокидывается вниз через ось и возвращается */
+#lever { left: 966px; top: 560px; width: 90px; height: 440px; }
+#leverArm { left: 0; top: 0; width: 90px; height: 330px; transform-origin: 50% 100%; }
+#leverArm .stick {
+  position: absolute; left: 35px; top: 60px; width: 20px; height: 270px; border-radius: 10px;
+  background: linear-gradient(90deg, #7a3e10, #fff0b8 45%, #b9661c);
+}
+#leverArm .ball {
+  position: absolute; left: 5px; top: 0; width: 80px; height: 80px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ffd1dc, #ff2e5f 45%, #7a0a24);
+  box-shadow: 0 8px 14px rgba(0, 0, 0, .5);
+}
+#lever .mount {
+  left: 10px; top: 300px; width: 70px; height: 130px; border-radius: 22px;
+  background: linear-gradient(90deg, #7a3e10, #f2c26a 45%, #8a4a16);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, .5);
+}
+.idle #leverArm { animation: leverNudge var(--tap) ease-in-out infinite; }
+@keyframes leverNudge { 0%, 40%, 100% { transform: none; } 50% { transform: scaleY(.88); } }
+
+#spinPill {
+  left: 290px; top: 1366px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1500px; font-size: 86px; }
+#hand { left: 450px; top: 780px; }
+.won #hand { display: none; }

@@ -1,0 +1,66 @@
+/* Сценарий «Сундуки»: выбери один из трёх — первый пустой, второй с золотом.
+   Координаты — в пикселях сцены 1080×1920. */
+
+#glowBack {
+  left: -60px; top: 520px; width: 1200px; height: 900px;
+  background: radial-gradient(closest-side, rgba(255, 196, 90, .85), rgba(255, 140, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 380px; width: 1200px; height: 1200px; opacity: 0; }
+
+#chests { left: 0; top: 700px; width: 1080px; height: 420px; }
+.chest { position: absolute; top: 60px; width: 320px; height: 320px; perspective: 900px; cursor: pointer; }
+.chest .bob { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.idle .chest .bob { animation: chestBob 2.4s ease-in-out infinite; }
+.idle .chest:nth-child(2) .bob { animation-delay: .4s; }
+.idle .chest:nth-child(3) .bob { animation-delay: .8s; }
+@keyframes chestBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+
+.chest .shadow {
+  position: absolute; left: 30px; bottom: -18px; width: 260px; height: 40px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .6), rgba(0, 0, 0, 0));
+}
+.chest .body { position: absolute; left: 0; top: 130px; width: 320px; height: 190px; }
+.chest .lid {
+  position: absolute; left: 0; top: 0; width: 320px; height: 150px;
+  transform-origin: 50% 100%; transform-style: preserve-3d;
+  filter: drop-shadow(0 -4px 8px rgba(0, 0, 0, .3));
+}
+.chest svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chest .loot, .chest .beam { opacity: 0; }
+.chest .beam { position: absolute; left: 10px; top: -160px; width: 300px; height: 360px; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(0deg, rgba(255, 220, 130, .95), rgba(255, 220, 130, 0));
+  clip-path: polygon(30% 100%, 70% 100%, 100% 0, 0 0); }
+.chest.picked .bob { filter: saturate(.5) brightness(.65); transition: filter .6s .6s; }
+.chest.winner .beam { animation: beam 1.6s ease-in-out infinite alternate; }
+@keyframes beam { from { opacity: .55; } to { opacity: 1; } }
+/* Блик по крышке — сундуки «зовут» */
+.chest .gleam {
+  position: absolute; left: 0; top: 10px; width: 320px; height: 290px; overflow: hidden; pointer-events: none;
+  clip-path: inset(24px 6px 6px 6px round 120px 120px 14px 14px);
+}
+.chest .gleam::after {
+  content: ""; position: absolute; top: -20%; left: -60%; width: 40%; height: 140%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .35), rgba(255, 255, 255, 0));
+  transform: rotate(20deg); animation: gleam 3s ease-in-out infinite;
+}
+.chest:nth-child(2) .gleam::after { animation-delay: 1s; }
+.chest:nth-child(3) .gleam::after { animation-delay: 2s; }
+.picked .gleam, .won .gleam { display: none; }
+@keyframes gleam { 0% { left: -60%; } 40%, 100% { left: 130%; } }
+
+.chest .tag {
+  position: absolute; left: 0; top: -40px; width: 320px; font-size: 64px; opacity: 0;
+}
+
+#spinPill {
+  left: 290px; top: 1176px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(58, 32, 14, .94), rgba(22, 11, 4, .96));
+  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
+
+#tapText { top: 1320px; font-size: 86px; }
+#hand { left: 500px; top: 900px; }
+.won #hand { display: none; }
