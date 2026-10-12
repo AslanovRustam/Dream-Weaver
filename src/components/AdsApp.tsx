@@ -12,27 +12,31 @@ import {
   disconnectAccount,
   getConnectedAccounts,
 } from "@/lib/ads";
-import { getCredentials } from "@/lib/credentials";
+import { isAdConnected, listIntegrations } from "@/lib/credentials";
+import type { IntegrationView } from "@/lib/integrations/types";
 
 export function AdsApp() {
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
   const [busy, setBusy] = useState<AdPlatformId | null>(null);
   const [needCreds, setNeedCreds] = useState<AdPlatformId | null>(null);
+  /** Подключения из защищённого хранилища (ключи — на сервере). */
+  const [integrations, setIntegrations] = useState<IntegrationView[]>([]);
 
   useEffect(() => {
     setAccounts(getConnectedAccounts());
+    listIntegrations().then(setIntegrations, () => setIntegrations([]));
   }, []);
 
   const connect = (id: AdPlatformId) => {
-    const c = getCredentials()[id];
-    if (!c.token.trim() || !c.accountId.trim()) {
+    if (!isAdConnected(integrations, id)) {
       setNeedCreds(id);
       return;
     }
+    const accountId = integrations.find((i) => i.provider === id)?.public.accountId ?? "";
     setNeedCreds(null);
     setBusy(id);
     setTimeout(() => {
-      setAccounts(connectUserAccount(id, c.accountId));
+      setAccounts(connectUserAccount(id, accountId));
       setBusy(null);
     }, 400);
   };

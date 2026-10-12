@@ -41,6 +41,7 @@ supabase db push
 | 0014 | `0014_analytics_events_cascade.sql` | удаление аккаунта уносит его события. Применять после 0012 |
 | 0015 | `0015_generation_jobs.sql` | серверная очередь генераций: сборка ассетов лендинга идёт на сервере и не теряется при закрытой вкладке. Без неё сборка работает по-старому, во вкладке |
 | 0016 | `0016_email_drafts.sql` | черновики писем в базе: доступны с любого устройства. Без неё черновики живут только в браузере |
+| 0017 | `0017_user_integrations.sql` | ключи клиентов от их рекламных кабинетов и почтового сервиса — на сервере, зашифрованными. **Вместе с ней задать `INTEGRATIONS_KEK`** (шаг 3, п. 4). Без неё «Ключи и подключения» пишут, что хранилище не настроено, а старые ключи остаются в браузере до переноса |
 
 Проверка после:
 
@@ -52,6 +53,7 @@ select proname from pg_proc
  where proname in ('refund_credits','rate_limit_hit','admin_set_user_role'); -- 3 строки
 select count(*) from public.generation_jobs;                           -- 0, без ошибки
 select count(*) from public.email_drafts;                              -- 0, без ошибки
+select count(*) from public.user_integrations;                         -- 0, без ошибки
 select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
   from public.generations where created_at > now() - interval '90 days'
  group by model order by usd desc;                                    -- у gpt-image-* сумма > 0
@@ -64,6 +66,7 @@ select model, count(*), round(sum(cost_usd)::numeric, 2) as usd
 1. **OpenAI**: создать новый ключ → положить в `.env.local` и в переменные прода → перезапустить → отозвать старый. Посмотреть Usage за 30 дней: до Фазы 0 семь платных роутов были доступны без входа.
 2. **FTP**: сменить пароль в панели хостинга → обновить `FTP_PASS` в `.env.local` и на проде → перезапуск. FTPS уже включён кодом.
 3. **OpenRouter**: удалить `OPENROUTER_API_KEY` из `.env.local` и с прода, отозвать ключ на openrouter.ai. Он больше не используется.
+4. **`INTEGRATIONS_KEK`** — ключ шифрования ключей клиентов (миграция 0017). Сгенерировать один раз: `openssl rand -base64 32` → задать в Vercel для Production **и** Preview (одно и то же значение, если база общая) и в `.env.local`. **Сохранить копию в менеджере паролей**: потеря ключа = все подключённые кабинеты клиентов придётся подключать заново; смена ключа — то же самое (перешифровки пока нет). В базе ключа нет, поэтому утечка таблицы или бэкапа токены не раскрывает.
 
 ### Шаг 4. Деплой `main` и перезапуск
 
@@ -129,7 +132,7 @@ Auth → URL Configuration: в **Redirect URLs** должны быть толь�
 
 | # | Задача | Зачем | Объём |
 |---|--------|-------|-------|
-| 1 | **Шифрование BYO-кредов** рекламных кабинетов и ESP (`src/lib/credentials.ts` сейчас хранит в localStorage) | OAuth-токены и ключи лежат в браузере открытым текстом; любой XSS их уносит | таблица `user_integrations` + AES-256-GCM (ключ `INTEGRATIONS_KEK`) или pgsodium, RLS `auth.uid()=user_id`, роут `/api/integrations`. ~1 день |
+| 1 | ~~**Шифрование BYO-кредов**~~ — **сделано в коде (2026-10-12)**: таблица `user_integrations` (0017), AES-256-GCM с привязкой к пользователю и провайдеру, RLS без политик (только сервер), роут `/api/integrations` отдаёт браузеру лишь маску; старые ключи из localStorage переносятся на сервер и стираются. Осталось владельцу: применить 0017 и задать `INTEGRATIONS_KEK` | — | проверка: `npx tsx scripts/integrations-check.mts` |
 | 2 | **CI-гейт «каждый /api роут защищён»** | чтобы новый роут не появился без `requireUser` + `rateLimitResponse`, как было с семью платными | скрипт в CI, грепает `src/app/api/**/route.ts`. ~2 часа |
 | 3 | **Сессии в cookies** через `@supabase/ssr` + CSRF | сейчас JWT в localStorage; XSS = кража сессии. Большой рефакторинг: `api-client`, `auth-context`, `browser.ts`, 30+ роутов | отдельный релиз, ~2–3 дня |
 | 4 | **Строгий nonce-CSP** | текущий CSP с `'unsafe-inline'`; строгий возможен только после выноса srcdoc-превью лендингов на отдельный origin | после п. 3, ~1 день |
