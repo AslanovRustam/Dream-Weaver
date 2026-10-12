@@ -5,7 +5,20 @@
 // бренд, ссылка и сеть, а ИИ по желанию рисует фон и награду для попапа.
 // Превью — тот же файл, что уйдёт в сеть, только без сетевых скриптов.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Download, ImageIcon, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  ImageIcon,
+  Maximize2,
+  Minimize2,
+  Monitor,
+  Plus,
+  RefreshCw,
+  Smartphone,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { SettingsSection } from "@/components/SettingsSection";
@@ -15,12 +28,20 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { apiFetch } from "@/lib/api-client";
-import { bgPreset } from "@/lib/landingCreative";
-import { compressImage, shrinkPng } from "@/lib/imageCompress";
-import { CHARACTER_PRICE_CREDITS, EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { shrinkPng } from "@/lib/imageCompress";
+import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } from "@/lib/scenes/art";
 import { PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/playableGen";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
-import { DEFAULT_WIN_INDEX, SCENE_LANGS, sceneMeta, scenePreset, type SceneLang } from "@/lib/scenes/presets";
+import {
+  DEFAULT_WIN_INDEX,
+  SCENE_LANGS,
+  WHEEL_STYLES,
+  sceneMeta,
+  scenePreset,
+  wheelStyle,
+  type SceneLang,
+} from "@/lib/scenes/presets";
 
 const INPUT = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
 const AREA = "w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green";
@@ -56,11 +77,27 @@ type Draft = {
   logo: string;
   clickUrl: string;
   network: PlayableNetwork;
-  bgTheme: string;
-  rewardTheme: string;
+  /** Стиль колеса: промпт для ИИ-деталей и палитра диска. */
+  wheelStyle: string;
+  /** Тема оформления — общая для всех деталей. */
+  theme: string;
+  /** Какие детали генерировать. */
+  parts: Record<string, boolean>;
   bgImage: string;
   reward: string;
+  art: { frame?: FrameArt; pointer?: string; hub?: string };
 };
+
+type PartId = "frame" | "pointer" | "hub" | "bg" | "reward";
+const PARTS: { id: PartId; kind: string; label: string; hint: string; wheelOnly?: boolean }[] = [
+  { id: "frame", kind: "wheel-frame", label: "Рама колеса", hint: "Обод с лампочками — главный объект", wheelOnly: true },
+  { id: "pointer", kind: "wheel-pointer", label: "Указатель", hint: "Щёлкает на каждом секторе", wheelOnly: true },
+  { id: "hub", kind: "wheel-hub", label: "Центр колеса", hint: "Медальон в середине", wheelOnly: true },
+  { id: "bg", kind: "scene-bg", label: "Фон", hint: "Вертикальный, 9:16" },
+  { id: "reward", kind: "reward", label: "Награда в попапе", hint: "Предмет на прозрачном фоне" },
+];
+/** Стиль для сцен без выбора стиля. */
+const DEFAULT_STYLE = "polished yellow gold with warm glowing lights, luxury casino";
 
 function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: string): Draft {
   const p = scenePreset(scene, lang);
@@ -77,10 +114,12 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
     logo,
     clickUrl: "",
     network: "mraid",
-    bgTheme: meta.bgTheme,
-    rewardTheme: meta.rewardTheme,
+    wheelStyle: "ruby",
+    theme: meta.bgTheme,
+    parts: { frame: true, pointer: true, hub: true, bg: true, reward: true },
     bgImage: "",
     reward: "",
+    art: {},
   };
 }
 
@@ -94,6 +133,8 @@ function loadDraft(scene: SceneId, brandName: string, logo: string): Draft {
       ...base,
       ...d,
       text: { ...base.text, ...(d.text ?? {}) },
+      parts: { ...base.parts, ...(d.parts ?? {}) },
+      art: d.art ?? {},
       network: d.network === "google" ? "google" : "mraid",
     };
   } catch {
@@ -137,6 +178,30 @@ export function SceneStudio({
   const [exportBytes, setExportBytes] = useState(0);
   const [buildErr, setBuildErr] = useState("");
   const [replay, setReplay] = useState(0);
+  /** Как смотреть превью: телефон (9:16) или десктоп (16:9, сцена по центру на размытом фоне). */
+  const [view, setView] = useState<"mobile" | "desktop">("mobile");
+  const [fullscreen, setFullscreen] = useState(false);
+  const fsRef = useRef<HTMLDivElement>(null);
+
+  // На весь экран: нативный fullscreen, если браузер даст, иначе — оверлей на
+  // всё окно. Esc и выход из нативного режима закрывают оба.
+  useEffect(() => {
+    if (!fullscreen) return;
+    fsRef.current?.requestFullscreen?.().catch(() => {});
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("keydown", onKey);
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    };
+  }, [fullscreen]);
   const logoInput = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }));
@@ -157,7 +222,7 @@ export function SceneStudio({
       } catch {
         // Квота: картинки — самое тяжёлое, без них черновик всё равно полезен.
         try {
-          localStorage.setItem(draftKey(scene), JSON.stringify({ ...d, bgImage: "", reward: "", logo: "" }));
+          localStorage.setItem(draftKey(scene), JSON.stringify({ ...d, bgImage: "", reward: "", logo: "", art: {} }));
         } catch {
           /* хранилище недоступно — работаем без черновика */
         }
@@ -181,6 +246,7 @@ export function SceneStudio({
       logo: d.logo,
       bgImage: d.bgImage || undefined,
       reward: d.reward || undefined,
+      ...(scene === "wheel" ? { art: d.art, palette: wheelStyle(d.wheelStyle).palette } : {}),
       prizes,
       winIndex: Math.min(d.winIndex, Math.max(0, prizes.length - 1)),
       lang: d.lang,
@@ -257,12 +323,22 @@ export function SceneStudio({
 
   // ---- ИИ-оформление через серверную очередь
   const applyAsset = async (key: string, dataUrl: string) => {
+    // Каждая деталь ужимается и подгоняется под сцену до встраивания в файл.
     if (key === "bg") {
-      const out = await compressImage(dataUrl, { maxWidth: 1080, maxBytes: 250 * 1024, background: "#000000" });
-      setD((p) => ({ ...p, bgImage: out.dataUrl }));
+      const out = await prepareBackground(dataUrl);
+      setD((p) => ({ ...p, bgImage: out }));
     } else if (key === "reward") {
-      const out = await shrinkPng(dataUrl, 600);
+      const out = await prepareSprite(dataUrl, 600);
       setD((p) => ({ ...p, reward: out }));
+    } else if (key === "frame") {
+      const frame = await prepareWheelFrame(dataUrl);
+      setD((p) => ({ ...p, art: { ...p.art, frame } }));
+    } else if (key === "pointer") {
+      const pointer = await prepareSprite(dataUrl, 300);
+      setD((p) => ({ ...p, art: { ...p.art, pointer } }));
+    } else if (key === "hub") {
+      const hub = await prepareSprite(dataUrl, 320, true);
+      setD((p) => ({ ...p, art: { ...p.art, hub } }));
     }
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_scene", apply: applyAsset });
@@ -280,37 +356,37 @@ export function SceneStudio({
     }
   };
 
-  const assetSteps = (): AssetStep[] => {
-    const steps: AssetStep[] = [];
-    if (d.bgTheme.trim()) {
-      const body = { presetTemplate: bgPreset(d.bgTheme.trim()), feature: "playable-bg", aspectRatio: "9:16" };
-      steps.push({
-        id: "bg",
-        label: "Фон сцены",
-        credits: EMAIL_HERO_PRICE_CREDITS,
-        run: runInTab("/api/generate-email-hero", body, "bg"),
-        server: { route: "/api/generate-email-hero", body },
+  const parts = PARTS.filter((p) => scene === "wheel" || !p.wheelOnly);
+  const style = scene === "wheel" ? wheelStyle(d.wheelStyle).prompt : DEFAULT_STYLE;
+  const partImage = (id: PartId): string =>
+    id === "bg" ? d.bgImage : id === "reward" ? d.reward : id === "frame" ? (d.art.frame?.src ?? "") : (d.art[id] ?? "");
+  const clearPart = (id: PartId) =>
+    setD((p) => {
+      if (id === "bg") return { ...p, bgImage: "" };
+      if (id === "reward") return { ...p, reward: "" };
+      const art = { ...p.art };
+      delete art[id];
+      return { ...p, art };
+    });
+
+  const assetSteps = (): AssetStep[] =>
+    parts
+      .filter((p) => d.parts[p.id])
+      .map((p) => {
+        const body = { kind: p.kind, style, theme: d.theme.trim() };
+        return {
+          id: p.id,
+          label: p.label,
+          credits: PLAYABLE_ASSET_PRICE_CREDITS,
+          run: runInTab("/api/generate-playable-asset", body, p.id),
+          server: { route: "/api/generate-playable-asset", body },
+        };
       });
-    }
-    if (d.rewardTheme.trim()) {
-      const body = {
-        prompt: `${d.rewardTheme.trim()}. A single prize object for a game reward popup, no people, no text, no logo.`,
-      };
-      steps.push({
-        id: "reward",
-        label: "Награда в попапе",
-        credits: CHARACTER_PRICE_CREDITS,
-        run: runInTab("/api/generate-character", body, "reward"),
-        server: { route: "/api/generate-character", body },
-      });
-    }
-    return steps;
-  };
   const assetCredits = assetSteps().reduce((s, st) => s + st.credits, 0);
   const startAssets = () => {
     if (isGuest) return openGate();
     const steps = assetSteps();
-    if (!steps.length) return toast.error("Опишите фон или награду");
+    if (!steps.length) return toast.error("Отметьте хотя бы одну деталь");
     void assetRun.start(steps);
   };
 
@@ -580,27 +656,62 @@ export function SceneStudio({
               </p>
             </SettingsSection>
 
-            <SettingsSection title="Оформление от ИИ" done={!!(d.bgImage || d.reward)} open={open.art} onToggle={() => toggle("art")}>
+            <SettingsSection
+              title="Оформление от ИИ"
+              done={parts.some((p) => !!partImage(p.id))}
+              open={open.art}
+              onToggle={() => toggle("art")}
+            >
               <p className="mb-3 ds-caption">
-                Главный объект сцены — вектор, он одинаково чёткий на любом экране. ИИ рисует фон и награду в попапе — они
-                встраиваются в файл, сжатыми.
+                Детали рисует OpenAI в одном стиле и встраивает в файл сжатыми. Чего нет — остаётся вектор, плейбл работает
+                и без картинок.
               </p>
-              <AssetSlot
-                label="Фон"
-                hint="Вертикальный, 9:16"
-                theme={d.bgTheme}
-                onTheme={(v) => set("bgTheme", v)}
-                image={d.bgImage}
-                onClear={() => set("bgImage", "")}
+              {scene === "wheel" ? (
+                <div className="mb-3">
+                  <label className="mb-1.5 block ds-caption">Стиль колеса</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {WHEEL_STYLES.map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => set("wheelStyle", st.id)}
+                        aria-pressed={d.wheelStyle === st.id}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.wheelStyle === st.id ? CHIP_ON : CHIP_OFF}`}
+                      >
+                        <span className="flex shrink-0 -space-x-1">
+                          {st.swatch.map((c) => (
+                            <span key={c} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
+                          ))}
+                        </span>
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 ds-caption">Сектора перекрашиваются сразу; рама и детали — после генерации.</p>
+                </div>
+              ) : null}
+              <label className="mb-1.5 block ds-caption">Тема — необязательно</label>
+              <textarea
+                rows={2}
+                value={d.theme}
+                maxLength={300}
+                onChange={(e) => set("theme", e.target.value)}
+                className={AREA}
+                placeholder="Например: Древний Египет, Хэллоуин, ночной Лас-Вегас"
               />
-              <AssetSlot
-                label="Награда в попапе"
-                hint="Предмет на прозрачном фоне"
-                theme={d.rewardTheme}
-                onTheme={(v) => set("rewardTheme", v)}
-                image={d.reward}
-                onClear={() => set("reward", "")}
-              />
+              <div className="mt-3 flex flex-col gap-2">
+                {parts.map((p) => (
+                  <PartRow
+                    key={p.id}
+                    label={p.label}
+                    hint={p.hint}
+                    image={partImage(p.id)}
+                    checked={!!d.parts[p.id]}
+                    onCheck={(v) => set("parts", { ...d.parts, [p.id]: v })}
+                    onClear={() => clearPart(p.id)}
+                  />
+                ))}
+              </div>
               <div className="mt-3">
                 <AssetRunPanel
                   steps={assetRun.steps}
@@ -617,9 +728,26 @@ export function SceneStudio({
       </section>
 
       <div className="flex min-w-0 flex-1 flex-col gap-4 max-lg:order-first max-lg:p-4 lg:h-full lg:flex-[4] lg:overflow-y-auto">
+        <div className="flex items-center justify-between gap-2">
+          <ViewToggle view={view} onChange={setView} />
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            disabled={!html}
+            title="Открыть плейбл на весь экран"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground disabled:opacity-40 max-sm:h-11 max-sm:w-11 max-sm:px-0"
+          >
+            <Maximize2 className="h-4 w-4" />
+            <span className="max-sm:hidden">На весь экран</span>
+          </button>
+        </div>
+
         <div className="relative flex justify-center overflow-hidden rounded-2xl border border-border bg-card p-3">
           {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
-          <div className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl" style={{ width: 300, maxWidth: "100%" }}>
+          <div
+            className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl transition-[width]"
+            style={{ width: view === "mobile" ? 300 : 640, maxWidth: "100%" }}
+          >
             {html ? (
               <iframe
                 key={`${scene}-${replay}-${html.length}`}
@@ -627,10 +755,13 @@ export function SceneStudio({
                 title={`Плейбл «${meta.label}»`}
                 sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
                 className="block w-full bg-black"
-                style={{ aspectRatio: "9 / 16", border: 0 }}
+                style={{ aspectRatio: view === "mobile" ? "9 / 16" : "16 / 9", border: 0 }}
               />
             ) : (
-              <div className="flex items-center justify-center bg-black text-sm text-white/50" style={{ aspectRatio: "9 / 16" }}>
+              <div
+                className="flex items-center justify-center bg-black text-sm text-white/50"
+                style={{ aspectRatio: view === "mobile" ? "9 / 16" : "16 / 9" }}
+              >
                 {buildErr || "Собираем сцену…"}
               </div>
             )}
@@ -661,52 +792,128 @@ export function SceneStudio({
         </p>
         <p className="text-center ds-caption">Превью играется: нажимайте прямо в нём. Шрифт и картинки уже внутри файла.</p>
       </div>
+
+      {fullscreen && html ? (
+        <div
+          ref={fsRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Плейбл «${meta.label}» на весь экран`}
+          className="fixed inset-0 z-[90] flex flex-col bg-[var(--bg-void)]"
+        >
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="truncate text-sm font-medium text-white/80">Плейбл · {meta.label}</span>
+            <div className="flex items-center gap-2">
+              <ViewToggle view={view} onChange={setView} />
+              <button
+                type="button"
+                onClick={() => setReplay((n) => n + 1)}
+                title="Сыграть заново"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFullscreen(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              >
+                <Minimize2 className="h-4 w-4" />
+                <span className="max-sm:hidden">Свернуть</span>
+                <span className="ml-1 hidden text-xs text-white/60 sm:inline">Esc</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4">
+            {/* Сцена сама вписывается в любой размер — iframe просто занимает место:
+                телефон — столбиком 9:16 во всю высоту, десктоп — всё окно. */}
+            <iframe
+              key={`fs-${scene}-${replay}-${html.length}`}
+              srcDoc={html}
+              title={`Плейбл «${meta.label}» на весь экран`}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              className="block rounded-2xl bg-black shadow-2xl ring-1 ring-white/10"
+              style={
+                view === "mobile"
+                  ? { height: "100%", aspectRatio: "9 / 16", maxWidth: "100%", border: 0 }
+                  : { width: "100%", height: "100%", border: 0 }
+              }
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function AssetSlot({
+function ViewToggle({ view, onChange }: { view: "mobile" | "desktop"; onChange: (v: "mobile" | "desktop") => void }) {
+  const btn = (id: "mobile" | "desktop", label: string, Icon: typeof Monitor) => (
+    <button
+      type="button"
+      onClick={() => onChange(id)}
+      aria-pressed={view === id}
+      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${
+        view === id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      <span className="max-sm:hidden">{label}</span>
+    </button>
+  );
+  return (
+    <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+      {btn("mobile", "Мобайл", Smartphone)}
+      {btn("desktop", "Десктоп", Monitor)}
+    </div>
+  );
+}
+
+function PartRow({
   label,
   hint,
-  theme,
-  onTheme,
   image,
+  checked,
+  onCheck,
   onClear,
 }: {
   label: string;
   hint: string;
-  theme: string;
-  onTheme: (v: string) => void;
   image: string;
+  checked: boolean;
+  onCheck: (v: boolean) => void;
   onClear: () => void;
 }) {
   return (
-    <div className="mb-3 rounded-xl border border-border p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black/40">
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
-          )}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium">{label}</span>
-          <span className="block ds-caption">{image ? "Готово — уже в превью" : hint}</span>
-        </span>
+    <div className="flex items-center gap-2 rounded-xl border border-border p-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onCheck(e.target.checked)}
+        aria-label={`Генерировать: ${label}`}
+        className="h-4 w-4 shrink-0 accent-[var(--accent-green)]"
+      />
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:12px_12px]">
         {image ? (
-          <button
-            type="button"
-            onClick={onClear}
-            aria-label={`Убрать: ${label}`}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-      <textarea rows={2} value={theme} maxLength={300} onChange={(e) => onTheme(e.target.value)} className={AREA} placeholder="Что нарисовать" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt="" className="h-full w-full object-contain" />
+        ) : (
+          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block ds-caption">{image ? "Готово — уже в превью" : hint}</span>
+      </span>
+      {image ? (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`Убрать: ${label}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      ) : null}
     </div>
   );
 }

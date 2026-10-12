@@ -10,6 +10,7 @@ import {
   CHARACTER_PRICE_CREDITS,
   CRASH_ROCKET_PRICE_CREDITS,
   EMAIL_HERO_PRICE_CREDITS,
+  PLAYABLE_ASSET_PRICE_CREDITS,
   SLOT_SYMBOLS_PRICE_CREDITS,
   TEAM_CREST_PRICE_CREDITS,
   estimateBannerCredits,
@@ -32,6 +33,7 @@ export const JOB_ROUTES: Record<string, { credits: () => number }> = {
   "/api/generate-slot-symbols": { credits: () => SLOT_SYMBOLS_PRICE_CREDITS },
   "/api/generate-crash-rocket": { credits: () => CRASH_ROCKET_PRICE_CREDITS },
   "/api/generate-team-crest": { credits: () => TEAM_CREST_PRICE_CREDITS },
+  "/api/generate-playable-asset": { credits: () => PLAYABLE_ASSET_PRICE_CREDITS },
   "/api/generate-image": { credits: () => estimateBannerCredits() },
 };
 

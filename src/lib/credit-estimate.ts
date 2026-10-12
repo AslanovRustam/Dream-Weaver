@@ -109,3 +109,7 @@ function toCredits(n: number): number {
 export function formatCreditsEstimate(n: number): string {
   return `${toCredits(n)} кр.`;
 }
+
+// Деталь сценарного плейбла (рама колеса, указатель, центр, фон, награда) —
+// generate-playable-asset, тот же класс модели, что персонаж: плоская цена.
+export const PLAYABLE_ASSET_PRICE_CREDITS = Math.round(USD_PER_BANNER * CREDITS_PER_USD);

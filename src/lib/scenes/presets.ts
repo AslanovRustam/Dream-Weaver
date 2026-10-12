@@ -133,3 +133,68 @@ export function scenePreset(id: SceneId, lang: SceneLang): LangPack {
     ...(id === "wheel" ? { prizes: [...PRIZES[lang]] } : {}),
   };
 }
+
+// ---- стили колеса: промпт для ИИ-деталей + палитра нашего диска под них
+
+export type WheelPalette = {
+  /** Сектора: светлый центр → тёмный край. */
+  a: [string, string];
+  b: [string, string];
+  win: [string, string];
+  /** Разделители секторов. */
+  line: string;
+  /** Подписи и их обводка; на выигрышном секторе — свои. */
+  ink: string;
+  stroke: string;
+  winInk: string;
+  winStroke: string;
+};
+
+export type WheelStyle = { id: string; label: string; prompt: string; palette: WheelPalette; swatch: string[] };
+
+export const WHEEL_STYLES: WheelStyle[] = [
+  {
+    id: "ruby",
+    label: "Золото и рубин",
+    prompt: "polished yellow gold with deep red rubies and warm golden light bulbs, classic luxury casino",
+    palette: {
+      a: ["#ff5c7a", "#9b1030"], b: ["#4a2f9a", "#1a0d44"], win: ["#fff2a8", "#e08a1c"],
+      line: "#f2c26a", ink: "#ffffff", stroke: "#3a0a14", winInk: "#5a2406", winStroke: "#fff3c0",
+    },
+    swatch: ["#e2a23e", "#c2183c", "#3a2580"],
+  },
+  {
+    id: "neon",
+    label: "Неон",
+    prompt: "glossy dark chrome with glowing cyan and magenta neon tubes and neon light bulbs, cyberpunk night casino",
+    palette: {
+      a: ["#ff4fd8", "#6a0a5c"], b: ["#2fd4ff", "#06395a"], win: ["#fff7a8", "#ffb21c"],
+      line: "#c9f6ff", ink: "#ffffff", stroke: "#1a0630", winInk: "#4a2200", winStroke: "#fffbd8",
+    },
+    swatch: ["#2fd4ff", "#ff4fd8", "#1a0630"],
+  },
+  {
+    id: "emerald",
+    label: "Изумруд",
+    prompt: "polished gold with large emerald gems and warm light bulbs, lucky irish / royal green casino",
+    palette: {
+      a: ["#3ddc84", "#0a5a2e"], b: ["#1a2a22", "#050c08"], win: ["#fff2a8", "#e0a21c"],
+      line: "#f2d36a", ink: "#ffffff", stroke: "#03200f", winInk: "#4a2a06", winStroke: "#fff6c8",
+    },
+    swatch: ["#e8c04a", "#1fa85a", "#0c1a12"],
+  },
+  {
+    id: "ice",
+    label: "Серебро и лёд",
+    prompt: "polished silver and platinum with icy blue crystals and cold white light bulbs, frosty premium casino",
+    palette: {
+      a: ["#8fd8ff", "#1a5a9a"], b: ["#e8eef6", "#7a8aa0"], win: ["#fff2a8", "#e0a21c"],
+      line: "#ffffff", ink: "#0a2a4a", stroke: "#ffffff", winInk: "#4a2a06", winStroke: "#fff6c8",
+    },
+    swatch: ["#d8e2ee", "#5ab8f0", "#1a3a6a"],
+  },
+];
+
+export function wheelStyle(id: string | undefined): WheelStyle {
+  return WHEEL_STYLES.find((s) => s.id === id) ?? WHEEL_STYLES[0];
+}

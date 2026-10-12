@@ -16,6 +16,17 @@
 
   var stage = P.stage, rot = $("wheelRot"), pointer = $("pointer"), label = $("label"), tapText = $("tapText");
 
+  // ---- палитра диска под стиль (детали от ИИ рисуются в той же гамме)
+  var PAL = CFG.palette || {
+    a: ["#ff5c7a", "#9b1030"], b: ["#4a2f9a", "#1a0d44"], win: ["#fff2a8", "#e08a1c"],
+    line: "#f2c26a", ink: "#fff", stroke: "#3a0a14", winInk: "#5a2406", winStroke: "#fff3c0",
+  };
+  [["whSegA", PAL.a], ["whSegB", PAL.b], ["whSegWin", PAL.win]].forEach(function (g) {
+    var stops = $(g[0]).getElementsByTagName("stop");
+    stops[0].setAttribute("stop-color", g[1][0]);
+    stops[1].setAttribute("stop-color", g[1][1]);
+  });
+
   // ---- сектора, подписи и лампочки
   function arc(r, a0, a1) {
     var p = function (a) { var t = (a - 90) * Math.PI / 180; return (Math.cos(t) * r).toFixed(2) + " " + (Math.sin(t) * r).toFixed(2); };
@@ -28,7 +39,7 @@
       var path = document.createElementNS(NS, "path");
       path.setAttribute("d", arc(376, a0, a1));
       path.setAttribute("fill", i === WIN ? "url(#whSegWin)" : i % 2 ? "url(#whSegB)" : "url(#whSegA)");
-      path.setAttribute("stroke", "#f2c26a"); path.setAttribute("stroke-width", "4");
+      path.setAttribute("stroke", PAL.line); path.setAttribute("stroke-width", "4");
       segs.appendChild(path);
 
       var mid = a0 + SEG / 2, txt = String(prizes[i]);
@@ -37,8 +48,8 @@
       var size = txt.length <= 4 ? 64 : txt.length <= 6 ? 50 : txt.length <= 9 ? 38 : 30;
       t.setAttribute("font-size", size);
       t.setAttribute("transform", "rotate(" + mid + ") translate(0 -248) rotate(90)");
-      t.setAttribute("fill", i === WIN ? "#5a2406" : "#fff");
-      t.setAttribute("stroke", i === WIN ? "#fff3c0" : "#3a0a14"); t.setAttribute("stroke-width", "6"); t.setAttribute("paint-order", "stroke");
+      t.setAttribute("fill", i === WIN ? PAL.winInk : PAL.ink);
+      t.setAttribute("stroke", i === WIN ? PAL.winStroke : PAL.stroke); t.setAttribute("stroke-width", "6"); t.setAttribute("paint-order", "stroke");
       t.textContent = txt;
       labels.appendChild(t);
     }
@@ -53,6 +64,45 @@
       bulbs.appendChild(c);
     }
   })();
+
+  // ---- детали от ИИ. Рама: диск растягиваем до её внутреннего края (с
+  // нахлёстом под обод), свои обод и лампочки прячем. Указатель ставим так,
+  // чтобы кончик заходил на диск. Координаты — в пикселях коробки 840×840.
+  var ART = CFG.art || {};
+  var BOX = 840, discTop = 420 - 376; // верхний край диска без рамы
+  if (ART.frame && ART.frame.src) {
+    var inner = Math.min(0.95, Math.max(0.55, +ART.frame.inner || 0.82));
+    var sc = (inner * 420 + 10) / 376;
+    $("whDisc").setAttribute("transform", "scale(" + sc.toFixed(4) + ")");
+    $("whRimG").style.display = "none";
+    $("whBulbs").style.display = "none";
+    var fi = $("frameImg"); fi.src = ART.frame.src; fi.hidden = false;
+    var sh = $("frameShine"); sh.hidden = false;
+    sh.style.webkitMaskImage = sh.style.maskImage = "url(\"" + ART.frame.src + "\")";
+    discTop = 420 - inner * 420;
+  }
+  if (ART.hub) {
+    $("whHubG").style.display = "none";
+    var hi = $("hubImg"), hs = 250;
+    hi.src = ART.hub; hi.hidden = false;
+    hi.style.width = hi.style.height = hs + "px";
+    hi.style.left = hi.style.top = (BOX - hs) / 2 + "px";
+    hi.style.objectFit = "contain";
+  }
+  if (ART.pointer) {
+    var pi = new Image();
+    pi.alt = "";
+    pi.onload = function () {
+      var pw = 150, ph = Math.min(230, pw * (pi.naturalHeight / pi.naturalWidth || 1.3));
+      pointer.style.width = pw + "px"; pointer.style.height = ph + "px";
+      pointer.style.left = (BOX - pw) / 2 + "px";
+      pointer.style.top = discTop + 46 - ph + "px"; // кончик — на 46 px внутри диска
+    };
+    pi.src = ART.pointer;
+    pointer.classList.add("art");
+    $("pointerSvg").style.display = "none";
+    pointer.appendChild(pi);
+  }
 
   label.textContent = (T.spinsLeft || "") + SPINS;
 

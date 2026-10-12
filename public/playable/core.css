@@ -19,7 +19,17 @@ html, body {
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
 
+/* Широкий экран (десктоп, планшет боком): сцена портретная и стоит по центру,
+   а по бокам — тот же фон, размытый и притемнённый, а не пустые полосы. */
+body::before {
+  content: ""; position: fixed; inset: -60px;
+  background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #4a2a12 0%, #1d0f07 55%, #0b0604 100%));
+  background-size: cover; background-position: center;
+  filter: blur(30px) brightness(.5) saturate(1.15);
+}
+
 #stage {
+  box-shadow: 0 0 140px 20px rgba(0, 0, 0, .65);
   position: absolute; left: 0; top: 0;
   width: 1080px; height: 1920px;
   transform-origin: 0 0;

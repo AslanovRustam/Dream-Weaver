@@ -7,6 +7,8 @@
 
 import { embedJson, safeCtaUrl } from "../exportUtils";
 import type { PlayableNetwork } from "../playableGen";
+import type { FrameArt } from "./art";
+import type { WheelPalette } from "./presets";
 
 export type SceneId = "safe" | "wheel" | "scratch";
 
@@ -33,7 +35,13 @@ export type SceneConfig = {
   winIndex?: number;
   /** Язык документа (lang у <html>). */
   lang: string;
+  /** Детали от ИИ для главного объекта сцены (сейчас — колесо). */
+  art?: { frame?: FrameArt; pointer?: string; hub?: string };
+  /** Палитра нашего диска колеса под выбранный стиль. */
+  palette?: WheelPalette;
 };
+
+const isImg = (v: unknown): v is string => typeof v === "string" && /^data:image\//.test(v);
 
 export type SceneLoader = {
   text: (path: string) => Promise<string>;
@@ -119,6 +127,12 @@ export async function buildScenePlayable(
     reward: cfg.reward && /^data:image\//.test(cfg.reward) ? cfg.reward : "",
     prizes: cfg.prizes ?? [],
     winIndex: cfg.winIndex ?? 0,
+    art: {
+      frame: cfg.art?.frame && isImg(cfg.art.frame.src) ? { src: cfg.art.frame.src, inner: Number(cfg.art.frame.inner) || 0.82 } : null,
+      pointer: isImg(cfg.art?.pointer) ? cfg.art.pointer : "",
+      hub: isImg(cfg.art?.hub) ? cfg.art.hub : "",
+    },
+    palette: cfg.palette ?? null,
   };
 
   const lang = /^[a-z]{2}(-[A-Za-z]{2})?$/.test(cfg.lang) ? cfg.lang : "ru";
