@@ -58,13 +58,19 @@ const KINDS: Record<string, Spec> = {
     transparent: true,
     quality: "medium",
   },
+  // Квадрат 2048: один фон на обе ориентации. Сцена — 1080×1920 или 1920×1080,
+  // фон ложится «cover» и только уменьшается; в вертикали срезаются бока, в
+  // горизонтали — верх и низ, поэтому всё важное — ближе к центру.
   "scene-bg": {
     prompt:
-      "A vertical 9:16 BACKGROUND for a mobile casino mini-game. Immersive environment with depth, bokeh " +
-      "lights and atmosphere. The middle of the frame (where the game object will be placed) is calmer and " +
-      "slightly darker with a soft glowing halo. NO game object, NO wheel, NO characters, NO people, NO UI, " +
-      "NO frames or borders.",
-    size: "1024x1536",
+      "A SQUARE 1:1 BACKGROUND for a casino mini-game ad that will be shown both on vertical phone screens " +
+      "and on horizontal desktop screens, so the outer edges WILL BE CROPPED: keep every important element " +
+      "within the central 55% of the frame, and let the edges continue the environment naturally (no " +
+      "important objects, no hard lines cut at the edges). Immersive environment with depth, bokeh lights and " +
+      "atmosphere, symmetric-feeling composition. The very centre (where the game object will be placed) is " +
+      "calmer and slightly darker with a soft glowing halo. NO game object, NO wheel, NO characters, NO people, " +
+      "NO UI, NO frames or borders.",
+    size: "2048x2048",
     transparent: false,
     quality: "high",
   },

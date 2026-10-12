@@ -111,13 +111,17 @@ export async function prepareSprite(src: string, maxSide: number, square = false
   return encode(c);
 }
 
-/** Фон: без альфы, JPEG/WebP до ширины сцены. */
-export async function prepareBackground(src: string, width = 1080): Promise<string> {
+/**
+ * Фон: без альфы, WebP (JPEG, где WebP не кодируется). Квадрат ужимаем до
+ * 1920 — длинной стороны сцены: «cover» тогда в обеих ориентациях кладёт
+ * его 1:1, без растяжения.
+ */
+export async function prepareBackground(src: string, side = 1920): Promise<string> {
   const im = await load(src);
-  const s = Math.min(1, width / im.naturalWidth);
+  const s = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight));
   const { c, ctx } = canvas(Math.round(im.naturalWidth * s), Math.round(im.naturalHeight * s));
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(im, 0, 0, c.width, c.height);
-  const webp = c.toDataURL("image/webp", 0.8);
-  return webp.startsWith("data:image/webp") ? webp : c.toDataURL("image/jpeg", 0.82);
+  const webp = c.toDataURL("image/webp", 0.82);
+  return webp.startsWith("data:image/webp") ? webp : c.toDataURL("image/jpeg", 0.84);
 }

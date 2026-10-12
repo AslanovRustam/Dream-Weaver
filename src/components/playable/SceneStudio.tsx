@@ -93,7 +93,7 @@ const PARTS: { id: PartId; kind: string; label: string; hint: string; wheelOnly?
   { id: "frame", kind: "wheel-frame", label: "Рама колеса", hint: "Обод с лампочками — главный объект", wheelOnly: true },
   { id: "pointer", kind: "wheel-pointer", label: "Указатель", hint: "Щёлкает на каждом секторе", wheelOnly: true },
   { id: "hub", kind: "wheel-hub", label: "Центр колеса", hint: "Медальон в середине", wheelOnly: true },
-  { id: "bg", kind: "scene-bg", label: "Фон", hint: "Вертикальный, 9:16" },
+  { id: "bg", kind: "scene-bg", label: "Фон", hint: "Квадрат — подходит и для телефона, и для десктопа" },
   { id: "reward", kind: "reward", label: "Награда в попапе", hint: "Предмет на прозрачном фоне" },
 ];
 /** Стиль для сцен без выбора стиля. */
