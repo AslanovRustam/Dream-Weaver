@@ -355,52 +355,130 @@ function trackingHead(t: LandingExtras["tracking"]): string {
   return out;
 }
 
+type Tone = { bg: string; text: string; muted: string; card: string; chip: string; line: string; gold: string; hi: string; glow2: string; dot: string };
+
+function tone(dark: boolean): Tone {
+  return dark
+    ? { bg: "#0b0815", text: "#f6f2ff", muted: "rgba(246,242,255,.62)", card: "rgba(255,255,255,.055)", chip: "rgba(255,255,255,.07)", line: "rgba(255,255,255,.10)", gold: "#ffcf4a", hi: "#ffffff", glow2: "rgba(124,58,237,.24)", dot: "rgba(255,255,255,.07)" }
+    : { bg: "#fff8ef", text: "#1d1408", muted: "rgba(29,20,8,.62)", card: "rgba(255,255,255,.9)", chip: "#ffffff", line: "rgba(29,20,8,.10)", gold: "#c27c0e", hi: "#1d1408", glow2: "rgba(255,170,60,.22)", dot: "rgba(29,20,8,.07)" };
+}
+
 function kitCss(accent: string, dark: boolean): string {
-  const c = dark
-    ? { bg: "#0d0a17", text: "#f4f1ff", muted: "rgba(244,241,255,.62)", card: "rgba(255,255,255,.06)", line: "rgba(255,255,255,.10)" }
-    : { bg: "#fff8ea", text: "#1d1408", muted: "rgba(29,20,8,.62)", card: "#ffffff", line: "rgba(29,20,8,.10)" };
+  const c = tone(dark);
+  const clip = "-webkit-background-clip:text;background-clip:text;color:transparent";
+  const coin = "radial-gradient(circle at 34% 30%,#fff7cf 0,#ffd34d 32%,#e09b12 68%,#9a5f00 100%)";
+  const goldPill = "color:#1a1000;background:linear-gradient(180deg,#ffe58a,#f5b324)";
   return `
   body{overflow-x:hidden;overflow-y:auto}
   .modal{position:fixed!important}
   .exLegalLine{position:absolute;left:0;right:0;bottom:6px;z-index:6;padding:0 14px;text-align:center;font-size:10px;line-height:1.3;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none}
-  .ex{background:${c.bg};color:${c.text};padding:28px 16px 40px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .ex{position:relative;overflow:hidden;color:${c.text};padding:46px 16px 34px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(900px 420px at 50% -140px,${accent}48,transparent 70%),radial-gradient(560px 560px at -12% 36%,${c.glow2},transparent 70%),radial-gradient(560px 560px at 112% 70%,${accent}2a,transparent 70%),${c.bg}}
+  .ex::before{content:"";position:absolute;inset:0;background-image:radial-gradient(${c.dot} 1px,transparent 1.5px);background-size:22px 22px;-webkit-mask-image:linear-gradient(180deg,#000,transparent 60%);mask-image:linear-gradient(180deg,#000,transparent 60%);pointer-events:none}
+  .ex::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,${accent},${c.gold},${accent},transparent)}
   .ex *{box-sizing:border-box}
-  .ex .w{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:30px}
-  .ex h2{font-size:clamp(22px,5vw,30px);font-weight:900;text-align:center;letter-spacing:-.01em}
-  .ex .cta{display:block;width:100%;max-width:380px;margin:0 auto;border:0;border-radius:999px;padding:16px;font-size:18px;font-weight:900;text-transform:uppercase;text-align:center;text-decoration:none;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}cc);box-shadow:0 10px 24px ${accent}55;animation:exPulse 1.6s ease-in-out infinite}
+  .ex .w{position:relative;z-index:1;max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:42px}
+  .ex .fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .ex .fx i{position:absolute;border-radius:50%;background:${coin};box-shadow:inset 0 -3px 0 rgba(0,0,0,.25),0 8px 16px rgba(0,0,0,.35);animation:exFloat 7s ease-in-out infinite}
+  .ex .fx i::after{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid rgba(154,95,0,.5)}
+  .ex .fx b{position:absolute;color:${c.gold};font-size:18px;animation:exTw 3s ease-in-out infinite}
+  @keyframes exFloat{50%{transform:translateY(-16px) rotate(18deg)}}
+  @keyframes exTw{50%{opacity:.15;transform:scale(.55)}}
+  @keyframes exBob{50%{transform:translateY(-7px) rotate(-3deg)}}
+  @keyframes exShine{0%,55%{left:-70%}100%{left:140%}}
   @keyframes exPulse{50%{transform:scale(1.04)}}
-  .ex .timer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:14px;border-radius:16px;background:${c.card};border:1px solid ${c.line};font-weight:700}
-  .ex .timer b{font-variant-numeric:tabular-nums;font-size:24px;color:${accent}}
-  .ex .bento{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  @media(min-width:760px){.ex .bento{grid-template-columns:repeat(4,1fr)}}
-  .ex .bc{position:relative;overflow:hidden;border-radius:18px;padding:16px;min-height:150px;background:linear-gradient(160deg,${accent}33,${c.card} 60%);border:1px solid ${c.line};display:flex;flex-direction:column;justify-content:flex-end;gap:4px}
-  .ex .bc img{position:absolute;right:-6px;top:-6px;width:58%;max-height:62%;object-fit:contain;filter:drop-shadow(0 8px 12px rgba(0,0,0,.35))}
-  .ex .bc b{position:relative;font-size:18px;line-height:1.1}
-  .ex .bc span{position:relative;font-size:13px;color:${c.muted}}
-  .ex .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
-  .ex .trust div{padding:14px 8px;border-radius:16px;background:${c.card};border:1px solid ${c.line}}
-  .ex .trust b{display:block;font-size:22px;color:${accent}}
-  .ex .trust span{font-size:12px;color:${c.muted}}
-  .ex .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
-  .ex .chips span{padding:6px 12px;border-radius:999px;background:${c.card};border:1px solid ${c.line};font-size:12px;font-weight:700}
-  .ex .steps{display:grid;gap:10px}
-  @media(min-width:760px){.ex .steps{grid-template-columns:repeat(3,1fr)}}
-  .ex .steps div{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;background:${c.card};border:1px solid ${c.line};font-weight:700}
-  .ex .steps i{flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;color:#fff;background:${accent}}
-  .ex .tick{overflow:hidden;border-radius:16px;background:${c.card};border:1px solid ${c.line};padding:10px 0}
-  .ex .tick .row{display:flex;gap:28px;width:max-content;animation:exTick 40s linear infinite;white-space:nowrap;font-size:14px}
-  .ex .tick b{color:${accent}}
+  @keyframes exBlink{50%{opacity:.25}}
+  @keyframes exFlick{to{transform:scale(1.18) rotate(-8deg)}}
+  @keyframes exStripe{to{background-position:28px 0}}
   @keyframes exTick{to{transform:translateX(-50%)}}
-  .ex .rev{display:grid;gap:10px}
-  @media(min-width:760px){.ex .rev{grid-template-columns:repeat(3,1fr)}}
-  .ex .rev div{padding:16px;border-radius:16px;background:${c.card};border:1px solid ${c.line};font-size:14px}
-  .ex .rev .st{color:#fbbf24;letter-spacing:2px}
-  .ex .rev .who{margin-top:8px;font-weight:800;font-size:13px;color:${c.muted}}
-  .ex details{padding:14px 16px;border-radius:14px;background:${c.card};border:1px solid ${c.line};margin-bottom:8px}
-  .ex summary{cursor:pointer;font-weight:800}
-  .ex details p{margin-top:8px;color:${c.muted};font-size:14px}
-  .ex footer{text-align:center;font-size:12px;line-height:1.5;color:${c.muted};border-top:1px solid ${c.line};padding-top:18px}
-  .ex footer .age{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:2px solid ${c.muted};font-weight:900;margin-bottom:8px}
+  @keyframes exLive{70%{box-shadow:0 0 0 10px rgba(255,59,92,0)}100%{box-shadow:0 0 0 0 rgba(255,59,92,0)}}
+  .ex h2{font-size:clamp(25px,5.8vw,36px);font-weight:900;text-align:center;letter-spacing:-.02em;line-height:1.08;margin:0 0 20px;background:linear-gradient(180deg,${c.hi} 35%,${c.gold});${clip}}
+  .ex h2::after{content:"";display:block;width:64px;height:4px;border-radius:4px;margin:12px auto 0;background:linear-gradient(90deg,${accent},${c.gold})}
+  .ex .shine{position:absolute;top:0;bottom:0;left:-70%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);animation:exShine 4.5s ease-in-out infinite;pointer-events:none}
+
+  .ex .cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:400px;margin:0 auto;border:0;border-radius:999px;padding:18px 22px;font-size:19px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}d0 55%,${accent}a8);box-shadow:0 0 0 4px ${accent}30,0 16px 36px ${accent}66,inset 0 2px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.22);text-shadow:0 2px 0 rgba(0,0,0,.22);animation:exPulse 1.8s ease-in-out infinite}
+  .ex .cta svg{width:22px;height:22px;flex:none}
+  .ex .cta .shine{animation-duration:2.8s}
+
+  .ex .timer{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:12px;padding:22px 16px 18px;border-radius:24px;background:linear-gradient(135deg,${accent}33,${c.card} 60%);border:1px solid ${accent}66;box-shadow:0 0 0 4px ${accent}14,0 18px 40px rgba(0,0,0,.3)}
+  .ex .timer::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(-45deg,${accent} 0 10px,transparent 10px 20px);background-size:28px 6px;opacity:.6;animation:exStripe 1s linear infinite}
+  .ex .timer .tt{display:flex;gap:8px;align-items:center;font-weight:900;font-size:14px;letter-spacing:.07em;text-transform:uppercase;text-align:center}
+  .ex .timer .fire{display:inline-block;font-size:20px;animation:exFlick .8s ease-in-out infinite alternate}
+  .ex .digits{display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+  .ex .digits i{position:relative;font-style:normal;width:48px;height:62px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;border-radius:12px;color:#fff;background:linear-gradient(180deg,#2c2344 0,#1a1430 50%,#120d20 50%,#0d0918);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 16px rgba(0,0,0,.4)}
+  .ex .digits em{font-style:normal;font-size:32px;font-weight:900;color:${accent};animation:exBlink 1s steps(1) infinite;padding:0 2px}
+  .ex .bar{width:100%;max-width:330px;height:7px;border-radius:7px;background:${c.line};overflow:hidden}
+  .ex .bar span{display:block;height:100%;width:100%;border-radius:7px;background:linear-gradient(90deg,${c.gold},${accent});box-shadow:0 0 12px ${accent};transition:width 1s linear}
+
+  .ex .bento{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .ex .bc{position:relative;overflow:hidden;isolation:isolate;border-radius:22px;padding:16px;min-height:178px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;background:linear-gradient(165deg,${accent}3d,${c.card} 60%),${c.bg};border:1px solid ${c.line};box-shadow:0 14px 30px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.08)}
+  .ex .bc::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(150deg,${c.gold},transparent 38%,transparent 62%,${accent});-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.8}
+  .ex .bc .glow{position:absolute;right:-22%;top:-22%;width:75%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,${accent}70,transparent 65%);z-index:-2}
+  .ex .bc .ic{position:absolute;right:6px;top:10px;width:48%;max-width:124px;aspect-ratio:1;z-index:-1;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
+  .ex .bc .ic>*{display:block;width:100%;height:100%;object-fit:contain;animation:exBob 4s ease-in-out infinite}
+  .ex .bc:nth-child(2) .ic>*{animation-delay:-1s}.ex .bc:nth-child(3) .ic>*{animation-delay:-2s}.ex .bc:nth-child(4) .ic>*{animation-delay:-3s}
+  .ex .bc .tag{position:absolute;left:12px;top:12px;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.09em;${goldPill};box-shadow:0 4px 12px rgba(245,179,36,.45)}
+  .ex .bc b{font-size:19px;line-height:1.05;font-weight:900}
+  .ex .bc .d{font-size:13px;color:${c.muted};line-height:1.3}
+  .ex .bc:nth-child(2) .shine{animation-delay:1.1s}.ex .bc:nth-child(3) .shine{animation-delay:2.2s}.ex .bc:nth-child(4) .shine{animation-delay:3.3s}
+  .ex .bc:first-child{grid-column:span 2;min-height:236px;padding:20px}
+  .ex .bc:first-child b{font-size:clamp(30px,8vw,46px);max-width:62%;background:linear-gradient(180deg,${c.hi} 30%,${c.gold});${clip}}
+  .ex .bc:first-child .d{font-size:14.5px;max-width:58%}
+  .ex .bc:first-child .ic{width:50%;max-width:230px;top:50%;right:2%;transform:translateY(-50%)}
+  .ex .bc:first-child .tag{font-size:11px;padding:5px 11px}
+  @media(max-width:759px){.ex .bc:last-child:nth-child(even){grid-column:span 2}.ex .bc:last-child:nth-child(even) .ic{width:34%}.ex .bc:last-child:nth-child(even) b,.ex .bc:last-child:nth-child(even) .d{max-width:62%}}
+  @media(min-width:760px){.ex .bento{grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(190px,auto)}.ex .bc:first-child{grid-row:span 2}.ex .bc:nth-child(2){grid-column:span 2}}
+
+  .ex .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
+  .ex .trust>div{display:flex;flex-direction:column;align-items:center;gap:7px;padding:18px 6px 14px;border-radius:20px;background:${c.card};border:1px solid ${c.line}}
+  .ex .trust .ti{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,${c.gold},${accent});box-shadow:0 8px 18px ${accent}55,inset 0 2px 0 rgba(255,255,255,.35)}
+  .ex .trust .ti svg{width:22px;height:22px}
+  .ex .trust b{font-size:clamp(17px,4.8vw,28px);font-weight:900;line-height:1.05;background:linear-gradient(180deg,${c.hi} 30%,${c.gold});${clip}}
+  .ex .trust .l{font-size:11px;color:${c.muted};text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+  .ex .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}
+  .ex .chips span{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:${c.chip};border:1px solid ${c.line};font-size:12.5px;font-weight:800}
+  .ex .chips span:first-child{border-color:#22c55e66;color:#22c55e}
+  .ex .chips svg{width:14px;height:14px}
+
+  .ex .steps{display:grid;gap:16px}
+  .ex .steps>div{position:relative;display:flex;gap:14px;align-items:center;padding:16px;border-radius:20px;background:${c.card};border:1px solid ${c.line};font-weight:800;font-size:15px;line-height:1.3}
+  .ex .steps i{flex:none;width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:24px;font-weight:900;color:#fff;background:linear-gradient(150deg,${c.gold},${accent});box-shadow:0 10px 22px ${accent}55,inset 0 2px 0 rgba(255,255,255,.4);transform:rotate(-6deg);text-shadow:0 2px 0 rgba(0,0,0,.2)}
+  .ex .steps>div:not(:last-child)::after{content:"";position:absolute;left:40px;bottom:-17px;width:3px;height:18px;border-radius:3px;background:linear-gradient(${accent},${c.gold})}
+  @media(min-width:760px){.ex .steps{grid-template-columns:repeat(3,1fr)}.ex .steps>div{flex-direction:column;text-align:center;padding:24px 16px}.ex .steps>div:not(:last-child)::after{left:auto;right:-17px;top:50%;bottom:auto;width:18px;height:3px}}
+
+  .ex .dot{display:inline-block;width:12px;height:12px;margin:0 10px 4px 0;border-radius:50%;background:#ff3b5c;vertical-align:middle;box-shadow:0 0 0 0 rgba(255,59,92,.6);animation:exLive 1.4s infinite}
+  .ex .tick{overflow:hidden;padding:2px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+  .ex .tick .row{display:flex;gap:10px;width:max-content;animation:exTick 55s linear infinite}
+  .ex .tick .row+.row{margin-top:10px;animation-direction:reverse;animation-duration:65s}
+  .ex .tw{display:inline-flex;align-items:center;gap:8px;padding:7px 14px 7px 7px;border-radius:999px;background:${c.card};border:1px solid ${c.line};white-space:nowrap;font-size:13.5px}
+  .ex .tw i{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;color:#fff;font-size:13px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
+  .ex .tw b{padding:3px 9px;border-radius:999px;font-weight:900;${goldPill}}
+  .ex .tw small{color:${c.muted};font-size:12px}
+
+  .ex .rev{display:grid;gap:12px}
+  .ex .rv{position:relative;overflow:hidden;padding:18px;border-radius:20px;background:${c.card};border:1px solid ${c.line};font-size:14.5px;line-height:1.45}
+  .ex .rv::before{content:"“";position:absolute;right:12px;top:-14px;font:900 96px/1 Georgia,serif;color:${accent};opacity:.32}
+  .ex .rv .st{color:#fbbf24;letter-spacing:3px;font-size:17px;margin-bottom:8px;text-shadow:0 0 12px rgba(251,191,36,.55)}
+  .ex .rv .who{display:flex;align-items:center;gap:10px;margin-top:14px}
+  .ex .rv .av{position:relative;flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff}
+  .ex .rv .av::after{content:"✓";position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;border-radius:50%;background:#22c55e;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid ${c.bg}}
+  .ex .rv .nm{font-weight:800;font-size:14px}
+  .ex .rv .ct{font-size:12px;color:${c.muted}}
+  @media(min-width:760px){.ex .rev{grid-template-columns:repeat(3,1fr)}.ex .rv:nth-child(2){transform:translateY(16px)}}
+
+  .ex details{border-radius:16px;background:${c.card};border:1px solid ${c.line};margin-bottom:10px;transition:border-color .2s,box-shadow .2s}
+  .ex details[open]{border-color:${accent}99;box-shadow:0 0 0 3px ${accent}22}
+  .ex summary{position:relative;list-style:none;cursor:pointer;font-weight:800;font-size:15px;padding:17px 56px 17px 18px}
+  .ex summary::-webkit-details-marker{display:none}
+  .ex summary::after{content:"+";position:absolute;right:14px;top:50%;width:28px;height:28px;margin-top:-14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,${c.gold},${accent});color:#fff;font-size:20px;font-weight:900;transition:transform .25s}
+  .ex details[open] summary::after{transform:rotate(45deg)}
+  .ex details p{padding:0 18px 17px;color:${c.muted};font-size:14px;line-height:1.5}
+
+  .ex footer{text-align:center;font-size:12px;line-height:1.55;color:${c.muted};border-top:1px solid ${c.line};padding-top:22px}
+  .ex footer .bdg{display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:12px}
+  .ex footer .age{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:2px solid #ef4444;color:#ef4444;font-weight:900}
+  .ex footer .ssl{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid ${c.line};font-weight:800}
+  .ex footer .ssl svg{width:13px;height:13px}
+  @media (prefers-reduced-motion:reduce){.ex *,.ex *::before,.ex *::after{animation:none!important}}
   `;
 }
 
@@ -411,52 +489,118 @@ const NAMES: Record<LandingLang, string[]> = {
   es: ["Carlos", "Lucía", "Diego", "Sofía", "Mateo", "Valentina", "Javier", "Camila", "Andrés", "Paula"],
 };
 
-function sectionsHtml(x: LandingExtras, s: LandingStrings): string {
+/** Цвета аватаров — по кругу. */
+const AVATAR = ["#f43f5e,#be123c", "#3b82f6,#1d4ed8", "#22c55e,#15803d", "#f59e0b,#b45309", "#a855f7,#7e22ce", "#06b6d4,#0e7490"];
+
+type ArtName = "gift" | "coins" | "spins" | "cashback" | "crown" | "ticket" | "rocket";
+
+/** Иллюстрация карточки бонуса по смыслу заголовка — пока нет своей картинки. */
+function pickArt(title: string, i: number): ArtName {
+  const t = title.toLowerCase();
+  if (/фрисп|фріспі|фриспі|spin|giro/.test(t)) return "spins";
+  if (/кэшб|кешб|cashback/.test(t)) return "cashback";
+  if (/фрибет|фрібет|free bet|gratis/.test(t)) return "ticket";
+  if (/буст|boost|potenci/.test(t)) return "rocket";
+  if (/ежеднев|щоденн|daily|diario|vip/.test(t)) return "crown";
+  if (/%|депоз|deposit|depósit/.test(t)) return "coins";
+  return (["gift", "coins", "crown", "rocket"] as ArtName[])[i % 4];
+}
+
+function art(name: ArtName, u: string, accent: string): string {
+  const ac = /^#[0-9a-f]{3,8}$/i.test(accent) ? accent : "#f59e0b";
+  const G = `url(#g${u})`;
+  const A = `url(#a${u})`;
+  const ink = `stroke="#a86500" stroke-width="2.5" stroke-linejoin="round"`;
+  const defs = `<defs><linearGradient id="g${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b8"/><stop offset=".45" stop-color="#ffc93c"/><stop offset="1" stop-color="#d98a00"/></linearGradient><linearGradient id="a${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${ac}"/><stop offset="1" stop-color="${ac}" stop-opacity=".6"/></linearGradient></defs>`;
+  const coin = (y: number) => `<path d="M20 ${y}v10c0 5.5 13.4 10 30 10s30-4.5 30-10v-10z" fill="#c98200" ${ink}/><ellipse cx="50" cy="${y}" rx="30" ry="10" fill="${G}" ${ink}/>`;
+  const seven = (x: number) => `<rect x="${x}" y="33" width="20" height="38" rx="4" fill="#fff"/><text x="${x + 10}" y="62" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="28" fill="#e11d48">7</text>`;
+  const body: Record<ArtName, string> = {
+    gift: `<rect x="15" y="44" width="70" height="46" rx="8" fill="${A}" stroke="rgba(0,0,0,.25)" stroke-width="2"/><rect x="9" y="31" width="82" height="17" rx="6" fill="${G}" ${ink}/><rect x="44" y="31" width="12" height="59" fill="${G}" ${ink}/><path d="M50 31C42 12 20 13 27 29zM50 31C58 12 80 13 73 29z" fill="${G}" ${ink}/><rect x="15" y="48" width="70" height="5" fill="rgba(0,0,0,.18)"/>`,
+    coins: `${coin(74)}${coin(60)}${coin(46)}${coin(32)}<text x="50" y="38" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="15" fill="#a86500">$</text>`,
+    spins: `<rect x="8" y="22" width="80" height="60" rx="12" fill="${A}" stroke="${G}" stroke-width="5"/>${seven(16)}${seven(38)}${seven(60)}<rect x="89" y="36" width="5" height="26" rx="2" fill="${G}"/><circle cx="91.5" cy="32" r="6" fill="#e11d48" stroke="#fff" stroke-width="1.5"/>`,
+    cashback: `<path d="M50 12A38 38 0 1 1 13 42" fill="none" stroke="${A}" stroke-width="8" stroke-linecap="round"/><path d="M3 40l11-14 12 15z" fill="${ac}"/><circle cx="50" cy="52" r="25" fill="${G}" ${ink}/><circle cx="50" cy="52" r="18" fill="none" stroke="#a86500" stroke-width="2" opacity=".5"/><text x="50" y="62" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="26" fill="#a86500">%</text>`,
+    crown: `<path d="M14 72L8 30l24 18 18-30 18 30 24-18-6 42z" fill="${G}" ${ink}/><rect x="13" y="71" width="74" height="13" rx="4" fill="${A}"/><circle cx="50" cy="56" r="7" fill="${ac}" stroke="#fff" stroke-width="2"/><circle cx="29" cy="61" r="4" fill="#fff"/><circle cx="71" cy="61" r="4" fill="#fff"/><circle cx="8" cy="30" r="4" fill="${G}"/><circle cx="50" cy="18" r="4" fill="${G}"/><circle cx="92" cy="30" r="4" fill="${G}"/>`,
+    ticket: `<g transform="rotate(-12 50 50)"><path d="M8 30h84v13a7 7 0 0 0 0 14v13H8V57a7 7 0 0 0 0-14z" fill="${G}" ${ink}/><path d="M66 32v36" stroke="#a86500" stroke-width="2" stroke-dasharray="4 4"/><text x="37" y="59" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="22" fill="${ac}">FREE</text><path d="M79 42l2.5 5 5.5.8-4 3.9 1 5.4-5-2.6-5 2.6 1-5.4-4-3.9 5.5-.8z" fill="${ac}"/></g>`,
+    rocket: `<path d="M41 74q9 26 18 0z" fill="#ff7a1a"/><path d="M45 74q5 14 10 0z" fill="#ffe14d"/><path d="M34 56L18 76l18-5zM66 56l16 20-18-5z" fill="${A}"/><path d="M50 6c18 14 22 40 16 68H34C28 46 32 20 50 6z" fill="#f4f1ff" stroke="rgba(0,0,0,.2)" stroke-width="2"/><path d="M50 6c7 5 11 11 14 18H36c3-7 7-13 14-18z" fill="${A}"/><circle cx="50" cy="42" r="9" fill="${A}" stroke="${G}" stroke-width="4"/>`,
+  };
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${defs}${body[name]}</svg>`;
+}
+
+const ICON = {
+  star: `<svg viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z" fill="#fff"/></svg>`,
+  users: `<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4" fill="#fff"/><path d="M1 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="#fff"/><circle cx="17.5" cy="8.5" r="3" fill="#fff" opacity=".7"/><path d="M15.5 14.2c4 .3 7.5 2.2 7.5 6.8h-4.5" fill="#fff" opacity=".7"/></svg>`,
+  bolt: `<svg viewBox="0 0 24 24"><path d="M13.5 2L4 14h7l-1.5 8L19 10h-7z" fill="#fff"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z" fill="currentColor"/><path d="M8 12l3 3 5-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="3" fill="currentColor"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>`,
+  arrow: `<svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+};
+
+const FX =
+  `<div class="fx" aria-hidden="true">` +
+  `<i style="left:3%;top:7%;width:30px;height:30px"></i><i style="right:5%;top:22%;width:22px;height:22px;animation-delay:-2s"></i>` +
+  `<i style="left:6%;top:48%;width:18px;height:18px;animation-delay:-4s"></i><i style="right:3%;top:63%;width:34px;height:34px;animation-delay:-1s"></i>` +
+  `<i style="left:46%;top:86%;width:20px;height:20px;animation-delay:-3s"></i>` +
+  `<b style="left:14%;top:16%">✦</b><b style="right:16%;top:9%;animation-delay:-1s">✦</b><b style="left:10%;top:70%;animation-delay:-2s">✦</b><b style="right:12%;top:44%;font-size:13px;animation-delay:-.5s">✦</b>` +
+  `</div>`;
+
+function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string): string {
   const parts: string[] = [];
-  const cta = `<button type="button" class="cta" data-excta>${esc(s.claimNow)}</button>`;
-  if (x.timer.on) parts.push(`<div class="timer"><span>⏳ ${esc(x.timer.text)}</span><b data-extimer>${String(Math.max(1, x.timer.minutes | 0)).padStart(2, "0")}:00</b></div>`);
+  const cta = `<button type="button" class="cta" data-excta><span class="shine"></span><span>🎁</span><span>${esc(s.claimNow)}</span>${ICON.arrow}</button>`;
+  if (x.timer.on) {
+    const mm = String(Math.max(1, Math.min(180, x.timer.minutes | 0))).padStart(2, "0");
+    const digits = `${mm}:00`.split("").map((ch) => (ch === ":" ? "<em>:</em>" : `<i>${ch}</i>`)).join("");
+    parts.push(`<div class="timer"><div class="tt"><span class="fire">🔥</span><span>${esc(x.timer.text)}</span></div><b class="digits" data-extimer>${digits}</b><div class="bar"><span data-exbar></span></div></div>`);
+  }
   if (x.bonuses.on && x.bonuses.items.length) {
+    const tags = ["HOT", "TOP", "NEW", "VIP"];
     const cards = x.bonuses.items
       .filter((b) => b.title.trim())
-      .map((b) => `<div class="bc">${b.image && /^data:image\//.test(b.image) ? `<img src="${esc(b.image)}" alt=""/>` : ""}<b>${esc(b.title)}</b><span>${esc(b.text)}</span></div>`)
+      .map((b, i) => {
+        const pic = b.image && /^data:image\//.test(b.image) ? `<img src="${esc(b.image)}" alt=""/>` : art(pickArt(b.title, i), `b${i}`, accent);
+        return `<div class="bc"><span class="glow"></span><span class="shine"></span><span class="ic">${pic}</span><span class="tag">${tags[i % tags.length]}</span><b>${esc(b.title)}</b><span class="d">${esc(b.text)}</span></div>`;
+      })
       .join("");
-    parts.push(`<section><h2>${esc(x.bonuses.title)}</h2><div class="bento" style="margin-top:14px">${cards}</div></section>`);
+    parts.push(`<section><h2>${esc(x.bonuses.title)}</h2><div class="bento">${cards}</div></section>`);
   }
   if (x.trust.on) {
     const pays = x.trust.payments.split(",").map((p) => p.trim()).filter(Boolean).slice(0, 10).map((p) => `<span>${esc(p)}</span>`).join("");
     parts.push(
-      `<section><div class="trust"><div><b>★ ${esc(x.trust.rating)}</b><span>${esc(s.rating)}</span></div><div><b>${esc(x.trust.players)}</b><span>${esc(s.players)}</span></div><div><b>${esc(x.trust.payout)}</b><span>${esc(s.payout)}</span></div></div>` +
-        `<div class="chips">${x.trust.license.trim() ? `<span>🛡 ${esc(x.trust.license)}</span>` : ""}${pays}</div></section>`,
+      `<section><div class="trust"><div><span class="ti">${ICON.star}</span><b>${esc(x.trust.rating)}</b><span class="l">${esc(s.rating)}</span></div><div><span class="ti">${ICON.users}</span><b>${esc(x.trust.players)}</b><span class="l">${esc(s.players)}</span></div><div><span class="ti">${ICON.bolt}</span><b>${esc(x.trust.payout)}</b><span class="l">${esc(s.payout)}</span></div></div>` +
+        `<div class="chips">${x.trust.license.trim() ? `<span>${ICON.shield}${esc(x.trust.license)}</span>` : ""}${pays}</div></section>`,
     );
   }
   if (x.steps.on && x.steps.items.length) {
     const st = x.steps.items.filter((t) => t.trim()).map((t, i) => `<div><i>${i + 1}</i><span>${esc(t)}</span></div>`).join("");
-    parts.push(`<section><h2>${esc(x.steps.title)}</h2><div class="steps" style="margin-top:14px">${st}</div></section>`);
+    parts.push(`<section><h2>${esc(x.steps.title)}</h2><div class="steps">${st}</div></section>`);
   }
   if (x.bonuses.on || x.steps.on) parts.push(cta);
-  if (x.winners.on) parts.push(`<section><h2>${esc(s.winnersTitle)}</h2><div class="tick" style="margin-top:14px"><div class="row" data-exticker></div></div></section>`);
+  if (x.winners.on) parts.push(`<section><h2><span class="dot"></span>${esc(s.winnersTitle)}</h2><div class="tick"><div class="row" data-exticker></div><div class="row" data-exticker2></div></div></section>`);
   if (x.reviews.on && x.reviews.items.length) {
     const rv = x.reviews.items
       .filter((r) => r.text.trim())
-      .map((r) => `<div><div class="st">★★★★★</div><p>${esc(r.text)}</p><div class="who">${esc(r.name)}${r.city.trim() ? ", " + esc(r.city) : ""}</div></div>`)
+      .map((r, i) => {
+        const initial = esc(Array.from(r.name.trim())[0]?.toUpperCase() ?? "★");
+        return `<div class="rv"><div class="st">★★★★★</div><p>${esc(r.text)}</p><div class="who"><span class="av" style="background:linear-gradient(150deg,${AVATAR[i % AVATAR.length]})">${initial}</span><div><div class="nm">${esc(r.name)}</div>${r.city.trim() ? `<div class="ct">${esc(r.city)}</div>` : ""}</div></div></div>`;
+      })
       .join("");
-    parts.push(`<section><h2>${esc(x.reviews.title)}</h2><div class="rev" style="margin-top:14px">${rv}</div></section>`);
+    parts.push(`<section><h2>${esc(x.reviews.title)}</h2><div class="rev">${rv}</div></section>`);
   }
   if (x.faq.on && x.faq.items.length) {
-    const fq = x.faq.items.filter((f) => f.q.trim()).map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
-    parts.push(`<section><h2>${esc(x.faq.title)}</h2><div style="margin-top:14px">${fq}</div></section>`);
+    const fq = x.faq.items.filter((f) => f.q.trim()).map((f, i) => `<details${i === 0 ? " open" : ""}><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
+    parts.push(`<section><h2>${esc(x.faq.title)}</h2><div>${fq}</div></section>`);
   }
   if (parts.length && !(x.bonuses.on || x.steps.on)) parts.push(cta);
-  parts.push(`<footer><div class="age">18+</div><div>${esc(x.legal)}</div><div style="margin-top:6px;font-weight:700">${esc(s.responsible)}</div></footer>`);
-  return `<main class="ex"><div class="w">${parts.join("")}</div></main>`;
+  parts.push(`<footer><div class="bdg"><div class="age">18+</div><span class="ssl">${ICON.lock}SSL</span></div><div>${esc(x.legal)}</div><div style="margin-top:6px;font-weight:700">${esc(s.responsible)}</div></footer>`);
+  return `<main class="ex">${FX}<div class="w">${parts.join("")}</div></main>`;
 }
 
-function kitScript(x: LandingExtras, ctaUrl: string): string {
+function kitScript(x: LandingExtras, ctaUrl: string, kind: LandingKind): string {
   const cfg = {
     url: safeCtaUrl(ctaUrl),
     pass: !!x.tracking.passParams,
     timer: x.timer.on ? Math.max(1, Math.min(180, x.timer.minutes | 0)) : 0,
     winners: x.winners.on,
+    sport: kind === "sport",
     names: NAMES[x.lang],
     cur: x.winners.currency.slice(0, 6),
     won: landingStrings(x.lang).won,
@@ -482,18 +626,23 @@ function kitScript(x: LandingExtras, ctaUrl: string): string {
   };
   var btns=document.querySelectorAll('[data-excta]');
   for(var i=0;i<btns.length;i++) btns[i].onclick=function(){ window.__goCta(); };
-  var tEl=document.querySelector('[data-extimer]');
+  function esc(v){ return String(v).replace(/[&<>"]/g,function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]; }); }
+  var tEl=document.querySelector('[data-extimer]'), bar=document.querySelector('[data-exbar]');
   if(tEl && C.timer){
-    var end=Date.now()+C.timer*60000;
-    (function tick(){ var d=Math.max(0,end-Date.now()); if(d===0) end=Date.now()+C.timer*60000;
-      var m=Math.floor(d/60000), s=Math.floor(d%60000/1000); tEl.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s; setTimeout(tick,1000); })();
+    var total=C.timer*60000, end=Date.now()+total;
+    (function tick(){ var d=Math.max(0,end-Date.now()); if(d===0) end=Date.now()+total;
+      var m=Math.floor(d/60000), s=Math.floor(d%60000/1000), t=(m<10?'0':'')+m+':'+(s<10?'0':'')+s, h='';
+      for(var j=0;j<t.length;j++){ var ch=t.charAt(j); h+=ch===':'?'<em>:</em>':'<i>'+ch+'</i>'; }
+      tEl.innerHTML=h; if(bar) bar.style.width=(d/total*100).toFixed(2)+'%'; setTimeout(tick,1000); })();
   }
-  var row=document.querySelector('[data-exticker]');
-  if(row && C.winners){
-    var games=['Sweet Bonanza','Gates of Olympus','Book of Dead','Aviator','Big Bass','Wild West Gold'], html='';
-    for(var k=0;k<12;k++){ var n=C.names[k%C.names.length], a=Math.round((50+Math.random()*4950)/10)*10;
-      html+='<span>🏆 '+n+' '+C.won+' <b>'+a.toLocaleString()+' '+C.cur+'</b> · '+games[k%games.length]+'</span>'; }
-    row.innerHTML=html+html;
+  var rows=[document.querySelector('[data-exticker]'),document.querySelector('[data-exticker2]')];
+  if(rows[0] && C.winners){
+    var games=C.sport?['Real Madrid – Barcelona','Arsenal – Chelsea','PSG – Bayern','Inter – Milan','Liverpool – Man City','Juventus – Napoli']:['Sweet Bonanza','Gates of Olympus','Book of Dead','Aviator','Big Bass','Wild West Gold'];
+    var av=${embedJson(AVATAR)};
+    for(var r=0;r<rows.length;r++){ if(!rows[r]) continue; var html='';
+      for(var k=0;k<12;k++){ var idx=k+r*5, n=C.names[idx%C.names.length], a=Math.round((50+Math.random()*4950)/10)*10;
+        html+='<span class="tw"><i style="background:linear-gradient(150deg,'+av[idx%av.length]+')">'+esc(n.charAt(0))+'</i>'+esc(n)+' '+esc(C.won)+' <b>'+a.toLocaleString()+' '+esc(C.cur)+'</b><small>'+esc(games[idx%games.length])+'</small></span>'; }
+      rows[r].innerHTML=html+html; }
   }
 })();
 </script>`;
@@ -520,8 +669,8 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
     head: trackingHead(x.tracking),
     css: kitCss(accent, dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
-    after: sectionsHtml(x, strings),
-    script: kitScript(x, ctaUrl),
+    after: sectionsHtml(x, strings, accent),
+    script: kitScript(x, ctaUrl, kind),
     strings,
     stringsJson: embedJson(strings),
   };
