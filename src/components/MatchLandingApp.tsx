@@ -15,6 +15,8 @@ import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { buildMatchHtml } from "@/lib/matchExport";
@@ -58,6 +60,8 @@ export function MatchLandingApp() {
   const [headline, setHeadline] = useState("СТАВЬ НА МАТЧ ДНЯ");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#38bdf8");
+  /** Язык, 18+, трекинг и блоки под первым экраном — общие для всех механик. */
+  const [extras, setExtras] = useState<LandingExtras>(() => defaultExtras("ru", "sport"));
   const [ctaText, setCtaText] = useState("СДЕЛАТЬ СТАВКУ");
   const [ctaUrl, setCtaUrl] = useState("");
   const [theme, setTheme] = useState(DEFAULT_THEME);
@@ -120,6 +124,7 @@ export function MatchLandingApp() {
       const raw = window.localStorage.getItem(DRAFT_KEY);
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
+        if (d.extras) setExtras(normalizeExtras(d.extras, "sport"));
         const str = (k: string, set: (v: string) => void) => {
           if (typeof d[k] === "string") set(d[k] as string);
         };
@@ -259,6 +264,7 @@ export function MatchLandingApp() {
     if (!restored) return;
     const id = window.setTimeout(() => {
       const data = {
+        extras,
         brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, theme, bgImage,
         charLeft: charImages.left, charRight: charImages.right, charOnLeft: charOn.left, charOnRight: charOn.right, charPromptLeft: charPrompts.left, charPromptRight: charPrompts.right,
         sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, crestTheme,
@@ -271,7 +277,7 @@ export function MatchLandingApp() {
         try {
           window.localStorage.setItem(
             DRAFT_KEY,
-            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "", crestHome: "", crestAway: "" }),
+            JSON.stringify({ ...data, extras: stripExtrasImages(extras), bgImage: "", charLeft: "", charRight: "", brandLogo: "", crestHome: "", crestAway: "" }),
           );
         } catch {
           /* ignore */
@@ -279,7 +285,7 @@ export function MatchLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [
+  }, [extras, 
     restored, brand, brandLogo, headline, topic, accent, ctaText, ctaUrl, theme, bgImage, charImages, charOn, charPrompts,
     sport, eventName, teams, crests, crestTheme, odds, oddsFormat, highlightFavourite, showOffer,
     prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate,
@@ -635,7 +641,7 @@ export function MatchLandingApp() {
   const exportHtml = () =>
     downloadText(
       `${slugify(brand, "match")}-match.html`,
-      buildMatchHtml({
+      buildMatchHtml({ extras, 
         brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage,
         charLeft: chars.left, charRight: chars.right,
         sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away,
@@ -904,6 +910,9 @@ export function MatchLandingApp() {
           <p className="mt-1 ds-caption">Куда ведут кнопка и коэффициенты. URL или переменная-макрос (напр. {"{clickurl}"}).</p>
         </Field>
 
+        <LandingExtrasPanel value={extras} onChange={setExtras} kind="sport" mechanic="match" />
+        <LandingExtrasPreview extras={extras} accent={accent} dark={true} kind="sport" />
+
         <button
           data-tour="landing-export"
           type="button"
@@ -918,7 +927,7 @@ export function MatchLandingApp() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <p className="ds-caption">Предпросмотр лендинга</p>
-            <FullscreenPreview title="Матч-прогноз" buildHtml={() => buildMatchHtml({ brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage, charLeft: chars.left, charRight: chars.right, sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, odds: oddsNum, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate })} />
+            <FullscreenPreview title="Матч-прогноз" buildHtml={() => buildMatchHtml({ extras,  brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage, charLeft: chars.left, charRight: chars.right, sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, odds: oddsNum, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate })} />
           </div>
           <div className="flex rounded-lg border border-border p-0.5">
             {(

@@ -1,4 +1,5 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
+import { kitParts, type LandingExtras } from "./landingKit";
 import {
   favouritePick,
   formatOdds,
@@ -48,6 +49,8 @@ export type MatchExportConfig = {
   countdownMode: CountdownMode;
   countdownMinutes: number;
   countdownDate: string;
+  /** Язык, юр. текст, трекинг и блоки под первым экраном (landingKit). */
+  extras?: LandingExtras;
 };
 
 function esc(s: string): string {
@@ -60,6 +63,7 @@ function esc(s: string): string {
 
 export function buildMatchHtml(cfg: MatchExportConfig): string {
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#38bdf8";
+  const k = kitParts(cfg.extras, accent, true, cfg.ctaUrl ?? "", "sport");
   const sport = SPORT_BY_ID.get(cfg.sport) ?? SPORT_BY_ID.get("football")!;
   const fav = cfg.highlightFavourite ? favouritePick(cfg.odds, sport.hasDraw) : null;
   const bg = cfg.bgImage
@@ -76,11 +80,12 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
   const prizeTitle = `${PRIZE_LABEL[cfg.prizeType] ?? "Бонус"} ${cfg.prizeAmount} ${cfg.prizeCurrency}`.trim();
 
   return `<!doctype html>
-<html lang="ru">
+<html lang="${k.lang}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Match")}</title>
+${k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -122,6 +127,7 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
   .offer .txt{font-size:12px;line-height:1.25;color:rgba(255,255,255,.85)}
   .cta{position:relative;z-index:3;margin:6px 0 4px;width:82%;max-width:380px;border:0;border-radius:999px;padding:15px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}cc);box-shadow:0 8px 20px rgba(0,0,0,.35)}
   .cta:active{transform:scale(.97)}
+${k.css}
 </style>
 </head>
 <body>
@@ -140,24 +146,28 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
         <div class="card">
           ${cfg.eventName ? `<div class="event">${esc(cfg.eventName)}</div>` : ""}
           <div class="teams">
-            <div class="team">${crest(cfg.crestHome, cfg.teamHome)}<div class="name">${esc(cfg.teamHome || "Хозяева")}</div></div>
+            <div class="team">${crest(cfg.crestHome, cfg.teamHome)}<div class="name">${esc(cfg.teamHome || k.strings.home)}</div></div>
             <div class="vs"><div class="ico">${sport.emoji}</div><b>VS</b></div>
-            <div class="team">${crest(cfg.crestAway, cfg.teamAway)}<div class="name">${esc(cfg.teamAway || "Гости")}</div></div>
+            <div class="team">${crest(cfg.crestAway, cfg.teamAway)}<div class="name">${esc(cfg.teamAway || k.strings.away)}</div></div>
           </div>
           <div class="odds">
-            ${odd("home", "П1")}
-            ${sport.hasDraw ? odd("draw", "Ничья") : ""}
-            ${odd("away", "П2")}
+            ${odd("home", k.strings.p1)}
+            ${sport.hasDraw ? odd("draw", k.strings.draw) : ""}
+            ${odd("away", k.strings.p2)}
           </div>
-          <div class="hint">Выберите исход — и переходите к ставке</div>
+          <div class="hint">${esc(k.strings.pickHint)}</div>
         </div>
-        <div class="offer"><span class="amt">${esc(prizeTitle)}</span><span class="txt">${esc(cfg.offerText || "за первую ставку на этот матч")}</span></div>
+        <div class="offer"><span class="amt">${esc(prizeTitle)}</span><span class="txt">${esc(cfg.offerText || k.strings.offerDefault)}</span></div>
       </div>
       <button class="cta" id="cta" type="button">${esc(cfg.ctaText || "СДЕЛАТЬ СТАВКУ")}</button>
     </div>
+    ${k.legalLine}
   </div>
+  ${k.after}
+  ${k.script}
 <script>
 (function(){
+  var T=${k.stringsJson};
   var URL_=${embedJson(safeCtaUrl(cfg.ctaUrl))};
   var CD_MODE=${embedJson(cfg.countdownMode)}, CD_MIN=${embedJson(cfg.countdownMinutes || 15)}, CD_DATE=${embedJson(cfg.countdownDate || "")};
   function go(pick){
@@ -166,7 +176,7 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
     // Pass the chosen outcome along when the target is a real URL (not a
     // bare tracker macro) so the sportsbook / tracker can pre-select it.
     if(pick && /^https?:/i.test(u)){ u += (u.indexOf('?')>-1?'&':'?') + 'pick=' + pick; }
-    (window.top||window).location.href=u;
+    window.__goCta(u);
   }
   [].slice.call(document.querySelectorAll('.odd')).forEach(function(b){ b.addEventListener('click', function(){ go(b.getAttribute('data-pick')); }); });
   document.getElementById('cta').addEventListener('click', function(){ go(''); });
@@ -178,9 +188,9 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
     var target = CD_MODE==='date' ? Date.parse(CD_DATE) : Date.now()+CD_MIN*60000;
     if(!isFinite(target)) return;
     cd.classList.add('show');
-    function tick(){ var d=target-Date.now(); if(d<=0){ cd.classList.add('live'); txt.textContent='Матч идёт · LIVE'; return; }
+    function tick(){ var d=target-Date.now(); if(d<=0){ cd.classList.add('live'); txt.textContent=T.live; return; }
       var s=Math.floor(d/1000), dd=Math.floor(s/86400), hh=Math.floor(s%86400/3600), mm=Math.floor(s%3600/60), ss=s%60;
-      txt.textContent='До матча: '+(dd>0?dd+'д ':'')+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm+':'+(ss<10?'0':'')+ss; setTimeout(tick,1000); }
+      txt.textContent=T.untilMatch+(dd>0?dd+T.days+' ':'')+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm+':'+(ss<10?'0':'')+ss; setTimeout(tick,1000); }
     tick();
   })();
 })();

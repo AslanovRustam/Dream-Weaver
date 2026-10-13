@@ -28,6 +28,8 @@ import { SuggestButton } from "@/components/landing/SuggestButton";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { analyzeSeedBanner } from "@/lib/landingSeed";
@@ -59,6 +61,8 @@ export function WheelLandingApp() {
   const [headline, setHeadline] = useState("TRY YOUR LUCK!");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#f97316");
+  /** Язык, 18+, трекинг и блоки под первым экраном — общие для всех механик. */
+  const [extras, setExtras] = useState<LandingExtras>(() => defaultExtras("ru", "casino"));
   const dark = true;
   const [ctaText, setCtaText] = useState("SPIN");
   const [ctaUrl, setCtaUrl] = useState("");
@@ -119,6 +123,7 @@ export function WheelLandingApp() {
       const raw = window.localStorage.getItem("dw_wheel_draft");
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
+        if (d.extras) setExtras(normalizeExtras(d.extras, "casino"));
         if (typeof d.brand === "string") setBrand(d.brand);
         if (typeof d.brandLogo === "string") setBrandLogo(d.brandLogo);
         if (typeof d.headline === "string") setHeadline(d.headline);
@@ -266,6 +271,7 @@ export function WheelLandingApp() {
     if (!restored) return;
     const id = window.setTimeout(() => {
       const data = {
+        extras,
         brand,
         brandLogo,
         headline,
@@ -290,7 +296,7 @@ export function WheelLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_wheel_draft",
-            JSON.stringify({ ...data, bgImage: "", charLeft: "", charRight: "", brandLogo: "" }),
+            JSON.stringify({ ...data, extras: stripExtrasImages(extras), bgImage: "", charLeft: "", charRight: "", brandLogo: "" }),
           );
         } catch {
           /* ignore */
@@ -298,7 +304,7 @@ export function WheelLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, charImages, charOn, charPrompts, prizes]);
+  }, [extras, restored, brand, brandLogo, headline, topic, accent, dark, ctaText, ctaUrl, theme, bgImage, charImages, charOn, charPrompts, prizes]);
 
   const setPrize = (i: number, patch: Partial<WheelSegment>) =>
     setPrizes((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -840,13 +846,16 @@ export function WheelLandingApp() {
           </p>
         </Field>
 
+        <LandingExtrasPanel value={extras} onChange={setExtras} kind="casino" mechanic="wheel" />
+        <LandingExtrasPreview extras={extras} accent={accent} dark={dark} kind="casino" />
+
         <button
           data-tour="landing-export"
           type="button"
           onClick={() =>
             downloadText(
               `${slugify(brand, "wheel")}-wheel.html`,
-              buildWheelHtml({
+              buildWheelHtml({ extras, 
                 brand,
                 brandLogo,
                 headline,
@@ -871,7 +880,7 @@ export function WheelLandingApp() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <p className="ds-caption">Предпросмотр лендинга</p>
-            <FullscreenPreview title="Колесо фортуны" buildHtml={() => buildWheelHtml({ brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, prizes, charLeft: chars.left, charRight: chars.right })} />
+            <FullscreenPreview title="Колесо фортуны" buildHtml={() => buildWheelHtml({ extras,  brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, prizes, charLeft: chars.left, charRight: chars.right })} />
           </div>
           <div className="flex rounded-lg border border-border p-0.5">
             {(

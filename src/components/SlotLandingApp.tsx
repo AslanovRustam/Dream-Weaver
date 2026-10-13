@@ -34,6 +34,8 @@ import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -93,6 +95,8 @@ export function SlotLandingApp() {
   const [headline, setHeadline] = useState("SPIN TO WIN!");
   const [topic, setTopic] = useState("");
   const [accent, setAccent] = useState("#818cf8");
+  /** Язык, 18+, трекинг и блоки под первым экраном — общие для всех механик. */
+  const [extras, setExtras] = useState<LandingExtras>(() => defaultExtras("ru", "casino"));
   const dark = true;
   const [ctaText, setCtaText] = useState("SPIN");
   const [ctaUrl, setCtaUrl] = useState("");
@@ -183,6 +187,7 @@ export function SlotLandingApp() {
       const raw = window.localStorage.getItem("dw_slot_draft");
       if (raw) {
         const d = JSON.parse(raw) as Record<string, unknown>;
+        if (d.extras) setExtras(normalizeExtras(d.extras, "casino"));
         if (typeof d.brand === "string") setBrand(d.brand);
         if (typeof d.brandLogo === "string") setBrandLogo(d.brandLogo);
         if (typeof d.headline === "string") setHeadline(d.headline);
@@ -329,6 +334,7 @@ export function SlotLandingApp() {
     if (!restored) return;
     const id = window.setTimeout(() => {
       const data = {
+        extras,
         brand,
         brandLogo,
         headline,
@@ -354,9 +360,7 @@ export function SlotLandingApp() {
         try {
           window.localStorage.setItem(
             "dw_slot_draft",
-            JSON.stringify({
-              ...data,
-              bgImage: "",
+            JSON.stringify({ ...data, extras: stripExtrasImages(extras), bgImage: "",
               charLeft: "",
               charRight: "",
               brandLogo: "",
@@ -369,7 +373,7 @@ export function SlotLandingApp() {
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [
+  }, [extras, 
     restored,
     brand,
     brandLogo,
@@ -1094,13 +1098,16 @@ export function SlotLandingApp() {
           </p>
         </Field>
 
+        <LandingExtrasPanel value={extras} onChange={setExtras} kind="casino" mechanic="slot" />
+        <LandingExtrasPreview extras={extras} accent={accent} dark={dark} kind="casino" />
+
         <button
           data-tour="landing-export"
           type="button"
           onClick={() =>
             downloadText(
               `${slugify(brand, "slot")}-slot.html`,
-              buildSlotHtml({
+              buildSlotHtml({ extras, 
                 brand,
                 brandLogo,
                 headline,
@@ -1126,7 +1133,7 @@ export function SlotLandingApp() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <p className="ds-caption">Предпросмотр лендинга</p>
-            <FullscreenPreview title="Слот-машина" buildHtml={() => buildSlotHtml({ brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, symbols, attempts, charLeft: chars.left, charRight: chars.right })} />
+            <FullscreenPreview title="Слот-машина" buildHtml={() => buildSlotHtml({ extras,  brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, symbols, attempts, charLeft: chars.left, charRight: chars.right })} />
           </div>
           <div className="flex rounded-lg border border-border p-0.5">
             {(

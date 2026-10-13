@@ -1,4 +1,5 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
+import { kitParts, type LandingExtras } from "./landingKit";
 // Build a self-contained HTML page for a slot-machine landing: background,
 // flanking characters, three spinning reels, SPIN button and a win / try-again
 // modal — all inline, no external assets.
@@ -27,6 +28,8 @@ export type SlotExportConfig = {
   attempts: string[];
   charLeft: string;
   charRight: string;
+  /** Язык, юр. текст, трекинг и блоки под первым экраном (landingKit). */
+  extras?: LandingExtras;
 };
 
 function esc(s: string): string {
@@ -48,6 +51,7 @@ function darken(hex: string, amt: number): string {
 
 export function buildSlotHtml(cfg: SlotExportConfig): string {
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#818cf8";
+  const k = kitParts(cfg.extras, accent, !!cfg.dark, cfg.ctaUrl ?? "", "casino");
   const symbols =
     cfg.symbols.length >= 3
       ? cfg.symbols
@@ -65,11 +69,12 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   const attemptsJson = embedJson(attempts.map((a) => esc(a)));
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${k.lang}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Spin & Win")}</title>
+${k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -104,6 +109,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   .card .big{font-size:30px;margin:6px 0}
   .card button{margin-top:16px;width:100%;border:0;border-radius:10px;padding:12px;font-weight:800;color:#fff;cursor:pointer;background:${accent}}
   .card .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1}
+${k.css}
 </style>
 </head>
 <body>
@@ -130,9 +136,13 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
       <p class="attemptsInfo" id="attemptsInfo" hidden></p>
     </div>
     <div class="modal" id="modal"><div class="card" id="card"></div></div>
+    ${k.legalLine}
   </div>
+  ${k.after}
+  ${k.script}
 <script>
 (function(){
+  var T=${k.stringsJson};
   var syms=${symbolsJson};
   var symImgs=${imagesJson};
   var attempts=${attemptsJson};
@@ -149,7 +159,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
   function exhausted(){ return attemptsUsed>=maxAttempts; }
   function updateAttemptsUi(){
     if(maxAttempts<=1){ attemptsInfo.hidden=true; }
-    else{ attemptsInfo.hidden=false; attemptsInfo.textContent='Осталось попыток: '+Math.max(0,maxAttempts-attemptsUsed); }
+    else{ attemptsInfo.hidden=false; attemptsInfo.textContent=T.attemptsLeft+Math.max(0,maxAttempts-attemptsUsed); }
     if(exhausted()){ cta.disabled=true; }
   }
   function build(){
@@ -198,18 +208,18 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
       : sym+' '+sym+' '+sym;
     var bonusLine;
     if(isLast && wonBonuses.length>0){
-      bonusLine = '<p style="margin:4px 0 0">You won:</p><ul style="margin:4px 0 0;padding:0;list-style:none">'
+      bonusLine = '<p style="margin:4px 0 0">'+T.youWon+'</p><ul style="margin:4px 0 0;padding:0;list-style:none">'
         + wonBonuses.map(function(b){ return '<li style="font-weight:800;color:${accent}">'+b+'</li>'; }).join('')
         + '</ul>';
     } else {
-      bonusLine = '<p>'+(bonus ? ('You won <b>'+bonus+'</b>') : 'Three in a row — claim your bonus!')+'</p>';
+      bonusLine = '<p>'+(bonus ? (T.youWon+' <b>'+bonus+'</b>') : T.threeInRow)+'</p>';
     }
-    var btnLabel = isLast ? 'Claim bonus' : 'Spin again';
-    card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Jackpot!</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div>'+bonusLine+'<button id="claim">'+btnLabel+'</button>';
+    var btnLabel = isLast ? T.claim : T.spinAgain;
+    card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 '+T.jackpot+'</h2><div class="big" style="display:flex;align-items:center;justify-content:center">'+bigHtml+'</div>'+bonusLine+'<button id="claim">'+btnLabel+'</button>';
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){
-      if(isLast){ var u=${embedJson(safeCtaUrl(cfg.ctaUrl))}; if(u){ (window.top||window).location.href=u; return; } close(); }
+      if(isLast){ if(window.__goCta(${embedJson(safeCtaUrl(cfg.ctaUrl))})) return; close(); }
       else { close(); spin(); }
     };
   }

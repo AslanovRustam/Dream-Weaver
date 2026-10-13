@@ -1,4 +1,5 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
+import { kitParts, type LandingExtras } from "./landingKit";
 // Build a self-contained HTML page for a fortune-wheel landing: background,
 // flanking characters, spinning SVG wheel, SPIN button and a win / try-again
 // modal — all inline (images as data URLs), no external assets. Mirrors the
@@ -23,6 +24,8 @@ export type WheelExportConfig = {
   prizes: { label: string; sub?: string; enabled?: boolean }[];
   charLeft: string;
   charRight: string;
+  /** Язык, юр. текст, трекинг и блоки под первым экраном (landingKit). */
+  extras?: LandingExtras;
 };
 
 function esc(s: string): string {
@@ -54,6 +57,7 @@ function darken(hex: string, amt: number): string {
 
 export function buildWheelHtml(cfg: WheelExportConfig): string {
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#f97316";
+  const k = kitParts(cfg.extras, accent, !!cfg.dark, cfg.ctaUrl ?? "", "casino");
   const prizes = cfg.prizes.length >= 2 ? cfg.prizes : [{ label: "BONUS" }, { label: "TRY AGAIN" }];
   const n = prizes.length;
   const ang = 360 / n;
@@ -100,11 +104,12 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
   );
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${k.lang}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Spin & Win")}</title>
+${k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -134,6 +139,7 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
   .card .prize{font-weight:800}
   .card button{margin-top:16px;width:100%;border:0;border-radius:10px;padding:12px;font-weight:800;color:#fff;cursor:pointer;background:${accent}}
   .card .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1}
+${k.css}
 </style>
 </head>
 <body>
@@ -172,9 +178,13 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     <div class="modal" id="modal">
       <div class="card" id="card"></div>
     </div>
+    ${k.legalLine}
   </div>
+  ${k.after}
+  ${k.script}
 <script>
 (function(){
+  var T=${k.stringsJson};
   var prizes=${prizesJson};
   var n=prizes.length, ang=360/n, rotation=0, spinning=false;
   var disc=document.getElementById('disc'), modal=document.getElementById('modal'), card=document.getElementById('card');
@@ -197,14 +207,14 @@ export function buildWheelHtml(cfg: WheelExportConfig): string {
     var seg=prizes[i]||{label:''};
     var lose=!seg.label||loseRe.test(seg.label);
     if(lose){
-      card.innerHTML='<button class="x" id="cx">&times;</button><h2>😅 Almost!</h2><p>Not this time — spin again, your prize is waiting!</p><button id="again">Spin again</button>';
+      card.innerHTML='<button class="x" id="cx">&times;</button><h2>😅 '+T.almost+'</h2><p>'+T.almostText+'</p><button id="again">'+T.spinAgain+'</button>';
     }else{
-      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 Congratulations!</h2><p>You won <span class="prize" style="color:${accent}">'+ (seg.label+(seg.sub?' '+seg.sub:'')) +'</span></p><button id="claim">Claim bonus</button>';
+      card.innerHTML='<button class="x" id="cx">&times;</button><h2>🎉 '+T.congrats+'</h2><p>'+T.youWon+' <span class="prize" style="color:${accent}">'+ (seg.label+(seg.sub?' '+seg.sub:'')) +'</span></p><button id="claim">'+T.claim+'</button>';
     }
     modal.classList.add('show');
     var cx=document.getElementById('cx'); if(cx)cx.onclick=close;
     var again=document.getElementById('again'); if(again)again.onclick=function(){close();spin();};
-    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ var u=${embedJson(safeCtaUrl(cfg.ctaUrl))}; if(u){ (window.top||window).location.href=u; } else { close(); } };
+    var claim=document.getElementById('claim'); if(claim)claim.onclick=function(){ if(!window.__goCta(${embedJson(safeCtaUrl(cfg.ctaUrl))})) close(); };
   }
   function close(){ modal.classList.remove('show'); }
   document.getElementById('hub').onclick=spin;
