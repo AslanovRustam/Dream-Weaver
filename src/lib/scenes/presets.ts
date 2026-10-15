@@ -208,6 +208,34 @@ export const SCENES: SceneMeta[] = [
     rewardTheme: "Tall stacks of casino chips and gold coins with a glowing roulette ball, casino win, 3D render",
   },
   {
+    id: "mines",
+    label: "Мины",
+    description: "Открывай клетки — алмазы растят множитель. Первый раунд — бомба, второй — ×10.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв открыть" },
+      { key: "tryAgain", label: "После бомбы" },
+      { key: "mult", label: "Множитель (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Dark futuristic crypto casino interior, deep blue neon light, floating glowing gems, bokeh",
+    rewardTheme: "A pile of glowing blue diamonds and gold coins, crypto casino win, 3D render",
+  },
+  {
+    id: "cases",
+    label: "Кейс",
+    description: "Открытие кейса: лента тормозит под маркером — сначала рядом с легендаркой, потом на ней.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв открыть" },
+      { key: "tryAgain", label: "После «почти»" },
+      { key: "opensLeft", label: "Счётчик кейсов (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Dark purple gaming arena with neon violet light, floating loot crates, golden sparks, bokeh",
+    rewardTheme: "A legendary golden loot item glowing above an open purple crate, gaming casino win, 3D render",
+  },
+  {
     id: "cut",
     label: "Разрез",
     description: "Монеты и самоцветы подлетают снизу — режь пальцем, бомбы не трогай.",
@@ -343,6 +371,18 @@ const TEXT: Record<SceneId, Record<SceneLang, Record<string, string>>> = {
     uk: { title: "Став на червоне —\nзабирай бонус", tap: "Тисни, щоб крутити", tryAgain: "Зеро! Крути ще", spinsLeft: "Запусків: ", bet: "Ставка: червоне", bonus: "Твій бонус:", cta: "Забрати бонус" },
     en: { title: "Bet on red\nand win", tap: "Tap to spin", tryAgain: "Zero! Spin again", spinsLeft: "Spins: ", bet: "Bet: red", bonus: "Your bonus:", cta: "Claim bonus" },
     es: { title: "Apuesta al rojo\ny gana", tap: "Toca para girar", tryAgain: "¡Cero! Otra vez", spinsLeft: "Giros: ", bet: "Apuesta: rojo", bonus: "Tu bono:", cta: "Reclamar bono" },
+  },
+  mines: {
+    ru: { title: "Найди алмазы —\nзабери ×10", tap: "Открывай клетки", tryAgain: "Бум! Ещё раунд", mult: "Множитель ×", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Знайди діаманти —\nзабери ×10", tap: "Відкривай клітинки", tryAgain: "Бум! Ще раунд", mult: "Множник ×", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Find the gems\nwin ×10", tap: "Open the tiles", tryAgain: "Boom! One more round", mult: "Multiplier ×", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Encuentra gemas\ny gana ×10", tap: "Abre las casillas", tryAgain: "¡Bum! Otra ronda", mult: "Multiplicador ×", bonus: "Tu bono:", cta: "Reclamar bono" },
+  },
+  cases: {
+    ru: { title: "Открой кейс —\nвыбей легендарку", tap: "Жми, чтобы открыть", tryAgain: "Почти легендарка! Ещё кейс", opensLeft: "Кейсов: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Відкрий кейс —\nвибий легендарку", tap: "Тисни, щоб відкрити", tryAgain: "Майже легендарка! Ще кейс", opensLeft: "Кейсів: ", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Open the case\nhit a legendary", tap: "Tap to open", tryAgain: "So close! One more case", opensLeft: "Cases: ", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Abre la caja\nconsigue legendario", tap: "Toca para abrir", tryAgain: "¡Casi! Otra caja", opensLeft: "Cajas: ", bonus: "Tu bono:", cta: "Reclamar bono" },
   },
   catcher: {
     ru: { title: "Лови монеты —\nзабирай бонус", tap: "Веди котёл пальцем", go: "Лови монеты!", caught: "Монет: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
@@ -591,6 +631,16 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
   ],
   basket: [{ id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" }],
   roulette: [],
+  mines: [
+    { id: "gem", kind: "object", label: "Алмаз", hint: "Под клеткой", size: 220, subject: "a single glowing faceted blue diamond gem, front view" },
+    { id: "bomb", kind: "object", label: "Бомба", hint: "Под клеткой", size: 220, subject: "a cartoon black round bomb with a lit fuse and sparks" },
+  ],
+  cases: [
+    {
+      id: "symbols", kind: "symbols", label: "Предметы ленты", hint: "6 штук; шестой — легендарка",
+      subject: "six loot items of rising rarity for a case-opening game: a coin, a cherry, a bell, a gold bar, a lucky seven and, last, a legendary glowing golden diamond",
+    },
+  ],
   penalty: [
     { id: "ball", kind: "object", label: "Мяч", hint: "Летит в ворота", size: 240, subject: "a glossy classic football (soccer ball), perfect sphere, black and white panels" },
     { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, generic kit without logos or numbers, non-identifiable" },

@@ -1,0 +1,75 @@
+/* Сценарий «Кейс» — открытие кейса, как в CS2-казино: лента предметов
+   разгоняется и тормозит под маркером. Первый раз — фиолетовый предмет, а
+   легендарка проезжает рядом; второй — легендарка. Координаты — в пикселях
+   сцены 1080×1920 (горизонталь — внизу). */
+
+body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #2a1258 0%, #12072a 55%, #07030f 100%)); background-size: cover; background-position: center; }
+#bg { background: var(--img-bg, radial-gradient(120% 70% at 50% 35%, #3a1a7a 0%, #170936 50%, #07030f 100%)); background-size: cover; background-position: center; }
+
+#glowBack {
+  left: -60px; top: 520px; width: 1200px; height: 900px;
+  background: radial-gradient(closest-side, rgba(255, 210, 90, .8), rgba(255, 160, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 380px; width: 1200px; height: 1200px; opacity: 0; }
+
+#crate { left: 350px; top: 500px; width: 380px; height: 290px; pointer-events: none; }
+#crateBody { left: 10px; top: 80px; width: 360px; height: 200px; filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .55)); }
+#crateLid { left: 0; top: 18px; width: 380px; height: 90px; transform-origin: 20px 80px; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .45)); }
+#crateGlow { left: 40px; top: 40px; width: 300px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 230, 140, .95), rgba(255, 200, 80, 0)); opacity: 0; }
+.idle #crate { animation: crateBob 1.6s ease-in-out infinite; }
+@keyframes crateBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+
+#strip {
+  left: 0; top: 820px; width: 1080px; height: 330px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(10, 4, 26, .85), rgba(24, 10, 52, .9), rgba(10, 4, 26, .85));
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .08), inset 0 -3px 0 rgba(0, 0, 0, .4);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+#reel { left: 0; top: 25px; height: 280px; will-change: transform; }
+.item {
+  position: absolute; top: 0; width: 200px; height: 280px; border-radius: 22px; overflow: hidden;
+  background: radial-gradient(120% 80% at 50% 30%, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 60%), linear-gradient(180deg, #23123f, #120826);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .1);
+  display: flex; align-items: center; justify-content: center;
+}
+.item svg, .item img.ai { width: 130px; height: 130px; filter: drop-shadow(0 10px 12px rgba(0, 0, 0, .5)); margin-top: -20px; }
+.item::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: var(--rc); box-shadow: 0 0 24px 6px var(--rc); }
+.item::before { content: ""; position: absolute; inset: 0; background: radial-gradient(70% 50% at 50% 100%, var(--rc), transparent 70%); opacity: .35; }
+.r1 { --rc: #4b8bff; } .r2 { --rc: #8b5cf6; } .r3 { --rc: #ec4899; } .r4 { --rc: #ef4444; }
+.r5 { --rc: #fbbf24; background: radial-gradient(120% 80% at 50% 30%, rgba(255, 230, 140, .5), rgba(255, 200, 80, 0) 60%), linear-gradient(180deg, #5a3a06, #241402); }
+.r5 svg, .r5 img.ai { filter: drop-shadow(0 0 24px rgba(255, 210, 90, .9)); }
+.item.win { box-shadow: inset 0 0 0 6px #ffe9a0, 0 0 50px 14px rgba(255, 210, 90, .8); animation: itemPulse .7s ease-in-out infinite alternate; }
+.item.near { box-shadow: inset 0 0 0 5px #c4b5fd; }
+@keyframes itemPulse { to { transform: scale(1.06); } }
+
+#marker {
+  left: 534px; top: 800px; width: 12px; height: 370px; border-radius: 6px; pointer-events: none;
+  background: linear-gradient(180deg, #ffe9a0, #f5b324); box-shadow: 0 0 18px 4px rgba(255, 210, 90, .8);
+}
+#marker::before, #marker::after { content: ""; position: absolute; left: -16px; width: 0; height: 0; border-left: 22px solid transparent; border-right: 22px solid transparent; }
+#marker::before { top: -6px; border-top: 30px solid #f5b324; }
+#marker::after { bottom: -6px; border-bottom: 30px solid #f5b324; }
+
+#spinPill {
+  left: 290px; top: 1260px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(40, 16, 80, .95), rgba(16, 6, 34, .97));
+  box-shadow: 0 0 0 5px #f5b324, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffd36a; letter-spacing: .02em; }
+
+#tapText { top: 1410px; font-size: 80px; }
+#hand { left: 500px; top: 640px; }
+#hand.on { animation: handTapC 1.4s ease-in-out infinite; }
+@keyframes handTapC { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-20px) scale(1.05); } 60% { transform: translateY(6px) scale(.94); } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: кейс и лента слева, тексты — колонкой справа */
+.land #crate { left: 350px; top: 80px; }
+.land #strip { left: 0; top: 430px; }
+.land #marker { left: 534px; top: 410px; }
+.land #glowBack { left: -60px; top: 60px; }
+.land #raysBack { left: -60px; top: -80px; }
+.land #hand { left: 500px; top: 250px; }
