@@ -27,8 +27,15 @@ export type BonusCard = { title: string; text: string; image?: string };
 export type Review = { name: string; city: string; text: string };
 export type FaqItem = { q: string; a: string };
 
+/** Линейная графика поверх фона первого экрана. auto — лучи для казино, дуги для спорта. */
+export type LandingLines = "auto" | "rays" | "arcs" | "off";
+/** Оформление блоков под механикой. */
+export type LandingStyle = "vivid" | "premium";
+
 export type LandingExtras = {
   lang: LandingLang;
+  /** Первый экран: постановка появления, линейная графика; стиль блоков под ним. */
+  look: { intro: boolean; lines: LandingLines; style: LandingStyle };
   /** Юр. текст: строка внизу первого экрана и подвал. */
   legal: string;
   tracking: {
@@ -118,7 +125,7 @@ const LEGAL: Record<LandingLang, string> = {
   es: "18+. El juego puede crear adicción. Juega con responsabilidad. Solo nuevos jugadores, aplican T&C.",
 };
 
-type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking">;
+type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking" | "look">;
 
 function pack(lang: LandingLang, kind: LandingKind): Pack {
   const casino = kind === "casino";
@@ -284,6 +291,7 @@ export function defaultExtras(lang: LandingLang = "ru", kind: LandingKind = "cas
     lang,
     legal: LEGAL[lang],
     tracking: { metaPixel: "", tiktokPixel: "", gtm: "", passParams: true },
+    look: { intro: true, lines: "auto", style: "vivid" },
     ...pack(lang, kind),
   };
 }
@@ -294,6 +302,7 @@ export function relocalizeExtras(x: LandingExtras, lang: LandingLang, kind: Land
   return {
     ...d,
     tracking: x.tracking,
+    look: x.look,
     bonuses: { ...d.bonuses, on: x.bonuses.on, items: d.bonuses.items.map((it, i) => ({ ...it, image: x.bonuses.items[i]?.image })) },
     trust: { ...d.trust, on: x.trust.on, rating: x.trust.rating, payments: x.trust.payments },
     steps: { ...d.steps, on: x.steps.on },
@@ -314,6 +323,7 @@ export function normalizeExtras(raw: unknown, kind: LandingKind): LandingExtras 
     ...r,
     lang,
     tracking: { ...d.tracking, ...(r.tracking ?? {}) },
+    look: { ...d.look, ...(r.look ?? {}) },
     bonuses: { ...d.bonuses, ...(r.bonuses ?? {}) },
     trust: { ...d.trust, ...(r.trust ?? {}) },
     steps: { ...d.steps, ...(r.steps ?? {}) },
@@ -648,11 +658,116 @@ function kitScript(x: LandingExtras, ctaUrl: string, kind: LandingKind): string 
 </script>`;
 }
 
+// ---------------------------------------------------------------- первый экран: появление и линейная графика
+//
+// Общая разметка механик: .stage > .col > (.top, h1, [.cd], .wheelWrap|.mid, .cta) и .char по бокам.
+// Начальные состояния действуют только пока на <html> висит go-intro: класс ставится до первой
+// отрисовки и снимается, как только анимации созданы (fill: backwards держит первый кадр
+// на время задержки) — или через 4 с, если таймлайн так и не стартовал. Без анимаций
+// (reduce-motion, старый браузер) страница сразу видна целиком.
+
+function introHead(look: LandingExtras["look"]): string {
+  if (!look.intro) return "";
+  return `<script>(function(d){try{if(!Element.prototype.animate)return;if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;d.documentElement.classList.add('go-intro');setTimeout(function(){d.documentElement.classList.remove('go-intro');},4000);}catch(e){}})(document);</script>`;
+}
+
+function introCss(dark: boolean): string {
+  const hide = [".top", "h1", ".cd", ".wheelWrap", ".mid", ".col>.cta", ".char", ".goArt"].map((s) => `.go-intro .stage ${s}`).join(",");
+  return `
+  ${hide},.go-intro .exLegalLine{opacity:0}
+  .stage h1 .gw{display:inline-block;white-space:nowrap}
+  .stage h1 .gl{display:inline-block}
+  .goArt{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;${dark ? "mix-blend-mode:screen;opacity:.85" : "opacity:.55"}}
+  .goArt .spin{transform-box:view-box;transform-origin:50% 54%;animation:goSpin 90s linear infinite}
+  @keyframes goSpin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.goArt .spin{animation:none}}
+  `;
+}
+
+/** Лучи и кольца вокруг механики (казино) или трибунные дуги (спорт). */
+function stageArt(look: LandingExtras["look"], kind: LandingKind, accent: string): string {
+  const mode = look.lines === "auto" ? (kind === "sport" ? "arcs" : "rays") : look.lines;
+  if (mode === "off") return "";
+  const ac = /^#[0-9a-f]{3,8}$/i.test(accent) ? accent : "#f59e0b";
+  const cx = 500;
+  const cy = 540;
+  const attrs = `pathLength="1" vector-effect="non-scaling-stroke" data-draw`;
+  let body = "";
+  if (mode === "rays") {
+    const rays = Array.from({ length: 28 }, (_, i) => {
+      const a = (i / 28) * Math.PI * 2;
+      const r1 = 300;
+      const r2 = i % 2 ? 640 : 820;
+      const p = (r: number) => `${(cx + Math.cos(a) * r).toFixed(1)} ${(cy + Math.sin(a) * r).toFixed(1)}`;
+      return `<path d="M${p(r1)}L${p(r2)}" stroke="url(#goRay)" stroke-width="${i % 2 ? 1 : 1.6}" ${attrs}/>`;
+    }).join("");
+    body =
+      `<defs><radialGradient id="goRay" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="820"><stop offset=".3" stop-color="#ffd34d" stop-opacity=".95"/><stop offset=".62" stop-color="${ac}" stop-opacity=".5"/><stop offset="1" stop-color="${ac}" stop-opacity="0"/></radialGradient></defs>` +
+      `<g class="spin">${rays}</g>` +
+      `<circle cx="${cx}" cy="${cy}" r="300" fill="none" stroke="#ffd34d" stroke-opacity=".7" stroke-width="1.4" ${attrs}/>` +
+      `<circle cx="${cx}" cy="${cy}" r="328" fill="none" stroke="#ffd34d" stroke-opacity=".35" stroke-width="1" ${attrs}/>`;
+  } else {
+    const tier = (y: number, bow: number) => `<path d="M-40 ${y}Q${cx} ${y + bow} 1040 ${y}" fill="none" stroke="#fff" stroke-opacity=".42" stroke-width="1" ${attrs}/>`;
+    body =
+      [110, 165, 220].map((y, i) => tier(y, 150 - i * 20)).join("") +
+      [890, 945, 1000].map((y, i) => tier(y, -150 + i * 20)).join("") +
+      `<circle cx="${cx}" cy="${cy}" r="190" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1" ${attrs}/>` +
+      `<path d="M-40 ${cy}H1040" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="1" ${attrs}/>` +
+      `<circle cx="${cx}" cy="${cy}" r="250" fill="none" stroke="${ac}" stroke-opacity=".55" stroke-width="1.4" ${attrs}/>`;
+  }
+  return `<svg class="goArt" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">${body}</svg>`;
+}
+
+/** Рантайм появления: делит заголовок на буквы и проигрывает таймлайн. */
+const INTRO_SCRIPT = `
+  (function(){
+    var root=document.documentElement, st=document.querySelector('.stage');
+    if(!st || !root.classList.contains('go-intro')) return;
+    var E1='cubic-bezier(.16,1,.3,1)', E2='cubic-bezier(.77,0,.18,1)', E3='cubic-bezier(.62,.04,.22,1)';
+    var h=st.querySelector('h1');
+    if(h && !h.querySelector('.gl')){
+      var text=h.textContent||''; h.setAttribute('aria-label',text); h.textContent='';
+      var parts=text.split(/(\\s+)/);
+      for(var p=0;p<parts.length;p++){
+        if(!parts[p]) continue;
+        if(/^\\s+$/.test(parts[p])){ h.appendChild(document.createTextNode(' ')); continue; }
+        var w=document.createElement('span'); w.className='gw'; w.setAttribute('aria-hidden','true');
+        var chars=Array.from(parts[p]);
+        for(var c=0;c<chars.length;c++){ var l=document.createElement('span'); l.className='gl'; l.textContent=chars[c]; w.appendChild(l); }
+        h.appendChild(w);
+      }
+    }
+    var started=false;
+    function go(){
+      if(started) return; started=true;
+      function an(el,k,o){ if(!el) return; try{ o.fill='backwards'; if(!o.easing) o.easing=E1; el.animate(k,o); }catch(e){} }
+      var up=[{opacity:0,transform:'translateY(24px)'},{opacity:1,transform:'none'}];
+      an(st.querySelector('.goArt'),[{opacity:0},{opacity:1}],{duration:500,delay:0});
+      var lines=st.querySelectorAll('.goArt [data-draw]'), ls=Math.min(30,700/Math.max(1,lines.length));
+      for(var i=0;i<lines.length;i++) an(lines[i],[{strokeDasharray:'1 1',strokeDashoffset:1},{strokeDasharray:'1 1',strokeDashoffset:0}],{duration:1300,delay:120+i*ls,easing:E3});
+      an(st.querySelector('.top'),[{opacity:0,clipPath:'inset(0 50% 0 50%)'},{opacity:1,clipPath:'inset(0 0% 0 0%)'}],{duration:700,delay:80,easing:E2});
+      var gl=h?h.querySelectorAll('.gl'):[], gs=Math.min(38,620/Math.max(1,gl.length));
+      for(var j=0;j<gl.length;j++) an(gl[j],[{opacity:0,transform:'translateY(.6em) rotate(8deg)'},{opacity:1,transform:'none'}],{duration:900,delay:180+j*gs});
+      an(st.querySelector('.cd'),up,{duration:700,delay:420});
+      an(st.querySelector('.wheelWrap, .mid'),[{opacity:0,transform:'translateY(40px) scale(.86)'},{opacity:1,transform:'none'}],{duration:1100,delay:320});
+      an(st.querySelector('.col>.cta'),[{opacity:0,clipPath:'inset(0 100% 0 0 round 999px)'},{opacity:1,clipPath:'inset(0 0% 0 0 round 999px)'}],{duration:800,delay:780,easing:E2});
+      an(st.querySelector('.char.left'),[{opacity:0,transform:'translateX(-30%)'},{opacity:1,transform:'none'}],{duration:1100,delay:420});
+      an(st.querySelector('.char.right'),[{opacity:0,transform:'translateX(30%)'},{opacity:1,transform:'none'}],{duration:1100,delay:480});
+      an(st.querySelector('.exLegalLine'),[{opacity:0},{opacity:1}],{duration:600,delay:1000});
+      root.classList.remove('go-intro');
+    }
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(go, go);
+    setTimeout(go,1200);
+  })();
+`;
+
 export type KitParts = {
   lang: LandingLang;
   head: string;
   css: string;
   legalLine: string;
+  /** Линейная графика — первым ребёнком .stage. */
+  stageArt: string;
   after: string;
   script: string;
   strings: LandingStrings;
@@ -666,11 +781,12 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
   const strings = landingStrings(x.lang);
   return {
     lang: x.lang,
-    head: trackingHead(x.tracking),
-    css: kitCss(accent, dark),
+    head: introHead(x.look) + trackingHead(x.tracking),
+    css: kitCss(accent, dark) + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
+    stageArt: stageArt(x.look, kind, accent),
     after: sectionsHtml(x, strings, accent),
-    script: kitScript(x, ctaUrl, kind),
+    script: kitScript(x, ctaUrl, kind) + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : ""),
     strings,
     stringsJson: embedJson(strings),
   };

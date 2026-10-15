@@ -21,12 +21,20 @@ import {
   type LandingExtras,
   type LandingKind,
   type LandingLang,
+  type LandingLines,
 } from "@/lib/landingKit";
 
 const INPUT = "h-10 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
 const AREA = "w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green";
 const CHIP_ON = "border-accent-green bg-accent-green/10 text-accent-green";
 const CHIP_OFF = "border-border text-foreground/70 hover:bg-white/5";
+
+const LINE_OPTIONS: { id: LandingLines; label: string }[] = [
+  { id: "auto", label: "Авто" },
+  { id: "rays", label: "Лучи" },
+  { id: "arcs", label: "Дуги" },
+  { id: "off", label: "Без линий" },
+];
 
 const BONUS_STYLE = "glossy 3D casino promo illustration, polished gold, vivid saturated colours, soft studio light";
 
@@ -120,6 +128,35 @@ export function LandingExtrasPanel({
 
   return (
     <>
+      <CollapsibleSection title="Первый экран" hint="Анимация появления, графика поверх фона">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={x.look.intro}
+            onChange={(e) => patch("look", { intro: e.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[var(--accent-green)]"
+          />
+          <span>
+            Анимация появления
+            <span className="block ds-caption">Буквы заголовка поднимаются, механика въезжает, кнопка раскрывается — около секунды при открытии.</span>
+          </span>
+        </label>
+        <label className="mb-1.5 mt-3 block ds-caption">Линии поверх фона</label>
+        <div className="grid grid-cols-2 gap-2">
+          {LINE_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => patch("look", { lines: o.id })}
+              aria-pressed={x.look.lines === o.id}
+              className={`rounded-lg border px-2 py-2 text-sm transition ${x.look.lines === o.id ? CHIP_ON : CHIP_OFF}`}
+            >
+              {o.id === "auto" ? (kind === "sport" ? "Авто — дуги" : "Авто — лучи") : o.label}
+            </button>
+          ))}
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection title="Язык, 18+ и трекинг" hint="Тексты окон, юр. строка, пиксели">
         <label className="mb-1.5 block ds-caption">Язык лендинга — тексты окон, кнопок и блоков</label>
         <div className="grid grid-cols-2 gap-2">

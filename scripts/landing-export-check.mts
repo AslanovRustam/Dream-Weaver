@@ -77,6 +77,18 @@ for (const m of MECHANICS) {
   const bare = m.build(off, "");
   check(`${m.id}: блоки выключаются`, !bare.includes('class="bento"') && !bare.includes("<b data-extimer>") && !bare.includes('class="trust"') && bare.includes('<div class="age">18+</div>'));
 
+  // первый экран: появление и линии
+  check(`${m.id}: анимация появления по умолчанию`, bare.includes("classList.add('go-intro')") && bare.includes('class="goArt"'));
+  const calm = defaultExtras("ru", m.kind);
+  calm.look = { intro: false, lines: "off", style: "vivid" };
+  const calmHtml = m.build(calm, "");
+  check(`${m.id}: появление и линии выключаются`, !calmHtml.includes("classList.add('go-intro')") && !calmHtml.includes("animate(k,o)") && !calmHtml.includes('class="goArt"'));
+  for (const lines of ["rays", "arcs"] as const) {
+    const lx = defaultExtras("ru", m.kind);
+    lx.look.lines = lines;
+    check(`${m.id}: линии ${lines}`, m.build(lx, "").includes("data-draw"));
+  }
+
   // пиксели и проверки ID
   const px = defaultExtras("ru", m.kind);
   px.tracking = { metaPixel: "1234567890", tiktokPixel: "CABCDEF1234567", gtm: "GTM-ABC123", passParams: true };
@@ -131,6 +143,35 @@ for (const m of MECHANICS) {
   check(`${m.id}: subid и click_id докинуты, свои параметры целы`, /subid=777/.test(dest) && /click_id=abc/.test(dest) && /src=landing/.test(dest), dest);
   check(`${m.id}: без ошибок на странице`, errors.length === 0, errors.join("; "));
   await page.close();
+
+  // появление: после старта всё видно, заголовок разбит на буквы, класс снят
+  for (const reduce of [false, true]) {
+    const p2 = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: reduce ? "reduce" : "no-preference" });
+    const errs: string[] = [];
+    p2.on("pageerror", (e: Error) => errs.push(String(e)));
+    await p2.setContent(m.build(defaultExtras("ru", m.kind), ""));
+    await p2.waitForTimeout(2600);
+    // строкой: tsx оборачивает функции в __name, которого нет на странице
+    const st = (await p2.evaluate(`(() => {
+      const op = (s) => { const el = document.querySelector(s); return el ? Number(getComputedStyle(el).opacity) : 1; };
+      const l = document.querySelectorAll(".stage h1 .gl");
+      const h = document.querySelector(".stage h1");
+      return {
+        intro: document.documentElement.classList.contains("go-intro"),
+        letters: l.length,
+        h1: (h && (h.getAttribute("aria-label") || h.textContent)) || "",
+        min: Math.min(op(".stage .top"), op(".stage h1"), op(".stage .wheelWrap, .stage .mid"), op(".stage .col>.cta")),
+        lastLetter: l.length ? Number(getComputedStyle(l[l.length - 1]).opacity) : 1,
+      };
+    })()`)) as { intro: boolean; letters: number; h1: string; min: number; lastLetter: number };
+    const tag = `${m.id}${reduce ? " (reduce-motion)" : ""}`;
+    check(`${tag}: класс появления снят`, !st.intro);
+    check(`${tag}: всё видно после появления`, st.min > 0.99 && st.lastLetter > 0.99, JSON.stringify(st));
+    if (reduce) check(`${tag}: без начальных состояний`, st.letters === 0);
+    else check(`${tag}: заголовок по буквам`, st.letters > 3 && st.h1.length > 3, JSON.stringify(st));
+    check(`${tag}: без ошибок`, errs.length === 0, errs.join("; "));
+    await p2.close();
+  }
 }
 await browser.close();
 

@@ -131,7 +131,7 @@ ${k.css}
 </style>
 </head>
 <body>
-  <div class="stage">
+  <div class="stage">${k.stageArt}
     ${charImg(cfg.charLeft, "left")}
     ${charImg(cfg.charRight, "right")}
     <div class="col">
