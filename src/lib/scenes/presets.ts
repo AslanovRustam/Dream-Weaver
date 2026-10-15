@@ -179,6 +179,20 @@ export const SCENES: SceneMeta[] = [
     rewardTheme: "A golden basketball trophy on a pile of gold coins, sports betting win, 3D render",
   },
   {
+    id: "penalty",
+    label: "Пенальти",
+    description: "Свайп к воротам — удар: первый берёт вратарь, второй — в девятку. Для беттинга.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв ударить" },
+      { key: "tryAgain", label: "После сейва" },
+      { key: "kicksLeft", label: "Счётчик ударов (перед числом)" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Football stadium at night from the penalty spot, blazing floodlights, green pitch, crowd in bokeh, light haze",
+    rewardTheme: "A golden football trophy on a pile of gold coins, sports betting win, 3D render",
+  },
+  {
     id: "cut",
     label: "Разрез",
     description: "Монеты и самоцветы подлетают снизу — режь пальцем, бомбы не трогай.",
@@ -255,6 +269,7 @@ const LEGAL: Record<SceneLang, string> = {
 /** Где бонус — не фриспины (фрибет в беттинге). */
 const UNIT_BY_SCENE: Partial<Record<SceneId, Record<SceneLang, string>>> = {
   basket: { ru: "€", uk: "€", en: "€", es: "€" },
+  penalty: { ru: "€", uk: "€", en: "€", es: "€" },
 };
 
 const UNIT: Record<SceneLang, string> = { ru: "фриспинов", uk: "фриспінів", en: "free spins", es: "giros gratis" };
@@ -301,6 +316,12 @@ const TEXT: Record<SceneId, Record<SceneLang, Record<string, string>>> = {
     uk: { title: "Закинь м'яч —\nзабери фрібет", tap: "Свайп угору — кидай", tryAgain: "Майже! Ще кидок", shotsLeft: "Кидків: ", bonus: "Твій фрібет:", cta: "Забрати фрібет" },
     en: { title: "Sink the shot\nwin a free bet", tap: "Swipe up to shoot", tryAgain: "So close! Again", shotsLeft: "Shots: ", bonus: "Your free bet:", cta: "Claim free bet" },
     es: { title: "Encesta y gana\nuna apuesta gratis", tap: "Desliza para tirar", tryAgain: "¡Casi! Otra vez", shotsLeft: "Tiros: ", bonus: "Tu apuesta gratis:", cta: "Reclamar" },
+  },
+  penalty: {
+    ru: { title: "Забей пенальти —\nзабери фрибет", tap: "Свайп к воротам — бей", tryAgain: "Сейв! Ещё удар", kicksLeft: "Ударов: ", bonus: "Твой фрибет:", cta: "Забрать фрибет" },
+    uk: { title: "Забий пенальті —\nзабери фрібет", tap: "Свайп до воріт — бий", tryAgain: "Сейв! Ще удар", kicksLeft: "Ударів: ", bonus: "Твій фрібет:", cta: "Забрати фрібет" },
+    en: { title: "Score the penalty\nwin a free bet", tap: "Swipe to shoot", tryAgain: "Saved! Shoot again", kicksLeft: "Kicks: ", bonus: "Your free bet:", cta: "Claim free bet" },
+    es: { title: "Marca el penalti\ny gana", tap: "Desliza para chutar", tryAgain: "¡Parada! Otra vez", kicksLeft: "Tiros: ", bonus: "Tu apuesta gratis:", cta: "Reclamar" },
   },
   catcher: {
     ru: { title: "Лови монеты —\nзабирай бонус", tap: "Веди котёл пальцем", go: "Лови монеты!", caught: "Монет: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
@@ -548,6 +569,10 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
     BOMB_PART,
   ],
   basket: [{ id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" }],
+  penalty: [
+    { id: "ball", kind: "object", label: "Мяч", hint: "Летит в ворота", size: 240, subject: "a glossy classic football (soccer ball), perfect sphere, black and white panels" },
+    { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, generic kit without logos or numbers, non-identifiable" },
+  ],
   cut: [
     { id: "symbols", kind: "symbols", label: "Что режем", hint: "6 предметов", subject: "six different juicy casino treasures to slice: coins, gems, a lucky seven, a cherry, a star, a gold bar" },
     BOMB_PART,

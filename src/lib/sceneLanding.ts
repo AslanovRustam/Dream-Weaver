@@ -11,9 +11,9 @@
 import { kitParts, type LandingExtras, type LandingKind } from "./landingKit";
 import type { SceneId } from "./scenes/build";
 
-/** Баскетбол и викторина — под спорт, остальные сцены — казино. */
+/** Баскетбол, пенальти и викторина — под спорт, остальные сцены — казино. */
 export function sceneLandingKind(scene: SceneId): LandingKind {
-  return scene === "basket" || scene === "quiz" ? "sport" : "casino";
+  return scene === "basket" || scene === "penalty" || scene === "quiz" ? "sport" : "casino";
 }
 
 function esc(s: string): string {

@@ -10,7 +10,7 @@ import type { PlayableNetwork } from "./networks";
 import type { FrameArt } from "./art";
 import type { UiPalette, WheelPalette } from "./presets";
 
-export type SceneId = "safe" | "wheel" | "scratch" | "slot" | "chests" | "aviator" | "plinko" | "memory" | "catcher" | "basket" | "cut" | "blast" | "match3" | "quiz";
+export type SceneId = "safe" | "wheel" | "scratch" | "slot" | "chests" | "aviator" | "plinko" | "memory" | "catcher" | "basket" | "penalty" | "cut" | "blast" | "match3" | "quiz";
 
 export type SceneConfig = {
   scene: SceneId;

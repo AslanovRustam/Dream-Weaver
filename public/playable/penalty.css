@@ -1,0 +1,61 @@
+/* Сценарий «Пенальти»: первый удар вратарь берёт в прыжке, второй — в
+   девятку, сетка вздрагивает. Координаты — в пикселях сцены 1080×1920
+   (горизонталь — внизу). */
+
+/* Без фона от ИИ — ночной газон, а не общий коричневый. */
+body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #1d6b3a 0%, #0b3a1f 55%, #04160b 100%)); background-size: cover; background-position: center; }
+#bg { background: var(--img-bg, radial-gradient(120% 70% at 50% 30%, #2a8a4c 0%, #0f4a26 50%, #052012 100%)); background-size: cover; background-position: center; }
+#pitch { left: 0; top: 990px; width: 1080px; height: 700px; pointer-events: none; }
+
+#glowBack {
+  left: -60px; top: 300px; width: 1200px; height: 1000px;
+  background: radial-gradient(closest-side, rgba(120, 255, 160, .7), rgba(40, 200, 110, .2) 55%, rgba(20, 160, 80, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 160px; width: 1200px; height: 1200px; opacity: 0; }
+
+#goal, #posts { left: 140px; top: 520px; width: 800px; height: 470px; pointer-events: none; }
+#goal { z-index: 1; }
+#posts { z-index: 5; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, .55)); }
+#net { transform-origin: 400px 240px; }
+.goal #net { animation: netBulge .7s ease-out; }
+@keyframes netBulge { 25% { transform: scale(1.06, 1.04); } 60% { transform: scale(.98); } }
+
+#keeper { left: 430px; top: 640px; width: 220px; height: 340px; z-index: 3; transform-origin: 110px 300px; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
+.idle #keeper { animation: keeperSway 1.4s ease-in-out infinite; }
+@keyframes keeperSway { 0%, 100% { transform: translateX(-18px); } 50% { transform: translateX(18px); } }
+
+#ball { left: 450px; top: 1330px; width: 180px; height: 180px; z-index: 4; will-change: transform; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
+#ball.behind { z-index: 2; }
+.idle #ball { animation: ballNudge 1.2s ease-in-out infinite; }
+@keyframes ballNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+
+/* Цели ударов: левая и правая «девятки». */
+#cornerL { left: 260px; top: 620px; width: 0; height: 0; }
+#cornerR { left: 830px; top: 640px; width: 0; height: 0; }
+
+#spinPill {
+  left: 290px; top: 1560px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(14, 50, 30, .94), rgba(4, 22, 12, .96));
+  box-shadow: 0 0 0 5px #3fd17a, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #7dffb0; letter-spacing: .02em; }
+
+#tapText { top: 1680px; font-size: 80px; }
+/* Подсказка: свайп от мяча к воротам */
+#hand { left: 500px; top: 1370px; }
+#hand.on { animation: handKick 1.6s ease-in-out infinite; }
+@keyframes handKick { 0%, 20% { transform: translate(0, 40px); opacity: 0; } 35% { opacity: 1; } 70% { transform: translate(-120px, -220px); opacity: 1; } 100% { transform: translate(-140px, -260px); opacity: 0; } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: ворота и мяч слева, тексты — колонкой справа */
+.land #goal, .land #posts { left: 120px; top: 60px; }
+.land #pitch { left: -20px; top: 530px; width: 1080px; height: 560px; }
+.land #keeper { left: 410px; top: 180px; }
+.land #cornerL { left: 240px; top: 160px; }
+.land #cornerR { left: 810px; top: 180px; }
+.land #ball { left: 430px; top: 820px; }
+.land #glowBack { left: -70px; top: -60px; }
+.land #raysBack { left: -70px; top: -160px; }
+.land #hand { left: 480px; top: 840px; }
