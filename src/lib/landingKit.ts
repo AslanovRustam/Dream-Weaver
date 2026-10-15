@@ -37,7 +37,15 @@ export type LandingStyle = "vivid" | "premium";
 export type LandingExtras = {
   lang: LandingLang;
   /** Первый экран: постановка появления, линейная графика; стиль блоков под ним. */
-  look: { intro: boolean; lines: LandingLines; style: LandingStyle };
+  look: {
+    intro: boolean;
+    lines: LandingLines;
+    style: LandingStyle;
+    /** Парящие объекты по краям первого экрана: фишки, карты, монеты (спорт — мячи, кубок). */
+    floaters: boolean;
+    /** Свои объекты (ИИ или загрузка) вместо встроенных — прозрачные PNG. */
+    floatImgs?: string[];
+  };
   /** Юр. текст: строка внизу первого экрана и подвал. */
   legal: string;
   tracking: {
@@ -327,7 +335,7 @@ export function defaultExtras(lang: LandingLang = "ru", kind: LandingKind = "cas
     lang,
     legal: LEGAL[lang],
     tracking: { metaPixel: "", tiktokPixel: "", gtm: "", passParams: true },
-    look: { intro: true, lines: "auto", style: "vivid" },
+    look: { intro: true, lines: "auto", style: "vivid", floaters: true },
     games: gamesPack(lang, kind),
     ...pack(lang, kind),
   };
@@ -823,12 +831,19 @@ function introHead(look: LandingExtras["look"]): string {
 }
 
 function introCss(dark: boolean): string {
-  const hide = [".top", "h1", ".cd", ".wheelWrap", ".mid", ".col>.cta", ".char", ".goArt"].map((s) => `.go-intro .stage ${s}`).join(",");
+  const hide = [".top", "h1", ".cd", ".wheelWrap", ".mid", ".col>.cta", ".char", ".goArt", ".goFl"].map((s) => `.go-intro .stage ${s}`).join(",");
   return `
   ${hide},.go-intro .exLegalLine{opacity:0}
   .stage h1 .gw{display:inline-block;white-space:nowrap}
   .stage h1 .gl{display:inline-block}
   .goArt{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;${dark ? "mix-blend-mode:screen;opacity:.85" : "opacity:.55"}}
+  .goFl{position:absolute;z-index:1;pointer-events:none;width:var(--s);aspect-ratio:1;translate:calc(var(--px,0) * var(--d) * 1px) calc((var(--py,0) * var(--d) - var(--sy,0) * var(--d) * .35) * 1px)}
+  .goFl.near{z-index:4;filter:blur(1.2px) drop-shadow(0 14px 18px rgba(0,0,0,.5))}
+  .goFl.far{filter:blur(1.6px) brightness(.85);opacity:.85}
+  .goFl.mid{filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
+  .goFl>*{display:block;width:100%;height:100%;object-fit:contain;animation:goBob var(--t,6s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+  @keyframes goBob{50%{transform:translateY(-12px) rotate(var(--rt,10deg))}}
+  @media (prefers-reduced-motion:reduce){.goFl>*{animation:none}}
   .goArt .spin{transform-box:view-box;transform-origin:50% 54%;animation:goSpin 90s linear infinite}
   @keyframes goSpin{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion:reduce){.goArt .spin{animation:none}}
@@ -836,6 +851,55 @@ function introCss(dark: boolean): string {
 }
 
 /** Лучи и кольца вокруг механики (казино) или трибунные дуги (спорт). */
+/** Встроенные объекты: SVG фишки, карты, монеты и кости (казино) или мячи, кубок, звезда (спорт). */
+function floaterArt(kind: LandingKind, i: number, accent: string): string {
+  const ac = /^#[0-9a-f]{3,8}$/i.test(accent) ? accent : "#f59e0b";
+  const u = `f${i}`;
+  const gold = `<defs><radialGradient id="g${u}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff7cf"/><stop offset=".35" stop-color="#ffd34d"/><stop offset=".75" stop-color="#e09b12"/><stop offset="1" stop-color="#9a5f00"/></radialGradient></defs>`;
+  const svg = (b: string) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${b}</svg>`;
+  const chip = (c: string) => svg(`<circle cx="50" cy="50" r="46" fill="${c}"/><circle cx="50" cy="50" r="46" fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="14 10.1"/><circle cx="50" cy="50" r="30" fill="${c}" stroke="#fff" stroke-opacity=".7" stroke-width="2"/><circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2"/><text x="50" y="59" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="24" fill="#fff">$</text>`);
+  const coin = svg(`${gold}<circle cx="50" cy="50" r="46" fill="url(#g${u})" stroke="#a86500" stroke-width="3"/><circle cx="50" cy="50" r="34" fill="none" stroke="#a86500" stroke-width="2" opacity=".6"/><text x="50" y="62" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="34" fill="#a86500">$</text>`);
+  const card = (suit: string, red: boolean) => svg(`<rect x="18" y="6" width="64" height="88" rx="9" fill="#fff" stroke="rgba(0,0,0,.2)" stroke-width="2"/><text x="28" y="30" font-family="Georgia,serif" font-weight="700" font-size="20" fill="${red ? "#dc2626" : "#111"}">A</text><text x="50" y="66" text-anchor="middle" font-size="38" fill="${red ? "#dc2626" : "#111"}">${suit}</text>`);
+  const dice = svg(`<rect x="10" y="10" width="80" height="80" rx="18" fill="#fff" stroke="rgba(0,0,0,.2)" stroke-width="2"/>${[[30, 30], [70, 30], [50, 50], [30, 70], [70, 70]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8" fill="#dc2626"/>`).join("")}`);
+  const casino = [chip(ac), coin, card("♠", false), dice, chip("#dc2626"), card("♥", true), coin];
+  const emoji = (e: string) => `<span style="font-size:calc(var(--s) * .86);line-height:1;display:flex;align-items:center;justify-content:center">${e}</span>`;
+  const sport = [emoji("⚽"), emoji("🏆"), coin, emoji("⚽"), emoji("⭐"), emoji("🏅"), coin];
+  return (kind === "sport" ? sport : casino)[i % 7];
+}
+
+/** Три слоя глубины: дальние — мелкие и размытые, ближние — крупные, поверх механики, по самому краю. */
+const FLOAT_SLOTS = [
+  { cls: "far", x: "8%", y: "14%", s: 38, d: 6, t: 7, r: 14 },
+  { cls: "far", x: "84%", y: "30%", s: 34, d: 6, t: 8, r: -12 },
+  { cls: "mid", x: "-3%", y: "44%", s: 62, d: 14, t: 6, r: 10 },
+  { cls: "mid", x: "88%", y: "56%", s: 58, d: 14, t: 6.5, r: -14 },
+  { cls: "far", x: "14%", y: "72%", s: 32, d: 6, t: 7.5, r: 12 },
+  { cls: "near", x: "-7%", y: "82%", s: 92, d: 26, t: 5.5, r: -8 },
+  { cls: "near", x: "86%", y: "17%", s: 80, d: 26, t: 6, r: 9 },
+];
+
+function floatersHtml(look: LandingExtras["look"], kind: LandingKind, accent: string): string {
+  if (!look.floaters) return "";
+  const own = (look.floatImgs ?? []).filter((u) => /^data:image\//.test(u));
+  return FLOAT_SLOTS.map((p, i) => {
+    const inner = own.length ? `<img src="${esc(own[i % own.length])}" alt=""/>` : floaterArt(kind, i, accent);
+    return `<div class="goFl ${p.cls}" aria-hidden="true" style="left:${p.x};top:${p.y};--s:clamp(${Math.round(p.s * 0.75)}px,${(p.s / 4).toFixed(1)}vmin,${Math.round(p.s * 1.5)}px);--d:${p.d};--t:${p.t}s;--rt:${p.r}deg;--dl:-${i * 0.9}s">${inner}</div>`;
+  }).join("");
+}
+
+/** Параллакс: слои объектов сдвигаются от мыши и при прокрутке — каждый на свою глубину. */
+const FLOAT_SCRIPT = `
+  (function(){
+    var st=document.querySelector('.stage'); if(!st || !st.querySelector('.goFl')) return;
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var tx=0, ty=0, px=0, py=0;
+    window.addEventListener('pointermove',function(e){ if(e.pointerType!=='mouse') return; tx=(e.clientX/innerWidth-.5)*2; ty=(e.clientY/innerHeight-.5)*2; },{passive:true});
+    (function f(){ px+=(tx-px)*.06; py+=(ty-py)*.06;
+      st.style.setProperty('--px',px.toFixed(3)); st.style.setProperty('--py',py.toFixed(3)); st.style.setProperty('--sy',(Math.min(window.scrollY||0,1200)/10).toFixed(1));
+      requestAnimationFrame(f); })();
+  })();
+`;
+
 function stageArt(look: LandingExtras["look"], kind: LandingKind, accent: string): string {
   const mode = look.lines === "auto" ? (kind === "sport" ? "arcs" : "rays") : look.lines;
   if (mode === "off") return "";
@@ -904,6 +968,8 @@ const INTRO_SCRIPT = `
       an(st.querySelector('.col>.cta'),[{opacity:0,clipPath:'inset(0 100% 0 0 round 999px)'},{opacity:1,clipPath:'inset(0 0% 0 0 round 999px)'}],{duration:800,delay:780,easing:E2});
       an(st.querySelector('.char.left'),[{opacity:0,transform:'translateX(-30%)'},{opacity:1,transform:'none'}],{duration:1100,delay:420});
       an(st.querySelector('.char.right'),[{opacity:0,transform:'translateX(30%)'},{opacity:1,transform:'none'}],{duration:1100,delay:480});
+      var fl=st.querySelectorAll('.goFl');
+      for(var q=0;q<fl.length;q++) an(fl[q],[{opacity:0,transform:'scale(.4) rotate(-30deg)'},{opacity:1,transform:'none'}],{duration:1000,delay:500+q*70,easing:'cubic-bezier(.34,1.56,.64,1)'});
       an(st.querySelector('.exLegalLine'),[{opacity:0},{opacity:1}],{duration:600,delay:1000});
       root.classList.remove('go-intro');
     }
@@ -935,9 +1001,9 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
     head: introHead(x.look) + trackingHead(x.tracking),
     css: kitCss(accent, dark) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
-    stageArt: stageArt(x.look, kind, accent),
+    stageArt: stageArt(x.look, kind, accent) + floatersHtml(x.look, kind, accent),
     after: sectionsHtml(x, strings, accent, kind),
-    script: kitScript(x, ctaUrl, kind) + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : ""),
+    script: kitScript(x, ctaUrl, kind) + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : "") + (x.look.floaters ? `<script>${FLOAT_SCRIPT}</script>` : ""),
     strings,
     stringsJson: embedJson(strings),
   };
@@ -956,5 +1022,6 @@ export function stripExtrasImages(x: LandingExtras): LandingExtras {
     ...x,
     bonuses: { ...x.bonuses, items: x.bonuses.items.map(({ title, text }) => ({ title, text })) },
     games: { ...x.games, items: x.games.items.map(({ title, sub }) => ({ title, sub })) },
+    look: { ...x.look, floatImgs: undefined },
   };
 }

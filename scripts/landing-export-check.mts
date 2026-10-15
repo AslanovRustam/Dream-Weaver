@@ -81,10 +81,15 @@ for (const m of MECHANICS) {
 
   // первый экран: появление и линии
   check(`${m.id}: анимация появления по умолчанию`, bare.includes("classList.add('go-intro')") && bare.includes('class="goArt"'));
+  check(`${m.id}: парящие объекты по умолчанию`, (bare.match(/class="goFl /g) ?? []).length === 7);
+  const own = defaultExtras("ru", m.kind);
+  own.look.floatImgs = ["data:image/png;base64,AAAA", "javascript:alert(1)"];
+  const ownHtml = m.build(own, "");
+  check(`${m.id}: свои объекты, мусор отброшен`, ownHtml.split('<img src="data:image/png;base64,AAAA"').length - 1 === 7 && !ownHtml.includes("javascript:alert"));
   const calm = defaultExtras("ru", m.kind);
-  calm.look = { intro: false, lines: "off", style: "vivid" };
+  calm.look = { intro: false, lines: "off", style: "vivid", floaters: false };
   const calmHtml = m.build(calm, "");
-  check(`${m.id}: появление и линии выключаются`, !calmHtml.includes("classList.add('go-intro')") && !calmHtml.includes("animate(k,o)") && !calmHtml.includes('class="goArt"'));
+  check(`${m.id}: появление, линии и объекты выключаются`, !calmHtml.includes('class="goFl') && !calmHtml.includes("classList.add('go-intro')") && !calmHtml.includes("animate(k,o)") && !calmHtml.includes('class="goArt"'));
   for (const lines of ["rays", "arcs"] as const) {
     const lx = defaultExtras("ru", m.kind);
     lx.look.lines = lines;

@@ -123,6 +123,42 @@ export function LandingExtrasPanel({
     const cur = latest.current;
     onChange({ ...cur, games: { ...cur.games, items: cur.games.items.map((g, i) => (imgs[i] ? { ...g, image: imgs[i] } : g)) } });
   };
+  // ---- ИИ-объекты первого экрана: 6 штук одной генерацией сеткой 3×2
+  const applyFloaters = async (_key: string, dataUrl: string) => {
+    const tiles = await sliceIconGrid(dataUrl, 3, 2);
+    const imgs = await Promise.all(tiles.map((t) => prepareSprite(t, 220)));
+    const cur = latest.current;
+    onChange({ ...cur, look: { ...cur.look, floaters: true, floatImgs: imgs } });
+  };
+  const floatRun = useAssetRun({ resumeKey: `dw_jobs_float_${mechanic}`, apply: applyFloaters });
+  const floatStep = (): AssetStep => {
+    const body = {
+      count: 6,
+      prompt:
+        kind === "sport"
+          ? "Six floating 3D objects for a sports-betting landing page hero, one per tile: a football, a gold trophy cup, a gold medal, a basketball, a gold star, a stack of gold coins. Glossy, dynamic angle, no text."
+          : "Six floating 3D objects for a casino landing page hero, one per tile: a red casino chip, a gold coin, an ace playing card tilted, a white dice, a sparkling diamond, a pair of cherries. Glossy, dynamic tilted angle, no text.",
+    };
+    return {
+      id: "floaters",
+      label: "Объекты первого экрана — 6 штук",
+      credits: SLOT_SYMBOLS_PRICE_CREDITS,
+      run: async () => {
+        try {
+          const res = await apiFetch("/api/generate-slot-symbols", { method: "POST", json: body });
+          const data = (await res.json()) as { imageUrl?: string; error?: string };
+          if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сгенерировать");
+          await applyFloaters("floaters", data.imageUrl);
+          return true;
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
+          return false;
+        }
+      },
+      server: { route: "/api/generate-slot-symbols", body },
+    };
+  };
+
   const gamesRun = useAssetRun({ resumeKey: `dw_jobs_games_${mechanic}`, apply: applyGames });
   const gamesStep = (): AssetStep => {
     const names = x.games.items.map((g) => g.title.trim()).filter(Boolean).slice(0, 8);
@@ -172,7 +208,7 @@ export function LandingExtrasPanel({
 
   return (
     <>
-      <CollapsibleSection title="Первый экран" hint="Анимация появления, графика поверх фона">
+      <CollapsibleSection title="Первый экран" hint="Анимация появления, парящие объекты, линии">
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
@@ -185,6 +221,54 @@ export function LandingExtrasPanel({
             <span className="block ds-caption">Буквы заголовка поднимаются, механика въезжает, кнопка раскрывается — около секунды при открытии.</span>
           </span>
         </label>
+        <label className="mt-3 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={x.look.floaters}
+            onChange={(e) => patch("look", { floaters: e.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[var(--accent-green)]"
+          />
+          <span>
+            Парящие объекты
+            <span className="block ds-caption">
+              {kind === "sport" ? "Мячи, кубок, медали" : "Фишки, карты, монеты, кости"} по краям — в три слоя глубины, сдвигаются за мышью и при прокрутке.
+            </span>
+          </span>
+        </label>
+        {x.look.floaters ? (
+          <div className="mt-2">
+            {x.look.floatImgs?.length ? (
+              <div className="mb-2 flex items-center gap-1.5">
+                {x.look.floatImgs.map((u, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={u} alt="" className="h-9 w-9 rounded-md bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:10px_10px] object-contain" />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => patch("look", { floatImgs: undefined })}
+                  aria-label="Вернуть встроенные объекты"
+                  className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-white/5"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+            <p className="mb-1.5 flex items-center gap-1.5 ds-caption">
+              <Sparkles className="h-3.5 w-3.5 text-accent-green" /> Объекты от ИИ — 6 штук одной генерацией
+            </p>
+            <AssetRunPanel
+              steps={floatRun.steps}
+              running={floatRun.running}
+              notEnough={floatRun.notEnough}
+              credits={SLOT_SYMBOLS_PRICE_CREDITS}
+              onStart={() => {
+                if (isGuest) return openGate();
+                void floatRun.start([floatStep()]);
+              }}
+              onCancel={floatRun.cancel}
+            />
+          </div>
+        ) : null}
         <label className="mb-1.5 mt-3 block ds-caption">Линии поверх фона</label>
         <div className="grid grid-cols-2 gap-2">
           {LINE_OPTIONS.map((o) => (
