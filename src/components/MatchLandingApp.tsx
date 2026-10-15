@@ -16,6 +16,7 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { ThemeStrip } from "@/components/landing/ThemeStrip";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
@@ -707,6 +708,25 @@ export function MatchLandingApp() {
           />
           <p className="mt-1.5 ds-caption">Обязательно. По тематике ИИ подбирает тексты, команды и промпты — жмите ✨ у полей.</p>
         </div>
+
+        <ThemeStrip
+          kind="sport"
+          extras={extras}
+          onExtras={setExtras}
+          onApply={(t, h, bg) => {
+            const prev = { accent, headline, theme, bgImage };
+            setAccent(t.accent);
+            setHeadline(h);
+            setTheme(t.theme);
+            setBgImage(bg);
+            return () => {
+              setAccent(prev.accent);
+              setHeadline(prev.headline);
+              setTheme(prev.theme);
+              setBgImage(prev.bgImage);
+            };
+          }}
+        />
 
         <BannerReferenceField
           value={bannerRef}

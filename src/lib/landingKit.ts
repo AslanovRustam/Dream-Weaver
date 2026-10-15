@@ -45,6 +45,8 @@ export type LandingExtras = {
     floaters: boolean;
     /** Свои объекты (ИИ или загрузка) вместо встроенных — прозрачные PNG. */
     floatImgs?: string[];
+    /** Набор объектов готовой темы (landingThemes): тыквы, снежинки, кактусы… */
+    floatTheme?: string;
   };
   /** Юр. текст: строка внизу первого экрана и подвал. */
   legal: string;
@@ -880,11 +882,32 @@ const FLOAT_SLOTS = [
   { cls: "near", x: "86%", y: "17%", s: 80, d: 26, t: 6, r: 9 },
 ];
 
+/** Объекты готовых тем — эмодзи: крупные, цветные, без файлов. */
+const THEME_FLOATERS: Record<string, string[]> = {
+  halloween: ["🎃", "🦇", "👻", "🍬", "🕸️", "🎃", "🦇"],
+  newyear: ["🎁", "❄️", "🎄", "⭐", "🔔", "🎁", "❄️"],
+  egypt: ["🏺", "💎", "🐫", "☀️", "🪲", "💰", "🏺"],
+  neon: ["💎", "🎲", "⚡", "🃏", "💜", "🎰", "💎"],
+  wildwest: ["🤠", "🌵", "💰", "🐎", "🃏", "⭐", "🌵"],
+  ocean: ["🐚", "🐠", "💎", "🦀", "🫧", "🪙", "🐙"],
+  stadium: ["⚽", "🏆", "⭐", "⚽", "🥇", "📣", "⚽"],
+  derby: ["🔥", "⚽", "🔥", "🧨", "⚽", "🔥", "🏆"],
+  champions: ["⭐", "🏆", "⚽", "✨", "⭐", "🥇", "⚽"],
+  final: ["🏆", "🎉", "⚽", "🥇", "✨", "🎊", "🏆"],
+};
+const emojiFloater = (e: string) =>
+  `<span style="font-size:calc(var(--s) * .86);line-height:1;display:flex;align-items:center;justify-content:center">${e}</span>`;
+
 function floatersHtml(look: LandingExtras["look"], kind: LandingKind, accent: string): string {
   if (!look.floaters) return "";
   const own = (look.floatImgs ?? []).filter((u) => /^data:image\//.test(u));
+  const themed = look.floatTheme ? THEME_FLOATERS[look.floatTheme] : undefined;
   return FLOAT_SLOTS.map((p, i) => {
-    const inner = own.length ? `<img src="${esc(own[i % own.length])}" alt=""/>` : floaterArt(kind, i, accent);
+    const inner = own.length
+      ? `<img src="${esc(own[i % own.length])}" alt=""/>`
+      : themed
+        ? emojiFloater(themed[i % themed.length])
+        : floaterArt(kind, i, accent);
     return `<div class="goFl ${p.cls}" aria-hidden="true" style="left:${p.x};top:${p.y};--s:clamp(${Math.round(p.s * 0.75)}px,${(p.s / 4).toFixed(1)}vmin,${Math.round(p.s * 1.5)}px);--d:${p.d};--t:${p.t}s;--rt:${p.r}deg;--dl:-${i * 0.9}s">${inner}</div>`;
   }).join("");
 }

@@ -37,6 +37,7 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { ThemeStrip } from "@/components/landing/ThemeStrip";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 
 const BG_PRICE = imageCredits(1);
@@ -803,6 +804,25 @@ export function SlotLandingApp() {
             Обязательно. По тематике ИИ подбирает тексты и промпты — жмите ✨ у полей.
           </p>
         </div>
+
+        <ThemeStrip
+          kind="casino"
+          extras={extras}
+          onExtras={setExtras}
+          onApply={(t, h, bg) => {
+            const prev = { accent, headline, theme, bgImage };
+            setAccent(t.accent);
+            setHeadline(h);
+            setTheme(t.theme);
+            setBgImage(bg);
+            return () => {
+              setAccent(prev.accent);
+              setHeadline(prev.headline);
+              setTheme(prev.theme);
+              setBgImage(prev.bgImage);
+            };
+          }}
+        />
 
         <BannerReferenceField
           value={bannerRef}

@@ -125,6 +125,23 @@ for (const m of MECHANICS) {
   check(`${m.id}: javascript:-ссылки нет`, !/javascript:alert/i.test(evHtml));
 }
 
+// ---- готовые темы: фон проходит в CSS url() как есть, объекты темы — в выгрузке
+{
+  const { LANDING_THEMES, themeBackground } = await import("../src/lib/landingThemes");
+  const { cssUrl } = await import("../src/lib/exportUtils");
+  for (const t of LANDING_THEMES) {
+    const bg = themeBackground(t.id);
+    const svg = Buffer.from(bg.split(",")[1] ?? "", "base64").toString("utf8");
+    check(`тема ${t.id}: фон — SVG, cssUrl его не режет`, bg.startsWith("data:image/svg+xml;base64,") && cssUrl(bg) === bg && svg.startsWith("<svg") && svg.endsWith("</svg>") && !svg.includes("NaN"));
+    check(`тема ${t.id}: заголовок на 4 языках`, ["ru", "uk", "en", "es"].every((l) => !!t.headline[l as LandingLang]));
+    const x = defaultExtras("ru", t.kind);
+    x.look.floatTheme = t.id;
+    const m = MECHANICS.find((mm) => mm.kind === t.kind)!;
+    const html = m.build(x, "");
+    check(`тема ${t.id}: объекты темы в выгрузке`, (html.match(/class="goFl /g) ?? []).length === 7 && !html.includes('<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="46" fill="url(#gf'));
+  }
+}
+
 // ---- поведение в браузере: кнопка уводит на оффер с subid
 const PLAYWRIGHT = "playwright";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
