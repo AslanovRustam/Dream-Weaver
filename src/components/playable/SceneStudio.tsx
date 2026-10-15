@@ -40,6 +40,8 @@ import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
 import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
+import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
+import { useAuth } from "@/lib/auth-context";
 import {
   DEFAULT_WIN_INDEX,
   SCENE_LANGS,
@@ -57,7 +59,7 @@ const AREA = "w-full resize-y rounded-lg border border-border bg-elevated px-3 p
 const CHIP_ON = "border-accent-green bg-accent-green/10 text-accent-green";
 const CHIP_OFF = "border-border text-foreground/70 hover:bg-white/5";
 
-const draftKey = (scene: SceneId, mode: StudioMode = "playable") => `dw_scene_draft_${scene}${mode === "landing" ? "_landing" : ""}`;
+const draftKey = (scene: SceneId, mode: StudioMode = "playable") => sceneDraftKey(scene, mode === "landing");
 /** Плейбл — файлы под рекламные сети; лендинг — страница: сцена первым экраном и блоки под ней. */
 export type StudioMode = "playable" | "landing";
 
@@ -187,6 +189,17 @@ export function SceneStudio({
   const kind = sceneLandingKind(scene);
   const confirm = useConfirm();
   const { isGuest, openGate } = useAuthGate();
+  const { user } = useAuth();
+  /** После скачивания — в «Мои проекты» (если таблица проектов уже есть). */
+  const saveToHistory = () =>
+    void saveProject({
+      kind: mode === "landing" ? "landing-scene" : "playable",
+      scene,
+      name: d.brandName.trim() ? `${meta.label} — ${d.brandName.trim()}` : meta.label,
+      uid: user?.id,
+    }).then((r) => {
+      if (r === "saved") toast.success("Сохранено в «Мои проекты»");
+    });
 
   const [d, setD] = useState<Draft>(() => freshDraft(scene, "ru", brandName, brandLogo));
   const [restored, setRestored] = useState(false);
@@ -352,6 +365,7 @@ export function SceneStudio({
     });
     if (!ok) return;
     setD((p) => ({ ...freshDraft(scene, p.lang, p.brandName, p.logo), clickUrl: p.clickUrl, targets: p.targets }));
+    forgetProject(draftKey(scene, mode));
   };
 
   const pickLogo = async (file: File | undefined) => {
@@ -522,6 +536,7 @@ export function SceneStudio({
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       toast.success("Лендинг скачан — один HTML, всё внутри");
+      saveToHistory();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось собрать лендинг");
     } finally {
@@ -565,6 +580,7 @@ export function SceneStudio({
       over.forEach((p) => toast.warning(`${NETWORK_BY_ID.get(p.network)!.label}: ${mb(p.bytes)} — ${p.note ?? `больше лимита ${mb(p.limit)}`}. Уберите фон или награду.`));
       files.filter((p) => p.note && !over.includes(p)).forEach((p) => toast(`${NETWORK_BY_ID.get(p.network)!.label}: ${p.note}`));
       toast.success(files.length === 1 ? `Скачан файл для «${NETWORK_BY_ID.get(files[0].network)!.label}»` : `Скачано файлов: ${files.length} — по одному на площадку`);
+      saveToHistory();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось собрать плейбл");
     } finally {

@@ -45,6 +45,9 @@ import { apiJson } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/lib/workspace-context";
 import { readProjectMap } from "@/lib/workspaces";
+import { isSectionEnabled } from "@/lib/mvp";
+import { deleteProject, listProjects, openProject as openSavedProject, patchProject, projectCaption, projectThumb, type ProjectMeta } from "@/lib/projects";
+import { listDrafts, removeDraft, type DraftMeta } from "@/lib/emailDraftsStore";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import {
   getMockProjects,
@@ -57,12 +60,14 @@ type Tab = "projects" | "credits";
 type SortKey = "new" | "old" | "name";
 type ViewMode = "grid" | "list";
 
-const TYPES: ProjectType[] = ["banner", "landing", "playable", "video"];
+// Типы — только открытых разделов: закрытый раздел не светится в фильтре.
+const TYPES: ProjectType[] = (["banner", "landing", "playable", "email", "video"] as ProjectType[]).filter((t) => isSectionEnabled(t));
 const TYPE_PLURAL: Record<ProjectType, string> = {
   banner: "Баннеры",
   landing: "Лендинги",
   playable: "Плейблы",
   video: "Видео",
+  email: "Письма",
 };
 
 // Feature flag: "Избранное" is temporarily hidden across История (desktop filter
@@ -140,20 +145,22 @@ function ProjectsTab() {
     const qs = `/api/history?bucket=active&limit=100${
       activeId ? `&workspace=${encodeURIComponent(activeId)}` : ""
     }`;
-    apiJson<{ items?: unknown[] }>(qs)
-      .then((r) => {
-        if (cancelled) return;
-        const items = Array.isArray(r?.items) ? r.items : [];
-        if (items.length > 0) {
-          const map = readProjectMap(uid);
-          setProjects(mapRealCards(items).filter((c) => (map[c.id] || defaultId) === activeId));
-        } else {
-          setProjects(getMockProjects(undefined, seed));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setProjects(getMockProjects(undefined, seed));
-      });
+    // Баннеры, проекты лендингов/плейблов и черновики писем — параллельно; чего
+    // нет (таблица не создана, раздел закрыт, гость) — просто пусто.
+    Promise.all([
+      apiJson<{ items?: unknown[] }>(qs).then((r) => (Array.isArray(r?.items) ? r.items : [])).catch(() => [] as unknown[]),
+      uid ? listProjects().catch(() => null) : Promise.resolve(null),
+      uid && isSectionEnabled("email") ? listDrafts(true).catch(() => [] as DraftMeta[]) : Promise.resolve([] as DraftMeta[]),
+    ]).then(([items, saved, emails]) => {
+      if (cancelled) return;
+      const map = readProjectMap(uid);
+      const real = [
+        ...mapRealCards(items),
+        ...mapSavedProjects((saved ?? []).filter((p) => p.kind !== "playable" || isSectionEnabled("playable"))),
+        ...mapEmailDrafts(emails),
+      ].filter((c) => (map[c.id] || defaultId) === activeId);
+      setProjects(real.length > 0 ? real : getMockProjects(undefined, seed));
+    });
     return () => {
       cancelled = true;
     };
@@ -208,7 +215,8 @@ function ProjectsTab() {
     if (!clean) return;
     const target = projects?.find((x) => x.id === id);
     patch(id, (x) => ({ ...x, name: clean }));
-    if (target?.real) apiJson(`/api/history/${id}`, { method: "PATCH", json: { name: clean } }).catch(() => {});
+    if (target?.source === "project") void patchProject(id, { name: clean });
+    else if (target?.real && target.source !== "email") apiJson(`/api/history/${id}`, { method: "PATCH", json: { name: clean } }).catch(() => {});
   };
   const duplicate = (p: Project) => {
     // Unique id — the old `${id}-copy-${name.length}${updatedAt slice}` scheme
@@ -219,19 +227,32 @@ function ProjectsTab() {
     toast.success("Проект дублирован");
   };
   const trash = (p: Project) => {
+    // У черновиков писем корзины нет — удаление сразу, поэтому с подтверждением.
+    if (p.source === "email") {
+      void confirm({ title: `Удалить черновик «${p.name}»?`, body: "У писем нет корзины — восстановить не получится.", destructive: true, confirmLabel: "Удалить" }).then((ok) => {
+        if (!ok) return;
+        setProjects((prev) => (prev ? prev.filter((x) => x.id !== p.id) : prev));
+        void removeDraft(p.id, true);
+        toast("Черновик письма удалён");
+      });
+      return;
+    }
     patch(p.id, (x) => ({ ...x, deleted: true }));
     setSelected((s) => { const n = new Set(s); n.delete(p.id); return n; });
-    if (p.real) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: [p.id] } }).catch(() => {});
+    if (p.source === "project") void patchProject(p.id, { deleted: true });
+    else if (p.real) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: [p.id] } }).catch(() => {});
     toast("Перемещено в корзину");
   };
   const restore = (p: Project) => {
     patch(p.id, (x) => ({ ...x, deleted: false }));
-    if (p.real) apiJson("/api/history/restore", { method: "POST", json: { card_id: p.id } }).catch(() => {});
+    if (p.source === "project") void patchProject(p.id, { deleted: false });
+    else if (p.real) apiJson("/api/history/restore", { method: "POST", json: { card_id: p.id } }).catch(() => {});
     toast.success("Восстановлено");
   };
   const hardDelete = (p: Project) => {
     setProjects((prev) => (prev ? prev.filter((x) => x.id !== p.id) : prev));
     setSelected((s) => { const n = new Set(s); n.delete(p.id); return n; });
+    if (p.source === "project") void deleteProject(p.id);
     toast("Удалено навсегда");
   };
   const download = (p: Project) => {
@@ -248,6 +269,16 @@ function ProjectsTab() {
       router.push(`${SECTION_BY_ID.get(p.type)!.route}?card=${p.id}`);
       return;
     }
+    if (p.source === "email") {
+      router.push(`/email?draft=${encodeURIComponent(p.id)}`);
+      return;
+    }
+    if (p.source === "project") {
+      openSavedProject(p.id)
+        .then((route) => router.push(route))
+        .catch((e) => toast.error(e instanceof Error ? e.message : "Не удалось открыть проект"));
+      return;
+    }
     if (p.real) {
       toast("Открытие проектов этого типа скоро — пока доступны баннеры");
       return;
@@ -261,8 +292,12 @@ function ProjectsTab() {
 
   const bulkTrash = () => {
     const ids = new Set(selected);
-    const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
-    setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: true } : p)) : prev));
+    // Письма корзины не знают — их массово не трогаем (удаляются по одному, с подтверждением).
+    const list = (projects || []).filter((p) => ids.has(p.id) && p.source !== "email");
+    const keep = new Set(list.map((p) => p.id));
+    const realIds = list.filter((p) => p.real && p.source !== "project").map((p) => p.id);
+    list.filter((p) => p.source === "project").forEach((p) => void patchProject(p.id, { deleted: true }));
+    setProjects((prev) => (prev ? prev.map((p) => (keep.has(p.id) ? { ...p, deleted: true } : p)) : prev));
     setSelected(new Set());
     if (realIds.length) apiJson("/api/history/bulk-delete", { method: "POST", json: { card_ids: realIds } }).catch(() => {});
     toast(`Перемещено в корзину: ${ids.size}`);
@@ -272,7 +307,9 @@ function ProjectsTab() {
 
   const bulkRestore = () => {
     const ids = new Set(selected);
-    const realIds = (projects || []).filter((p) => ids.has(p.id) && p.real).map((p) => p.id);
+    const sel = (projects || []).filter((p) => ids.has(p.id));
+    const realIds = sel.filter((p) => p.real && p.source !== "project").map((p) => p.id);
+    sel.filter((p) => p.source === "project").forEach((p) => void patchProject(p.id, { deleted: false }));
     setProjects((prev) => (prev ? prev.map((p) => (ids.has(p.id) ? { ...p, deleted: false } : p)) : prev));
     setSelected(new Set());
     realIds.forEach((id) =>
@@ -284,6 +321,7 @@ function ProjectsTab() {
     // Guard the irreversible bulk delete the same way the per-card ⋯ menu does.
     if (!(await confirm({ title: "Удалить выбранные проекты навсегда?", body: "Действие необратимо.", destructive: true, confirmLabel: "Удалить" }))) return;
     const ids = new Set(selected);
+    (projects || []).filter((p) => ids.has(p.id) && p.source === "project").forEach((p) => void deleteProject(p.id));
     setProjects((prev) => (prev ? prev.filter((p) => !ids.has(p.id)) : prev));
     setSelected(new Set());
     toast(`Удалено навсегда: ${ids.size}`);
@@ -982,6 +1020,39 @@ function useIsMobile() {
   return mobile;
 }
 
+function mapSavedProjects(list: ProjectMeta[]): Project[] {
+  return list.map((p) => ({
+    id: p.id,
+    type: (p.kind === "playable" ? "playable" : "landing") as ProjectType,
+    name: p.name || projectCaption(p.kind),
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    favorite: false,
+    deleted: p.deleted,
+    thumb: projectThumb(p.kind, p.scene),
+    meta: projectCaption(p.kind),
+    real: true,
+    source: "project" as const,
+  }));
+}
+
+function mapEmailDrafts(list: DraftMeta[]): Project[] {
+  return list.map((d) => ({
+    id: d.id,
+    type: "email" as ProjectType,
+    name: d.name || d.subject || "Письмо без названия",
+    createdAt: d.updatedAt,
+    updatedAt: d.updatedAt,
+    favorite: false,
+    deleted: false,
+    thumb: null,
+    gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#22c55e)",
+    meta: d.subject ? `Письмо · ${d.subject}` : "Письмо",
+    real: true,
+    source: "email" as const,
+  }));
+}
+
 function mapRealCards(items: unknown[]): Project[] {
   return items.map((raw) => {
     const c = raw as Record<string, unknown>;
@@ -1000,6 +1071,7 @@ function mapRealCards(items: unknown[]): Project[] {
       meta: w && h ? `${w}×${h}` : undefined,
       uploadFailed: master?.upload_status === "failed",
       real: true,
+      source: "card" as const,
     };
   });
 }

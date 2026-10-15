@@ -20,6 +20,8 @@ import { SlotMachine } from "@/components/SlotMachine";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { sliceIconGrid } from "@/lib/spriteSlice";
 import { downloadText, slugify } from "@/lib/download";
+import { forgetProject, saveProject } from "@/lib/projects";
+import { useAuth } from "@/lib/auth-context";
 import { buildSlotHtml } from "@/lib/slotExport";
 import { apiFetch } from "@/lib/api-client";
 import { useGeneration } from "@/lib/generation-context";
@@ -85,6 +87,14 @@ const DEFAULT_ATTEMPTS: string[] = [""];
 export function SlotLandingApp() {
   const gen = useGeneration();
   const { isGuest, openGate } = useAuthGate();
+  const { user } = useAuth();
+  /** Скачать и сохранить в «Мои проекты» — откроется из истории в том же виде. */
+  const downloadAndSave = (file: string, html: string) => {
+    downloadText(file, html);
+    void saveProject({ kind: "landing-slot", name: `${headline || "Слот-машина"} — ${brand}`, uid: user?.id }).then((r) => {
+      if (r === "saved") toast.success("Сохранено в «Мои проекты»");
+    });
+  };
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -758,6 +768,7 @@ export function SlotLandingApp() {
                 if (!window.confirm("Сбросить все настройки лендинга к значениям по умолчанию?")) return;
                 try {
                   window.localStorage.removeItem("dw_slot_draft");
+                  forgetProject("dw_slot_draft");
                 } catch {
                   /* ignore */
                 }
@@ -1105,7 +1116,7 @@ export function SlotLandingApp() {
           data-tour="landing-export"
           type="button"
           onClick={() =>
-            downloadText(
+            downloadAndSave(
               `${slugify(brand, "slot")}-slot.html`,
               buildSlotHtml({ extras, 
                 brand,

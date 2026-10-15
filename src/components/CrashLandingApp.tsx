@@ -7,6 +7,8 @@ import { ArrowLeft, Check, Download, Loader2, Monitor, Pipette, Smartphone, Spar
 import { CrashGame } from "@/components/CrashGame";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
+import { forgetProject, saveProject } from "@/lib/projects";
+import { useAuth } from "@/lib/auth-context";
 import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
 import { useGeneration } from "@/lib/generation-context";
@@ -31,6 +33,14 @@ const ROCKET_PRICE = CRASH_ROCKET_PRICE_CREDITS;
 export function CrashLandingApp() {
   const gen = useGeneration();
   const { isGuest, openGate } = useAuthGate();
+  const { user } = useAuth();
+  /** Скачать и сохранить в «Мои проекты» — откроется из истории в том же виде. */
+  const downloadAndSave = (file: string, html: string) => {
+    downloadText(file, html);
+    void saveProject({ kind: "landing-crash", name: `${headline || "Crash-игра"} — ${brand}`, uid: user?.id }).then((r) => {
+      if (r === "saved") toast.success("Сохранено в «Мои проекты»");
+    });
+  };
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -647,6 +657,7 @@ export function CrashLandingApp() {
                 if (!window.confirm("Сбросить все настройки лендинга к значениям по умолчанию?")) return;
                 try {
                   window.localStorage.removeItem("dw_crash_draft");
+                  forgetProject("dw_crash_draft");
                 } catch {
                   /* ignore */
                 }
@@ -942,7 +953,7 @@ export function CrashLandingApp() {
           data-tour="landing-export"
           type="button"
           onClick={() =>
-            downloadText(
+            downloadAndSave(
               `${slugify(brand, "crash")}-crash.html`,
               buildCrashHtml({ extras, 
                 brand,

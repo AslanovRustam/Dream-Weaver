@@ -12,9 +12,7 @@ import { ToolCoachmark } from "@/components/ToolCoachmark";
 import { PlayableTemplateSidebar } from "@/components/playable/PlayableTemplateSidebar";
 import { SceneStudio, type StudioMode } from "@/components/playable/SceneStudio";
 import { DEFAULT_PLAYABLE_PICK, PLAYABLE_CATALOG_BY_ID, PLAYABLE_PICK_KEY } from "@/lib/playableCatalog";
-
-/** Что открыто в редакторе лендинга на сцене — своя метка, не путается с плейблами. */
-export const LANDING_SCENE_PICK_KEY = "dw_landing_scene_pick";
+import { LANDING_SCENE_PICK_KEY } from "@/lib/projects";
 
 export function PlayableApp({ mode = "playable" }: { mode?: StudioMode }) {
   const pickKey = mode === "landing" ? LANDING_SCENE_PICK_KEY : PLAYABLE_PICK_KEY;

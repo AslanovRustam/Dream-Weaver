@@ -19,6 +19,8 @@ import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/L
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
+import { forgetProject, saveProject } from "@/lib/projects";
+import { useAuth } from "@/lib/auth-context";
 import { buildMatchHtml } from "@/lib/matchExport";
 import {
   clampInt,
@@ -50,6 +52,14 @@ type Side = "home" | "away";
 export function MatchLandingApp() {
   const gen = useGeneration();
   const { isGuest, openGate } = useAuthGate();
+  const { user } = useAuth();
+  /** Скачать и сохранить в «Мои проекты» — откроется из истории в том же виде. */
+  const downloadAndSave = (file: string, html: string) => {
+    downloadText(file, html);
+    void saveProject({ kind: "landing-match", name: `${headline || "Матч-прогноз"} — ${brand}`, uid: user?.id }).then((r) => {
+      if (r === "saved") toast.success("Сохранено в «Мои проекты»");
+    });
+  };
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -639,7 +649,7 @@ export function MatchLandingApp() {
   );
 
   const exportHtml = () =>
-    downloadText(
+    downloadAndSave(
       `${slugify(brand, "match")}-match.html`,
       buildMatchHtml({ extras, 
         brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage,
@@ -665,6 +675,7 @@ export function MatchLandingApp() {
                 if (!window.confirm("Сбросить все настройки лендинга к значениям по умолчанию?")) return;
                 try {
                   window.localStorage.removeItem(DRAFT_KEY);
+                  forgetProject(DRAFT_KEY);
                 } catch {
                   /* ignore */
                 }

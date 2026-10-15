@@ -19,7 +19,7 @@ import presetSport from "@/assets/preset-sport.jpg";
 // History exists only for the generative sections — not ads/stats. Keep this an
 // explicit subset of SectionId so adding non-generative sections never forces
 // history maps to cover them.
-export type ProjectType = "banner" | "landing" | "playable" | "video";
+export type ProjectType = "banner" | "landing" | "playable" | "video" | "email";
 
 export type Project = {
   id: string;
@@ -38,6 +38,8 @@ export type Project = {
   uploadFailed?: boolean;
   /** Whether this row came from the real backend (so mutations hit the API). */
   real?: boolean;
+  /** Откуда настоящая запись: карточка баннера, проект лендинга/плейбла или черновик письма. */
+  source?: "card" | "project" | "email";
 };
 
 export type CreditTx = {
@@ -55,6 +57,7 @@ const GRAD: Record<ProjectType, string> = {
   landing: "linear-gradient(135deg,#0f172a,#3b82f6,#93c5fd)",
   playable: "linear-gradient(135deg,#141a10,#4d7c0f,#a3e635)",
   video: "linear-gradient(135deg,#141b2e,#6366f1,#0a0e18)",
+  email: "linear-gradient(135deg,#0b1220,#1d4ed8,#22c55e)",
 };
 
 const H = 3600_000;
@@ -148,6 +151,7 @@ const SPEND_LABEL: Record<ProjectType, string> = {
   landing: "Генерация лендинга",
   playable: "Генерация плейбла",
   video: "Генерация видео",
+  email: "Генерация письма",
 };
 
 /** Mock credit-usage log (spend + topups), newest first. */

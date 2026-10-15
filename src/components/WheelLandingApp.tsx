@@ -19,6 +19,8 @@ import {
 import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
+import { forgetProject, saveProject } from "@/lib/projects";
+import { useAuth } from "@/lib/auth-context";
 import { buildWheelHtml } from "@/lib/wheelExport";
 import { apiFetch } from "@/lib/api-client";
 import { useGeneration } from "@/lib/generation-context";
@@ -51,6 +53,14 @@ const DEFAULT_PRIZES: WheelSegment[] = [
 export function WheelLandingApp() {
   const gen = useGeneration();
   const { isGuest, openGate } = useAuthGate();
+  const { user } = useAuth();
+  /** Скачать и сохранить в «Мои проекты» — откроется из истории в том же виде. */
+  const downloadAndSave = (file: string, html: string) => {
+    downloadText(file, html);
+    void saveProject({ kind: "landing-wheel", name: `${headline || "Колесо фортуны"} — ${brand}`, uid: user?.id }).then((r) => {
+      if (r === "saved") toast.success("Сохранено в «Мои проекты»");
+    });
+  };
   const [brand, setBrand] = useState("LOGO");
   const [brandLogo, setBrandLogo] = useState("");
   const onLogoFile = (f: File) => {
@@ -614,6 +624,7 @@ export function WheelLandingApp() {
                 if (!window.confirm("Сбросить все настройки лендинга к значениям по умолчанию?")) return;
                 try {
                   window.localStorage.removeItem("dw_wheel_draft");
+                  forgetProject("dw_wheel_draft");
                 } catch {
                   /* ignore */
                 }
@@ -853,7 +864,7 @@ export function WheelLandingApp() {
           data-tour="landing-export"
           type="button"
           onClick={() =>
-            downloadText(
+            downloadAndSave(
               `${slugify(brand, "wheel")}-wheel.html`,
               buildWheelHtml({ extras, 
                 brand,
