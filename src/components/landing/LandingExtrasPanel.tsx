@@ -22,6 +22,7 @@ import {
   type LandingKind,
   type LandingLang,
   type LandingLines,
+  type LandingStyle,
 } from "@/lib/landingKit";
 
 const INPUT = "h-10 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
@@ -34,6 +35,11 @@ const LINE_OPTIONS: { id: LandingLines; label: string }[] = [
   { id: "rays", label: "Лучи" },
   { id: "arcs", label: "Дуги" },
   { id: "off", label: "Без линий" },
+];
+
+const STYLE_OPTIONS: { id: LandingStyle; label: string; hint: string }[] = [
+  { id: "vivid", label: "Яркий", hint: "Золото, бейджи, монеты, блики — классика казино" },
+  { id: "premium", label: "Премиум", hint: "Тёмный фон, один акцент, тонкий шрифт — для премиальных брендов" },
 ];
 
 const BONUS_STYLE = "glossy 3D casino promo illustration, polished gold, vivid saturated colours, soft studio light";
@@ -201,6 +207,21 @@ export function LandingExtrasPanel({
       </CollapsibleSection>
 
       <CollapsibleSection title="Блоки под механикой" hint="Бонусы, доверие, шаги, лента, отзывы, FAQ" defaultOpen={false}>
+        <label className="mb-1.5 block ds-caption">Стиль блоков</label>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {STYLE_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => patch("look", { style: o.id })}
+              aria-pressed={x.look.style === o.id}
+              title={o.hint}
+              className={`rounded-lg border px-2 py-2 text-sm transition ${x.look.style === o.id ? CHIP_ON : CHIP_OFF}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
         <Block label="Таймер сгорания бонуса" on={x.timer.on} onToggle={(on) => patch("timer", { on })}>
           <div className="grid grid-cols-[1fr_88px] gap-2">
             <input value={x.timer.text} maxLength={60} onChange={(e) => patch("timer", { text: e.target.value })} className={INPUT} />

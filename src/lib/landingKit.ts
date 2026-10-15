@@ -492,6 +492,45 @@ function kitCss(accent: string, dark: boolean): string {
   `;
 }
 
+/** «Премиум»: тёмный фон, один акцент, тонкая типографика — без золота, бейджей, монет и бликов. Поверх яркого. */
+function premiumCss(accent: string, dark: boolean): string {
+  const c = tone(dark);
+  return `
+  .ex{background:radial-gradient(700px 360px at 50% -120px,${accent}24,transparent 70%),${c.bg};padding-top:56px}
+  .ex::before,.ex .fx,.ex .shine,.ex .bc .tag,.ex .bc .glow,.ex .bc::before,.ex .timer::before,.ex .dot,.ex .rv::before{display:none}
+  .ex::after{height:1px;background:linear-gradient(90deg,transparent,${accent}99,transparent)}
+  .ex .w{gap:56px}
+  .ex h2{background:none;color:${c.text};-webkit-text-fill-color:currentColor;font-weight:500;letter-spacing:-.035em;font-size:clamp(26px,6vw,40px)}
+  .ex h2::after{width:28px;height:1px;background:${accent}}
+  .ex .cta{animation:none;border-radius:14px;text-transform:none;letter-spacing:0;font-weight:600;font-size:17px;background:${accent};box-shadow:0 10px 30px ${accent}40;text-shadow:none}
+  .ex .cta>span:nth-child(2){display:none}
+  .ex .timer{background:${c.card};border-color:${c.line};box-shadow:none}
+  .ex .timer .tt{font-weight:600;letter-spacing:.14em;font-size:12px;color:${c.muted}}
+  .ex .timer .fire{display:none}
+  .ex .digits i{background:transparent;border:1px solid ${c.line};box-shadow:none;color:${c.text};font-weight:400;font-size:34px}
+  .ex .digits em{animation:none;color:${c.muted};font-weight:400}
+  .ex .bar{height:2px}.ex .bar span{background:${accent};box-shadow:none}
+  .ex .bc{background:${c.card};box-shadow:none;border-color:${c.line}}
+  .ex .bc .ic{opacity:.9;filter:none}.ex .bc .ic>*{animation:none}
+  .ex .bc b,.ex .bc:first-child b{background:none;color:${c.text};-webkit-text-fill-color:currentColor;font-weight:500;letter-spacing:-.02em}
+  .ex .trust>div{background:transparent}
+  .ex .trust .ti{background:transparent;border:1px solid ${c.line};box-shadow:none}
+  .ex .trust .ti svg path,.ex .trust .ti svg circle{fill:${accent}}
+  .ex .trust b{background:none;color:${c.text};-webkit-text-fill-color:currentColor;font-weight:500}
+  .ex .chips span{border-radius:999px;font-weight:500}
+  .ex .chips span:first-child{color:${c.text};border-color:${c.line}}
+  .ex .steps>div{font-weight:500}
+  .ex .steps i{background:transparent;border:1px solid ${accent};color:${accent};box-shadow:none;transform:none;font-weight:500;text-shadow:none;border-radius:50%}
+  .ex .steps>div:not(:last-child)::after{background:${c.line};width:1px}
+  .ex .tw b{background:none;color:${accent};padding:0}
+  .ex .rv .st{color:${c.text};text-shadow:none;letter-spacing:4px;font-size:13px}
+  .ex .rv .av::after{display:none}
+  .ex summary{font-weight:500}
+  .ex summary::after{background:transparent;border:1px solid ${c.line};color:${c.text};font-weight:400}
+  .ex footer .age{border-color:${c.muted};color:${c.muted}}
+  `;
+}
+
 const NAMES: Record<LandingLang, string[]> = {
   ru: ["Алексей", "Марина", "Дмитрий", "Ольга", "Игорь", "Анна", "Сергей", "Екатерина", "Максим", "Юлия"],
   uk: ["Олексій", "Марина", "Дмитро", "Ольга", "Ігор", "Анна", "Сергій", "Катерина", "Максим", "Юлія"],
@@ -782,7 +821,7 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
   return {
     lang: x.lang,
     head: introHead(x.look) + trackingHead(x.tracking),
-    css: kitCss(accent, dark) + introCss(dark),
+    css: kitCss(accent, dark) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
     stageArt: stageArt(x.look, kind, accent),
     after: sectionsHtml(x, strings, accent),

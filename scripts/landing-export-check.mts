@@ -89,6 +89,11 @@ for (const m of MECHANICS) {
     check(`${m.id}: линии ${lines}`, m.build(lx, "").includes("data-draw"));
   }
 
+  const prem = defaultExtras("ru", m.kind);
+  prem.look.style = "premium";
+  const premHtml = m.build(prem, "");
+  check(`${m.id}: стиль «Премиум»`, premHtml.includes("-webkit-text-fill-color:currentColor") && !bare.includes("-webkit-text-fill-color:currentColor"));
+
   // пиксели и проверки ID
   const px = defaultExtras("ru", m.kind);
   px.tracking = { metaPixel: "1234567890", tiktokPixel: "CABCDEF1234567", gtm: "GTM-ABC123", passParams: true };
