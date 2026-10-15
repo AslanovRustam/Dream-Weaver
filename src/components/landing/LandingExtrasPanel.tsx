@@ -12,8 +12,9 @@ import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { useAuthGate } from "@/components/AuthGate";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { apiFetch } from "@/lib/api-client";
-import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { prepareSprite } from "@/lib/scenes/art";
+import { sliceIconGrid } from "@/lib/spriteSlice";
 import {
   LANDING_LANGS,
   buildExtrasPreviewHtml,
@@ -114,6 +115,43 @@ export function LandingExtrasPanel({
         };
       });
   const credits = steps().reduce((s, st) => s + st.credits, 0);
+
+  // ---- ИИ-обложки карусели: одна генерация сеткой 4×2, режем на 8 картинок
+  const applyGames = async (_key: string, dataUrl: string) => {
+    const tiles = await sliceIconGrid(dataUrl, 4, 2);
+    const imgs = await Promise.all(tiles.map((t) => prepareSprite(t, 300)));
+    const cur = latest.current;
+    onChange({ ...cur, games: { ...cur.games, items: cur.games.items.map((g, i) => (imgs[i] ? { ...g, image: imgs[i] } : g)) } });
+  };
+  const gamesRun = useAssetRun({ resumeKey: `dw_jobs_games_${mechanic}`, apply: applyGames });
+  const gamesStep = (): AssetStep => {
+    const names = x.games.items.map((g) => g.title.trim()).filter(Boolean).slice(0, 8);
+    const body = {
+      count: 8,
+      prompt:
+        kind === "sport"
+          ? `Eight sports icons for match cards, one per tile, in this order: ${names.map((n, i) => `${i + 1}) ${n}`).join("; ")}. Each tile: the ball or emblem of that sport with dynamic energy, no team logos, no text.`
+          : `Eight hero symbols for online slot game covers, one per tile, in this order: ${names.map((n, i) => `${i + 1}) "${n}"`).join("; ")}. Each tile: the single iconic object or character that this game title suggests, no text.`,
+    };
+    return {
+      id: "games",
+      label: kind === "sport" ? "Иконки матчей — 8 штук" : "Обложки игр — 8 штук",
+      credits: SLOT_SYMBOLS_PRICE_CREDITS,
+      run: async () => {
+        try {
+          const res = await apiFetch("/api/generate-slot-symbols", { method: "POST", json: body });
+          const data = (await res.json()) as { imageUrl?: string; error?: string };
+          if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сгенерировать");
+          await applyGames("games", data.imageUrl);
+          return true;
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
+          return false;
+        }
+      },
+      server: { route: "/api/generate-slot-symbols", body },
+    };
+  };
 
   const uploadBonus = async (i: number, file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -292,6 +330,69 @@ export function LandingExtrasPanel({
               }}
               onCancel={assetRun.cancel}
             />
+          </div>
+        </Block>
+
+        <Block
+          label={kind === "sport" ? "Топ-матчи — 3D-карусель" : "Популярные игры — 3D-карусель"}
+          on={x.games.on}
+          onToggle={(on) => patch("games", { on })}
+        >
+          <input value={x.games.title} maxLength={60} onChange={(e) => patch("games", { title: e.target.value })} className={INPUT} />
+          <div className="mt-2 grid grid-cols-1 gap-1.5">
+            {x.games.items.map((g, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[repeating-conic-gradient(#222_0_25%,#2c2c2c_0_50%)] bg-[length:10px_10px]">
+                  {g.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={g.image} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </span>
+                <input
+                  value={g.title}
+                  maxLength={32}
+                  aria-label={`Название ${i + 1}`}
+                  onChange={(e) => patch("games", { items: x.games.items.map((it, j) => (j === i ? { ...it, title: e.target.value } : it)) })}
+                  className={`${INPUT} h-9 flex-[3]`}
+                />
+                <input
+                  value={g.sub}
+                  maxLength={24}
+                  aria-label={`Подпись ${i + 1}`}
+                  onChange={(e) => patch("games", { items: x.games.items.map((it, j) => (j === i ? { ...it, sub: e.target.value } : it)) })}
+                  className={`${INPUT} h-9 flex-[2]`}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 ds-caption">Клик по обложке ведёт на оффер. Пустое название — обложки нет.</p>
+          <div className="mt-2">
+            <p className="mb-1.5 flex items-center gap-1.5 ds-caption">
+              <Sparkles className="h-3.5 w-3.5 text-accent-green" /> {kind === "sport" ? "Иконки от ИИ — все 8 одной генерацией" : "Обложки от ИИ — все 8 одной генерацией"}
+            </p>
+            <AssetRunPanel
+              steps={gamesRun.steps}
+              running={gamesRun.running}
+              notEnough={gamesRun.notEnough}
+              credits={SLOT_SYMBOLS_PRICE_CREDITS}
+              onStart={() => {
+                if (isGuest) return openGate();
+                if (!x.games.items.some((g) => g.title.trim())) return toast.error("Заполните названия");
+                void gamesRun.start([gamesStep()]);
+              }}
+              onCancel={gamesRun.cancel}
+            />
+            {x.games.items.some((g) => g.image) ? (
+              <button
+                type="button"
+                onClick={() => patch("games", { items: x.games.items.map(({ title, sub }) => ({ title, sub })) })}
+                className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:underline"
+              >
+                Убрать картинки — вернуть встроенные
+              </button>
+            ) : null}
           </div>
         </Block>
 

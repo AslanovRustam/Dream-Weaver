@@ -66,6 +66,7 @@ for (const m of MECHANICS) {
     check(`${tag}: тексты окна на языке`, html.includes(JSON.stringify(S.claim).slice(1, -1)));
     if (lang !== "en") check(`${tag}: нет зашитого английского`, !/Almost!|Claim bonus'|Jackpot!</.test(html));
     if (lang !== "ru") check(`${tag}: нет зашитого русского`, !/Осталось попыток|Забрал вовремя|Хозяева|Выберите исход/.test(html));
+    check(`${tag}: карусель на 8 обложек`, html.includes("data-exgames") && (html.match(/class="gc"/g) ?? []).length === 8);
     check(`${tag}: блоки`, html.includes('class="bento"') && html.includes('class="trust"') && html.includes('class="steps"') && html.includes("data-exticker"));
     check(`${tag}: переход через __goCta`, html.includes("__goCta") && !/location\.href=u;/.test(html.replace(/__goCta[\s\S]*?\};/, "")));
     check(`${tag}: без пикселей — ни одного внешнего скрипта`, !/<script[^>]+src=/.test(html));
@@ -73,8 +74,9 @@ for (const m of MECHANICS) {
 
   // блоки выключены — только подвал
   const off = defaultExtras("ru", m.kind);
-  for (const k of ["bonuses", "trust", "steps", "winners", "timer", "reviews", "faq"] as const) off[k].on = false;
+  for (const k of ["bonuses", "games", "trust", "steps", "winners", "timer", "reviews", "faq"] as const) off[k].on = false;
   const bare = m.build(off, "");
+  check(`${m.id}: карусель выключается`, !bare.includes('class="games"'));
   check(`${m.id}: блоки выключаются`, !bare.includes('class="bento"') && !bare.includes("<b data-extimer>") && !bare.includes('class="trust"') && bare.includes('<div class="age">18+</div>'));
 
   // первый экран: появление и линии
@@ -148,6 +150,45 @@ for (const m of MECHANICS) {
   check(`${m.id}: subid и click_id докинуты, свои параметры целы`, /subid=777/.test(dest) && /click_id=abc/.test(dest) && /src=landing/.test(dest), dest);
   check(`${m.id}: без ошибок на странице`, errors.length === 0, errors.join("; "));
   await page.close();
+
+  // карусель: перетаскивание крутит и не уводит, клик по обложке — уводит
+  {
+    const p3 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const html3 = m.build(defaultExtras("ru", m.kind), "https://offer.example/go");
+    await p3.route("**/*", (route: { request: () => { url: () => string }; fulfill: (o: object) => void; abort: () => void }) => {
+      const url = route.request().url();
+      if (url.startsWith("https://landing.test/")) return route.fulfill({ contentType: "text/html", body: html3 });
+      if (url.startsWith("https://offer.example/")) return route.fulfill({ contentType: "text/html", body: "<p>offer</p>" });
+      return route.abort();
+    });
+    await p3.goto("https://landing.test/");
+    await p3.evaluate(`document.querySelector("[data-exgames]").scrollIntoView({ block: "center" })`);
+    await p3.waitForTimeout(1200);
+    const box = (await p3.evaluate(`(() => { const r = document.querySelector("[data-exgames]").getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`)) as { x: number; y: number; w: number; h: number };
+    const rot0 = await p3.evaluate(`getComputedStyle(document.querySelector("[data-exgames] .ring")).getPropertyValue("--rot")`);
+    await p3.mouse.move(box.x + box.w / 2, box.y + box.h / 2);
+    await p3.mouse.down();
+    await p3.mouse.move(box.x + box.w / 2 - 160, box.y + box.h / 2, { steps: 8 });
+    await p3.mouse.up();
+    await p3.waitForTimeout(500);
+    const rot1 = await p3.evaluate(`getComputedStyle(document.querySelector("[data-exgames] .ring")).getPropertyValue("--rot")`);
+    check(`${m.id}: карусель крутится перетаскиванием`, Math.abs(parseFloat(String(rot1)) - parseFloat(String(rot0))) > 30, `${rot0} → ${rot1}`);
+    check(`${m.id}: перетаскивание не уводит на оффер`, p3.url().startsWith("https://landing.test/"), p3.url());
+    // ближайшая к центру обложка лицом к нам (между обложками бывает зазор)
+    const pt = (await p3.evaluate(`(() => {
+      const g = document.querySelector("[data-exgames]").getBoundingClientRect(), cx = g.x + g.width / 2;
+      let best = null;
+      for (const c of document.querySelectorAll("[data-exgames] .gc")) {
+        const r = c.getBoundingClientRect(), x = r.x + r.width / 2;
+        if (!best || Math.abs(x - cx) < Math.abs(best.x - cx)) best = { x, y: r.y + r.height / 2 };
+      }
+      return best;
+    })()`)) as { x: number; y: number };
+    await p3.mouse.click(pt.x, pt.y);
+    await p3.waitForURL(/offer.example/, { timeout: 3000 }).catch(() => {});
+    check(`${m.id}: клик по обложке — на оффер`, p3.url().startsWith("https://offer.example/go"), p3.url());
+    await p3.close();
+  }
 
   // появление: после старта всё видно, заголовок разбит на буквы, класс снят
   for (const reduce of [false, true]) {

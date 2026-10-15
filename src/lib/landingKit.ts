@@ -26,6 +26,8 @@ export const LANDING_LANGS: { id: LandingLang; label: string }[] = [
 export type BonusCard = { title: string; text: string; image?: string };
 export type Review = { name: string; city: string; text: string };
 export type FaqItem = { q: string; a: string };
+/** Обложка в карусели «Популярные игры»: игра или матч. */
+export type GameCard = { title: string; sub: string; image?: string };
 
 /** Линейная графика поверх фона первого экрана. auto — лучи для казино, дуги для спорта. */
 export type LandingLines = "auto" | "rays" | "arcs" | "off";
@@ -46,6 +48,8 @@ export type LandingExtras = {
     passParams: boolean;
   };
   bonuses: { on: boolean; title: string; items: BonusCard[] };
+  /** 3D-карусель обложек под бонусами; клик по обложке — переход на оффер. */
+  games: { on: boolean; title: string; items: GameCard[] };
   trust: { on: boolean; rating: string; players: string; payout: string; license: string; payments: string };
   steps: { on: boolean; title: string; items: string[] };
   winners: { on: boolean; currency: string };
@@ -125,7 +129,39 @@ const LEGAL: Record<LandingLang, string> = {
   es: "18+. El juego puede crear adicción. Juega con responsabilidad. Solo nuevos jugadores, aplican T&C.",
 };
 
-type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking" | "look">;
+type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking" | "look" | "games">;
+
+const GAMES_TITLE: Record<LandingKind, Record<LandingLang, string>> = {
+  casino: { ru: "Популярные игры", uk: "Популярні ігри", en: "Popular games", es: "Juegos populares" },
+  sport: { ru: "Топ-матчи", uk: "Топ-матчі", en: "Top matches", es: "Partidos destacados" },
+};
+
+/** Названия выдуманные — без чужих торговых марок. */
+function gamesPack(lang: LandingLang, kind: LandingKind): LandingExtras["games"] {
+  const items: GameCard[] =
+    kind === "sport"
+      ? [
+          { title: "Real Madrid – Barcelona", sub: "1.90 · 3.60 · 3.80" },
+          { title: "Arsenal – Chelsea", sub: "2.05 · 3.40 · 3.50" },
+          { title: "PSG – Bayern", sub: "2.40 · 3.50 · 2.75" },
+          { title: "Inter – Milan", sub: "2.10 · 3.20 · 3.60" },
+          { title: "Liverpool – Man City", sub: "2.60 · 3.50 · 2.55" },
+          { title: "Lakers – Celtics", sub: "1.85 · 1.95" },
+          { title: "Djokovic – Alcaraz", sub: "2.20 · 1.65" },
+          { title: "Rangers – Bruins", sub: "2.30 · 1.62" },
+        ]
+      : [
+          { title: "Golden Pharaoh", sub: "RTP 96.5%" },
+          { title: "Fruit Fiesta", sub: "RTP 96.2%" },
+          { title: "Dragon Fortune", sub: "RTP 97.1%" },
+          { title: "Wild Bison", sub: "RTP 96.0%" },
+          { title: "Lucky Clover", sub: "RTP 96.8%" },
+          { title: "Neon Sevens", sub: "RTP 95.9%" },
+          { title: "Pirate Gold", sub: "RTP 96.4%" },
+          { title: "Aztec Sun", sub: "RTP 96.7%" },
+        ];
+  return { on: true, title: GAMES_TITLE[kind][lang], items };
+}
 
 function pack(lang: LandingLang, kind: LandingKind): Pack {
   const casino = kind === "casino";
@@ -292,6 +328,7 @@ export function defaultExtras(lang: LandingLang = "ru", kind: LandingKind = "cas
     legal: LEGAL[lang],
     tracking: { metaPixel: "", tiktokPixel: "", gtm: "", passParams: true },
     look: { intro: true, lines: "auto", style: "vivid" },
+    games: gamesPack(lang, kind),
     ...pack(lang, kind),
   };
 }
@@ -303,6 +340,7 @@ export function relocalizeExtras(x: LandingExtras, lang: LandingLang, kind: Land
     ...d,
     tracking: x.tracking,
     look: x.look,
+    games: { ...x.games, title: d.games.title },
     bonuses: { ...d.bonuses, on: x.bonuses.on, items: d.bonuses.items.map((it, i) => ({ ...it, image: x.bonuses.items[i]?.image })) },
     trust: { ...d.trust, on: x.trust.on, rating: x.trust.rating, payments: x.trust.payments },
     steps: { ...d.steps, on: x.steps.on },
@@ -325,6 +363,7 @@ export function normalizeExtras(raw: unknown, kind: LandingKind): LandingExtras 
     tracking: { ...d.tracking, ...(r.tracking ?? {}) },
     look: { ...d.look, ...(r.look ?? {}) },
     bonuses: { ...d.bonuses, ...(r.bonuses ?? {}) },
+    games: { ...d.games, ...(r.games ?? {}) },
     trust: { ...d.trust, ...(r.trust ?? {}) },
     steps: { ...d.steps, ...(r.steps ?? {}) },
     winners: { ...d.winners, ...(r.winners ?? {}) },
@@ -438,6 +477,18 @@ function kitCss(accent: string, dark: boolean): string {
   @media(max-width:759px){.ex .bc:last-child:nth-child(even){grid-column:span 2}.ex .bc:last-child:nth-child(even) .ic{width:34%}.ex .bc:last-child:nth-child(even) b,.ex .bc:last-child:nth-child(even) .d{max-width:62%}}
   @media(min-width:760px){.ex .bento{grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(190px,auto)}.ex .bc:first-child{grid-row:span 2}.ex .bc:nth-child(2){grid-column:span 2}}
 
+  .ex .games{--cw:150px;--ch:214px;--r:188px;position:relative;height:262px;perspective:1000px;overflow:hidden;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+  .ex .games:active{cursor:grabbing}
+  @media(min-width:760px){.ex .games{--cw:186px;--ch:262px;--r:232px;height:320px}}
+  .ex .ring{position:absolute;left:50%;top:50%;transform-style:preserve-3d;transform:translateZ(calc(var(--r) * -1)) rotateY(var(--rot,0deg))}
+  .ex .gc{position:absolute;width:var(--cw);height:var(--ch);left:calc(var(--cw) / -2);top:calc(var(--ch) / -2);transform:rotateY(calc(var(--i) * var(--step))) translateZ(var(--r));backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:12px;cursor:pointer;border:1px solid rgba(255,255,255,.16);box-shadow:0 18px 36px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.2);color:#fff}
+  .ex .gc::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.28),transparent 60%),linear-gradient(180deg,transparent 45%,rgba(0,0,0,.65));pointer-events:none}
+  .ex .gc .ga{position:absolute;left:50%;top:40%;width:74%;aspect-ratio:1;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:calc(var(--cw) * .42);line-height:1;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
+  .ex .gc .ga img{width:100%;height:100%;object-fit:contain}
+  .ex .gc .ga em{font-style:normal;font-weight:900;font-size:.62em;letter-spacing:-.04em;color:#fff;text-shadow:0 0 18px #ff3bd4,0 0 4px #fff}
+  .ex .gc b{position:relative;font-size:14px;line-height:1.15;font-weight:900}
+  .ex .gc small{position:relative;margin-top:3px;font-size:11px;font-weight:700;opacity:.8}
+  .ex .gc i{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.35)}
   .ex .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
   .ex .trust>div{display:flex;flex-direction:column;align-items:center;gap:7px;padding:18px 6px 14px;border-radius:20px;background:${c.card};border:1px solid ${c.line}}
   .ex .trust .ti{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,${c.gold},${accent});box-shadow:0 8px 18px ${accent}55,inset 0 2px 0 rgba(255,255,255,.35)}
@@ -528,6 +579,7 @@ function premiumCss(accent: string, dark: boolean): string {
   .ex .tw b{background:none;color:${accent};padding:0}
   .ex .rv .st{color:${c.text};text-shadow:none;letter-spacing:4px;font-size:13px}
   .ex .rv .av::after{display:none}
+  .ex .gc{border-color:${c.line};box-shadow:0 14px 30px rgba(0,0,0,.35)}
   .ex summary{font-weight:500}
   .ex summary::after{background:transparent;border:1px solid ${c.line};color:${c.text};font-weight:400}
   .ex footer .age{border-color:${c.muted};color:${c.muted}}
@@ -595,7 +647,7 @@ const FX =
   `<b style="left:14%;top:16%">✦</b><b style="right:16%;top:9%;animation-delay:-1s">✦</b><b style="left:10%;top:70%;animation-delay:-2s">✦</b><b style="right:12%;top:44%;font-size:13px;animation-delay:-.5s">✦</b>` +
   `</div>`;
 
-function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string): string {
+function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string, kind: LandingKind): string {
   const parts: string[] = [];
   const cta = `<button type="button" class="cta" data-excta><span class="shine"></span><span>🎁</span><span>${esc(s.claimNow)}</span>${ICON.arrow}</button>`;
   if (x.timer.on) {
@@ -613,6 +665,20 @@ function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string): stri
       })
       .join("");
     parts.push(`<section><h2>${esc(x.bonuses.title)}</h2><div class="bento">${cards}</div></section>`);
+  }
+  if (x.games.on && x.games.items.some((g) => g.title.trim())) {
+    const list = x.games.items.filter((g) => g.title.trim()).slice(0, 12);
+    const step = 360 / list.length;
+    const sport = kind === "sport";
+    const glyphs = sport ? ["⚽", "⚽", "⚽", "⚽", "⚽", "🏀", "🎾", "🏒"] : ["👑", "🍒", "🐉", "🦬", "🍀", "", "🏴‍☠️", "☀️"];
+    const cards = list
+      .map((g, i) => {
+        const hue = (i * 47 + (sport ? 120 : 280)) % 360;
+        const pic = g.image && /^data:image\//.test(g.image) ? `<img src="${esc(g.image)}" alt=""/>` : glyphs[i % glyphs.length] || "<em>777</em>";
+        return `<div class="gc" data-excta role="link" tabindex="0" style="--i:${i};background:linear-gradient(160deg,hsl(${hue} 80% 48%),hsl(${(hue + 40) % 360} 70% 16%))"><span class="ga">${pic}</span><i>▶</i><b>${esc(g.title)}</b><small>${esc(g.sub)}</small></div>`;
+      })
+      .join("");
+    parts.push(`<section><h2>${esc(x.games.title)}</h2><div class="games" data-exgames style="--step:${step.toFixed(3)}deg"><div class="ring">${cards}</div></div></section>`);
   }
   if (x.trust.on) {
     const pays = x.trust.payments.split(",").map((p) => p.trim()).filter(Boolean).slice(0, 10).map((p) => `<span>${esc(p)}</span>`).join("");
@@ -696,8 +762,24 @@ function kitScript(x: LandingExtras, ctaUrl: string, kind: LandingKind): string 
         html+='<span class="tw"><i style="background:linear-gradient(150deg,'+av[idx%av.length]+')">'+esc(n.charAt(0))+'</i>'+esc(n)+' '+esc(C.won)+' <b>'+a.toLocaleString()+' '+esc(C.cur)+'</b><small>'+esc(games[idx%games.length])+'</small></span>'; }
       rows[r].innerHTML=html+html; }
   }
-  // Секции проявляются при прокрутке, карточки внутри — лесенкой; цифры доверия считаются от нуля.
   var calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Карусель обложек: сама медленно крутится, откликается на прокрутку страницы и перетаскивание.
+  // После перетаскивания клик гасится в фазе захвата — иначе отпускание пальца уводило бы на оффер.
+  var gw=document.querySelector('[data-exgames]');
+  if(gw && gw.firstElementChild){
+    var ring=gw.firstElementChild, rot=0, drag=null, moved=0, lastY=window.scrollY||0, seen=true;
+    var gcs=gw.querySelectorAll('.gc');
+    for(var g=0;g<gcs.length;g++) gcs[g].addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); this.click(); } });
+    if('IntersectionObserver' in window) new IntersectionObserver(function(es){ seen=es[0].isIntersecting; }).observe(gw);
+    window.addEventListener('scroll',function(){ var y=window.scrollY||0; if(!calm && seen) rot-=(y-lastY)*.12; lastY=y; },{passive:true});
+    gw.addEventListener('pointerdown',function(e){ drag={x:e.clientX,r:rot}; moved=0; });
+    window.addEventListener('pointermove',function(e){ if(!drag) return; var dx=e.clientX-drag.x; moved=Math.max(moved,Math.abs(dx)); rot=drag.r+dx*.35; });
+    window.addEventListener('pointerup',function(){ drag=null; });
+    window.addEventListener('pointercancel',function(){ drag=null; });
+    gw.addEventListener('click',function(e){ if(moved>6){ e.stopPropagation(); e.preventDefault(); moved=0; } },true);
+    (function frame(){ if(!drag && !calm && seen) rot-=.08; ring.style.setProperty('--rot',rot.toFixed(2)+'deg'); requestAnimationFrame(frame); })();
+  }
+  // Секции проявляются при прокрутке, карточки внутри — лесенкой; цифры доверия считаются от нуля.
   var w=document.querySelector('.ex .w');
   if(w && !calm && 'IntersectionObserver' in window){
     var counted=false;
@@ -854,7 +936,7 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
     css: kitCss(accent, dark) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
     stageArt: stageArt(x.look, kind, accent),
-    after: sectionsHtml(x, strings, accent),
+    after: sectionsHtml(x, strings, accent, kind),
     script: kitScript(x, ctaUrl, kind) + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : ""),
     strings,
     stringsJson: embedJson(strings),
@@ -870,5 +952,9 @@ export function buildExtrasPreviewHtml(extras: LandingExtras, accent: string, da
 
 /** Без картинок карточек — для черновика, если не влезает в хранилище браузера. */
 export function stripExtrasImages(x: LandingExtras): LandingExtras {
-  return { ...x, bonuses: { ...x.bonuses, items: x.bonuses.items.map(({ title, text }) => ({ title, text })) } };
+  return {
+    ...x,
+    bonuses: { ...x.bonuses, items: x.bonuses.items.map(({ title, text }) => ({ title, text })) },
+    games: { ...x.games, items: x.games.items.map(({ title, sub }) => ({ title, sub })) },
+  };
 }
