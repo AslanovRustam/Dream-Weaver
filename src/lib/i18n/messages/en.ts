@@ -98,6 +98,7 @@ export const en: Messages = {
   nav: {
     home: "Home",
     groups: { tools: "Tools", ads: "Advertising", library: "Library" },
+    campaign: "Campaign",
     history: "History",
     onboarding: "Quick start",
     integrations: "Integrations",

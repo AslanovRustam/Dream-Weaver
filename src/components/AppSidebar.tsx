@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Home,
   KeyRound,
+  Layers,
   PanelLeftClose,
   PanelLeftOpen,
   type LucideIcon,
@@ -51,7 +52,14 @@ const GROUPS: { titleKey?: string; title?: string; items: NavItem[] }[] = [
   {
     titleKey: "nav.groups.tools",
     title: "Инструменты",
-    items: [s("banner"), s("landing"), s("playable"), s("video"), s("email")],
+    items: [
+      { href: "/campaign", labelKey: "nav.campaign", label: "Кампания", icon: Layers },
+      s("banner"),
+      s("landing"),
+      s("playable"),
+      s("video"),
+      s("email"),
+    ],
   },
   {
     titleKey: "nav.groups.ads",

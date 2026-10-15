@@ -17,6 +17,7 @@ const CHECKS = [
   { name: "Ключи интеграций", cmd: tsx("scripts/integrations-check.mts") },
   { name: "Шаблоны писем", cmd: tsx("scripts/email-templates-check.mts") },
   { name: "Мои проекты", cmd: tsx("scripts/projects-check.mts") },
+  { name: "Кампания", cmd: tsx("scripts/campaign-check.mts") },
   { name: "Плейблы: сцены × сети × языки", cmd: tsx("scripts/scene-export-check.mts") },
   { name: "Лендинги-механики", cmd: tsx("scripts/landing-export-check.mts"), browser: true },
   { name: "Лендинги на сценах", cmd: tsx("scripts/scene-landing-check.mts"), browser: true },

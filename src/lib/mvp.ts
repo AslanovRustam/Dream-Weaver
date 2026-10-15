@@ -17,6 +17,7 @@ export const MVP_ENABLED_ROUTES = new Set<string>([
   "/banner",
   "/banner/templates",
   "/landing",
+  "/campaign",
   "/history",
   "/onboarding",
 ]);

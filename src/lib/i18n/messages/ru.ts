@@ -103,6 +103,7 @@ export const ru = {
   nav: {
     home: "Главная",
     groups: { tools: "Инструменты", ads: "Реклама", library: "Библиотека" },
+    campaign: "Кампания",
     history: "История",
     onboarding: "Быстрый старт",
     integrations: "Интеграции",

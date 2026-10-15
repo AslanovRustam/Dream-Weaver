@@ -96,6 +96,7 @@ export const uk: Messages = {
   nav: {
     home: "Головна",
     groups: { tools: "Інструменти", ads: "Реклама", library: "Бібліотека" },
+    campaign: "Кампанія",
     history: "Історія",
     onboarding: "Швидкий старт",
     integrations: "Інтеграції",
