@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Search } from "lucide-react";
 
+import { LivePreview } from "@/components/LivePreview";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { track } from "@/lib/analytics";
 import { PLAYABLE_CATALOG, PLAYABLE_CATALOG_BY_ID, PLAYABLE_PICK_KEY, type PlayableCatalogItem } from "@/lib/playableCatalog";
@@ -32,7 +33,7 @@ export function PlayableTile({
         selected ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]" : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
-      <div className="aspect-[3/4] w-full rounded-md bg-[#0b0d12] bg-cover bg-center" style={{ backgroundImage: `url(${item.preview})` }} />
+      <LivePreview still={item.preview} className="aspect-[3/4] w-full rounded-md bg-[#0b0d12] bg-cover bg-center" />
       <p className="truncate text-xs font-medium">{item.name}</p>
       {compact ? null : <p className="-mt-1 line-clamp-2 ds-caption">{item.description}</p>}
       {selected ? (

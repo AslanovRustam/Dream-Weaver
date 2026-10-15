@@ -1,5 +1,6 @@
 "use client";
 
+import { LivePreview } from "@/components/LivePreview";
 import { track } from "@/lib/analytics";
 // Landing-generator — full "create from scratch" flow, structured like the
 // Banner-generator: three columns on desktop (templates / settings / result),
@@ -844,13 +845,10 @@ function TemplateTile({
               : "border-border hover:bg-[var(--bg-surface-hover)]"
           }`}
         >
-          <div
-            className="aspect-[4/3] w-full rounded-md bg-cover bg-center"
-            style={
-              template.preview
-                ? { backgroundImage: `url(${template.preview})`, backgroundColor: "#0b0d12" }
-                : { background: template.gradient }
-            }
+          <LivePreview
+            still={template.preview}
+            className="aspect-[4/3] w-full rounded-md bg-[#0b0d12] bg-cover bg-center"
+            fallback={{ background: template.gradient }}
           />
           <p className="truncate text-xs font-medium">{template.name}</p>
           {selected && (
