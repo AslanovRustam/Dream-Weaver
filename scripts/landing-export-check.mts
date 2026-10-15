@@ -174,6 +174,17 @@ for (const m of MECHANICS) {
     check(`${tag}: всё видно после появления`, st.min > 0.99 && st.lastLetter > 0.99, JSON.stringify(st));
     if (reduce) check(`${tag}: без начальных состояний`, st.letters === 0);
     else check(`${tag}: заголовок по буквам`, st.letters > 3 && st.h1.length > 3, JSON.stringify(st));
+    // прокрутка: секции проявляются, цифры доверия доходят до заданных
+    for (let y = 0; y < 12; y++) { await p2.mouse.wheel(0, 700); await p2.waitForTimeout(150); }
+    await p2.waitForTimeout(1800);
+    const rv = (await p2.evaluate(`(() => {
+      const secs = Array.from(document.querySelectorAll(".ex .w > *"));
+      const hidden = secs.filter((e) => Number(getComputedStyle(e).opacity) < 0.99).length;
+      return { hidden, trust: Array.from(document.querySelectorAll(".ex .trust b")).map((b) => b.textContent) };
+    })()`)) as { hidden: number; trust: string[] };
+    check(`${tag}: после прокрутки все блоки видны`, rv.hidden === 0, JSON.stringify(rv));
+    const want = defaultExtras("ru", m.kind).trust;
+    check(`${tag}: цифры доверия дошли до конца`, JSON.stringify(rv.trust) === JSON.stringify([want.rating, want.players, want.payout]), JSON.stringify(rv.trust));
     check(`${tag}: без ошибок`, errs.length === 0, errs.join("; "));
     await p2.close();
   }
