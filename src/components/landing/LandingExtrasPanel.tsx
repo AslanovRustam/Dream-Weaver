@@ -59,10 +59,13 @@ export function LandingExtrasPanel({
   onChange,
   kind,
   mechanic,
+  hideFirstScreen = false,
 }: {
   value: LandingExtras;
   onChange: (next: LandingExtras) => void;
   kind: LandingKind;
+  /** Лендинг на сцене: у сцены своя хореография — без раздела «Первый экран». */
+  hideFirstScreen?: boolean;
   /** Для ключа очереди ИИ-иллюстраций: у каждой механики свой. */
   mechanic: string;
 }) {
@@ -208,6 +211,7 @@ export function LandingExtrasPanel({
 
   return (
     <>
+      {hideFirstScreen ? null : (
       <CollapsibleSection title="Первый экран" hint="Анимация появления, парящие объекты, линии">
         <label className="flex items-start gap-2 text-sm">
           <input
@@ -284,6 +288,7 @@ export function LandingExtrasPanel({
           ))}
         </div>
       </CollapsibleSection>
+      )}
 
       <CollapsibleSection title="Язык, 18+ и трекинг" hint="Тексты окон, юр. строка, пиксели">
         <label className="mb-1.5 block ds-caption">Язык лендинга — тексты окон, кнопок и блоков</label>

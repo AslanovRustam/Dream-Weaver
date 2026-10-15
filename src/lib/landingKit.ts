@@ -76,6 +76,8 @@ export type LandingStrings = {
   untilMatch: string; live: string; days: string;
   // блоки
   rating: string; players: string; payout: string; winnersTitle: string; won: string; claimNow: string;
+  /** Полоса под сценой на лендинге-сцене: листать к блокам. */
+  more: string;
   responsible: string; stepWord: string;
   // матч-прогноз
   home: string; away: string; p1: string; draw: string; p2: string; pickHint: string; offerDefault: string;
@@ -91,7 +93,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     crashedText: "Чуть не успел — попробуйте ещё раз и заберите вовремя!", tryAgain: "Ещё раз", cashOut: "Забрать ×",
     untilMatch: "До матча: ", live: "Матч идёт · LIVE", days: "д",
     rating: "рейтинг игроков", players: "игроков", payout: "вывод выигрыша", winnersTitle: "Сейчас выигрывают",
-    won: "выиграл", claimNow: "Забрать бонус", responsible: "Играйте ответственно", stepWord: "Шаг",
+    won: "выиграл", claimNow: "Забрать бонус", more: "Бонусы и условия", responsible: "Играйте ответственно", stepWord: "Шаг",
   },
   uk: {
     home: "Господарі", away: "Гості", p1: "П1", draw: "Нічия", p2: "П2", pickHint: "Оберіть результат — і переходьте до ставки", offerDefault: "за першу ставку на цей матч",
@@ -102,7 +104,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     crashedText: "Трохи не встиг — спробуйте ще раз і заберіть вчасно!", tryAgain: "Ще раз", cashOut: "Забрати ×",
     untilMatch: "До матчу: ", live: "Матч триває · LIVE", days: "д",
     rating: "рейтинг гравців", players: "гравців", payout: "виведення виграшу", winnersTitle: "Зараз виграють",
-    won: "виграв", claimNow: "Забрати бонус", responsible: "Грайте відповідально", stepWord: "Крок",
+    won: "виграв", claimNow: "Забрати бонус", more: "Бонуси та умови", responsible: "Грайте відповідально", stepWord: "Крок",
   },
   en: {
     home: "Home", away: "Away", p1: "1", draw: "Draw", p2: "2", pickHint: "Pick an outcome and go to your bet", offerDefault: "for your first bet on this match",
@@ -113,7 +115,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     crashedText: "So close — try again and cash out in time!", tryAgain: "Try again", cashOut: "Cash out ×",
     untilMatch: "Kick-off in: ", live: "Match is live · LIVE", days: "d",
     rating: "player rating", players: "players", payout: "payouts", winnersTitle: "Winning right now",
-    won: "won", claimNow: "Claim bonus", responsible: "Play responsibly", stepWord: "Step",
+    won: "won", claimNow: "Claim bonus", more: "Bonuses & terms", responsible: "Play responsibly", stepWord: "Step",
   },
   es: {
     home: "Local", away: "Visitante", p1: "1", draw: "Empate", p2: "2", pickHint: "Elige un resultado y ve a apostar", offerDefault: "por tu primera apuesta en este partido",
@@ -124,7 +126,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     crashedText: "¡Casi! Inténtalo otra vez y cobra a tiempo.", tryAgain: "Otra vez", cashOut: "Cobrar ×",
     untilMatch: "Faltan: ", live: "Partido en vivo · LIVE", days: "d",
     rating: "valoración", players: "jugadores", payout: "retiros", winnersTitle: "Ganando ahora",
-    won: "ganó", claimNow: "Reclamar bono", responsible: "Juega con responsabilidad", stepWord: "Paso",
+    won: "ganó", claimNow: "Reclamar bono", more: "Bonos y condiciones", responsible: "Juega con responsabilidad", stepWord: "Paso",
   },
 };
 

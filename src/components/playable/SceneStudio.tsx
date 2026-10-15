@@ -37,6 +37,9 @@ import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } fr
 import { NETWORK_BY_ID, PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/scenes/networks";
 import { packageFor } from "@/lib/scenes/export";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
+import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
+import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
+import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
 import {
   DEFAULT_WIN_INDEX,
   SCENE_LANGS,
@@ -54,7 +57,9 @@ const AREA = "w-full resize-y rounded-lg border border-border bg-elevated px-3 p
 const CHIP_ON = "border-accent-green bg-accent-green/10 text-accent-green";
 const CHIP_OFF = "border-border text-foreground/70 hover:bg-white/5";
 
-const draftKey = (scene: SceneId) => `dw_scene_draft_${scene}`;
+const draftKey = (scene: SceneId, mode: StudioMode = "playable") => `dw_scene_draft_${scene}${mode === "landing" ? "_landing" : ""}`;
+/** Плейбл — файлы под рекламные сети; лендинг — страница: сцена первым экраном и блоки под ней. */
+export type StudioMode = "playable" | "landing";
 
 /** Файлы сцены одинаковы для всех сборок — грузим один раз за сессию. */
 const cache = new Map<string, Promise<string>>();
@@ -96,6 +101,8 @@ type Draft = {
   art: Record<string, string | FrameArt>;
   /** Набор символов (6): [0] — выигрышный. */
   symbols: string[];
+  /** Только у лендинга: язык, трекинг и блоки под сценой. */
+  extras?: LandingExtras;
 };
 
 function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: string): Draft {
@@ -123,10 +130,10 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
   };
 }
 
-function loadDraft(scene: SceneId, brandName: string, logo: string): Draft {
+function loadDraft(scene: SceneId, brandName: string, logo: string, mode: StudioMode): Draft {
   const base = freshDraft(scene, "ru", brandName, logo);
   try {
-    const raw = localStorage.getItem(draftKey(scene));
+    const raw = localStorage.getItem(draftKey(scene, mode));
     if (!raw) return base;
     const d = JSON.parse(raw) as Partial<Draft>;
     return {
@@ -165,8 +172,10 @@ export function SceneStudio({
   brandLogo,
   hiddenOnMobile,
   onBack,
+  mode = "playable",
 }: {
   scene: SceneId;
+  mode?: StudioMode;
   /** Бренд из основного генератора — стартовое значение для нового черновика. */
   brandName: string;
   brandLogo: string;
@@ -174,6 +183,8 @@ export function SceneStudio({
   onBack: () => void;
 }) {
   const meta = sceneMeta(scene);
+  const landing = mode === "landing";
+  const kind = sceneLandingKind(scene);
   const confirm = useConfirm();
   const { isGuest, openGate } = useAuthGate();
 
@@ -184,6 +195,9 @@ export function SceneStudio({
   /** Вес HTML под каждую выбранную площадку. */
   const [sizes, setSizes] = useState<Partial<Record<PlayableNetwork, number>>>({});
   const [buildErr, setBuildErr] = useState("");
+  /** Лендинг: вся страница для «На весь экран» и вес выгрузки. */
+  const [pageHtml, setPageHtml] = useState("");
+  const [pageSize, setPageSize] = useState(0);
   const [replay, setReplay] = useState(0);
   /** Как смотреть превью: телефон (9:16) или десктоп (16:9, сцена по центру на размытом фоне). */
   const [view, setView] = useState<"mobile" | "desktop">("mobile");
@@ -217,7 +231,7 @@ export function SceneStudio({
 
   // Черновик — свой у каждой сцены.
   useEffect(() => {
-    setD(loadDraft(scene, brandName, brandLogo));
+    setD(loadDraft(scene, brandName, brandLogo, mode));
     setRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene]);
@@ -225,18 +239,28 @@ export function SceneStudio({
     if (!restored) return;
     const id = window.setTimeout(() => {
       try {
-        localStorage.setItem(draftKey(scene), JSON.stringify(d));
+        localStorage.setItem(draftKey(scene, mode), JSON.stringify(d));
       } catch {
         // Квота: картинки — самое тяжёлое, без них черновик всё равно полезен.
         try {
-          localStorage.setItem(draftKey(scene), JSON.stringify({ ...d, bgImage: "", reward: "", logo: "", art: {}, symbols: [] }));
+          localStorage.setItem(
+            draftKey(scene, mode),
+            JSON.stringify({ ...d, bgImage: "", reward: "", logo: "", art: {}, symbols: [], extras: d.extras ? stripExtrasImages(d.extras) : undefined }),
+          );
         } catch {
           /* хранилище недоступно — работаем без черновика */
         }
       }
     }, 500);
     return () => window.clearTimeout(id);
-  }, [d, restored, scene]);
+  }, [d, restored, scene, mode]);
+
+  /** Блоки лендинга; язык — как у сцены, если он есть среди языков лендинга. */
+  const extras: LandingExtras = d.extras
+    ? normalizeExtras(d.extras, kind)
+    : defaultExtras((["ru", "uk", "en", "es"].includes(d.lang) ? d.lang : "ru") as LandingLang, kind);
+  const setExtras = (x: LandingExtras) => setD((p) => ({ ...p, extras: x }));
+  const accent = sceneStyle(d.style).ui.accent;
 
   const config = (): SceneConfig => {
     const loc = SCENE_LANGS.find((l) => l.id === d.lang) ?? SCENE_LANGS[0];
@@ -271,6 +295,18 @@ export function SceneStudio({
       try {
         const cfg = config();
         const preview = await buildScenePlayable(cfg, { network: "web", preview: true, load: cachedLoader });
+        if (landing) {
+          const page = wrapSceneLanding(preview, { extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label });
+          const real = wrapSceneLanding(await buildScenePlayable(cfg, { network: "web", preview: false, load: cachedLoader }), {
+            extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label,
+          });
+          if (!alive) return;
+          setHtml(preview);
+          setPageHtml(page);
+          setPageSize(new Blob([real]).size);
+          setBuildErr("");
+          return;
+        }
         const real = await Promise.all(
           d.targets.map(async (t) => [t, new Blob([await buildScenePlayable(cfg, { network: t, preview: false, load: cachedLoader })]).size] as const),
         );
@@ -287,7 +323,7 @@ export function SceneStudio({
       window.clearTimeout(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, restored, scene]);
+  }, [d, restored, scene, mode]);
 
   const changeLang = async (lang: SceneLang) => {
     if (lang === d.lang) return;
@@ -468,7 +504,35 @@ export function SceneStudio({
     }));
   const [downloading, setDownloading] = useState(false);
 
+  const downloadLanding = async () => {
+    if (!d.clickUrl.trim()) {
+      setOpen((p) => ({ ...p, net: true }));
+      return toast.error("Укажите ссылку по кнопке — на неё ведут сцена и блоки");
+    }
+    setDownloading(true);
+    try {
+      const cfg = config();
+      const page = wrapSceneLanding(await buildScenePlayable(cfg, { network: "web", preview: false, load: cachedLoader }), {
+        extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label,
+      });
+      const url = URL.createObjectURL(new Blob([page], { type: "text/html" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `landing-${scene}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast.success("Лендинг скачан — один HTML, всё внутри");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось собрать лендинг");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const download = async () => {
+    if (landing) return downloadLanding();
     if (!d.targets.length) {
       setOpen((p) => ({ ...p, net: true }));
       return toast.error("Выберите, куда размещаем");
@@ -772,6 +836,21 @@ export function SceneStudio({
               <textarea rows={2} value={d.legal} maxLength={240} onChange={(e) => set("legal", e.target.value)} className={AREA} />
             </SettingsSection>
 
+            {landing ? (
+              <>
+                <SettingsSection title="Ссылка по кнопке" required done={!!d.clickUrl.trim()} open={open.net} onToggle={() => toggle("net")}>
+                  <input
+                    type="url"
+                    value={d.clickUrl}
+                    onChange={(e) => set("clickUrl", e.target.value)}
+                    className={INPUT}
+                    placeholder="https://… — оффер или трекинговая ссылка"
+                  />
+                  <p className="mt-1.5 ds-caption">На неё ведут кнопка сцены и все кнопки блоков. Параметры адреса лендинга (subid, click_id) докинутся.</p>
+                </SettingsSection>
+                <LandingExtrasPanel value={extras} onChange={setExtras} kind={kind} mechanic={`scene_${scene}`} hideFirstScreen />
+              </>
+            ) : (
             <SettingsSection
               title="Куда размещаем"
               required
@@ -825,6 +904,7 @@ export function SceneStudio({
                   : "Google и Meta берут ссылку из кабинета; здесь — только для проверки в превью."}
               </p>
             </SettingsSection>
+            )}
 
           </div>
         </div>
@@ -845,7 +925,7 @@ export function SceneStudio({
           </button>
         </div>
 
-        <div className="relative flex justify-center overflow-hidden rounded-2xl border border-border bg-card p-3">
+        <div className="relative flex shrink-0 justify-center overflow-hidden rounded-2xl border border-border bg-card p-3">
           {assetRun.running ? <BuildingOverlay steps={assetRun.steps} /> : null}
           <div
             className="overflow-hidden rounded-2xl border-[6px] border-[#1c2417] bg-black shadow-xl transition-[width]"
@@ -881,7 +961,9 @@ export function SceneStudio({
             <Download className="h-4 w-4" />
             {downloading
               ? "Собираем…"
-              : d.targets.length === 1
+              : landing
+                ? "Скачать лендинг"
+                : d.targets.length === 1
                 ? `Скачать для «${NETWORK_BY_ID.get(d.targets[0])!.label}»`
                 : `Скачать файлы (${d.targets.length})`}
           </button>
@@ -895,7 +977,8 @@ export function SceneStudio({
         </div>
         {buildErr ? <p className="text-center ds-caption text-[color:var(--status-error)]">{buildErr}</p> : null}
         <div className="flex flex-col items-center gap-0.5">
-          {d.targets.map((t) => {
+          {landing && pageSize ? <p className="text-center ds-caption">Лендинг: {mb(pageSize)} — один HTML, сцена и картинки внутри</p> : null}
+          {!landing && d.targets.map((t) => {
             const n = NETWORK_BY_ID.get(t)!;
             const b = sizes[t] ?? 0;
             const over = b > n.limit;
@@ -908,7 +991,16 @@ export function SceneStudio({
             );
           })}
         </div>
-        <p className="text-center ds-caption">Превью играется: нажимайте прямо в нём. Шрифт и картинки уже внутри файла.</p>
+        <p className="text-center ds-caption">
+          {landing
+            ? "Сверху — сцена, она играется прямо в превью. Ниже — блоки под ней. Вся страница — «На весь экран»."
+            : "Превью играется: нажимайте прямо в нём. Шрифт и картинки уже внутри файла."}
+        </p>
+        {landing ? (
+          <div className="shrink-0">
+            <LandingExtrasPreview extras={extras} accent={accent} dark kind={kind} />
+          </div>
+        ) : null}
       </div>
 
       {fullscreen && html ? (
@@ -946,8 +1038,8 @@ export function SceneStudio({
             {/* Сцена сама вписывается в любой размер — iframe просто занимает место:
                 телефон — столбиком 9:16 во всю высоту, десктоп — всё окно. */}
             <iframe
-              key={`fs-${scene}-${replay}-${html.length}`}
-              srcDoc={html}
+              key={`fs-${scene}-${replay}-${(landing ? pageHtml : html).length}`}
+              srcDoc={landing ? pageHtml || html : html}
               title={`Плейбл «${meta.label}» на весь экран`}
               sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
               className="block rounded-2xl bg-black shadow-2xl ring-1 ring-white/10"

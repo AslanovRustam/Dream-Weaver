@@ -42,7 +42,8 @@ export const ALL_TEMPLATES: HubTemplate[] = [
       name: t.name,
       description: t.description,
       sectionId: "landing" as const,
-      href: `/landing?template=${t.id}`,
+      href: t.interactive === "scene" && t.scenePick ? `/landing/scene?pick=${t.scenePick}` : `/landing?template=${t.id}`,
+      preview: t.interactive === "scene" ? t.preview : undefined,
       gradient: t.gradient,
     })),
   ...PLAYABLE_CATALOG.map((p) => ({

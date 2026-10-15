@@ -7,6 +7,9 @@
 // delay so the flow (loading → result) mirrors the Banner-generator and a real
 // POST /api/landing can be dropped in later without touching the UI.
 
+import { sceneLandingKind } from "./sceneLanding";
+import { SCENES } from "./scenes/presets";
+
 export type LandingVertical = "betting" | "gambling" | "sport";
 
 export type LandingSectionId =
@@ -56,7 +59,9 @@ export type LandingTemplate = {
    *  to `gradient` when absent. */
   preview?: string;
   /** Interactive templates open a dedicated builder instead of the block flow. */
-  interactive?: "wheel" | "slot" | "crash" | "match";
+  interactive?: "wheel" | "slot" | "crash" | "match" | "scene";
+  /** interactive: "scene" — какая премиум-сцена (id в каталоге плейблов). */
+  scenePick?: string;
 };
 
 export type LandingTemplateCategory = {
@@ -173,12 +178,33 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
   },
 ];
 
+// Лендинги на премиум-сценах: все сцены плейблов, сцена — первым экраном,
+// блоки landingKit — под ней. Редактор — /landing/scene?pick=<id>.
+const SCENE_GRADIENT: Record<string, string> = {
+  gambling: "linear-gradient(135deg,#1a0b2e,#7c3aed,#f59e0b)",
+  sport: "linear-gradient(135deg,#052e16,#16a34a,#f59e0b)",
+};
+for (const sc of SCENES) {
+  const vertical: LandingVertical = sceneLandingKind(sc.id) === "sport" ? "sport" : "gambling";
+  LANDING_TEMPLATE_CATEGORIES.find((c) => c.id === vertical)?.templates.push({
+    id: `scene-${sc.id}-landing`,
+    vertical,
+    name: `${sc.label} — премиум`,
+    description: `Премиум-сцена первым экраном, ниже бонусы, игры, отзывы и FAQ. ${sc.description}`,
+    accent: "#f59e0b",
+    gradient: SCENE_GRADIENT[vertical],
+    interactive: "scene",
+    scenePick: `scene-${sc.id}`,
+  });
+}
+
 // Real preview images (screenshots of a generated landing per template) live in
 // /public/landing-previews/<id>.jpg — attach them so the tiles show the actual
 // result instead of a flat gradient.
 for (const cat of LANDING_TEMPLATE_CATEGORIES) {
   for (const t of cat.templates) {
-    t.preview = `/landing-previews/${t.id}.jpg`;
+    // У сцен превью — кадр самой сцены из каталога плейблов.
+    t.preview = t.interactive === "scene" ? `/playable/previews/${t.scenePick}.webp` : `/landing-previews/${t.id}.jpg`;
   }
 }
 
@@ -816,3 +842,4 @@ export function generateLanding(
     setTimeout(() => resolve({ html, generatedSections }), 1100);
   });
 }
+

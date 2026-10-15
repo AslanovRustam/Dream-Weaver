@@ -45,6 +45,11 @@
         if (w.dapi && w.dapi.openStoreUrl) return w.dapi.openStoreUrl(); // ironSource
         if (w.mraid && w.mraid.open) return w.mraid.open(url); // AppLovin, Unity, Liftoff…
       } catch (e) { /* дальше — обычная вкладка */ }
+      // Сцена — первый экран лендинга (iframe srcdoc того же источника): переход
+      // делает страница — с событиями пикселей и параметрами её адреса (subid).
+      try {
+        if (w.parent !== w && typeof w.parent.__goCta === "function" && w.parent.__goCta(url)) return;
+      } catch (e) { /* чужой источник — как обычно */ }
       if (url) w.open(url, "_blank");
     },
   };

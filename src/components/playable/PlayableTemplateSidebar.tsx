@@ -10,7 +10,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { PlayableTile } from "@/components/playable/PlayableTemplateCatalog";
 import { PLAYABLE_CATALOG, PLAYABLE_TEMPLATES_ROUTE } from "@/lib/playableCatalog";
 
-export function PlayableTemplateSidebar({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+export function PlayableTemplateSidebar({
+  value,
+  onPick,
+  backHref = PLAYABLE_TEMPLATES_ROUTE,
+}: {
+  value: string;
+  onPick: (id: string) => void;
+  /** Куда ведёт «К шаблонам»: каталог плейблов или лендингов. */
+  backHref?: string;
+}) {
   return (
     <TooltipProvider delayDuration={200}>
       <aside className="flex w-full min-w-0 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] lg:h-full lg:w-auto lg:min-w-[220px] lg:flex-[2] lg:rounded-2xl lg:border">
@@ -19,7 +28,7 @@ export function PlayableTemplateSidebar({ value, onPick }: { value: string; onPi
         </div>
         <div className="px-4 pb-2 pt-2">
           <Link
-            href={PLAYABLE_TEMPLATES_ROUTE}
+            href={backHref}
             className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition hover:border-accent-green/40 hover:bg-white/5"
           >
             <ArrowLeft size={16} className="shrink-0 text-accent-green" />

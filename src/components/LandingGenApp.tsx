@@ -288,6 +288,10 @@ export function LandingGenApp() {
       router.push("/match");
       return;
     }
+    if (t.interactive === "scene" && t.scenePick) {
+      router.push(`/landing/scene?pick=${t.scenePick}`);
+      return;
+    }
     setTemplateId(t.id);
     setMobileTab("settings");
   };
