@@ -296,14 +296,12 @@ export function SceneStudio({
         const cfg = config();
         const preview = await buildScenePlayable(cfg, { network: "web", preview: true, load: cachedLoader });
         if (landing) {
+          // Для сети «web» сборка превью и выгрузки совпадает (сетевых скриптов нет) — одна на правку.
           const page = wrapSceneLanding(preview, { extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label });
-          const real = wrapSceneLanding(await buildScenePlayable(cfg, { network: "web", preview: false, load: cachedLoader }), {
-            extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label,
-          });
           if (!alive) return;
           setHtml(preview);
           setPageHtml(page);
-          setPageSize(new Blob([real]).size);
+          setPageSize(new Blob([page]).size);
           setBuildErr("");
           return;
         }

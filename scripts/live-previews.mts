@@ -12,6 +12,7 @@ import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { defaultExtras } from "../src/lib/landingKit";
+import { LANDING_LIVE_PREVIEW_IDS } from "../src/lib/livePreviews";
 import { PLAYABLE_CATALOG } from "../src/lib/playableCatalog";
 import { buildCrashHtml } from "../src/lib/crashExport";
 import { buildMatchHtml } from "../src/lib/matchExport";
@@ -68,6 +69,9 @@ const mech: { id: string; html: () => string }[] = [
       }),
   },
 ];
+// Каталог показывает анимацию только для LANDING_LIVE_PREVIEW_IDS — списки должны совпадать.
+const ids = mech.map((m) => m.id).sort().join(",");
+if (ids !== [...LANDING_LIVE_PREVIEW_IDS].sort().join(",")) throw new Error(`live-previews: механики ${ids} ≠ LANDING_LIVE_PREVIEW_IDS`);
 for (const m of mech) jobs.push({ id: m.id, out: join(PUB, "landing-previews", `${m.id}.anim.webp`), tapAt: 1600, html: async () => m.html() });
 
 const only = process.argv.slice(2);

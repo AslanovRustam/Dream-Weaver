@@ -41,7 +41,7 @@ ${k.head}
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:#0b0815}
-  .sceneHero{position:relative;height:calc(100svh - 56px);min-height:480px;background:#000}
+  .sceneHero{position:relative;height:calc(100vh - 56px);height:calc(100svh - 56px);min-height:480px;background:#000}
   .sceneHero iframe{display:block;width:100%;height:100%;border:0}
   .sceneMore{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:56px;border:0;cursor:pointer;color:#fff;background:linear-gradient(180deg,#000,#0b0815);font:800 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase}
   .sceneMore svg{width:18px;height:18px;animation:smBob 1.4s ease-in-out infinite}

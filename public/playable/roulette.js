@@ -42,6 +42,8 @@
     ball.style.transform = "translate(" + (x - (ball.offsetLeft + ball.offsetWidth / 2)).toFixed(1) + "px," + (y - (ball.offsetTop + ball.offsetHeight / 2)).toFixed(1) + "px)";
   }
   var wAng = 0;
+  // Где шарик сейчас: абсолютный угол и радиус — отсюда начинается следующий запуск.
+  var bLast = { a: 0, r: 398 };
   // Шарик в покое — на бортике сверху.
   placeBall(center(), 0, 398);
 
@@ -57,7 +59,7 @@
       var w0 = wAng, wTotal = 540 + Math.random() * 90, wEnd = w0 + wTotal;
       var pocket = ORDER.indexOf(target) * STEP;
       var bEndAbs = wEnd + pocket;
-      var b0 = -30, bTotal = b0 - bEndAbs;
+      var b0 = bLast.a, r0 = bLast.r, bTotal = b0 - bEndAbs;
       while (bTotal < 1260) bTotal += 360;
       var D = 4600, t0 = 0;
       function frame(t) {
@@ -67,10 +69,11 @@
         wheel.style.transform = "rotate(" + wAng.toFixed(2) + "deg)";
         var bAng = b0 - bTotal * (1 - Math.pow(1 - u, 2.4));
         // Последняя треть: шарик спускается с бортика в ячейку с подскоком.
-        var r = u < 0.66 ? 398 : 398 - (398 - 318) * Math.min(1, (u - 0.66) / 0.24) + (u > 0.8 && u < 0.92 ? Math.sin((u - 0.8) / 0.12 * Math.PI) * 22 : 0);
+        var r = u < 0.06 ? r0 + (398 - r0) * u / 0.06 : u < 0.66 ? 398 : 398 - (398 - 318) * Math.min(1, (u - 0.66) / 0.24) + (u > 0.8 && u < 0.92 ? Math.sin((u - 0.8) / 0.12 * Math.PI) * 22 : 0);
         if (u > 0.9) bAng = bEndAbs + (bAng - bEndAbs) * Math.max(0, (1 - u) / 0.1);
         placeBall(c, u >= 1 ? bEndAbs : bAng, r);
-        if (u < 1) requestAnimationFrame(frame); else resolve(c);
+        if (u < 1) requestAnimationFrame(frame);
+        else { bLast = { a: bEndAbs, r: r }; resolve(c); }
       }
       requestAnimationFrame(frame);
     });
@@ -112,7 +115,7 @@
     P.wait(1700).then(P.showPopup);
   }
 
-  P.onLayout(function () { if (!busy && !done) placeBall(center(), 0, 398); });
+  P.onLayout(function () { if (!busy) placeBall(center(), bLast.a, bLast.r); });
   P.boot({
     start: function () { stage.classList.add("rFresh"); P.setIdle(true); },
     press: press,

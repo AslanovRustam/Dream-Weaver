@@ -50,7 +50,10 @@
   }
 
   /** Прыжок вратаря: dir = 1 — вправо, -1 — влево. */
+  /** Снять прежние прыжки: их fill держал бы позу и глушил CSS-покачивание. */
+  function settle() { if (keeper.getAnimations) keeper.getAnimations().forEach(function (a) { a.cancel(); }); }
   function dive(dir, delay) {
+    settle();
     return anim(keeper, [
       { transform: "none" },
       { transform: "translate(" + 40 * dir + "px,-30px) rotate(" + 18 * dir + "deg)", offset: 0.3 },
@@ -58,7 +61,9 @@
     ], { duration: 520, delay: delay || 0, easing: "cubic-bezier(.2,.8,.3,1)" });
   }
   function standUp() {
-    return anim(keeper, [{ transform: getComputedStyle(keeper).transform }, { transform: "none" }], { duration: 380, easing: "ease-out" });
+    var from = getComputedStyle(keeper).transform;
+    settle();
+    anim(keeper, [{ transform: from }, { transform: "none" }], { duration: 380, easing: "ease-out" }).onfinish = settle;
   }
 
   var kicks = 0, busy = false, done = false;

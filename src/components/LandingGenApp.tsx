@@ -206,6 +206,11 @@ export function LandingGenApp() {
 
   const gen = useGeneration();
   const router = useRouter();
+  // Лендинг на сцене живёт в своём редакторе: ссылка ?template=<сцена> ведёт туда, а не в блочный.
+  useEffect(() => {
+    if (template.interactive === "scene" && template.scenePick) router.replace(`/landing/scene?pick=${template.scenePick}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [fromBanner, setFromBanner] = useState(false);
   const [bannerVertical, setBannerVertical] = useState<LandingVertical>("gambling");
   const [useBannerHero, setUseBannerHero] = useState(true);

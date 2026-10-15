@@ -6,8 +6,10 @@
 // кадр — второй слой фона. reduce-motion — только кадр.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+import { LANDING_LIVE_PREVIEW_IDS } from "@/lib/livePreviews";
+
 const SCENE_STILL = /^\/playable\/previews\/(scene-[a-z0-9]+)\.webp$/;
-const LANDING_ANIM = new Set(["gambling-wheel", "gambling-slot-machine", "gambling-crash", "betting-match"]);
+const LANDING_ANIM = new Set<string>(LANDING_LIVE_PREVIEW_IDS);
 const LANDING_STILL = /^\/landing-previews\/([a-z-]+)\.jpg$/;
 
 /** Анимированная пара к кадру, если она снята. */

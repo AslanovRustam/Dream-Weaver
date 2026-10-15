@@ -784,7 +784,7 @@ function kitScript(x: LandingExtras, ctaUrl: string, kind: LandingKind): string 
     window.addEventListener('scroll',function(){ var y=window.scrollY||0; if(!calm && seen) rot-=(y-lastY)*.12; lastY=y; },{passive:true});
     gw.addEventListener('pointerdown',function(e){ drag={x:e.clientX,r:rot}; moved=0; });
     window.addEventListener('pointermove',function(e){ if(!drag) return; var dx=e.clientX-drag.x; moved=Math.max(moved,Math.abs(dx)); rot=drag.r+dx*.35; });
-    window.addEventListener('pointerup',function(){ drag=null; });
+    window.addEventListener('pointerup',function(){ drag=null; setTimeout(function(){ moved=0; },0); });
     window.addEventListener('pointercancel',function(){ drag=null; });
     gw.addEventListener('click',function(e){ if(moved>6){ e.stopPropagation(); e.preventDefault(); moved=0; } },true);
     (function frame(){ if(!drag && !calm && seen) rot-=.08; ring.style.setProperty('--rot',rot.toFixed(2)+'deg'); requestAnimationFrame(frame); })();
@@ -839,7 +839,7 @@ function introCss(dark: boolean): string {
   .stage h1 .gw{display:inline-block;white-space:nowrap}
   .stage h1 .gl{display:inline-block}
   .goArt{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;${dark ? "mix-blend-mode:screen;opacity:.85" : "opacity:.55"}}
-  .goFl{position:absolute;z-index:1;pointer-events:none;width:var(--s);aspect-ratio:1;translate:calc(var(--px,0) * var(--d) * 1px) calc((var(--py,0) * var(--d) - var(--sy,0) * var(--d) * .35) * 1px)}
+  .goFl{position:absolute;z-index:1;pointer-events:none;width:var(--s);aspect-ratio:1;translate:calc(var(--px,0) * var(--d) * 1px) calc((var(--py,0) * var(--d) - var(--sy,0) * var(--d) * .012) * 1px)}
   .goFl.near{z-index:4;filter:blur(1.2px) drop-shadow(0 14px 18px rgba(0,0,0,.5))}
   .goFl.far{filter:blur(1.6px) brightness(.85);opacity:.85}
   .goFl.mid{filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
@@ -894,10 +894,12 @@ const FLOAT_SCRIPT = `
   (function(){
     var st=document.querySelector('.stage'); if(!st || !st.querySelector('.goFl')) return;
     if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var tx=0, ty=0, px=0, py=0;
+    var tx=0, ty=0, px=0, py=0, last={};
     window.addEventListener('pointermove',function(e){ if(e.pointerType!=='mouse') return; tx=(e.clientX/innerWidth-.5)*2; ty=(e.clientY/innerHeight-.5)*2; },{passive:true});
+    // Переменные на .stage пересчитывают стили всего первого экрана — пишем только изменившиеся.
+    function put(k,v){ if(last[k]!==v){ last[k]=v; st.style.setProperty(k,v); } }
     (function f(){ px+=(tx-px)*.06; py+=(ty-py)*.06;
-      st.style.setProperty('--px',px.toFixed(3)); st.style.setProperty('--py',py.toFixed(3)); st.style.setProperty('--sy',(Math.min(window.scrollY||0,1200)/10).toFixed(1));
+      put('--px',px.toFixed(2)); put('--py',py.toFixed(2)); put('--sy',String(Math.round(Math.min(window.scrollY||0,900))));
       requestAnimationFrame(f); })();
   })();
 `;
