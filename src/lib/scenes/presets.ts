@@ -193,6 +193,21 @@ export const SCENES: SceneMeta[] = [
     rewardTheme: "A golden football trophy on a pile of gold coins, sports betting win, 3D render",
   },
   {
+    id: "roulette",
+    label: "Рулетка",
+    description: "Ставка на красное: первый шарик — в зеро, второй — в красную семёрку.",
+    fields: [
+      { key: "title", label: "Заголовок", multiline: true },
+      { key: "tap", label: "Призыв крутить" },
+      { key: "tryAgain", label: "После зеро" },
+      { key: "spinsLeft", label: "Счётчик запусков (перед числом)" },
+      { key: "bet", label: "Фишка ставки" },
+      ...POPUP_FIELDS,
+    ],
+    bgTheme: "Luxurious casino roulette table under warm spotlights, green felt, stacks of chips, gold accents, bokeh",
+    rewardTheme: "Tall stacks of casino chips and gold coins with a glowing roulette ball, casino win, 3D render",
+  },
+  {
     id: "cut",
     label: "Разрез",
     description: "Монеты и самоцветы подлетают снизу — режь пальцем, бомбы не трогай.",
@@ -322,6 +337,12 @@ const TEXT: Record<SceneId, Record<SceneLang, Record<string, string>>> = {
     uk: { title: "Забий пенальті —\nзабери фрібет", tap: "Свайп до воріт — бий", tryAgain: "Сейв! Ще удар", kicksLeft: "Ударів: ", bonus: "Твій фрібет:", cta: "Забрати фрібет" },
     en: { title: "Score the penalty\nwin a free bet", tap: "Swipe to shoot", tryAgain: "Saved! Shoot again", kicksLeft: "Kicks: ", bonus: "Your free bet:", cta: "Claim free bet" },
     es: { title: "Marca el penalti\ny gana", tap: "Desliza para chutar", tryAgain: "¡Parada! Otra vez", kicksLeft: "Tiros: ", bonus: "Tu apuesta gratis:", cta: "Reclamar" },
+  },
+  roulette: {
+    ru: { title: "Ставь на красное —\nзабирай бонус", tap: "Жми, чтобы крутить", tryAgain: "Зеро! Крути ещё", spinsLeft: "Запусков: ", bet: "Ставка: красное", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Став на червоне —\nзабирай бонус", tap: "Тисни, щоб крутити", tryAgain: "Зеро! Крути ще", spinsLeft: "Запусків: ", bet: "Ставка: червоне", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Bet on red\nand win", tap: "Tap to spin", tryAgain: "Zero! Spin again", spinsLeft: "Spins: ", bet: "Bet: red", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Apuesta al rojo\ny gana", tap: "Toca para girar", tryAgain: "¡Cero! Otra vez", spinsLeft: "Giros: ", bet: "Apuesta: rojo", bonus: "Tu bono:", cta: "Reclamar bono" },
   },
   catcher: {
     ru: { title: "Лови монеты —\nзабирай бонус", tap: "Веди котёл пальцем", go: "Лови монеты!", caught: "Монет: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
@@ -569,6 +590,7 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
     BOMB_PART,
   ],
   basket: [{ id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" }],
+  roulette: [],
   penalty: [
     { id: "ball", kind: "object", label: "Мяч", hint: "Летит в ворота", size: 240, subject: "a glossy classic football (soccer ball), perfect sphere, black and white panels" },
     { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, generic kit without logos or numbers, non-identifiable" },
