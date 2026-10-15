@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { AdsApp } from "@/components/AdsApp";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { useAuth } from "@/lib/auth-context";
 
 export default function AdsPage() {
@@ -26,7 +27,9 @@ export default function AdsPage() {
     <>
       <AppHeader />
       <AppShell>
-        <AdsApp />
+        <SectionGate id="ads">
+          <AdsApp />
+        </SectionGate>
       </AppShell>
     </>
   );

@@ -2,6 +2,7 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { PlayableApp } from "@/components/PlayableApp";
 import { useAuth } from "@/lib/auth-context";
 
@@ -20,7 +21,9 @@ export default function PlayablePage() {
     <>
       <AppHeader />
       <AppShell>
-        <PlayableApp />
+        <SectionGate id="playable">
+          <PlayableApp />
+        </SectionGate>
       </AppShell>
     </>
   );

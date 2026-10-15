@@ -2,6 +2,7 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { VideoGenApp } from "@/components/VideoGenApp";
 import { useAuth } from "@/lib/auth-context";
 
@@ -20,7 +21,9 @@ export default function VideoPage() {
     <>
       <AppHeader />
       <AppShell>
-        <VideoGenApp />
+        <SectionGate id="video">
+          <VideoGenApp />
+        </SectionGate>
       </AppShell>
     </>
   );

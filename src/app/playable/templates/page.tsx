@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { PlayableTemplateCatalog } from "@/components/playable/PlayableTemplateCatalog";
 import { useAuth } from "@/lib/auth-context";
 
@@ -28,7 +29,9 @@ export default function PlayableTemplatesPage() {
     <>
       <AppHeader />
       <AppShell>
-        <PlayableTemplateCatalog />
+        <SectionGate id="playable">
+          <PlayableTemplateCatalog />
+        </SectionGate>
       </AppShell>
     </>
   );

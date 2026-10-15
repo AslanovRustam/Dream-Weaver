@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { CampaignDetail } from "@/components/CampaignDetail";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { useAuth } from "@/lib/auth-context";
 
 export default function CampaignPage() {
@@ -26,7 +27,9 @@ export default function CampaignPage() {
     <>
       <AppHeader />
       <AppShell>
-        <CampaignDetail />
+        <SectionGate id="stats">
+          <CampaignDetail />
+        </SectionGate>
       </AppShell>
     </>
   );

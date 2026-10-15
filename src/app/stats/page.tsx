@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { StatsApp } from "@/components/StatsApp";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
+import { SectionGate } from "@/components/SectionGate";
 import { useAuth } from "@/lib/auth-context";
 
 export default function StatsPage() {
@@ -26,7 +27,9 @@ export default function StatsPage() {
     <>
       <AppHeader />
       <AppShell>
-        <StatsApp />
+        <SectionGate id="stats">
+          <StatsApp />
+        </SectionGate>
       </AppShell>
     </>
   );
