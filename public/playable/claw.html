@@ -1,0 +1,34 @@
+<div id="glowBack" class="abs"></div>
+<div id="raysBack" class="abs rays"></div>
+
+<div id="title" class="abs gt" data-key="title" data-max="960"></div>
+
+<!-- Автомат: стекло, рельс, клешня, куча призов, лоток слева. -->
+<div id="machine" class="abs">
+  <div id="rail" class="abs"></div>
+  <div id="chute" class="abs"></div>
+  <div id="pile" class="abs fill"></div>
+  <div id="claw" class="abs">
+    <div id="cable" class="abs"></div>
+    <svg class="svg" viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="clMetal" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#8b93a3"/><stop offset=".5" stop-color="#f4f6fa"/><stop offset="1" stop-color="#6b7383"/>
+        </linearGradient>
+        <linearGradient id="clGold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#c98200"/>
+        </linearGradient>
+      </defs>
+      <g id="armL" class="arm"><path d="M92 62 L48 120 L58 176 L70 172 L64 126 L100 74Z" fill="url(#clMetal)" stroke="#2a2f3a" stroke-width="4" stroke-linejoin="round"/></g>
+      <g id="armR" class="arm"><path d="M108 62 L152 120 L142 176 L130 172 L136 126 L100 74Z" fill="url(#clMetal)" stroke="#2a2f3a" stroke-width="4" stroke-linejoin="round"/></g>
+      <rect x="70" y="20" width="60" height="50" rx="12" fill="url(#clGold)" stroke="#5a3a06" stroke-width="4"/>
+      <circle cx="100" cy="45" r="10" fill="#ff3b5c" stroke="#fff" stroke-width="3"/>
+    </svg>
+    <div id="grab" class="abs"></div>
+  </div>
+  <div id="glass" class="abs fill"></div>
+</div>
+
+<div id="spinPill" class="abs"><span id="label"></span></div>
+<div id="tapText" class="abs gt" data-key="tap" data-max="900"></div>
+<div id="hand" class="abs hand"></div>

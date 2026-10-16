@@ -1,0 +1,60 @@
+/* Сценарий «Кран-машина»: клешня ездит по рельсу, тап — опускается и
+   хватает приз. Координаты — в пикселях сцены 1080×1920 (горизонталь — внизу). */
+
+body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #3a0f4a 0%, #1a0626 55%, #090210 100%)); background-size: cover; background-position: center; }
+#bg { background: var(--img-bg, radial-gradient(120% 70% at 50% 35%, #5a1670 0%, #250836 50%, #0b0214 100%)); background-size: cover; background-position: center; }
+
+#glowBack {
+  left: -60px; top: 420px; width: 1200px; height: 1100px;
+  background: radial-gradient(closest-side, rgba(255, 120, 220, .7), rgba(255, 80, 180, .2) 55%, rgba(255, 60, 160, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 300px; width: 1200px; height: 1200px; opacity: 0; }
+
+#machine {
+  left: 110px; top: 430px; width: 860px; height: 1000px; overflow: hidden; border-radius: 40px;
+  background: linear-gradient(180deg, rgba(40, 10, 60, .55), rgba(20, 4, 34, .75));
+  box-shadow: 0 0 0 10px #ff4fd8, 0 0 0 16px #2a0a3a, 0 0 60px 10px rgba(255, 79, 216, .45), 0 40px 70px rgba(0, 0, 0, .6);
+}
+#glass { pointer-events: none; border-radius: 40px; background: linear-gradient(115deg, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .08) 85%, rgba(255, 255, 255, 0) 100%); z-index: 6; }
+#rail { left: 20px; top: 30px; width: 820px; height: 22px; border-radius: 11px; background: linear-gradient(180deg, #f4f6fa, #8b93a3); box-shadow: 0 6px 12px rgba(0, 0, 0, .5); z-index: 3; }
+#chute {
+  left: 24px; top: 640px; width: 170px; height: 340px; border-radius: 20px 20px 0 0;
+  background: linear-gradient(180deg, #0a0210, #1c0628); box-shadow: inset 0 0 0 6px #ffd34d, inset 0 20px 30px rgba(0, 0, 0, .7);
+}
+#chute::after { content: "▼"; position: absolute; left: 0; right: 0; top: 18px; text-align: center; color: #ffd34d; font-size: 40px; animation: chuteBlink 1s steps(1) infinite; }
+@keyframes chuteBlink { 50% { opacity: .2; } }
+#pile { z-index: 2; }
+.prize { position: absolute; width: 150px; height: 150px; filter: drop-shadow(0 12px 12px rgba(0, 0, 0, .55)); }
+.prize svg, .prize img.ai { width: 100%; height: 100%; }
+.prize.gold { filter: drop-shadow(0 0 20px rgba(255, 210, 90, .95)) drop-shadow(0 12px 12px rgba(0, 0, 0, .55)); }
+
+#claw { left: 0; top: 0; width: 200px; height: 200px; z-index: 4; will-change: transform; }
+#cable { left: 96px; top: -1000px; width: 8px; height: 1030px; background: linear-gradient(90deg, #6b7383, #e4e8ef, #6b7383); }
+#claw svg { position: absolute; left: 0; top: 0; width: 200px; height: 200px; overflow: visible; }
+.arm { transform-box: view-box; transition: transform .28s cubic-bezier(.3, 1.4, .5, 1); }
+#armL { transform-origin: 100px 66px; transform: rotate(16deg); }
+#armR { transform-origin: 100px 66px; transform: rotate(-16deg); }
+.closed #armL { transform: rotate(-4deg); }
+.closed #armR { transform: rotate(4deg); }
+#grab { left: 25px; top: 108px; width: 150px; height: 150px; }
+
+#spinPill {
+  left: 290px; top: 1480px; width: 500px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(60, 14, 80, .95), rgba(24, 4, 34, .97));
+  box-shadow: 0 0 0 5px #ff4fd8, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffb3ef; letter-spacing: .02em; }
+
+#tapText { top: 1620px; font-size: 80px; }
+#hand { left: 500px; top: 820px; }
+#hand.on { animation: handTapClaw 1.4s ease-in-out infinite; }
+@keyframes handTapClaw { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-20px) scale(1.05); } 60% { transform: translateY(6px) scale(.94); } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: автомат слева, тексты — колонкой справа */
+.land #machine { left: 110px; top: 40px; }
+.land #glowBack { left: -60px; top: -60px; }
+.land #raysBack { left: -60px; top: -120px; }
+.land #hand { left: 500px; top: 430px; }

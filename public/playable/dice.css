@@ -1,0 +1,67 @@
+/* Сценарий «Кости»: стакан, два 3D-кубика на сукне. Цель — дубль шестёрок.
+   Координаты — в пикселях сцены 1080×1920 (горизонталь — внизу). */
+
+body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #0f4a2a 0%, #072a17 55%, #03120a 100%)); background-size: cover; background-position: center; }
+#bg { background: var(--img-bg, radial-gradient(120% 70% at 50% 50%, #17704a 0%, #0b3d24 50%, #04170d 100%)); background-size: cover; background-position: center; }
+
+#glowBack {
+  left: -60px; top: 560px; width: 1200px; height: 900px;
+  background: radial-gradient(closest-side, rgba(255, 220, 110, .8), rgba(255, 160, 40, .22) 55%, rgba(255, 120, 20, 0));
+  opacity: 0; pointer-events: none;
+}
+#raysBack { left: -60px; top: 420px; width: 1200px; height: 1200px; opacity: 0; }
+
+#table {
+  left: 90px; top: 820px; width: 900px; height: 420px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 70%);
+  box-shadow: inset 0 0 0 6px rgba(255, 215, 120, .45);
+}
+
+#cup { left: 390px; top: 430px; width: 300px; height: 300px; z-index: 3; transform-origin: 150px 270px; filter: drop-shadow(0 24px 26px rgba(0, 0, 0, .55)); }
+.idle #cup { animation: cupWobble 1.4s ease-in-out infinite; }
+@keyframes cupWobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+
+/* Кубик: 6 граней, у каждой — свои точки. */
+/* До первого броска кубики в стакане. */
+.die { width: 170px; height: 170px; perspective: 1200px; z-index: 4; will-change: transform; opacity: 0; }
+#dieA { left: 280px; top: 930px; }
+#dieB { left: 630px; top: 930px; }
+.cube { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(-24deg) rotateY(28deg); }
+.face {
+  position: absolute; inset: 0; border-radius: 30px; padding: 22px;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #f1f1f4 55%, #cfd2da);
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, .08), inset 0 -10px 18px rgba(0, 0, 0, .12);
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  backface-visibility: hidden;
+}
+.face i { width: 30px; height: 30px; border-radius: 50%; place-self: center; background: radial-gradient(circle at 35% 30%, #ff5a6e, #c3121c 60%, #6a0710); box-shadow: inset 0 3px 4px rgba(0, 0, 0, .35); }
+.f1 { transform: translateZ(85px); }
+.f6 { transform: rotateY(180deg) translateZ(85px); }
+.f2 { transform: rotateY(90deg) translateZ(85px); }
+.f5 { transform: rotateY(-90deg) translateZ(85px); }
+.f3 { transform: rotateX(90deg) translateZ(85px); }
+.f4 { transform: rotateX(-90deg) translateZ(85px); }
+.die.hot .face { box-shadow: inset 0 0 0 6px #ffd34d, 0 0 40px 8px rgba(255, 210, 90, .8); }
+
+#spinPill {
+  left: 240px; top: 1330px; width: 600px; height: 92px; border-radius: 46px;
+  background: linear-gradient(180deg, rgba(10, 50, 28, .95), rgba(3, 20, 10, .97));
+  box-shadow: 0 0 0 5px #ffd34d, 0 18px 36px rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center;
+}
+#label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffe08a; letter-spacing: .02em; }
+
+#tapText { top: 1480px; font-size: 80px; }
+#hand { left: 520px; top: 620px; }
+#hand.on { animation: handTapDice 1.4s ease-in-out infinite; }
+@keyframes handTapDice { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-20px) scale(1.05); } 60% { transform: translateY(6px) scale(.94); } }
+.won #hand { display: none; }
+
+/* ---- горизонталь: стакан и кубики слева, тексты — колонкой справа */
+.land #cup { left: 390px; top: 40px; }
+.land #table { left: 90px; top: 420px; }
+.land #dieA { left: 280px; top: 530px; }
+.land #dieB { left: 630px; top: 530px; }
+.land #glowBack { left: -60px; top: 100px; }
+.land #raysBack { left: -60px; top: -40px; }
+.land #hand { left: 520px; top: 220px; }
