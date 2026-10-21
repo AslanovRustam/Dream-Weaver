@@ -16,7 +16,7 @@ import { buildEmailHtml } from "@/lib/emailExport";
 import { persistDraft } from "@/lib/emailDraftsStore";
 import { shrinkPng } from "@/lib/imageCompress";
 import { LANDING_LANGS, type LandingKind, type LandingLang } from "@/lib/landingKit";
-import { landingThemesFor, themeBackground } from "@/lib/landingThemes";
+import { landingThemesFor, loadThemeBackground, themeBackground, themePhotoUrl } from "@/lib/landingThemes";
 import { isSectionEnabled } from "@/lib/mvp";
 import { forgetProject } from "@/lib/projects";
 import {
@@ -80,6 +80,9 @@ export function CampaignApp() {
   const [landingHtml, setLandingHtml] = useState("");
   const [playableHtml, setPlayableHtml] = useState("");
   const [zipping, setZipping] = useState(false);
+  /** Фон темы от ИИ (data-URL) — грузится при смене темы, в бриф не сохраняется. */
+  const [themeBg, setThemeBg] = useState("");
+  const full = useMemo(() => ({ ...b, bg: themeBg }), [b, themeBg]);
   const logoInput = useRef<HTMLInputElement>(null);
 
   const showPlayable = isSectionEnabled("playable");
@@ -103,13 +106,24 @@ export function CampaignApp() {
     }
   }, [b, ready]);
 
+  useEffect(() => {
+    let alive = true;
+    setThemeBg("");
+    void loadThemeBackground(b.themeId).then((bg) => {
+      if (alive) setThemeBg(bg);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [b.themeId]);
+
   // Превью — после паузы в наборе.
   useEffect(() => {
     if (!ready) return;
     let alive = true;
     const id = window.setTimeout(async () => {
       try {
-        const [l, p] = await Promise.all([briefLandingHtml(b, browserLoader), showPlayable ? briefPlayableHtml(b, browserLoader) : Promise.resolve("")]);
+        const [l, p] = await Promise.all([briefLandingHtml(full, browserLoader), showPlayable ? briefPlayableHtml(full, browserLoader) : Promise.resolve("")]);
         if (!alive) return;
         setLandingHtml(l);
         setPlayableHtml(p);
@@ -121,9 +135,9 @@ export function CampaignApp() {
       alive = false;
       window.clearTimeout(id);
     };
-  }, [b, ready, showPlayable]);
+  }, [full, ready, showPlayable]);
 
-  const emailHtml = useMemo(() => (showEmail ? buildEmailHtml(briefEmail(b)) : ""), [b, showEmail]);
+  const emailHtml = useMemo(() => (showEmail ? buildEmailHtml(briefEmail(full)) : ""), [full, showEmail]);
   const themes = useMemo(() => landingThemesFor(b.kind).map((t) => ({ t, bg: themeBackground(t.id) })), [b.kind]);
 
   const switchKind = (kind: LandingKind) => {
@@ -163,7 +177,7 @@ export function CampaignApp() {
         router.push(`/banner?preset=${s.preset}`);
         return;
       }
-      const { writes, route } = briefEditorDraft(b, part);
+      const { writes, route } = briefEditorDraft(full, part);
       for (const [k, v] of writes) {
         window.localStorage.setItem(k, JSON.stringify(v));
         forgetProject(k); // открываем как новый проект
@@ -180,10 +194,10 @@ export function CampaignApp() {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       const slug = (b.brand.trim() || "campaign").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "") || "campaign";
-      zip.file("landing/index.html", await briefLandingHtml(b, browserLoader));
+      zip.file("landing/index.html", await briefLandingHtml(full, browserLoader));
       if (showPlayable) {
-        zip.file("playable/web.html", await briefPlayableHtml(b, browserLoader, "web"));
-        zip.file("playable/mraid.html", await briefPlayableHtml(b, browserLoader, "mraid"));
+        zip.file("playable/web.html", await briefPlayableHtml(full, browserLoader, "web"));
+        zip.file("playable/mraid.html", await briefPlayableHtml(full, browserLoader, "mraid"));
       }
       if (showEmail) zip.file("email/email.html", emailHtml);
       zip.file(
@@ -290,7 +304,7 @@ export function CampaignApp() {
                 onClick={() => setB((p) => ({ ...p, themeId: t.id, headline: "" }))}
                 aria-pressed={b.themeId === t.id}
                 className={`relative flex h-16 w-24 shrink-0 items-end overflow-hidden rounded-lg border p-1 ${b.themeId === t.id ? "border-accent-green" : "border-border"}`}
-                style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                style={{ backgroundImage: `url(${themePhotoUrl(t.id)}), url(${bg})`, backgroundSize: "cover", backgroundPosition: "center" }}
               >
                 <span className="truncate rounded bg-black/55 px-1 text-[11px] font-semibold text-white">{t.name}</span>
               </button>

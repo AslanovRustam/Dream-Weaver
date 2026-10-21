@@ -225,3 +225,38 @@ export function themeBackground(id: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">${art()}</svg>`;
   return `data:image/svg+xml;base64,${b64(svg)}`;
 }
+
+// ---------------------------------------------------------------- фоны от ИИ
+
+/** Фон темы от ИИ (scripts/gen-landing-themes.mts) — лежит в public/landing-themes. */
+export const themePhotoUrl = (id: string) => `/landing-themes/${id}.webp`;
+
+const photoCache = new Map<string, Promise<string>>();
+
+/**
+ * Фон темы для выгрузки: картинка от ИИ, встроенная data-URL (лендинг — один
+ * файл), а если её нет или сеть подвела — рисованный SVG. Только в браузере.
+ */
+export function loadThemeBackground(id: string): Promise<string> {
+  if (!photoCache.has(id)) {
+    photoCache.set(
+      id,
+      fetch(themePhotoUrl(id))
+        .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+        .then(
+          (blob) =>
+            new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => (typeof fr.result === "string" ? resolve(fr.result) : reject(new Error("read")));
+              fr.onerror = () => reject(new Error("read"));
+              fr.readAsDataURL(blob);
+            }),
+        )
+        .catch(() => {
+          photoCache.delete(id);
+          return themeBackground(id);
+        }),
+    );
+  }
+  return photoCache.get(id)!;
+}

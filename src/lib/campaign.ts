@@ -40,6 +40,8 @@ export type CampaignBrief = {
   landing: CampaignLanding;
   /** Сцена плейбла (и лендинга, если landing === "scene"). */
   scene: SceneId;
+  /** Фон темы, уже загруженный (ИИ-картинка data-URL); нет — рисованный SVG. Не сохраняется. */
+  bg?: string;
 };
 
 const OFFER: Record<LandingKind, Record<LandingLang, string>> = {
@@ -72,6 +74,7 @@ export function briefTheme(b: CampaignBrief): LandingTheme {
 }
 export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || briefTheme(b).headline[b.lang];
 const brandName = (b: CampaignBrief) => b.brand.trim() || "BRAND";
+const briefBg = (b: CampaignBrief) => b.bg || themeBackground(briefTheme(b).id);
 
 /** Блоки лендинга: язык, объекты темы, оффер — первой карточкой бонусов. */
 export function briefExtras(b: CampaignBrief): LandingExtras {
@@ -103,7 +106,7 @@ function mechanicCommon(b: CampaignBrief) {
     dark: true,
     ctaText: b.cta,
     ctaUrl: b.link,
-    bgImage: themeBackground(t.id),
+    bgImage: briefBg(b),
     charLeft: "",
     charRight: "",
     extras: briefExtras(b),
@@ -144,7 +147,7 @@ export function briefScene(b: CampaignBrief): SceneConfig {
     legal: p.legal,
     brandName: brandName(b),
     logo: b.logo,
-    bgImage: themeBackground(briefTheme(b).id),
+    bgImage: briefBg(b),
     prizes: p.prizes,
     winIndex: DEFAULT_WIN_INDEX,
     lang: b.lang,

@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import { toast } from "sonner";
 
-import { landingThemesFor, themeBackground, type LandingTheme } from "@/lib/landingThemes";
+import { landingThemesFor, loadThemeBackground, themeBackground, themePhotoUrl, type LandingTheme } from "@/lib/landingThemes";
 import type { LandingExtras, LandingKind } from "@/lib/landingKit";
 
 const ICON: Record<string, string> = {
@@ -39,8 +39,10 @@ export function ThemeStrip({
   const themes = useMemo(() => landingThemesFor(kind).map((t) => ({ t, bg: themeBackground(t.id) })), [kind]);
   const active = extras.look.floatTheme;
 
-  const apply = (t: LandingTheme, bg: string) => {
+  const apply = async (t: LandingTheme) => {
     const before = extras;
+    // Фон от ИИ, встроенный в лендинг; нет его — рисованный.
+    const bg = await loadThemeBackground(t.id);
     const undo = onApply(t, t.headline[extras.lang] ?? t.headline.ru, bg);
     onExtras({ ...extras, look: { ...extras.look, floaters: true, floatTheme: t.id, floatImgs: undefined } });
     toast.success(`Тема «${t.name}»: цвет, заголовок, фон и объекты`, {
@@ -62,13 +64,13 @@ export function ThemeStrip({
           <button
             key={t.id}
             type="button"
-            onClick={() => apply(t, bg)}
+            onClick={() => void apply(t)}
             aria-pressed={active === t.id}
             title={t.name}
             className={`relative flex h-20 w-24 shrink-0 flex-col justify-end overflow-hidden rounded-lg border p-1.5 text-left transition ${
               active === t.id ? "border-accent-green shadow-[0_0_20px_rgba(198,255,61,0.18)]" : "border-border hover:border-white/30"
             }`}
-            style={{ backgroundImage: `url(${bg})`, backgroundSize: "cover", backgroundPosition: "center" }}
+            style={{ backgroundImage: `url(${themePhotoUrl(t.id)}), url(${bg})`, backgroundSize: "cover", backgroundPosition: "center" }}
           >
             <span className="absolute right-1.5 top-1 text-lg leading-none drop-shadow">{ICON[t.id] ?? "✨"}</span>
             <span className="absolute left-1.5 top-1.5 h-2.5 w-2.5 rounded-full ring-1 ring-white/50" style={{ background: t.accent }} />
