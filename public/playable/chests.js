@@ -58,7 +58,8 @@
       var bob = c.querySelector(".bob");
       bob.querySelector(".body").style.display = "none";
       bob.querySelector(".lid").style.display = "none";
-      bob.insertAdjacentHTML("afterbegin", '<div class="aiChest">' + P.aiImg(ART_CHEST, "shut") + (P.art("chestOpen") ? P.aiImg(P.art("chestOpen"), "open") : "") + "</div>");
+      c.classList.add("aiArt");
+      bob.querySelector(".beam").insertAdjacentHTML("afterend", '<div class="aiChest">' + P.aiImg(ART_CHEST, "shut") + (P.art("chestOpen") ? P.aiImg(P.art("chestOpen"), "open") : "") + "</div>");
     });
   }
 

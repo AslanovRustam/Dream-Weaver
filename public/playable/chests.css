@@ -31,6 +31,13 @@
 .chest .beam { position: absolute; left: 10px; top: -160px; width: 300px; height: 360px; pointer-events: none; mix-blend-mode: screen;
   background: linear-gradient(0deg, rgba(255, 220, 130, .95), rgba(255, 220, 130, 0));
   clip-path: polygon(30% 100%, 70% 100%, 100% 0, 0 0); }
+/* У сундука от ИИ проём где угодно: вместо луча-трапеции — мягкое свечение за картинкой,
+   блик по векторной крышке не нужен. */
+.chest.aiArt .beam { left: -40px; top: -90px; width: 400px; height: 360px; clip-path: none; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 220, 130, .9), rgba(255, 200, 90, .35) 55%, rgba(255, 200, 90, 0)); }
+.themed .chest.aiArt .beam { background: radial-gradient(closest-side, rgba(var(--glow-rgb), .9), rgba(var(--glow-rgb), .35) 55%, rgba(var(--glow-rgb), 0)); }
+.themed .chest:not(.aiArt) .beam { background: linear-gradient(0deg, rgba(var(--glow-rgb), .95), rgba(var(--glow-rgb), 0)); }
+.chest.aiArt .gleam { display: none; }
 .chest.picked .bob { filter: saturate(.5) brightness(.65); transition: filter .6s .6s; }
 .chest.winner .beam { animation: beam 1.6s ease-in-out infinite alternate; }
 @keyframes beam { from { opacity: .55; } to { opacity: 1; } }

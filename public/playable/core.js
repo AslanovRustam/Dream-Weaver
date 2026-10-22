@@ -176,7 +176,11 @@
     for (var k in map) if (ui[k]) stage.style.setProperty(map[k], ui[k]);
     // Гамма с картинки или пипетки (у неё есть плашки) — панели сцен тоже перекрашиваются;
     // без неё у каждой сцены свои фирменные цвета: неон автомата, красный авиатора.
-    if (ui.plate1) stage.classList.add("themed");
+    if (ui.plate1) {
+      stage.classList.add("themed");
+      var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(ui.accent || "");
+      if (m) stage.style.setProperty("--glow-rgb", parseInt(m[1], 16) + ", " + parseInt(m[2], 16) + ", " + parseInt(m[3], 16));
+    }
   })();
 
   var ART = CFG.art || {}, SYMS = CFG.symbols || [];

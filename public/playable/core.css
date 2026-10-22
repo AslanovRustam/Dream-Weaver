@@ -130,6 +130,9 @@ body::before {
   pointer-events: none;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.themed .rays { background: repeating-conic-gradient(from 0deg, rgba(var(--glow-rgb), .5) 0deg 7deg, rgba(var(--glow-rgb), 0) 7deg 22deg); }
+.themed #glowBack { background: radial-gradient(closest-side, rgba(var(--glow-rgb), .75), rgba(var(--glow-rgb), .2) 55%, rgba(var(--glow-rgb), 0)); }
+.themed #popBox { box-shadow: 0 0 0 6px var(--rim), 0 0 0 12px var(--plate-2), 0 40px 120px rgba(0, 0, 0, .7), inset 0 0 120px rgba(var(--glow-rgb), .12); }
 
 /* ---------- попап ---------- */
 #popup { pointer-events: none; opacity: 0; transition: opacity .25s; z-index: 20; }
