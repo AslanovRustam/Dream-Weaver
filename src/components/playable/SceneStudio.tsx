@@ -510,7 +510,7 @@ export function SceneStudio({
         server: { route: "/api/generate-slot-symbols", body },
       };
     }
-    const body = { kind: part.kind, style, theme, ...(part.subject ? { subject: part.subject } : {}) };
+    const body = { kind: part.kind, style, theme, ...(part.subject ? { subject: part.subject } : {}), ...(part.person ? { person: true } : {}) };
     return {
       id: part.id,
       label: part.label,

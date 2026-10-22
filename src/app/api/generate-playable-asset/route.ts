@@ -3,9 +3,14 @@
 // лендингов, но промпты собраны здесь под каждую деталь: деталь должна лечь
 // в сцену без ручной правки (вид строго спереди, по центру, без текста).
 //
-// Body: { kind: PlayableAssetKind, style: string, theme?: string }
+// Body: { kind: PlayableAssetKind, style: string, theme?: string, subject?: string, person?: boolean }
 //   style — стилевой промпт пресета (материалы, палитра): один на все детали
 //   сцены, чтобы они выглядели из одного набора.
+//   person — на детали человек (вратарь, ведущий). Тему-персонажа («супермен»)
+//   OpenAI не рисует: блокирует уже готовую картинку. Поэтому для людей тему
+//   сначала переписываем в безымянный бриф образа (цвета, крой, плащ — без
+//   имени, эмблем и лица героя), а если и такой образ заблокируют — рисуем
+//   своего персонажа только в цветах темы. Кредиты — один раз за деталь.
 // Response: { imageUrl (data:image/png;base64,…), costUsd, costCredits, balance }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
@@ -84,7 +89,6 @@ const KINDS: Record<string, Spec> = {
   },
 };
 
-
 /**
  * Предмет сцены по описанию из пресета (сундук, самолёт, дверь сейфа…):
  * описание приходит в subject, рамка промпта — здесь.
@@ -98,15 +102,60 @@ function objectSpec(subject: string): Spec {
       "in fantasy or a witch's sealed cabinet in mystic; a chest becomes a crystal casket). " +
       "Centred with a little padding, nothing else in the image, crisp clean " +
       "edges, transparent background, no ground, no shadow plate. PEOPLE: any person is an adult, fully clothed, " +
-      "friendly non-sexual pose, and ALWAYS an ORIGINAL generic character: if the theme names a superhero, film, game or " +
-      "celebrity, take only its colours and mood — never its costume, emblem, mask, face or likeness.",
+      "friendly non-sexual pose, with an original friendly face; no emblems, chest symbols, logos or lettering on clothes.",
     size: "1024x1024",
     transparent: true,
     quality: "medium",
   };
 }
 
-type Body = { kind?: string; style?: string; theme?: string; subject?: string };
+type Body = { kind?: string; style?: string; theme?: string; subject?: string; person?: boolean };
+
+const BRIEF_SYSTEM = [
+  'You prepare art briefs for an image model that refuses to draw known characters. Given a THEME (any language) and a CHARACTER ROLE, return JSON {"setting": string, "costume": string, "named": boolean}.',
+  "- named: true if the theme refers to a specific known character, franchise, film, game, team, celebrity or brand.",
+  "- setting: 6-15 English words — mood, colour palette, place. No proper names.",
+  "- costume: 12-35 English words — an outfit for the given role that fans of the theme would associate with it at a glance: " +
+    "colour scheme, materials, cape or armour plates, boots, gloves, accessories, adapted to the role (e.g. a goalkeeper kit). " +
+    "Never use names, and never include emblems, chest symbols, logos, letters, masks or cowls that hide the face, " +
+    "signature patterns or motifs owned by a character (web lines, bat shapes, lightning bolts, shields, stars of a specific costume), " +
+    "signature hairstyles, or facial features of a specific person or character. The face is always an original friendly face.",
+  "- If the theme is generic (no named character), describe a fitting themed outfit the same way.",
+].join("\n");
+
+/** Безымянный бриф образа по теме для детали с человеком; null — не вышло, рисуем без него. */
+async function personBrief(
+  theme: string,
+  role: string,
+  apiKey: string,
+): Promise<{ setting: string; costume: string } | null> {
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-5.4-mini",
+        messages: [
+          { role: "system", content: BRIEF_SYSTEM },
+          { role: "user", content: `Theme: ${theme}\nCharacter role: ${role}` },
+        ],
+        response_format: { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const j = JSON.parse(data.choices?.[0]?.message?.content || "{}") as {
+      setting?: unknown;
+      costume?: unknown;
+    };
+    const setting = typeof j.setting === "string" ? j.setting.trim().slice(0, 200) : "";
+    const costume = typeof j.costume === "string" ? j.costume.trim().slice(0, 400) : "";
+    return setting && costume ? { setting, costume } : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   let user: Awaited<ReturnType<typeof requireUser>>;
@@ -127,7 +176,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const subject = (body.subject || "").trim().slice(0, 600);
-  const spec = body.kind === "object" ? (subject ? objectSpec(subject) : null) : KINDS[body.kind ?? ""];
+  const spec =
+    body.kind === "object" ? (subject ? objectSpec(subject) : null) : KINDS[body.kind ?? ""];
   if (!spec) return Response.json({ error: "Неизвестная деталь" }, { status: 400 });
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -135,39 +185,82 @@ export async function POST(request: Request) {
 
   const style = (body.style || "").trim().slice(0, 600);
   const theme = (body.theme || "").trim().slice(0, 400);
-  const prompt =
-    `${spec.prompt}\n\nSTYLE (shared by every asset of this game — keep it consistent): ${style || "polished gold and ruby, luxury casino"}.` +
-    (theme ? `\nTHEME: ${theme}.` : "") +
+  const promptFor = (specPrompt: string, th: string, st: string) =>
+    `${specPrompt}\n\nSTYLE (shared by every asset of this game — keep it consistent): ${st || "polished gold and ruby, luxury casino"}.` +
+    (th ? `\nTHEME: ${th}.` : "") +
     `\n\n${COMMON}`;
+
+  // Попытки по очереди: следующая — только если фильтр заблокировал предыдущую.
+  const attempts: string[] = [];
+  if (body.kind === "object" && body.person && theme) {
+    const brief = await personBrief(theme, subject.slice(0, 120), apiKey);
+    // имя темы не должно попасть в промпт и через стиль («…taken from the theme "супермен"»)
+    const safe = (s: string, to: string) => s.split(theme).join(to);
+    if (brief) {
+      attempts.push(
+        promptFor(
+          objectSpec(`${subject}. Outfit: ${brief.costume}`).prompt,
+          brief.setting,
+          safe(style, brief.setting),
+        ),
+      );
+    }
+    const setting = brief?.setting || "the theme's colour palette";
+    attempts.push(
+      promptFor(
+        objectSpec(
+          `${subject}. An ORIGINAL generic character in a plain outfit using only the colour palette of the setting — no cape, mask, costume or motif of any known hero`,
+        ).prompt,
+        setting,
+        safe(style, setting),
+      ),
+    );
+  } else {
+    attempts.push(promptFor(spec.prompt, theme, style));
+  }
 
   const billing = { feature: `playable-${body.kind}`, model: MODEL };
   const supa = getAdminClient();
   const charge = await chargeFlat(supa, user.id, PLAYABLE_ASSET_PRICE_CREDITS, billing);
   if (!charge.ok) return charge.response;
-  const refund = () => refundFlat(supa, user.id, PLAYABLE_ASSET_PRICE_CREDITS, { ...billing, reason: "provider_failure" });
-
-  let res: Response;
-  try {
-    res = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: MODEL,
-        prompt,
-        size: spec.size,
-        quality: spec.quality,
-        n: 1,
-        background: spec.transparent ? "transparent" : "opaque",
-        output_format: spec.transparent ? "png" : "jpeg",
-        moderation: "low",
-      }),
+  const refund = () =>
+    refundFlat(supa, user.id, PLAYABLE_ASSET_PRICE_CREDITS, {
+      ...billing,
+      reason: "provider_failure",
     });
-  } catch (e) {
-    await refund();
-    return Response.json({ error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) }, { status: 502 });
-  }
 
-  const text = await res.text();
+  let res!: Response;
+  let text = "";
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      res = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: MODEL,
+          prompt: attempts[i],
+          size: spec.size,
+          quality: spec.quality,
+          n: 1,
+          background: spec.transparent ? "transparent" : "opaque",
+          output_format: spec.transparent ? "png" : "jpeg",
+          moderation: "low",
+        }),
+      });
+    } catch (e) {
+      await refund();
+      return Response.json(
+        { error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) },
+        { status: 502 },
+      );
+    }
+
+    text = await res.text();
+    // Заблокировал фильтр, а есть попытка помягче — пробуем её.
+    if (!res.ok && i < attempts.length - 1 && /safety|moderation|content|rejected/i.test(text))
+      continue;
+    break;
+  }
   if (!res.ok) {
     let msg = text.slice(0, 300);
     try {
@@ -177,7 +270,10 @@ export async function POST(request: Request) {
     }
     const isFilter = /safety|moderation|content|rejected/i.test(msg);
     await refund();
-    return Response.json({ error: isFilter ? "content_filter" : "Provider error", detail: msg }, { status: isFilter ? 422 : 502 });
+    return Response.json(
+      { error: isFilter ? "content_filter" : "Provider error", detail: msg },
+      { status: isFilter ? 422 : 502 },
+    );
   }
 
   let b64 = "";
@@ -206,5 +302,10 @@ export async function POST(request: Request) {
     costUsd: iu.costUsd,
   });
 
-  return Response.json({ imageUrl, costUsd: iu.costUsd, costCredits: PLAYABLE_ASSET_PRICE_CREDITS, balance: charge.balance });
+  return Response.json({
+    imageUrl,
+    costUsd: iu.costUsd,
+    costCredits: PLAYABLE_ASSET_PRICE_CREDITS,
+    balance: charge.balance,
+  });
 }

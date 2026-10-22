@@ -628,6 +628,8 @@ export type ScenePart = {
   subject?: string;
   /** До какого размера ужимать спрайт, px. */
   size?: number;
+  /** На детали человек: тему-персонажа сервер перепишет в безымянный образ (цвета, крой, без эмблем и лица героя). */
+  person?: boolean;
 };
 
 const BG_PART: ScenePart = { id: "bg", kind: "scene-bg", label: "Фон", hint: "Квадрат — и для телефона, и для десктопа" };
@@ -766,7 +768,7 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
   ],
   penalty: [
     { id: "ball", kind: "object", label: "Мяч", hint: "Летит в ворота", size: 240, subject: "a glossy classic football (soccer ball), perfect sphere, black and white panels" },
-    { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, an ORIGINAL generic player in a plain kit coloured after the theme — no costume, cape, mask, emblem, logo or number of any known hero, team or person" },
+    { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах; образ — по теме", size: 420, person: true, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, no number on the kit" },
   ],
   cut: [
     { id: "symbols", kind: "symbols", label: "Что режем", hint: "6 предметов", subject: "six different juicy casino treasures to slice: coins, gems, a lucky seven, a cherry, a star, a gold bar" },
@@ -776,7 +778,7 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
   match3: [{ id: "symbols", kind: "symbols", label: "Самоцветы", hint: "Нужны первые 5 из 6", subject: GEMS }],
   quiz: [
     {
-      id: "mascot", kind: "object", label: "Ведущий", hint: "Персонаж рядом с вопросом", size: 460,
+      id: "mascot", kind: "object", label: "Ведущий", hint: "Персонаж рядом с вопросом; образ — по теме", size: 460, person: true,
       subject: "a friendly cartoon game-show host mascot character, upper body, smiling and pointing, fully clothed",
     },
   ],
