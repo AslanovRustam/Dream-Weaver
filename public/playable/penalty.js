@@ -107,12 +107,30 @@
    * Прыжок вратаря на dx по горизонтали. Мяч почти по центру — прыгает вверх
    * на месте; иначе — в сторону, лёжа (чем дальше, тем ниже и горизонтальнее).
    */
-  function dive(dx, delay, high) {
+  /**
+   * Геометрия прыжка — от ворот и роста вратаря: поворот вокруг центра тела,
+   * лёжа он занимает ±половину роста по горизонтали, поэтому сдвиг ограничен
+   * так, чтобы и голова, и ноги остались в створе. tipX — куда тянется перчатка.
+   */
+  function reach(tipX) {
+    var g = $("goal"), half = keeper.offsetHeight / 2, cx = keeperX();
+    var lo = g.offsetLeft + 30 + half - cx, hi = g.offsetLeft + g.offsetWidth - 30 - half - cx;
+    var dir = tipX < cx ? -1 : 1;
+    return clamp(tipX - cx - dir * half * 0.9, lo, hi);
+  }
+  /** Высота центра лёжа: низкий мяч — бок на земле (линия ворот), высокий — на высоте мяча. */
+  function liftTo(y) {
+    var g = $("goal"), ground = g.offsetTop + g.offsetHeight - keeper.offsetWidth * 0.45;
+    var cy = keeper.offsetTop + keeper.offsetHeight / 2;
+    return Math.min(ground, Math.max(g.offsetTop + 120, y)) - cy;
+  }
+  function dive(dx, delay, high, y) {
     settle();
-    var dir = dx < 0 ? -1 : 1, far = Math.min(1, Math.abs(dx) / 250);
-    var end = Math.abs(dx) < 70
-      ? "translate(" + dx.toFixed(0) + "px," + (high ? -110 : -50) + "px) scale(1.04)"
-      : "translate(" + dx.toFixed(0) + "px," + (high ? -100 : 30) + "px) rotate(" + (dir * (40 + 38 * far)).toFixed(0) + "deg)";
+    var dir = dx < 0 ? -1 : 1, far = Math.min(1, Math.abs(dx) / 200);
+    var dy = y == null ? liftTo(1e9) : liftTo(y);
+    var end = Math.abs(dx) < 60
+      ? "translate(" + dx.toFixed(0) + "px," + (high ? -110 : -40) + "px) scale(1.04)"
+      : "translate(" + dx.toFixed(0) + "px," + dy.toFixed(0) + "px) rotate(" + (dir * (55 + 30 * far)).toFixed(0) + "deg)";
     return anim(keeper, [
       { transform: "none" },
       { transform: "translate(" + (dx * 0.16).toFixed(0) + "px,-30px) rotate(" + (dir * 18 * far).toFixed(0) + "deg)", offset: 0.3 },
@@ -147,7 +165,9 @@
   function saved(S, C) {
     var M = mouth(), mid = (M.t + M.b) / 2;
     // вратарь достаёт ровно туда, куда бьют; перчатка — у мяча
-    dive(clamp(C.x - keeperX(), -260, 260), 80, C.y < mid);
+    // центр — прыжок вверх на месте; иначе — рыбкой к мячу, перчаткой к точке удара
+    var near = Math.abs(C.x - keeperX()) < 120;
+    dive(near ? clamp(C.x - keeperX(), -50, 50) : reach(C.x), 80, C.y < mid, C.y);
     var side = C.x < (M.l + M.r) / 2 ? -1 : 1;
     fly(S, S, [{ to: C, c: ctrl(S, C), dur: 520, s0: 1, s1: 0.52 }])
       .then(function () {
@@ -175,7 +195,8 @@
     // вратарь прыгает в противоположную сторону.
     var kx = keeperX();
     if (Math.abs(C.x - kx) < 150) C = { x: C.x < kx ? Math.max(M.l, kx - 230) : Math.min(M.r, kx + 230), y: C.y };
-    dive(C.x < kx ? 250 : -250, 160);
+    // не в ту сторону — до упора в створе, на землю
+    dive(C.x < kx ? reach(1e9) : reach(-1e9), 160, false);
     fly(S, S, [{ to: C, c: ctrl(S, C), dur: 560, s0: 1, s1: 0.5 }])
       .then(function () {
         ball.classList.add("behind"); // в сетке — за штангами
