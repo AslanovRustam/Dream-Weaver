@@ -766,7 +766,7 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
   ],
   penalty: [
     { id: "ball", kind: "object", label: "Мяч", hint: "Летит в ворота", size: 240, subject: "a glossy classic football (soccer ball), perfect sphere, black and white panels" },
-    { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, generic kit without logos or numbers, non-identifiable" },
+    { id: "keeper", kind: "object", label: "Вратарь", hint: "Стоит в воротах", size: 420, subject: "a stylized cartoon football goalkeeper, full body, front view, arms raised with big gloves, an ORIGINAL generic player in a plain kit coloured after the theme — no costume, cape, mask, emblem, logo or number of any known hero, team or person" },
   ],
   cut: [
     { id: "symbols", kind: "symbols", label: "Что режем", hint: "6 предметов", subject: "six different juicy casino treasures to slice: coins, gems, a lucky seven, a cherry, a star, a gold bar" },

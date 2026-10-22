@@ -98,7 +98,8 @@ function objectSpec(subject: string): Spec {
       "in fantasy or a witch's sealed cabinet in mystic; a chest becomes a crystal casket). " +
       "Centred with a little padding, nothing else in the image, crisp clean " +
       "edges, transparent background, no ground, no shadow plate. PEOPLE: any person is an adult, fully clothed, " +
-      "friendly non-sexual pose.",
+      "friendly non-sexual pose, and ALWAYS an ORIGINAL generic character: if the theme names a superhero, film, game or " +
+      "celebrity, take only its colours and mood — never its costume, emblem, mask, face or likeness.",
     size: "1024x1024",
     transparent: true,
     quality: "medium",

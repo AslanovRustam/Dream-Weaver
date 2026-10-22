@@ -462,17 +462,13 @@ export function SceneStudio({
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_scene", apply: applyAsset });
 
+  /** Ошибка уходит наверх: панель сборки покажет причину по-человечески (фильтр, кредиты, таймаут). */
   const runInTab = (route: string, body: Record<string, unknown>, key: string) => async () => {
-    try {
-      const res = await apiFetch(route, { method: "POST", json: body });
-      const data = (await res.json()) as { imageUrl?: string; error?: string; detail?: string };
-      if (!res.ok || !data.imageUrl) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
-      await applyAsset(key, data.imageUrl);
-      return true;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
-      return false;
-    }
+    const res = await apiFetch(route, { method: "POST", json: body });
+    const data = (await res.json().catch(() => ({}))) as { imageUrl?: string; error?: string; detail?: string };
+    if (!res.ok || !data.imageUrl) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
+    await applyAsset(key, data.imageUrl);
+    return true;
   };
 
   /**

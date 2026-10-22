@@ -1,6 +1,7 @@
-// Сценарий «Пенальти». Тап или свайп — удар. Первый мяч летит в правую
-// девятку, но вратарь тянется и отбивает его за ворота — «почти!». Второй
-// уходит в левую девятку, вратарь прыгает не в ту сторону: сетка
+// Сценарий «Пенальти». Тап или свайп — удар туда, куда показал игрок:
+// свайп — по его направлению до линии ворот, тап — в точку касания (в
+// пределах створа). Первый мяч вратарь достаёт и отбивает — «почти!».
+// Второй уходит в ту же точку, а вратарь прыгает не в ту сторону: сетка
 // вздрагивает, искры — и попап.
 //
 // Полёт — цепочка квадратичных кривых в координатах сцены, как в
@@ -15,9 +16,59 @@
 
   /** Точки — из раскладки: в вертикали и горизонтали они свои. */
   function rest() { return { x: ball.offsetLeft + ball.offsetWidth / 2, y: ball.offsetTop + ball.offsetHeight / 2 }; }
-  function spot(id) { var r = $(id); return { x: r.offsetLeft, y: r.offsetTop }; }
 
   label.textContent = (T.kicksLeft || "") + KICKS;
+
+  /** Створ ворот в координатах сцены (без штанг и сетки по краям). */
+  function mouth() {
+    var g = $("goal");
+    return { l: g.offsetLeft + 110, r: g.offsetLeft + g.offsetWidth - 110, t: g.offsetTop + 90, b: g.offsetTop + g.offsetHeight - 70 };
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  /**
+   * Куда бить. Свайп (палец ушёл дальше 30 px) — продолжаем его направление до
+   * линии ворот; тап выше мяча — в саму точку; тап по мячу или
+   * без координат — в верхний угол со стороны тапа. Всё зажимаем в створ.
+   */
+  function aimFrom(S, a, b) {
+    var M = mouth(), x, y;
+    if (a && b && Math.hypot(b.x - a.x, b.y - a.y) > 30 && b.y < a.y) {
+      var gy = (M.t + M.b) / 2;
+      x = S.x + (b.x - a.x) * (S.y - gy) / (a.y - b.y);
+      // палец дошёл до ворот — бьём прямо туда; нет — в верхнюю треть створа
+      y = b.y < M.b && b.y > M.t ? b.y : M.t + (M.b - M.t) * 0.3;
+    } else if (a && a.y < S.y - 120) {
+      x = a.x; y = a.y;
+    } else {
+      var side = a ? (a.x < S.x ? -1 : 1) : 1;
+      x = side < 0 ? M.l + 40 : M.r - 40; y = M.t + 40;
+    }
+    return { x: clamp(x, M.l, M.r), y: clamp(y, M.t, M.b) };
+  }
+  function pt(e) {
+    var t = e && (e.changedTouches && e.changedTouches[0] || e.touches && e.touches[0]) || e;
+    return t && t.clientX != null ? P.toStage(t.clientX, t.clientY) : null;
+  }
+  /** Дождаться, куда уведут палец: отпустили, ушли далеко или прошло 450 мс. */
+  function gesture(e) {
+    var a = pt(e);
+    return new Promise(function (resolve) {
+      if (!a) { resolve([null, null]); return; }
+      var last = a, finished = false;
+      function end() {
+        if (finished) return;
+        finished = true;
+        ["pointermove", "touchmove", "mousemove"].forEach(function (n) { window.removeEventListener(n, move); });
+        ["pointerup", "touchend", "mouseup", "pointercancel"].forEach(function (n) { window.removeEventListener(n, up); });
+        resolve([a, last]);
+      }
+      function move(ev) { var p = pt(ev); if (p) last = p; if (Math.hypot(last.x - a.x, last.y - a.y) > 160) end(); }
+      function up(ev) { var p = pt(ev); if (p) last = p; end(); }
+      ["pointermove", "touchmove", "mousemove"].forEach(function (n) { window.addEventListener(n, move); });
+      ["pointerup", "touchend", "mouseup", "pointercancel"].forEach(function (n) { window.addEventListener(n, up); });
+      setTimeout(end, 450);
+    });
+  }
 
   var rot = 0;
   function place(S, p, s) {
@@ -49,15 +100,23 @@
     }, Promise.resolve());
   }
 
-  /** Прыжок вратаря: dir = 1 — вправо, -1 — влево. */
   /** Снять прежние прыжки: их fill держал бы позу и глушил CSS-покачивание. */
   function settle() { if (keeper.getAnimations) keeper.getAnimations().forEach(function (a) { a.cancel(); }); }
-  function dive(dir, delay) {
+  function keeperX() { return keeper.offsetLeft + keeper.offsetWidth / 2; }
+  /**
+   * Прыжок вратаря на dx по горизонтали. Мяч почти по центру — прыгает вверх
+   * на месте; иначе — в сторону, лёжа (чем дальше, тем ниже и горизонтальнее).
+   */
+  function dive(dx, delay, high) {
     settle();
+    var dir = dx < 0 ? -1 : 1, far = Math.min(1, Math.abs(dx) / 250);
+    var end = Math.abs(dx) < 70
+      ? "translate(" + dx.toFixed(0) + "px," + (high ? -110 : -50) + "px) scale(1.04)"
+      : "translate(" + dx.toFixed(0) + "px," + (high ? -100 : 30) + "px) rotate(" + (dir * (40 + 38 * far)).toFixed(0) + "deg)";
     return anim(keeper, [
       { transform: "none" },
-      { transform: "translate(" + 40 * dir + "px,-30px) rotate(" + 18 * dir + "deg)", offset: 0.3 },
-      { transform: "translate(" + 250 * dir + "px,40px) rotate(" + 78 * dir + "deg)" },
+      { transform: "translate(" + (dx * 0.16).toFixed(0) + "px,-30px) rotate(" + (dir * 18 * far).toFixed(0) + "deg)", offset: 0.3 },
+      { transform: end },
     ], { duration: 520, delay: delay || 0, easing: "cubic-bezier(.2,.8,.3,1)" });
   }
   function standUp() {
@@ -68,29 +127,36 @@
 
   var kicks = 0, busy = false, done = false;
 
-  function press() {
+  function press(e) {
     if (busy || done || kicks >= KICKS) return;
     busy = true;
-    kicks++;
-    P.setIdle(false);
-    label.textContent = (T.kicksLeft || "") + (KICKS - kicks);
-    animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
-    var S = rest();
-    ball.classList.remove("behind");
-    if (kicks === 1) saved(S); else scored(S);
+    gesture(e).then(function (g) {
+      kicks++;
+      P.setIdle(false);
+      label.textContent = (T.kicksLeft || "") + (KICKS - kicks);
+      animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
+      var S = rest(), A = aimFrom(S, g[0], g[1]);
+      ball.classList.remove("behind");
+      if (kicks === 1) saved(S, A); else scored(S, A);
+    });
   }
 
-  function saved(S) {
-    var C = spot("cornerR");
-    dive(1, 80);
-    fly(S, S, [{ to: C, c: { x: (S.x + C.x) / 2 + 60, y: C.y + 120 }, dur: 520, s0: 1, s1: 0.52 }])
+  /** Изгиб полёта: мяч закручивается в сторону удара. */
+  function ctrl(S, C) { return { x: (S.x + C.x) / 2 + (C.x - S.x) * 0.15, y: C.y + 130 }; }
+
+  function saved(S, C) {
+    var M = mouth(), mid = (M.t + M.b) / 2;
+    // вратарь достаёт ровно туда, куда бьют; перчатка — у мяча
+    dive(clamp(C.x - keeperX(), -260, 260), 80, C.y < mid);
+    var side = C.x < (M.l + M.r) / 2 ? -1 : 1;
+    fly(S, S, [{ to: C, c: ctrl(S, C), dur: 520, s0: 1, s1: 0.52 }])
       .then(function () {
-        // Перчатка — мяч отлетает за ворота.
+        // Перчатка — мяч отлетает за ворота, в сторону удара (по центру — над перекладиной).
         sparks(C.x, C.y, 12, { cls: "dust", dist: 140, gravity: 60 });
         ripple(C.x, C.y, 1.3);
         return fly(S, C, [
-          { to: { x: C.x + 260, y: C.y - 220 }, c: { x: C.x + 120, y: C.y - 220 }, dur: 360, s0: 0.52, s1: 0.6 },
-          { to: { x: C.x + 520, y: S.y + 260 }, c: { x: C.x + 460, y: C.y - 200 }, dur: 620, s0: 0.6, s1: 0.9 },
+          { to: { x: C.x + 260 * side, y: C.y - 220 }, c: { x: C.x + 120 * side, y: C.y - 220 }, dur: 360, s0: 0.52, s1: 0.6 },
+          { to: { x: C.x + 520 * side, y: S.y + 260 }, c: { x: C.x + 460 * side, y: C.y - 200 }, dur: 620, s0: 0.6, s1: 0.9 },
         ]);
       })
       .then(function () {
@@ -103,15 +169,19 @@
       });
   }
 
-  function scored(S) {
-    var C = spot("cornerL");
-    dive(1, 160); // не в ту сторону
-    fly(S, S, [{ to: C, c: { x: (S.x + C.x) / 2 - 80, y: C.y + 140 }, dur: 560, s0: 1, s1: 0.5 }])
+  function scored(S, C) {
+    var M = mouth();
+    // Мимо вратаря: удар по центру — уводим мяч от него в ближний угол по высоте;
+    // вратарь прыгает в противоположную сторону.
+    var kx = keeperX();
+    if (Math.abs(C.x - kx) < 150) C = { x: C.x < kx ? Math.max(M.l, kx - 230) : Math.min(M.r, kx + 230), y: C.y };
+    dive(C.x < kx ? 250 : -250, 160);
+    fly(S, S, [{ to: C, c: ctrl(S, C), dur: 560, s0: 1, s1: 0.5 }])
       .then(function () {
         ball.classList.add("behind"); // в сетке — за штангами
         stage.classList.add("goal");
         win(C);
-        return fly(S, C, [{ to: { x: C.x + 30, y: C.y + 200 }, c: { x: C.x - 20, y: C.y + 60 }, dur: 420, s0: 0.5, s1: 0.48 }]);
+        return fly(S, C, [{ to: { x: C.x + 20, y: Math.min(C.y + 200, M.b + 40) }, c: { x: C.x - 10, y: C.y + 60 }, dur: 420, s0: 0.5, s1: 0.48 }]);
       });
   }
 

@@ -26,6 +26,7 @@ export type AssetStep = {
   /** true — шаг выполняется первым и в одиночку (обычно фон). */
   blocking?: boolean;
   /** Сборка во вкладке: вызвать генерацию отсюда. */
+  /** true — готово; false или исключение — не вышло (текст исключения покажем человеку). */
   run: () => Promise<boolean>;
   /** Сборка на сервере: какой роут позвать и с чем. */
   server?: { route: string; body: Record<string, unknown> };
@@ -110,8 +111,8 @@ export function useAssetRun(opts: { resumeKey: string; apply: ApplyAsset }) {
   const applyRef = useRef(opts.apply);
   applyRef.current = opts.apply;
 
-  const patch = (id: string, status: AssetStepState["status"]) =>
-    setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+  const patch = (id: string, status: AssetStepState["status"], error?: string) =>
+    setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, status, error } : s)));
 
   /** Следить за серверной сборкой, пока в ней есть незаконченные шаги. */
   const follow = useCallback(
@@ -188,8 +189,8 @@ export function useAssetRun(opts: { resumeKey: string; apply: ApplyAsset }) {
       patch(step.id, "running");
       try {
         patch(step.id, (await step.run()) ? "done" : "error");
-      } catch {
-        patch(step.id, "error");
+      } catch (e) {
+        patch(step.id, "error", humanStepError(e instanceof Error ? e.message : String(e)));
       }
     };
     try {
