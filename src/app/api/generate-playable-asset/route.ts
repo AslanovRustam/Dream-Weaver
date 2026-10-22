@@ -52,8 +52,8 @@ const KINDS: Record<string, Spec> = {
   "wheel-hub": {
     prompt:
       "A single round central HUB cap for a fortune wheel, seen perfectly straight-on, perfectly circular, " +
-      "centred and filling about 90% of the canvas: a domed medallion with a big faceted gem or an embossed " +
-      "star emblem in the middle. Nothing else in the image, transparent background.",
+      "centred and filling about 90% of the canvas: a domed medallion with an embossed emblem in the middle that " +
+      "fits the THEME (a big faceted gem or a star if there is no theme). Nothing else in the image, transparent background.",
     size: "1024x1024",
     transparent: true,
     quality: "medium",
