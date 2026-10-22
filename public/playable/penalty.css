@@ -24,7 +24,7 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #1
 #keeper { left: 430px; top: 640px; width: 220px; height: 340px; z-index: 3; transform-origin: 50% 50%; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
 .idle #keeper { animation: keeperSway 1.4s ease-in-out infinite; }
 /* вратарь от ИИ — ногами на линию ворот, как бы ни была скадрирована картинка */
-#keeper img.ai { object-position: center bottom; }
+#keeper img.ai { object-position: center bottom; transform: translateY(20px); } /* ступни — на линии ворот, а не над ней */
 @keyframes keeperSway { 0%, 100% { transform: translateX(-18px); } 50% { transform: translateX(18px); } }
 
 #ball { left: 450px; top: 1330px; width: 180px; height: 180px; z-index: 4; will-change: transform; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .5)); }
