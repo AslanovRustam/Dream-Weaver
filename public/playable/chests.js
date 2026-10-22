@@ -130,9 +130,24 @@
     });
   }
 
+  /** Ореол и лучи — из открытого сундука, а не из центра сцены (выигрышным может оказаться крайний). */
+  var winAt = -1;
+  function aimFx() {
+    if (winAt < 0) return;
+    var p = centerOf(winAt);
+    ["glowBack", "raysBack"].forEach(function (id) {
+      var el = $(id);
+      el.style.left = p.x - el.offsetWidth / 2 + "px";
+      el.style.top = p.y - el.offsetHeight / 2 + "px";
+    });
+  }
+  P.onLayout(function () { requestAnimationFrame(aimFx); });
+
   function openWin(c, i) {
     var pt = centerOf(i);
     done = true;
+    winAt = i;
+    aimFx();
     c.classList.add("winner");
     c.classList.remove("picked");
     shake(c, 7, 650).then(function () {
