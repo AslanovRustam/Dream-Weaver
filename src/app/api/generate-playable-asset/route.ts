@@ -92,7 +92,11 @@ const KINDS: Record<string, Spec> = {
 function objectSpec(subject: string): Spec {
   return {
     prompt:
-      `A single game object: ${subject}. Centred with a little padding, nothing else in the image, crisp clean ` +
+      `A single game object: ${subject}. ` +
+      "REINTERPRET it to fit the THEME below: keep its role in the game, its rough silhouette and every layout rule above, " +
+      "but take materials, shape details, ornaments and motifs from the theme (e.g. a bank safe door becomes a dragon-scale vault " +
+      "in fantasy or a witch's sealed cabinet in mystic; a chest becomes a crystal casket). " +
+      "Centred with a little padding, nothing else in the image, crisp clean " +
       "edges, transparent background, no ground, no shadow plate. PEOPLE: any person is an adult, fully clothed, " +
       "friendly non-sexual pose.",
     size: "1024x1024",

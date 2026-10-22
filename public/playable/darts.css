@@ -34,7 +34,7 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #3
 #spinPill {
   left: 290px; top: 1330px; width: 500px; height: 92px; border-radius: 46px; z-index: 4;
   background: linear-gradient(180deg, rgba(60, 20, 8, .95), rgba(24, 8, 3, .97));
-  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  box-shadow: 0 0 0 5px var(--rim, #d99a46), 0 18px 36px rgba(0, 0, 0, .5);
   display: flex; align-items: center; justify-content: center;
 }
 #label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }

@@ -90,7 +90,7 @@ export async function paletteFromImage(src: string): Promise<ImagePalette> {
 export function uiFromPalette(p: ImagePalette): UiPalette {
   if (p.hue === null) {
     // Серебро: светлый металл с холодной тенью.
-    return { g1: "#ffffff", g2: "#e3e7ef", g3: "#a8b0c0", g4: "#5c6577", ink: "#10131a", accent: "#dfe6f2", rim: "#9aa3b5" };
+    return { g1: "#ffffff", g2: "#e3e7ef", g3: "#a8b0c0", g4: "#5c6577", ink: "#10131a", accent: "#dfe6f2", rim: "#9aa3b5", plate1: "#2a2f3af0", plate2: "#0c0e13f5" };
   }
   const h = p.hue;
   return {
@@ -101,6 +101,9 @@ export function uiFromPalette(p: ImagePalette): UiPalette {
     ink: hex(h, 70, 9),
     accent: hex(h, 90, 66),
     rim: hex(h, 70, 48),
+    // Плашки — глубокий тёмный тон картинки, чтобы не торчали коричневым на синем или зелёном.
+    plate1: hex(h, 45, 17) + "f0",
+    plate2: hex(h, 50, 7) + "f5",
   };
 }
 

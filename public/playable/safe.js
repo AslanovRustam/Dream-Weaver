@@ -49,6 +49,13 @@
   if (P.art("door")) {
     door.querySelector("svg").style.display = "none";
     door.insertAdjacentHTML("afterbegin", P.aiImg(P.art("door"), "doorArt"));
+    // Фасад по теме (сундук, шкатулка…) — бронзовый корпус сейфа вокруг него чужой: остаётся только проём с добычей.
+    $("safe").classList.add("aiDoor");
+  }
+  // Кодовый диск от ИИ (руны, часы, печать — по теме): крутится, как векторный; центр — в самой картинке.
+  if (P.art("dial")) {
+    $("dialSpr").innerHTML = P.aiImg(P.art("dial"), "dialArt");
+    $("dialHub").style.display = "none";
   }
 
   // ---- игра

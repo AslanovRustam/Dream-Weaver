@@ -137,10 +137,10 @@ body::before {
 #popDim { background: rgba(6, 3, 1, .72); }
 #popBox {
   left: 90px; top: 430px; width: 900px; height: 1060px; border-radius: 56px;
-  background: linear-gradient(180deg, rgba(64, 36, 16, .96), rgba(24, 12, 5, .97));
+  background: linear-gradient(180deg, var(--plate-1, rgba(64, 36, 16, .96)), var(--plate-2, rgba(24, 12, 5, .97)));
   border: 6px solid transparent;
   background-clip: padding-box;
-  box-shadow: 0 0 0 6px #e7a64a, 0 0 0 12px rgba(60, 28, 8, .9), 0 40px 120px rgba(0, 0, 0, .7), inset 0 0 120px rgba(255, 170, 60, .12);
+  box-shadow: 0 0 0 6px var(--rim, #e7a64a), 0 0 0 12px var(--plate-2, rgba(60, 28, 8, .9)), 0 40px 120px rgba(0, 0, 0, .7), inset 0 0 120px rgba(255, 170, 60, .12);
   opacity: 0;
 }
 #popRays { left: 140px; top: 360px; width: 800px; height: 800px; opacity: 0; }
@@ -150,10 +150,10 @@ body::before {
 #popText .amount { font-size: 1.3em; }
 #popBtn {
   left: 190px; top: 1262px; width: 700px; height: 170px; border-radius: 90px;
-  background: linear-gradient(180deg, #ffe58a 0%, #ffbf3c 48%, #e98a1c 100%);
-  box-shadow: 0 10px 0 #9a4d0e, 0 20px 40px rgba(0, 0, 0, .5), inset 0 4px 0 rgba(255, 255, 255, .6);
+  background: linear-gradient(180deg, var(--gold-1, #ffe58a) 0%, var(--gold-2, #ffbf3c) 48%, var(--gold-3, #e98a1c) 100%);
+  box-shadow: 0 10px 0 var(--gold-4, #9a4d0e), 0 20px 40px rgba(0, 0, 0, .5), inset 0 4px 0 rgba(255, 255, 255, .6);
   display: flex; align-items: center; justify-content: center;
-  color: #3a1a05; font-weight: 900; font-size: 62px; text-transform: uppercase; letter-spacing: .01em;
+  color: var(--ink, #3a1a05); font-weight: 900; font-size: 62px; text-transform: uppercase; letter-spacing: .01em;
   overflow: hidden; opacity: 0;
 }
 #popBtn .lbl { position: relative; z-index: 1; white-space: nowrap; }

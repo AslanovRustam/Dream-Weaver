@@ -13,6 +13,7 @@ import { join } from "node:path";
 
 import { buildScenePlayable, type SceneId, type SceneLoader } from "../src/lib/scenes/build";
 import { DEFAULT_WIN_INDEX, scenePreset } from "../src/lib/scenes/presets";
+import { paletteFromHex, uiFromPalette, wheelFromPalette } from "../src/lib/imagePalette";
 
 // Playwright — только для локальных скриптов, в зависимостях проекта его нет.
 // Грузим по имени из переменной: проверка типов на сборке (Vercel) его не ищет.
@@ -53,7 +54,7 @@ const symbols = withArt ? await Promise.all(COLORS.map((c, i) => stub(c, i === 0
 const art = withArt
   ? Object.fromEntries(
       await Promise.all(
-        ["door", "chest", "chestOpen", "plane", "ball", "cardBack", "coin", "pot", "bomb", "mascot", "pointer", "hub"].map(
+        ["door", "dial", "chest", "chestOpen", "plane", "ball", "cardBack", "coin", "pot", "bomb", "mascot", "pointer", "hub"].map(
           async (k, i) => [k, await stub(COLORS[i % COLORS.length], k.slice(0, 5), 320, 320)] as const,
         ),
       ),
@@ -76,6 +77,8 @@ const html = await buildScenePlayable(
     winIndex: DEFAULT_WIN_INDEX,
     lang: "ru",
     ...(withArt ? { art, symbols } : {}),
+    // UI_COLOR=#2a6cff — гамма интерфейса из одного цвета, как пипеткой в студии.
+    ...(process.env.UI_COLOR ? { ui: uiFromPalette(paletteFromHex(process.env.UI_COLOR)), palette: wheelFromPalette(paletteFromHex(process.env.UI_COLOR)) } : {}),
   },
   { network: "mraid", preview: true, load },
 );

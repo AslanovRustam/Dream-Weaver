@@ -28,7 +28,8 @@ function img(a: [number, number, number], b: [number, number, number] = a, share
   return px;
 }
 const near = (h: number | null, want: number, tol = 15) => h !== null && Math.min(Math.abs(h - want), 360 - Math.abs(h - want)) <= tol;
-const HEX = /^#[0-9a-f]{6}$/;
+// Плашки — с прозрачностью (#rrggbbaa), остальное — #rrggbb.
+const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
 
 const red = paletteFromPixels(img([210, 30, 40]));
 check("красная → красный тон", near(red.hue, 357, 12), String(red.hue));
@@ -47,6 +48,9 @@ for (const [name, p] of [["красная", red], ["серая", grey], ["две
   const all = [...Object.values(ui), ...wh.a, ...wh.b, ...wh.win, wh.line, wh.ink, wh.stroke, wh.winInk, wh.winStroke, accentFromPalette(p)];
   check(`${name}: все цвета — hex`, all.every((c) => HEX.test(c)), all.find((c) => !HEX.test(c)) ?? "");
 }
+
+const bluePlate = uiFromPalette(blue).plate1 ?? "";
+check("синяя → плашка тёмно-синяя, не коричневая", /^#[0-9a-f]{8}$/.test(bluePlate) && parseInt(bluePlate.slice(5, 7), 16) > parseInt(bluePlate.slice(1, 3), 16), bluePlate);
 
 console.log(failed ? `\n${failed} провалено, ${passed} прошло` : `✓ все ${passed} проверок прошли`);
 process.exit(failed ? 1 : 0);

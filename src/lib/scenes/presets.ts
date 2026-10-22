@@ -524,7 +524,11 @@ export type WheelPalette = {
 };
 
 /** Цвета интерфейса сцены: градиент заголовков, обводка, плашки. */
-export type UiPalette = { g1: string; g2: string; g3: string; g4: string; ink: string; accent: string; rim: string };
+export type UiPalette = {
+  g1: string; g2: string; g3: string; g4: string; ink: string; accent: string; rim: string;
+  /** Плашки (счётчик нажатий, прогресс): верх и низ градиента. Нет — тёмно-коричневые по умолчанию. */
+  plate1?: string; plate2?: string;
+};
 
 export type SceneStyle = {
   id: string;
@@ -637,9 +641,14 @@ const GEMS =
 export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
   safe: [
     {
-      id: "door", kind: "object", label: "Дверь сейфа", hint: "Фасад — живой кодовый диск ляжет поверх", size: 700,
+      id: "door", kind: "object", label: "Хранилище", hint: "Сейф, сундук, шкатулка ведьмы — по теме; диск ляжет поверх", size: 700,
       subject:
-        "a heavy bank vault safe DOOR panel seen perfectly straight-on (flat front view, no perspective), a tall rectangle filling the canvas, thick metal with rivets, hinges and bolts, with a big EMPTY round recess in the upper middle where a combination dial will be placed — draw NO dial, NO numbers, NO handle inside the recess",
+        "the FRONT of the locked treasure container of this game — a bank vault door by default, but shaped by the theme (a dragon-scale vault, a carved treasure chest front, a witch's sealed cabinet, a sci-fi blast door…), seen perfectly straight-on (flat front view, no perspective), a tall rectangle filling the canvas, with a big EMPTY round recess in the upper middle where a rotating lock dial will be placed — draw NO dial, NO numbers, NO handle inside the recess",
+    },
+    {
+      id: "dial", kind: "object", label: "Кодовый диск", hint: "Крутится на дверце — руны, часы, печать по теме", size: 420,
+      subject:
+        "a round rotating LOCK DIAL seen perfectly straight-on, a perfect circle filling the canvas: a combination dial by default, but shaped by the theme (a runic seal, a clock face, a magic sigil, a cyber lock…), with radial ticks or symbols around the rim and a decorative knob in the centre; NO readable text or digits",
     },
   ],
   wheel: [

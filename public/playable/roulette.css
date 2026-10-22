@@ -42,7 +42,7 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #1
 #spinPill {
   left: 290px; top: 1460px; width: 500px; height: 92px; border-radius: 46px;
   background: linear-gradient(180deg, rgba(14, 50, 30, .94), rgba(4, 22, 12, .96));
-  box-shadow: 0 0 0 5px #d99a46, 0 18px 36px rgba(0, 0, 0, .5);
+  box-shadow: 0 0 0 5px var(--rim, #d99a46), 0 18px 36px rgba(0, 0, 0, .5);
   display: flex; align-items: center; justify-content: center;
 }
 #label { font-size: 44px; font-weight: 800; text-transform: uppercase; color: #ffbb58; letter-spacing: .02em; }
