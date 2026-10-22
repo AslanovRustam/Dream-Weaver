@@ -98,6 +98,7 @@ body::before {
   transform-origin: 30% 5%;
   pointer-events: none;
   opacity: 0; transition: opacity .3s;
+  z-index: 10; /* поверх игровых объектов (мяч, дротик, сундуки при обмене), но под попапом */
 }
 .hand.on { opacity: 1; animation: handTap var(--tap) ease-in-out infinite; }
 @keyframes handTap {
