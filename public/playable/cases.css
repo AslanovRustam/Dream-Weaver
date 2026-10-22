@@ -75,3 +75,11 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #2
 .land #glowBack { left: -60px; top: 60px; }
 .land #raysBack { left: -60px; top: -80px; }
 .land #hand { left: 500px; top: 250px; }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #strip { background: linear-gradient(180deg, var(--plate-2), var(--plate-1), var(--plate-2)); }
+.themed .item { background: radial-gradient(120% 80% at 50% 30%, rgba(255, 255, 255, .14), rgba(255, 255, 255, 0) 60%), linear-gradient(180deg, var(--plate-1), var(--plate-2)); }
+.themed #spinPill { background: linear-gradient(180deg, var(--plate-1), var(--plate-2)); }
+.themed #marker { background: linear-gradient(180deg, var(--gold-1), var(--gold-3)); box-shadow: 0 0 18px 4px var(--accent); }
+.themed #marker::before { border-top-color: var(--gold-3); }
+.themed #marker::after { border-bottom-color: var(--gold-3); }

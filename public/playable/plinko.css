@@ -70,3 +70,6 @@
 .land #hand { left: 490px; top: 160px; }
 
 #ball.art { background: none; box-shadow: none; width: 64px; height: 64px; margin: -32px 0 0 -32px; filter: drop-shadow(0 0 14px rgba(255, 255, 255, .5)); }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #board { background: radial-gradient(110% 80% at 50% 0%, var(--plate-1), var(--plate-2) 70%); box-shadow: 0 0 0 6px var(--rim), 0 0 0 12px var(--plate-2), 0 40px 80px rgba(0, 0, 0, .6); }

@@ -66,3 +66,6 @@
 .tile.art::before, .tile.art::after { display: none; }
 .tile.art img.ai { width: 100%; height: 100%; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .45)); }
 .tile.art.sel { box-shadow: 0 0 0 6px #fff6c8, 0 0 30px 8px rgba(255, 220, 140, .9); border-radius: 28px; }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #board { background: linear-gradient(180deg, var(--plate-1), var(--plate-2)); box-shadow: 0 0 0 6px var(--rim), 0 0 0 12px var(--plate-2), 0 40px 80px rgba(0, 0, 0, .6); }

@@ -174,6 +174,9 @@
     if (!ui) return;
     var map = { g1: "--gold-1", g2: "--gold-2", g3: "--gold-3", g4: "--gold-4", ink: "--ink", accent: "--accent", rim: "--rim", plate1: "--plate-1", plate2: "--plate-2" };
     for (var k in map) if (ui[k]) stage.style.setProperty(map[k], ui[k]);
+    // Гамма с картинки или пипетки (у неё есть плашки) — панели сцен тоже перекрашиваются;
+    // без неё у каждой сцены свои фирменные цвета: неон автомата, красный авиатора.
+    if (ui.plate1) stage.classList.add("themed");
   })();
 
   var ART = CFG.art || {}, SYMS = CFG.symbols || [];

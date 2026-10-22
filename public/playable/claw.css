@@ -58,3 +58,9 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #3
 .land #glowBack { left: -60px; top: -60px; }
 .land #raysBack { left: -60px; top: -120px; }
 .land #hand { left: 500px; top: 430px; }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #machine { background: linear-gradient(180deg, var(--plate-1), var(--plate-2)); box-shadow: 0 0 0 10px var(--rim), 0 0 0 16px var(--plate-2), 0 0 60px 10px var(--accent), 0 40px 70px rgba(0, 0, 0, .6); }
+.themed #chute { box-shadow: inset 0 0 0 6px var(--gold-2), inset 0 20px 30px rgba(0, 0, 0, .7); }
+.themed #chute::after { color: var(--gold-2); }
+.themed #spinPill { background: linear-gradient(180deg, var(--plate-1), var(--plate-2)); }

@@ -55,3 +55,6 @@
 
 .cell img.ai { width: 200px; height: 200px; filter: drop-shadow(0 8px 8px rgba(80, 40, 10, .35)); }
 .won .cell.win img.ai { animation: winPop .7s ease-in-out infinite alternate; }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #ticket { background: linear-gradient(180deg, var(--plate-1), var(--plate-2)); box-shadow: 0 0 0 8px var(--rim), 0 0 0 16px var(--plate-2), 0 40px 80px rgba(0, 0, 0, .6); }

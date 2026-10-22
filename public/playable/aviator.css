@@ -73,3 +73,13 @@
 .land #hand { left: 1660px; top: 570px; }
 
 #plane.art { width: 260px; height: 150px; margin: -110px 0 0 -60px; }
+
+/* ---------- панели в гамме картинки (класс themed ставит core.js) ---------- */
+.themed #sky {
+  background:
+    linear-gradient(rgba(255, 255, 255, .05) 2px, transparent 2px) 0 0 / 100% 82px,
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 2px, transparent 2px) 0 0 / 96px 100%,
+    radial-gradient(120% 100% at 0% 100%, var(--plate-1), var(--plate-2) 70%);
+  box-shadow: 0 0 0 6px var(--rim), 0 0 0 12px var(--plate-2), 0 40px 80px rgba(0, 0, 0, .6);
+}
+.themed #skyRays { opacity: .18; filter: grayscale(1) brightness(2); }
