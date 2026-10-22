@@ -88,7 +88,10 @@ export function AssetRunPanel({
               ) : (
                 <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border" />
               )}
-              <span className={s.status === "done" ? "text-foreground" : ""}>{s.label}</span>
+              <span className={s.status === "done" ? "text-foreground" : ""}>
+                {s.label}
+                {s.status === "error" && s.error ? <span className="block text-amber-400/90">{s.error}</span> : null}
+              </span>
             </li>
           ))}
         </ul>

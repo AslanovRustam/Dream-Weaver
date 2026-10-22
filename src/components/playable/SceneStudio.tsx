@@ -41,6 +41,8 @@ import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/L
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
 import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
+import { paletteFromImage, uiFromPalette, wheelFromPalette } from "@/lib/imagePalette";
+import type { UiPalette, WheelPalette } from "@/lib/scenes/presets";
 import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -106,6 +108,11 @@ type Draft = {
   symbols: string[];
   /** Только у лендинга: язык, трекинг и блоки под сценой. */
   extras?: LandingExtras;
+  /** Цвета интерфейса — по картинке фона (по умолчанию), а не по выбранному стилю. */
+  autoColors: boolean;
+  /** Посчитанные по фону цвета заголовков/плашек и секторов колеса. */
+  uiAuto?: UiPalette;
+  wheelAuto?: WheelPalette;
 };
 
 function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: string): Draft {
@@ -130,6 +137,7 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
     reward: "",
     art: {},
     symbols: [],
+    autoColors: true,
   };
 }
 
@@ -209,6 +217,19 @@ export function SceneStudio({
   /** Вес HTML под каждую выбранную площадку. */
   const [sizes, setSizes] = useState<Partial<Record<PlayableNetwork, number>>>({});
   const [buildErr, setBuildErr] = useState("");
+  // Фон сменился (сгенерирован, загружен, восстановлен) — цвета интерфейса подстраиваются под него.
+  useEffect(() => {
+    if (!d.bgImage) return;
+    let alive = true;
+    void paletteFromImage(d.bgImage)
+      .then((p) => {
+        if (alive) setD((prev) => (prev.bgImage === d.bgImage ? { ...prev, uiAuto: uiFromPalette(p), wheelAuto: wheelFromPalette(p) } : prev));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [d.bgImage]);
   /** Лендинг: вся страница для «На весь экран» и вес выгрузки. */
   const [pageHtml, setPageHtml] = useState("");
   const [pageSize, setPageSize] = useState(0);
@@ -274,7 +295,7 @@ export function SceneStudio({
     ? normalizeExtras(d.extras, kind)
     : defaultExtras((["ru", "uk", "en", "es"].includes(d.lang) ? d.lang : "ru") as LandingLang, kind);
   const setExtras = (x: LandingExtras) => setD((p) => ({ ...p, extras: x }));
-  const accent = sceneStyle(d.style).ui.accent;
+  const accent = (d.autoColors && d.bgImage && d.uiAuto?.accent) || sceneStyle(d.style).ui.accent;
 
   const config = (): SceneConfig => {
     const loc = SCENE_LANGS.find((l) => l.id === d.lang) ?? SCENE_LANGS[0];
@@ -293,8 +314,8 @@ export function SceneStudio({
       reward: d.reward || undefined,
       art: d.art,
       symbols: d.symbols,
-      palette: sceneStyle(d.style).palette,
-      ui: sceneStyle(d.style).ui,
+      palette: (d.autoColors && d.bgImage && d.wheelAuto) || sceneStyle(d.style).palette,
+      ui: (d.autoColors && d.bgImage && d.uiAuto) || sceneStyle(d.style).ui,
       prizes,
       winIndex: Math.min(d.winIndex, Math.max(0, prizes.length - 1)),
       lang: d.lang,
@@ -437,7 +458,15 @@ export function SceneStudio({
     }
   };
 
-  const style = sceneStyle(d.style).prompt;
+  /**
+   * Стиль для ИИ. Есть тема — материалы, палитру и свет задаёт она: иначе пресет
+   * «Золото и рубин» перекрашивал любую тему в золото. Пресет — только если
+   * его выбрали руками (цвета не «по картинке»), и то как акцент.
+   */
+  const style = d.theme.trim()
+    ? `materials, colour palette, lighting and mood taken from the theme "${d.theme.trim()}" — do NOT default to generic casino gold or rubies unless the theme itself asks for it; every asset of this game shares this look` +
+      (d.autoColors ? "" : `; accent materials: ${sceneStyle(d.style).prompt}`)
+    : sceneStyle(d.style).prompt;
   const partImages = (part: ScenePart): string[] => {
     if (part.kind === "symbols") return d.symbols;
     if (part.id === "bg") return d.bgImage ? [d.bgImage] : [];
@@ -644,13 +673,27 @@ export function SceneStudio({
               </p>
               <label className="mb-1.5 block ds-caption">Стиль — палитра сцены и материалы для ИИ</label>
               <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("autoColors", true)}
+                  aria-pressed={d.autoColors}
+                  title="Заголовки, плашки и колесо — в цвет картинки фона; материалы для ИИ — по теме"
+                  className={`col-span-2 flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.autoColors ? CHIP_ON : CHIP_OFF}`}
+                >
+                  <span className="flex shrink-0 -space-x-1">
+                    {(d.uiAuto ? [d.uiAuto.g2, d.uiAuto.accent, d.uiAuto.g4] : ["#9aa3b5", "#e3e7ef", "#5c6577"]).map((c, i) => (
+                      <span key={i} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
+                    ))}
+                  </span>
+                  <span className="truncate">По теме и картинке — цвета подстраиваются под фон</span>
+                </button>
                 {SCENE_STYLES.map((st) => (
                   <button
                     key={st.id}
                     type="button"
-                    onClick={() => set("style", st.id)}
-                    aria-pressed={d.style === st.id}
-                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.style === st.id ? CHIP_ON : CHIP_OFF}`}
+                    onClick={() => setD((p) => ({ ...p, style: st.id, autoColors: false }))}
+                    aria-pressed={!d.autoColors && d.style === st.id}
+                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${!d.autoColors && d.style === st.id ? CHIP_ON : CHIP_OFF}`}
                   >
                     <span className="flex shrink-0 -space-x-1">
                       {st.swatch.map((c) => (

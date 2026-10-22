@@ -35,7 +35,20 @@ export type AssetStepState = {
   id: string;
   label: string;
   status: "queued" | "running" | "done" | "error";
+  /** Почему шаг не вышел — человеческими словами (у серверной очереди). */
+  error?: string;
 };
+
+/** Ошибка провайдера → понятная причина под шагом. */
+export function humanStepError(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  if (/content_filter|safety|moderation|rejected|policy/i.test(raw)) {
+    return "Фильтр OpenAI не пропустил: известных персонажей и бренды он не рисует — опишите тему своими словами (стиль, цвета, место), без имён.";
+  }
+  if (/credit|balance|недостаточно/i.test(raw)) return "Не хватило кредитов.";
+  if (/timeout|timed out|deadline/i.test(raw)) return "Не уложились по времени — попробуйте ещё раз.";
+  return "Провайдер не ответил — попробуйте ещё раз.";
+}
 
 /**
  * Разложить готовую картинку шага по местам. Получает data URL — к нему уже
@@ -126,7 +139,7 @@ export function useAssetRun(opts: { resumeKey: string; apply: ApplyAsset }) {
             continue;
           }
           const { jobs } = (await res.json()) as { jobs: ServerJob[] };
-          setSteps(jobs.map((j) => ({ id: j.key, label: j.label, status: toStepStatus(j.status) })));
+          setSteps(jobs.map((j) => ({ id: j.key, label: j.label, status: toStepStatus(j.status), error: j.status === "error" ? humanStepError(j.error) : undefined })));
 
           for (const j of jobs) {
             if (j.status !== "done" || applied.has(j.id) || !j.result?.url) continue;

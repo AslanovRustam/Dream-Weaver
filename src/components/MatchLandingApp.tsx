@@ -18,6 +18,7 @@ import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ThemeStrip } from "@/components/landing/ThemeStrip";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
+import { accentFromPalette, paletteFromImage } from "@/lib/imagePalette";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
@@ -345,7 +346,7 @@ export function MatchLandingApp() {
     setGenning(true);
     setGenError("");
     try {
-      setBgImage(
+      setBgFromAi(
         await genImage({ presetTemplate: bgPreset(useTheme), feature: "landing-bg", ...(ref ? { styleReferenceImage: ref } : {}) }),
       );
       return true;
@@ -447,6 +448,13 @@ export function MatchLandingApp() {
    * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
    * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
    */
+  /** Фон от ИИ: ставим и подстраиваем акцент (кнопки, подсветку, блоки) под его цвет. */
+  function setBgFromAi(img: string) {
+    setBgImage(img);
+    void paletteFromImage(img)
+      .then((p) => setAccent(accentFromPalette(p)))
+      .catch(() => {});
+  }
   // Картинки блоков (бонусы, обложки игр, парящие объекты) — в той же сборке «вся графика под тему».
   const extrasAssets = useExtrasAssets({ value: extras, onChange: setExtras, kind: "sport", theme: topic || theme });
   const applyAsset = async (key: string, dataUrl: string) => {
@@ -455,7 +463,7 @@ export function MatchLandingApp() {
       return;
     }
     if (key === "bg") {
-      setBgImage(dataUrl);
+      setBgFromAi(dataUrl);
       return;
     }
     if (key === "char-left" || key === "char-right") {
