@@ -13,6 +13,7 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
+  Pipette,
   Plus,
   RefreshCw,
   Smartphone,
@@ -41,14 +42,13 @@ import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/L
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
 import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
-import { paletteFromImage, uiFromPalette, wheelFromPalette } from "@/lib/imagePalette";
+import { paletteFromHex, paletteFromImage, uiFromPalette, wheelFromPalette } from "@/lib/imagePalette";
 import type { UiPalette, WheelPalette } from "@/lib/scenes/presets";
 import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
 import { useAuth } from "@/lib/auth-context";
 import {
   DEFAULT_WIN_INDEX,
   SCENE_LANGS,
-  SCENE_STYLES,
   sceneMeta,
   scenePartsFor,
   scenePreset,
@@ -56,6 +56,9 @@ import {
   type SceneLang,
   type ScenePart,
 } from "@/lib/scenes/presets";
+
+/** Базовые цвета сцены, пока нет ни фона, ни выбранного цвета. */
+const BASE_LOOK = sceneStyle("ruby");
 
 const INPUT = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
 const AREA = "w-full resize-y rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green";
@@ -108,8 +111,8 @@ type Draft = {
   symbols: string[];
   /** Только у лендинга: язык, трекинг и блоки под сценой. */
   extras?: LandingExtras;
-  /** Цвета интерфейса — по картинке фона (по умолчанию), а не по выбранному стилю. */
-  autoColors: boolean;
+  /** Гамма интерфейса, выбранная пипеткой или палитрой; пусто — по картинке фона. */
+  pickColor?: string;
   /** Посчитанные по фону цвета заголовков/плашек и секторов колеса. */
   uiAuto?: UiPalette;
   wheelAuto?: WheelPalette;
@@ -137,7 +140,6 @@ function freshDraft(scene: SceneId, lang: SceneLang, brandName: string, logo: st
     reward: "",
     art: {},
     symbols: [],
-    autoColors: true,
   };
 }
 
@@ -217,6 +219,17 @@ export function SceneStudio({
   /** Вес HTML под каждую выбранную площадку. */
   const [sizes, setSizes] = useState<Partial<Record<PlayableNetwork, number>>>({});
   const [buildErr, setBuildErr] = useState("");
+  const [hasEyeDropper, setHasEyeDropper] = useState(false);
+  useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
+  const pickFromScreen = async () => {
+    try {
+      const Ctor = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+      const { sRGBHex } = await new Ctor().open();
+      if (/^#[0-9a-f]{6}$/i.test(sRGBHex)) set("pickColor", sRGBHex);
+    } catch {
+      /* закрыли пипетку — ничего не меняем */
+    }
+  };
   // Фон сменился (сгенерирован, загружен, восстановлен) — цвета интерфейса подстраиваются под него.
   useEffect(() => {
     if (!d.bgImage) return;
@@ -295,7 +308,11 @@ export function SceneStudio({
     ? normalizeExtras(d.extras, kind)
     : defaultExtras((["ru", "uk", "en", "es"].includes(d.lang) ? d.lang : "ru") as LandingLang, kind);
   const setExtras = (x: LandingExtras) => setD((p) => ({ ...p, extras: x }));
-  const accent = (d.autoColors && d.bgImage && d.uiAuto?.accent) || sceneStyle(d.style).ui.accent;
+  // Гамма: выбранная пипеткой — главнее; иначе — по картинке фона; без фона — базовые цвета сцены.
+  const picked = d.pickColor ? paletteFromHex(d.pickColor) : null;
+  const uiColors = picked ? uiFromPalette(picked) : (d.bgImage && d.uiAuto) || BASE_LOOK.ui;
+  const wheelColors = picked ? wheelFromPalette(picked) : (d.bgImage && d.wheelAuto) || BASE_LOOK.palette;
+  const accent = uiColors.accent;
 
   const config = (): SceneConfig => {
     const loc = SCENE_LANGS.find((l) => l.id === d.lang) ?? SCENE_LANGS[0];
@@ -314,8 +331,8 @@ export function SceneStudio({
       reward: d.reward || undefined,
       art: d.art,
       symbols: d.symbols,
-      palette: (d.autoColors && d.bgImage && d.wheelAuto) || sceneStyle(d.style).palette,
-      ui: (d.autoColors && d.bgImage && d.uiAuto) || sceneStyle(d.style).ui,
+      palette: wheelColors,
+      ui: uiColors,
       prizes,
       winIndex: Math.min(d.winIndex, Math.max(0, prizes.length - 1)),
       lang: d.lang,
@@ -459,14 +476,10 @@ export function SceneStudio({
   };
 
   /**
-   * Стиль для ИИ. Есть тема — материалы, палитру и свет задаёт она: иначе пресет
-   * «Золото и рубин» перекрашивал любую тему в золото. Пресет — только если
-   * его выбрали руками (цвета не «по картинке»), и то как акцент.
+   * Стиль для ИИ — только из темы (нет темы — из обстановки самой сцены), без
+   * готовых палитр: пресеты перекрашивали любую тему в своё золото или неон.
    */
-  const style = d.theme.trim()
-    ? `materials, colour palette, lighting and mood taken from the theme "${d.theme.trim()}" — do NOT default to generic casino gold or rubies unless the theme itself asks for it; every asset of this game shares this look` +
-      (d.autoColors ? "" : `; accent materials: ${sceneStyle(d.style).prompt}`)
-    : sceneStyle(d.style).prompt;
+  const style = `materials, colour palette, lighting and mood taken from the theme "${d.theme.trim() || meta.bgTheme}" — do NOT default to generic casino gold or rubies unless the theme itself asks for it; every asset of this game shares this look`;
   const partImages = (part: ScenePart): string[] => {
     if (part.kind === "symbols") return d.symbols;
     if (part.id === "bg") return d.bgImage ? [d.bgImage] : [];
@@ -671,40 +684,47 @@ export function SceneStudio({
                 OpenAI рисует всё, что видно в игре, в одном стиле. Каждую деталь можно сгенерировать отдельно или заменить своей
                 картинкой; чего нет — остаётся вектор.
               </p>
-              <label className="mb-1.5 block ds-caption">Стиль — палитра сцены и материалы для ИИ</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="mb-1.5 block ds-caption">Гамма интерфейса — заголовки, плашки, колесо</label>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => set("autoColors", true)}
-                  aria-pressed={d.autoColors}
-                  title="Заголовки, плашки и колесо — в цвет картинки фона; материалы для ИИ — по теме"
-                  className={`col-span-2 flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${d.autoColors ? CHIP_ON : CHIP_OFF}`}
+                  onClick={() => set("pickColor", undefined)}
+                  aria-pressed={!d.pickColor}
+                  title="Цвета берутся из картинки фона и подстраиваются после каждой генерации"
+                  className={`flex h-10 items-center gap-2 rounded-lg border px-2.5 text-sm transition ${!d.pickColor ? CHIP_ON : CHIP_OFF}`}
                 >
                   <span className="flex shrink-0 -space-x-1">
-                    {(d.uiAuto ? [d.uiAuto.g2, d.uiAuto.accent, d.uiAuto.g4] : ["#9aa3b5", "#e3e7ef", "#5c6577"]).map((c, i) => (
+                    {[d.uiAuto?.g2 ?? BASE_LOOK.ui.g2, d.uiAuto?.accent ?? BASE_LOOK.ui.accent, d.uiAuto?.g4 ?? BASE_LOOK.ui.g4].map((c, i) => (
                       <span key={i} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
                     ))}
                   </span>
-                  <span className="truncate">По теме и картинке — цвета подстраиваются под фон</span>
+                  Авто — по фону
                 </button>
-                {SCENE_STYLES.map((st) => (
+                {hasEyeDropper ? (
                   <button
-                    key={st.id}
                     type="button"
-                    onClick={() => setD((p) => ({ ...p, style: st.id, autoColors: false }))}
-                    aria-pressed={!d.autoColors && d.style === st.id}
-                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition ${!d.autoColors && d.style === st.id ? CHIP_ON : CHIP_OFF}`}
+                    onClick={() => void pickFromScreen()}
+                    title="Взять цвет с экрана — с превью, фона или любой картинки"
+                    className={`flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-sm transition ${CHIP_OFF}`}
                   >
-                    <span className="flex shrink-0 -space-x-1">
-                      {st.swatch.map((c) => (
-                        <span key={c} className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: c }} />
-                      ))}
-                    </span>
-                    <span className="truncate">{st.label}</span>
+                    <Pipette className="h-4 w-4" /> Пипетка
                   </button>
-                ))}
+                ) : null}
+                <label
+                  title="Выбрать цвет"
+                  className={`relative flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm transition ${d.pickColor ? CHIP_ON : CHIP_OFF}`}
+                >
+                  <span className="h-5 w-5 rounded-full ring-1 ring-white/30" style={{ background: d.pickColor ?? accent }} />
+                  {d.pickColor ? d.pickColor.toUpperCase() : "Свой цвет"}
+                  <input
+                    type="color"
+                    value={d.pickColor ?? accent}
+                    onChange={(e) => set("pickColor", e.target.value)}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
               </div>
-              <p className="mb-3 mt-1.5 ds-caption">Цвета заголовков и плашек меняются сразу; картинки — после генерации.</p>
+              <p className="mb-3 mt-1.5 ds-caption">Картинки ИИ рисует по теме; цвета интерфейса меняются сразу, без генерации.</p>
               <label className="mb-1.5 block ds-caption">Тема — необязательно</label>
               <textarea
                 rows={2}

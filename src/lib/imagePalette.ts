@@ -129,3 +129,13 @@ export function wheelFromPalette(p: ImagePalette): WheelPalette {
 export function accentFromPalette(p: ImagePalette): string {
   return p.hue === null ? "#cfd8e6" : hex(p.hue, 88, 58);
 }
+
+/** Палитра из одного цвета (пипетка, выбор цвета): тон и насыщенность этого цвета. */
+export function paletteFromHex(hexColor: string): ImagePalette {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hexColor.trim());
+  if (!m) return { hue: null, hue2: null, sat: 0 };
+  const n = parseInt(m[1], 16);
+  const [h, s] = rgbToHsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  // Почти серый цвет — «серебро», как у бесцветной картинки.
+  return s < 0.12 ? { hue: null, hue2: null, sat: s } : { hue: h, hue2: null, sat: s };
+}
