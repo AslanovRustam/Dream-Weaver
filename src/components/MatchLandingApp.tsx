@@ -17,6 +17,7 @@ import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ThemeStrip } from "@/components/landing/ThemeStrip";
+import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
@@ -446,7 +447,13 @@ export function MatchLandingApp() {
    * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
    * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
    */
+  // Картинки блоков (бонусы, обложки игр, парящие объекты) — в той же сборке «вся графика под тему».
+  const extrasAssets = useExtrasAssets({ value: extras, onChange: setExtras, kind: "sport", theme: topic || theme });
   const applyAsset = async (key: string, dataUrl: string) => {
+    if (key.startsWith("x-")) {
+      await extrasAssets.apply(key.slice(2), dataUrl);
+      return;
+    }
     if (key === "bg") {
       setBgImage(dataUrl);
       return;
@@ -540,6 +547,8 @@ export function MatchLandingApp() {
       const team = teams[side].trim();
       if (team) steps.push(crestStep(side, team));
     }
+    // Блоки лендинга — тем же нажатием и по той же теме.
+    for (const st of extrasAssets.allSteps()) steps.push({ ...st, id: `x-${st.id}` });
     return steps;
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
@@ -889,6 +898,8 @@ export function MatchLandingApp() {
           running={assetRun.running}
           notEnough={assetRun.notEnough}
           credits={assetCredits}
+          title="Вся графика под тему"
+          plan={assetSteps()}
           onStart={() => {
             if (isGuest) {
               openGate();
@@ -941,7 +952,7 @@ export function MatchLandingApp() {
           <p className="mt-1 ds-caption">Куда ведут кнопка и коэффициенты. URL или переменная-макрос (напр. {"{clickurl}"}).</p>
         </Field>
 
-        <LandingExtrasPanel value={extras} onChange={setExtras} kind="sport" mechanic="match" />
+        <LandingExtrasPanel value={extras} onChange={setExtras} kind="sport" mechanic="match" theme={topic || theme} />
         <LandingExtrasPreview extras={extras} accent={accent} dark={true} kind="sport" />
 
         <button

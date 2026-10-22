@@ -10,11 +10,10 @@ import { toast } from "sonner";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { useAuthGate } from "@/components/AuthGate";
-import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
-import { apiFetch } from "@/lib/api-client";
-import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { useAssetRun } from "@/lib/useAssetRun";
+import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
+import { SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { prepareSprite } from "@/lib/scenes/art";
-import { sliceIconGrid } from "@/lib/spriteSlice";
 import {
   LANDING_LANGS,
   buildExtrasPreviewHtml,
@@ -43,7 +42,6 @@ const STYLE_OPTIONS: { id: LandingStyle; label: string; hint: string }[] = [
   { id: "premium", label: "Премиум", hint: "Тёмный фон, один акцент, тонкий шрифт — для премиальных брендов" },
 ];
 
-const BONUS_STYLE = "glossy 3D casino promo illustration, polished gold, vivid saturated colours, soft studio light";
 
 function readFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -60,6 +58,7 @@ export function LandingExtrasPanel({
   kind,
   mechanic,
   hideFirstScreen = false,
+  theme = "",
 }: {
   value: LandingExtras;
   onChange: (next: LandingExtras) => void;
@@ -68,6 +67,8 @@ export function LandingExtrasPanel({
   hideFirstScreen?: boolean;
   /** Для ключа очереди ИИ-иллюстраций: у каждой механики свой. */
   mechanic: string;
+  /** Тема лендинга — в промпт картинок блоков. */
+  theme?: string;
 }) {
   const { isGuest, openGate } = useAuthGate();
   // Последнее значение — для результатов генерации, которые приходят позже.
@@ -81,116 +82,18 @@ export function LandingExtrasPanel({
     onChange({ ...cur, bonuses: { ...cur.bonuses, items: cur.bonuses.items.map((b, j) => (j === i ? { ...b, image } : b)) } });
   };
 
-  // ---- ИИ-иллюстрации карточек бонусов
-  const applyAsset = async (key: string, dataUrl: string) => {
-    const i = Number(key.replace("bonus-", ""));
-    if (Number.isFinite(i)) setBonusImage(i, await prepareSprite(dataUrl, 360));
+  // ---- ИИ-картинки блоков: те же шаги, что у общей кнопки редактора (useExtrasAssets)
+  const ex = useExtrasAssets({ value: x, onChange, kind, theme });
+  const applyAny = async (key: string, dataUrl: string) => {
+    await ex.apply(key, dataUrl);
   };
-  const assetRun = useAssetRun({ resumeKey: `dw_jobs_extras_${mechanic}`, apply: applyAsset });
-  const runInTab = (body: Record<string, unknown>, key: string) => async () => {
-    try {
-      const res = await apiFetch("/api/generate-playable-asset", { method: "POST", json: body });
-      const data = (await res.json()) as { imageUrl?: string; error?: string };
-      if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сгенерировать");
-      await applyAsset(key, data.imageUrl);
-      return true;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
-      return false;
-    }
-  };
-  const steps = (): AssetStep[] =>
-    x.bonuses.items
-      .map((b, i) => ({ b, i }))
-      .filter(({ b }) => b.title.trim())
-      .map(({ b, i }) => {
-        const body = {
-          kind: "object",
-          style: BONUS_STYLE,
-          subject: `an illustration for a casino bonus card titled "${b.title.slice(0, 80)}" (${b.text.slice(0, 120)}) — a single iconic object that represents this bonus, e.g. a gift box, coins, a chest, free-spin reels`,
-        };
-        return {
-          id: `bonus-${i}`,
-          label: `Карточка «${b.title.slice(0, 24)}»`,
-          credits: PLAYABLE_ASSET_PRICE_CREDITS,
-          run: runInTab(body, `bonus-${i}`),
-          server: { route: "/api/generate-playable-asset", body },
-        };
-      });
+  const assetRun = useAssetRun({ resumeKey: `dw_jobs_extras_${mechanic}`, apply: applyAny });
+  const steps = () => [ex.bonusesStep()].filter((st): st is NonNullable<typeof st> => !!st);
   const credits = steps().reduce((s, st) => s + st.credits, 0);
-
-  // ---- ИИ-обложки карусели: одна генерация сеткой 4×2, режем на 8 картинок
-  const applyGames = async (_key: string, dataUrl: string) => {
-    const tiles = await sliceIconGrid(dataUrl, 4, 2);
-    const imgs = await Promise.all(tiles.map((t) => prepareSprite(t, 300)));
-    const cur = latest.current;
-    onChange({ ...cur, games: { ...cur.games, items: cur.games.items.map((g, i) => (imgs[i] ? { ...g, image: imgs[i] } : g)) } });
-  };
-  // ---- ИИ-объекты первого экрана: 6 штук одной генерацией сеткой 3×2
-  const applyFloaters = async (_key: string, dataUrl: string) => {
-    const tiles = await sliceIconGrid(dataUrl, 3, 2);
-    const imgs = await Promise.all(tiles.map((t) => prepareSprite(t, 220)));
-    const cur = latest.current;
-    onChange({ ...cur, look: { ...cur.look, floaters: true, floatImgs: imgs } });
-  };
-  const floatRun = useAssetRun({ resumeKey: `dw_jobs_float_${mechanic}`, apply: applyFloaters });
-  const floatStep = (): AssetStep => {
-    const body = {
-      count: 6,
-      prompt:
-        kind === "sport"
-          ? "Six floating 3D objects for a sports-betting landing page hero, one per tile: a football, a gold trophy cup, a gold medal, a basketball, a gold star, a stack of gold coins. Glossy, dynamic angle, no text."
-          : "Six floating 3D objects for a casino landing page hero, one per tile: a red casino chip, a gold coin, an ace playing card tilted, a white dice, a sparkling diamond, a pair of cherries. Glossy, dynamic tilted angle, no text.",
-    };
-    return {
-      id: "floaters",
-      label: "Объекты первого экрана — 6 штук",
-      credits: SLOT_SYMBOLS_PRICE_CREDITS,
-      run: async () => {
-        try {
-          const res = await apiFetch("/api/generate-slot-symbols", { method: "POST", json: body });
-          const data = (await res.json()) as { imageUrl?: string; error?: string };
-          if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сгенерировать");
-          await applyFloaters("floaters", data.imageUrl);
-          return true;
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
-          return false;
-        }
-      },
-      server: { route: "/api/generate-slot-symbols", body },
-    };
-  };
-
-  const gamesRun = useAssetRun({ resumeKey: `dw_jobs_games_${mechanic}`, apply: applyGames });
-  const gamesStep = (): AssetStep => {
-    const names = x.games.items.map((g) => g.title.trim()).filter(Boolean).slice(0, 8);
-    const body = {
-      count: 8,
-      prompt:
-        kind === "sport"
-          ? `Eight sports icons for match cards, one per tile, in this order: ${names.map((n, i) => `${i + 1}) ${n}`).join("; ")}. Each tile: the ball or emblem of that sport with dynamic energy, no team logos, no text.`
-          : `Eight hero symbols for online slot game covers, one per tile, in this order: ${names.map((n, i) => `${i + 1}) "${n}"`).join("; ")}. Each tile: the single iconic object or character that this game title suggests, no text.`,
-    };
-    return {
-      id: "games",
-      label: kind === "sport" ? "Иконки матчей — 8 штук" : "Обложки игр — 8 штук",
-      credits: SLOT_SYMBOLS_PRICE_CREDITS,
-      run: async () => {
-        try {
-          const res = await apiFetch("/api/generate-slot-symbols", { method: "POST", json: body });
-          const data = (await res.json()) as { imageUrl?: string; error?: string };
-          if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сгенерировать");
-          await applyGames("games", data.imageUrl);
-          return true;
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : "Не удалось сгенерировать");
-          return false;
-        }
-      },
-      server: { route: "/api/generate-slot-symbols", body },
-    };
-  };
+  const floatRun = useAssetRun({ resumeKey: `dw_jobs_float_${mechanic}`, apply: applyAny });
+  const floatStep = ex.floatStep;
+  const gamesRun = useAssetRun({ resumeKey: `dw_jobs_games_${mechanic}`, apply: applyAny });
+  const gamesStep = ex.gamesStep;
 
   const uploadBonus = async (i: number, file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -404,7 +307,7 @@ export function LandingExtrasPanel({
           </div>
           <div className="mt-2">
             <p className="mb-1.5 flex items-center gap-1.5 ds-caption">
-              <Sparkles className="h-3.5 w-3.5 text-accent-green" /> Иллюстрации карточек от ИИ — по одной на карточку
+              <Sparkles className="h-3.5 w-3.5 text-accent-green" /> Иллюстрации карточек от ИИ — все одной генерацией
             </p>
             <AssetRunPanel
               steps={assetRun.steps}

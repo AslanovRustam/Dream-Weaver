@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Check, Loader2, Sparkles, X } from "lucide-react";
 
+import { useConfirm } from "@/components/ui/confirm";
 import type { AssetStepState } from "@/lib/useAssetRun";
 
 /**
@@ -19,6 +20,8 @@ export function AssetRunPanel({
   onStart,
   onCancel,
   disabled,
+  title,
+  plan,
 }: {
   steps: AssetStepState[];
   running: boolean;
@@ -28,20 +31,47 @@ export function AssetRunPanel({
   onStart: () => void;
   onCancel: () => void;
   disabled?: boolean;
+  /** Подпись кнопки вместо «Сгенерировать все ассеты». */
+  title?: string;
+  /**
+   * Смета по шагам: до старта видно, что войдёт и почём, а нажатие сначала
+   * спрашивает подтверждение с итоговой суммой — генерация платная.
+   */
+  plan?: { id: string; label: string; credits: number }[];
 }) {
   const failed = steps.filter((s) => s.status === "error").length;
+  const confirm = useConfirm();
+  const start = async () => {
+    if (plan?.length) {
+      const ok = await confirm({
+        title: `${title ?? "Сгенерировать всё"} — ${credits} кредитов?`,
+        body:
+          plan.map((p) => `• ${p.label} — ${p.credits}`).join("\n") +
+          "\n\nКредиты списываются по мере готовности каждой картинки; за то, что не получилось, не списываются.",
+        confirmLabel: `Сгенерировать · ${credits}`,
+      });
+      if (!ok) return;
+    }
+    onStart();
+  };
 
   return (
     <div className="rounded-xl border border-accent-green/25 bg-accent-green/[0.05] p-3">
       <button
         type="button"
-        onClick={onStart}
-        disabled={disabled || running}
+        onClick={() => void start()}
+        disabled={disabled || running || (plan !== undefined && plan.length === 0)}
         className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
       >
         {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {running ? "Собираем лендинг…" : `Сгенерировать все ассеты · ${credits}`}
+        {running ? "Рисуем…" : `${title ?? "Сгенерировать все ассеты"} · ${credits}`}
       </button>
+
+      {plan?.length && !running && steps.length === 0 ? (
+        <p className="mt-2 ds-caption">
+          Войдёт: {plan.map((p) => p.label).join(", ")}. Одним нажатием, по теме — кредиты за каждую картинку.
+        </p>
+      ) : null}
 
       {notEnough ? <p className="mt-2 ds-caption text-amber-400">{notEnough}</p> : null}
 

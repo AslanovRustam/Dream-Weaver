@@ -40,6 +40,7 @@ import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
 import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
+import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -411,7 +412,13 @@ export function SceneStudio({
       }
     }
   };
+  // Лендинг на сцене: картинки блоков (бонусы, обложки игр) — в той же сборке и по теме сцены.
+  const extrasAssets = useExtrasAssets({ value: extras, onChange: setExtras, kind, theme: d.theme.trim() || meta.bgTheme });
   const applyAsset = async (key: string, dataUrl: string) => {
+    if (key.startsWith("x-")) {
+      await extrasAssets.apply(key.slice(2), dataUrl);
+      return;
+    }
     const part = partById(key);
     if (part) await applyPart(part, dataUrl);
   };
@@ -475,7 +482,11 @@ export function SceneStudio({
     };
   };
   const included = (part: ScenePart) => d.parts[part.id] !== false;
-  const assetSteps = (): AssetStep[] => parts.filter(included).map(stepFor);
+  const assetSteps = (): AssetStep[] => [
+    ...parts.filter(included).map(stepFor),
+    // У лендинга — ещё и блоки под сценой; парящих объектов у сцены нет.
+    ...(landing ? extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })) : []),
+  ];
   const assetCredits = assetSteps().reduce((sum, st) => sum + st.credits, 0);
   const startAssets = () => {
     if (isGuest) return openGate();
@@ -679,6 +690,8 @@ export function SceneStudio({
               </div>
               <div className="mt-3">
                 <AssetRunPanel
+                  title="Вся графика под тему"
+                  plan={assetSteps()}
                   steps={assetRun.steps}
                   running={assetRun.running}
                   notEnough={assetRun.notEnough}
@@ -862,7 +875,7 @@ export function SceneStudio({
                   />
                   <p className="mt-1.5 ds-caption">На неё ведут кнопка сцены и все кнопки блоков. Параметры адреса лендинга (subid, click_id) докинутся.</p>
                 </SettingsSection>
-                <LandingExtrasPanel value={extras} onChange={setExtras} kind={kind} mechanic={`scene_${scene}`} hideFirstScreen />
+                <LandingExtrasPanel value={extras} onChange={setExtras} kind={kind} mechanic={`scene_${scene}`} theme={d.theme.trim() || meta.bgTheme} hideFirstScreen />
               </>
             ) : (
             <SettingsSection

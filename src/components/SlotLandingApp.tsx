@@ -38,6 +38,7 @@ import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ThemeStrip } from "@/components/landing/ThemeStrip";
+import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
 
 const BG_PRICE = imageCredits(1);
@@ -585,7 +586,13 @@ export function SlotLandingApp() {
    * Разложить готовую картинку шага по местам. Ключи шагов стабильны, поэтому
    * этим же раскладываются результаты сборки, подхваченной после перезагрузки.
    */
+  // Картинки блоков (бонусы, обложки игр, парящие объекты) — в той же сборке «вся графика под тему».
+  const extrasAssets = useExtrasAssets({ value: extras, onChange: setExtras, kind: "casino", theme: topic || theme });
   const applyAsset = async (key: string, dataUrl: string) => {
+    if (key.startsWith("x-")) {
+      await extrasAssets.apply(key.slice(2), dataUrl);
+      return;
+    }
     if (key === "bg") {
       setBgImage(dataUrl);
       return;
@@ -682,6 +689,8 @@ export function SlotLandingApp() {
     }
     const symbolsPrompt = (symbolTheme || topic).trim();
     if (symbolsPrompt) steps.push(symbolsStep(symbolsPrompt));
+    // Блоки лендинга — тем же нажатием и по той же теме.
+    for (const st of extrasAssets.allSteps()) steps.push({ ...st, id: `x-${st.id}` });
     return steps;
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
@@ -901,6 +910,8 @@ export function SlotLandingApp() {
           running={assetRun.running}
           notEnough={assetRun.notEnough}
           credits={assetCredits}
+          title="Вся графика под тему"
+          plan={assetSteps()}
           onStart={() => {
             if (isGuest) {
               openGate();
@@ -1129,7 +1140,7 @@ export function SlotLandingApp() {
           </p>
         </Field>
 
-        <LandingExtrasPanel value={extras} onChange={setExtras} kind="casino" mechanic="slot" />
+        <LandingExtrasPanel value={extras} onChange={setExtras} kind="casino" mechanic="slot" theme={topic || theme} />
         <LandingExtrasPreview extras={extras} accent={accent} dark={dark} kind="casino" />
 
         <button

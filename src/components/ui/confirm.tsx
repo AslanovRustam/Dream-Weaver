@@ -59,7 +59,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         <DialogContent hideClose className="w-full max-w-sm rounded-2xl border border-border bg-panel p-6">
           <DialogTitle className="ds-h4">{opts?.title}</DialogTitle>
           {opts?.body ? (
-            <p className="mt-2 text-sm text-muted-foreground">{opts.body}</p>
+            <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{opts.body}</p>
           ) : null}
           <div className="mt-5 flex justify-end gap-2">
             <button
