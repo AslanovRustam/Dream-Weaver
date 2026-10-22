@@ -18,6 +18,7 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #0
 }
 
 #cup { left: 390px; top: 430px; width: 300px; height: 300px; z-index: 3; transform-origin: 150px 270px; filter: drop-shadow(0 24px 26px rgba(0, 0, 0, .55)); }
+#cup img.cupArt { object-position: center bottom; }
 .idle #cup { animation: cupWobble 1.4s ease-in-out infinite; }
 @keyframes cupWobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
 

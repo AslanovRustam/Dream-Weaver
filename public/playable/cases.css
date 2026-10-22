@@ -16,6 +16,8 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #2
 #crate { left: 350px; top: 500px; width: 380px; height: 290px; pointer-events: none; }
 #crateBody { left: 10px; top: 80px; width: 360px; height: 200px; filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .55)); }
 #crateLid { left: 0; top: 18px; width: 380px; height: 90px; transform-origin: 20px 80px; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .45)); }
+#caseArt { filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .55)); }
+#caseArt img.ai { object-position: center bottom; }
 #crateGlow { left: 40px; top: 40px; width: 300px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 230, 140, .95), rgba(255, 200, 80, 0)); opacity: 0; }
 .idle #crate { animation: crateBob 1.6s ease-in-out infinite; }
 @keyframes crateBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }

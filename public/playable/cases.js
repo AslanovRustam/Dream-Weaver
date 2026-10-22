@@ -12,6 +12,12 @@
   var OPENS = 2, CARD = 200, GAP = 20, STEP = CARD + GAP, COUNT = 64, STOP = 52;
   var KINDS = ["coin", "cherry", "bell", "bar", "seven", "diamond"];
   var stage = P.stage, reel = $("reel"), label = $("label"), tapText = $("tapText");
+  // Кейс от ИИ (сундук, сундучок ведьмы, кибер-ящик): одна картинка вместо корпуса с крышкой.
+  if (P.art("case")) {
+    $("crateBody").style.display = "none";
+    $("crateLid").style.display = "none";
+    $("crate").insertAdjacentHTML("afterbegin", '<div id="caseArt" class="abs fill">' + P.aiImg(P.art("case")) + "</div>");
+  }
 
   /** Обычные предметы: редкость и символ — вразнобой, но без золота. */
   function common() {
@@ -55,6 +61,7 @@
       { transform: "none" }, { transform: "rotate(-4deg) scale(1.04)" }, { transform: "rotate(4deg) scale(1.04)" },
       { transform: "rotate(-2deg)" }, { transform: "none" },
     ], { duration: 420 });
+    if (P.art("case")) animIn($("caseArt"), [{ transform: "none" }, { transform: "translateY(-10px) scale(1.06)", filter: "brightness(1.5)" }, { transform: "none" }], { duration: 520, delay: 300 });
     anim($("crateLid"), [{ transform: "none" }, { transform: "translateY(-14px) rotate(-12deg)" }], { duration: 420, delay: 300, easing: "cubic-bezier(.3,1.4,.5,1)" });
     anim($("crateGlow"), [{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 380 });
   }

@@ -15,6 +15,8 @@ body::before { background: var(--img-bg, radial-gradient(120% 90% at 50% 40%, #3
 #stuck { pointer-events: none; }
 .stuckDart { position: absolute; width: 44px; height: 143px; transform-origin: 22px 0; }
 .stuckDart svg { width: 100%; height: 100%; }
+/* остриё — сверху посередине: от него считается точка попадания */
+img.ai.dartArt { object-position: center top; }
 .bullWin { animation: bullGlow .7s ease-in-out infinite alternate; }
 @keyframes bullGlow { to { filter: brightness(1.7) drop-shadow(0 0 20px #ffd34d); } }
 

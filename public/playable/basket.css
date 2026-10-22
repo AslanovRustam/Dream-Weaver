@@ -11,6 +11,7 @@
 .hoop { left: 290px; top: 460px; width: 500px; height: 520px; pointer-events: none; }
 #hoopBack { z-index: 1; filter: drop-shadow(0 20px 30px rgba(0, 0, 0, .5)); }
 #hoopFront { z-index: 3; }
+#hoopBack img.boardArt { position: absolute; left: 6%; top: 1.9%; width: 88%; height: 57.7%; object-fit: fill; }
 #rimSpot { left: 540px; top: 760px; width: 0; height: 0; }
 #net { transform-origin: 250px 300px; }
 .swish #net { animation: swish .6s ease-out; }

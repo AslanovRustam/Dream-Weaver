@@ -27,9 +27,15 @@
     var tp = pt(352, i * STEP).split(" ");
     html += '<text x="' + tp[0] + '" y="' + tp[1] + '" transform="rotate(' + (i * STEP).toFixed(2) + " " + tp[0] + " " + tp[1] + ')" text-anchor="middle" dominant-baseline="middle" font-family="PInter,Arial" font-weight="800" font-size="30" fill="#fff">' + n + "</text>";
   }
+  // Центр по теме — картинка в круге, крутится вместе с ячейками.
+  if (P.art("cone")) {
+    html += '<clipPath id="rlConeClip"><circle r="248"/></clipPath><circle r="250" fill="#120a04" stroke="#e7c070" stroke-width="4"/>' +
+      '<image href="' + P.art("cone").replace(/"/g, "&quot;") + '" x="-250" y="-250" width="500" height="500" clip-path="url(#rlConeClip)" preserveAspectRatio="xMidYMid slice"/>';
+  } else {
   html += '<circle r="250" fill="url(#rlCone)" stroke="#e7c070" stroke-width="4"/>';
   for (var d = 0; d < 8; d++) html += '<path d="M' + pt(150, d * 45) + " L" + pt(222, d * 45 + 5) + " L" + pt(150, d * 45 + 10) + " L" + pt(78, d * 45 + 5) + 'Z" fill="#ffe7a3" opacity=".85"/>';
   html += '<circle r="64" fill="#e7c070" stroke="#7a4510" stroke-width="6"/><circle r="22" fill="#fff4cf"/>';
+  }
   disc.innerHTML = html;
 
   label.textContent = (T.spinsLeft || "") + SPINS;

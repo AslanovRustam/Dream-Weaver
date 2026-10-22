@@ -11,6 +11,11 @@
   var SHOTS = 2;
   var stage = P.stage, ball = $("ball"), label = $("label"), tapText = $("tapText");
   if (P.art("ball")) ball.innerHTML = P.aiImg(P.art("ball"));
+  // Щит по теме — за кольцом; дуги и сетка остаются векторными: мяч пролетает между ними.
+  if (P.art("board")) {
+    $("hoopBack").querySelectorAll(".bkBoard").forEach(function (r) { r.style.display = "none"; });
+    $("hoopBack").insertAdjacentHTML("afterbegin", P.aiImg(P.art("board"), "boardArt"));
+  }
 
   /** Точки — из раскладки: в вертикали и горизонтали они свои. */
   function rest() { return { x: ball.offsetLeft + ball.offsetWidth / 2, y: ball.offsetTop + ball.offsetHeight / 2 }; }

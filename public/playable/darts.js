@@ -8,6 +8,8 @@
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var THROWS = 2, N = 10, STEP = 360 / N;
   var stage = P.stage, board = $("board"), svg = $("boardSvg"), dart = $("dart"), aim = $("aim"), label = $("label"), tapText = $("tapText");
+  // Дротик по теме; воткнутые — его копии (stick копирует innerHTML).
+  if (P.art("dart")) dart.innerHTML = P.aiImg(P.art("dart"), "dartArt");
 
   // ---- мишень: 10 секторов с призами, кольца, яблочко
   function rad(a) { return (a - 90) * Math.PI / 180; }

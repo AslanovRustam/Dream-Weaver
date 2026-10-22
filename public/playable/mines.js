@@ -24,6 +24,8 @@
   var GEM = P.art("gem") ? P.aiImg(P.art("gem"), "ai") : P.SYM.diamond;
   var BOMB_ART = P.art("bomb") ? P.aiImg(P.art("bomb"), "ai") : BOMB;
 
+  // Закрытая клетка по теме (плита с руной, крышка ящика…); при открытии её заменит алмаз или бомба.
+  var COVER = P.art("tile") ? P.aiImg(P.art("tile"), "ai cover") : "";
   var tiles = [];
   for (var i = 0; i < N * N; i++) {
     var t = document.createElement("div");
@@ -31,6 +33,7 @@
     t.style.left = PAD + (i % N) * (SIZE + GAP) + "px";
     t.style.top = PAD + Math.floor(i / N) * (SIZE + GAP) + "px";
     t.setAttribute("data-i", i);
+    if (COVER) { t.classList.add("aiCover"); t.innerHTML = COVER; }
     field.appendChild(t);
     tiles.push({ el: t, open: false });
   }

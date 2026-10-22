@@ -709,19 +709,54 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
     { id: "pot", kind: "object", label: "Котёл", hint: "Ловит монеты", size: 360, subject: "a pot of gold / golden cauldron seen from the front, wide open top, empty inside" },
     BOMB_PART,
   ],
-  basket: [{ id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" }],
-  roulette: [],
+  basket: [
+    { id: "ball", kind: "object", label: "Мяч", hint: "Летит в кольцо", size: 240, subject: "a glossy basketball, perfect sphere, classic seams" },
+    {
+      id: "board", kind: "object", label: "Щит", hint: "За кольцом; кольцо и сетка остаются живыми", size: 520,
+      subject:
+        "a basketball BACKBOARD only, seen perfectly straight-on, a wide landscape rectangle filling the canvas: a glass board by default, but shaped by the theme (carved stone, neon panel, wooden shield…), with a small target square in the lower middle; NO hoop, NO rim, NO net, NO pole",
+    },
+  ],
+  roulette: [
+    {
+      id: "cone", kind: "object", label: "Центр колеса", hint: "Крутится вместе с ячейками", size: 500,
+      subject:
+        "the round central TURRET of a roulette wheel seen from directly above, a perfect circle filling the canvas: a polished cone with radial spokes and a knob in the middle by default, but ornamented by the theme (a rune compass, a clockwork rose, a dragon emblem…); NO numbers, NO pockets",
+    },
+  ],
   claw: [{ id: "symbols", kind: "symbols", label: "Призы в автомате", hint: "6 штук", subject: "six cute glossy arcade prizes for a claw machine: a gold coin, a blue diamond, a lucky seven, a cherry plush, a golden bell, a gold bar" }],
-  darts: [],
-  dice: [],
+  darts: [
+    {
+      id: "dart", kind: "object", label: "Дротик", hint: "Летит в мишень и остаётся в ней", size: 400,
+      subject:
+        "a single throwing DART seen from the side, pointing straight UP: the sharp tip at the very top, the flights at the bottom, thin and vertical, shaped by the theme (a feathered arrow-dart, a crystal dart, a cyber dart…)",
+    },
+  ],
+  dice: [
+    {
+      id: "cup", kind: "object", label: "Стакан", hint: "Трясёт и высыпает кубики", size: 360,
+      subject:
+        "a dice-shaker CUP turned upside down, seen from the front: closed bottom at the top, the open mouth facing DOWN at the bottom, a leather cup by default, but shaped by the theme (a carved goblet, a skull chalice, a chrome canister…); no dice",
+    },
+  ],
   mines: [
     { id: "gem", kind: "object", label: "Алмаз", hint: "Под клеткой", size: 220, subject: "a single glowing faceted blue diamond gem, front view" },
     { id: "bomb", kind: "object", label: "Бомба", hint: "Под клеткой", size: 220, subject: "a cartoon black round bomb with a lit fuse and sparks" },
+    {
+      id: "tile", kind: "object", label: "Закрытая клетка", hint: "25 штук на поле", size: 200,
+      subject:
+        "one CLOSED tile of a minefield grid seen straight-on, a rounded square filling the canvas: a glossy button by default, but shaped by the theme (a stone slab with a rune, a wooden crate lid, a sci-fi hatch…); NO text or digits",
+    },
   ],
   cases: [
     {
       id: "symbols", kind: "symbols", label: "Предметы ленты", hint: "6 штук; шестой — легендарка",
       subject: "six loot items of rising rarity for a case-opening game: a coin, a cherry, a bell, a gold bar, a lucky seven and, last, a legendary glowing golden diamond",
+    },
+    {
+      id: "case", kind: "object", label: "Кейс", hint: "Трясётся и открывается", size: 420,
+      subject:
+        "a closed LOOT CASE seen from the front, slightly from above: a premium lockable box by default, but shaped by the theme (a runic chest, a witch's trunk, a cyber crate…), wider than tall, with a lock in the middle",
     },
   ],
   penalty: [

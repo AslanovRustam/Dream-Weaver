@@ -8,6 +8,8 @@
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
   var ROLLS = 2;
   var stage = P.stage, cup = $("cup"), label = $("label"), tapText = $("tapText");
+  // Стакан по теме: картинка вместо вектора, дном вверх, раструбом вниз.
+  if (P.art("cup")) cup.innerHTML = P.aiImg(P.art("cup"), "cupArt");
   var dice = [$("dieA"), $("dieB")];
 
   // Точки на гранях: ячейки сетки 3×3 (1…9), где стоит точка.
