@@ -95,12 +95,13 @@ export const SCENES: SceneMeta[] = [
   {
     id: "chests",
     label: "Сундуки",
-    description: "Выбери один из трёх: первый пустой, во втором — золото и луч света.",
+    description: "Выбери один из трёх: первый пустой — он закрывается, сундуки перемешиваются, как напёрстки, и со второй попытки — золото и луч света.",
     fields: [
       { key: "title", label: "Заголовок", multiline: true },
       { key: "tap", label: "Призыв выбрать" },
       { key: "empty", label: "Надпись над пустым сундуком" },
-      { key: "tryAgain", label: "После пустого" },
+      { key: "shuffle", label: "Пока сундуки перемешиваются" },
+      { key: "tryAgain", label: "После перемешивания" },
       { key: "triesLeft", label: "Счётчик попыток (перед числом)" },
       ...POPUP_FIELDS,
     ],
@@ -470,10 +471,10 @@ const TEXT: Record<SceneId, Record<SceneLang, Record<string, string>>> = {
     es: { title: "Vuela más alto,\ngana más", tap: "Toca para despegar", cashout: "Cobrar", cashoutHint: "¡Toca y cobra!", won: "Cobrado", bonus: "Ganaste:", cta: "Reclamar premio" },
   },
   chests: {
-    ru: { title: "Выбери сундук\nи забери золото", tap: "Жми на сундук", empty: "Пусто!", tryAgain: "Выбери другой!", triesLeft: "Попыток: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
-    uk: { title: "Обери скриню\nі забери золото", tap: "Тисни на скриню", empty: "Порожньо!", tryAgain: "Обери іншу!", triesLeft: "Спроб: ", bonus: "Твій бонус:", cta: "Забрати бонус" },
-    en: { title: "Pick a chest\nand grab the gold", tap: "Tap a chest", empty: "Empty!", tryAgain: "Pick another!", triesLeft: "Tries: ", bonus: "Your bonus:", cta: "Claim bonus" },
-    es: { title: "Elige un cofre\ny llévate el oro", tap: "Toca un cofre", empty: "¡Vacío!", tryAgain: "¡Elige otro!", triesLeft: "Intentos: ", bonus: "Tu bono:", cta: "Reclamar bono" },
+    ru: { title: "Выбери сундук\nи забери золото", tap: "Жми на сундук", empty: "Пусто!", shuffle: "Следи за сундуками!", tryAgain: "Где золото? Выбирай!", triesLeft: "Попыток: ", bonus: "Твой бонус:", cta: "Забрать бонус" },
+    uk: { title: "Обери скриню\nі забери золото", tap: "Тисни на скриню", empty: "Порожньо!", shuffle: "Стеж за скринями!", tryAgain: "Де золото? Обирай!", triesLeft: "Спроб: ", bonus: "Твій бонус:", cta: "Забрати бонус" },
+    en: { title: "Pick a chest\nand grab the gold", tap: "Tap a chest", empty: "Empty!", shuffle: "Watch the chests!", tryAgain: "Where's the gold? Pick!", triesLeft: "Tries: ", bonus: "Your bonus:", cta: "Claim bonus" },
+    es: { title: "Elige un cofre\ny llévate el oro", tap: "Toca un cofre", empty: "¡Vacío!", shuffle: "¡Sigue los cofres!", tryAgain: "¿Dónde está el oro? ¡Elige!", triesLeft: "Intentos: ", bonus: "Tu bono:", cta: "Reclamar bono" },
   },
   slot: {
     ru: { title: "Крути слот\nи срывай джекпот", tap: "Жми, чтобы крутить", tryAgain: "Почти! Ещё спин", spinsLeft: "Спинов: ", bonus: "Твой джекпот:", cta: "Забрать джекпот" },
@@ -686,6 +687,10 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
     {
       id: "chestOpen", kind: "object", label: "Сундук с золотом", hint: "Открытый — в нём выигрыш", size: 440,
       subject: "the same ornate treasure chest but OPEN with the lid up, overflowing with glowing gold coins and gems, front view slightly from above",
+    },
+    {
+      id: "chestEmpty", kind: "object", label: "Пустой сундук", hint: "Открытый, без добычи — первая попытка", size: 440,
+      subject: "the same ornate treasure chest but OPEN with the lid up and completely EMPTY inside — just a dark bare bottom, a cobweb and some dust, no coins, no gems; front view slightly from above",
     },
   ],
   aviator: [

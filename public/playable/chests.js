@@ -1,7 +1,8 @@
 // Сценарий «Сундуки». Три сундука покачиваются и блестят. Первый выбранный
-// всегда пустой: крышка со скрипом приоткрывается, из сундука пыль,
-// «Пусто». Второй — крышку срывает, из сундука бьёт свет, фонтан монет —
-// и попап. Тап мимо сундуков засчитывается ближайшему закрытому.
+// всегда пустой: крышка со скрипом приоткрывается, пыль, «Пусто». Потом
+// сундук захлопывается и сундуки перемешиваются, как напёрстки, — игрок
+// выбирает заново. Второй выбор всегда выигрышный: крышку срывает, бьёт
+// свет, фонтан монет — и попап. Тап мимо сундуков засчитывается ближайшему.
 (function (P) {
   "use strict";
   var $ = P.$, T = P.T, anim = P.anim, animIn = P.animIn, sparks = P.sparks, ripple = P.ripple;
@@ -59,14 +60,16 @@
       bob.querySelector(".body").style.display = "none";
       bob.querySelector(".lid").style.display = "none";
       c.classList.add("aiArt");
-      bob.querySelector(".beam").insertAdjacentHTML("afterend", '<div class="aiChest">' + P.aiImg(ART_CHEST, "shut") + (P.art("chestOpen") ? P.aiImg(P.art("chestOpen"), "open") : "") + "</div>");
+      bob.querySelector(".beam").insertAdjacentHTML("afterend", '<div class="aiChest">' + P.aiImg(ART_CHEST, "shut") + (P.art("chestOpen") ? P.aiImg(P.art("chestOpen"), "open") : "") + (P.art("chestEmpty") ? P.aiImg(P.art("chestEmpty"), "empty") : "") + "</div>");
     });
   }
 
   /** Рука — над следующим закрытым сундуком (после первого выбора). */
   function moveHand() {
-    var next = opened.indexOf(false);
-    if (!picks || next < 0) return;
+    if (!picks || done) return;
+    // ближайший к середине сцены сундук — туда и показываем
+    var mid = P.pos($("chests"), 0.5, 0.5).x, next = 0, best = 1e9;
+    chests.forEach(function (ch, i) { var d = Math.abs(P.pos(ch, 0.5, 0.5).x - mid); if (d < best) { best = d; next = i; } });
     var c = centerOf(next);
     hand.style.left = c.x - 40 + "px";
     hand.style.top = c.y - 10 + "px";
@@ -81,7 +84,7 @@
   function chosen(e) {
     var el = e && e.target && e.target.closest ? e.target.closest(".chest") : null;
     if (el && !opened[+el.getAttribute("data-i")]) return +el.getAttribute("data-i");
-    var x = centerOf(1).x;
+    var x = P.pos($("chests"), 0.5, 0.5).x;
     if (e && e.clientX != null) x = P.toStage(e.clientX, e.clientY).x;
     var best = -1, dist = 1e9;
     opened.forEach(function (o, i) {
@@ -114,20 +117,71 @@
 
   function openEmpty(c, i) {
     var pt = centerOf(i);
+    var lid = c.querySelector(".lid"), tag = c.querySelector(".tag");
+    var empty = c.querySelector(".aiChest .empty"), shut = c.querySelector(".aiChest .shut");
     shake(c, 4, 420).then(function () {
-      anim(c.querySelector(".lid"), [
+      anim(lid, [
         { transform: "rotateX(0)" }, { transform: "rotateX(48deg)", offset: 0.6 }, { transform: "rotateX(40deg)" },
       ], { duration: 700, easing: "ease-out" });
+      // Сундук от ИИ: открытый пустой — отдельной картинкой.
+      if (empty) {
+        anim(shut, [{ opacity: 1 }, { opacity: 0 }], { duration: 200 });
+        anim(empty, [{ opacity: 0, transform: "scale(.94)" }, { opacity: 1, transform: "none" }], { duration: 320 });
+      }
       sparks(pt.x, pt.y - 40, 14, { cls: "dust", dist: 160, gravity: -40, dur: 900 });
-      var tag = c.querySelector(".tag");
       P.setGradText(tag, P.rich(T.empty || ""));
       anim(tag, [{ opacity: 0, transform: "translateY(30px)" }, { opacity: 1, transform: "none" }], { duration: 400, delay: 300 });
+      return P.wait(1300);
+    }).then(function () {
+      // Захлопнуть: крышка падает, картинка — обратно в закрытую, сундук снова яркий.
+      anim(lid, [{ transform: "rotateX(40deg)" }, { transform: "rotateX(0)" }], { duration: 260, easing: "cubic-bezier(.5,0,.8,.4)" });
+      if (empty) {
+        anim(empty, [{ opacity: 1 }, { opacity: 0 }], { duration: 200 });
+        anim(shut, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+      }
+      anim(tag, [{ opacity: 1 }, { opacity: 0 }], { duration: 250 });
+      c.classList.remove("picked");
+      opened[i] = false;
+      animIn(c.querySelector(".bob"), [{ transform: "translateY(0)" }, { transform: "translateY(10px) scaleY(.94)" }, { transform: "none" }], { duration: 260, delay: 220 });
+      return P.wait(520);
+    }).then(shuffle).then(function () {
       P.setGradText(tapText, P.rich(T.tryAgain || ""));
       animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
-      // Рука переезжает к соседнему закрытому сундуку.
+      stage.classList.remove("shuffling");
       moveHand();
-      setTimeout(function () { busy = false; P.scheduleHint(1400); }, 900);
+      busy = false;
+      P.scheduleHint(1400);
     });
+  }
+
+  /**
+   * Напёрстки: несколько обменов местами, каждый — по дуге (один сундук
+   * поверху, другой понизу). Позиции — в style.left, анимация — transform.
+   */
+  function swap(a, b, dur) {
+    var ca = chests[a], cb = chests[b];
+    var la = parseFloat(ca.style.left), lb = parseFloat(cb.style.left), dx = lb - la;
+    var ease = "cubic-bezier(.45,0,.55,1)";
+    var fa = anim(ca, [{ transform: "none" }, { transform: "translate(" + dx / 2 + "px,-70px) scale(1.06)" }, { transform: "translate(" + dx + "px,0)" }], { duration: dur, easing: ease });
+    anim(cb, [{ transform: "none" }, { transform: "translate(" + -dx / 2 + "px,50px) scale(.94)" }, { transform: "translate(" + -dx + "px,0)" }], { duration: dur, easing: ease });
+    ca.style.zIndex = 2;
+    cb.style.zIndex = 1;
+    return fa.finished.then(function () {
+      ca.getAnimations().forEach(function (x) { x.cancel(); });
+      cb.getAnimations().forEach(function (x) { x.cancel(); });
+      ca.style.left = lb + "px";
+      cb.style.left = la + "px";
+      ca.style.zIndex = cb.style.zIndex = "";
+    });
+  }
+  function shuffle() {
+    stage.classList.add("shuffling");
+    P.setGradText(tapText, P.rich(T.shuffle || ""));
+    animIn(tapText, [{ transform: "scale(1.12)" }, { transform: "scale(1)" }], { duration: 300 });
+    var plan = [[0, 1, 420], [1, 2, 380], [0, 2, 460], [1, 2, 360], [0, 1, 400]];
+    return plan.reduce(function (p, s) {
+      return p.then(function () { return swap(s[0], s[1], s[2]); });
+    }, Promise.resolve());
   }
 
   /** Ореол и лучи — из открытого сундука, а не из центра сцены (выигрышным может оказаться крайний). */
@@ -173,7 +227,7 @@
       ripple(pt.x, pt.y - 60, 2.6);
       // Фонтан монет из сундука.
       sparks(pt.x, pt.y - 60, 40, { angle: -Math.PI / 2, spread: 1.4, dist: 520, size: 1.6, dur: 1300, gravity: 260, stagger: 500 });
-      var cc = centerOf(1);
+      var cc = P.pos($("chests"), 0.5, 0.47);
       sparks(cc.x, cc.y, 30, { jx: 420, jy: 360, dist: 200, size: 1.2, dur: 1100, stagger: 600, gravity: -60 });
       P.wait(1800).then(P.showPopup);
     });

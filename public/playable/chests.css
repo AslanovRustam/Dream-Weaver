@@ -38,6 +38,11 @@
 .themed .chest.aiArt .beam { background: radial-gradient(closest-side, rgba(var(--glow-rgb), .9), rgba(var(--glow-rgb), .35) 55%, rgba(var(--glow-rgb), 0)); }
 .themed .chest:not(.aiArt) .beam { background: linear-gradient(0deg, rgba(var(--glow-rgb), .95), rgba(var(--glow-rgb), 0)); }
 .chest.aiArt .gleam { display: none; }
+.chest .aiChest .empty { opacity: 0; }
+/* пока сундуки меняются местами — без покачивания и блика, нажатия не принимаются */
+.shuffling .chest .bob { animation: none !important; }
+.shuffling .chest .gleam { display: none; }
+.shuffling #hand { display: none; }
 .chest.picked .bob { filter: saturate(.5) brightness(.65); transition: filter .6s .6s; }
 .chest.winner .beam { animation: beam 1.6s ease-in-out infinite alternate; }
 @keyframes beam { from { opacity: .55; } to { opacity: 1; } }
