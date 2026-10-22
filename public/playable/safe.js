@@ -52,6 +52,18 @@
     // Фасад по теме (сундук, шкатулка…) — бронзовый корпус сейфа вокруг него чужой: остаётся только проём с добычей.
     $("safe").classList.add("aiDoor");
   }
+  // Содержимое по теме (кристаллы, зелья, слитки…) вместо векторных слитков — видно, когда дверь откроется.
+  if (P.art("inside")) {
+    $("sfInterior").style.display = "none";
+    safe.querySelector("svg").insertAdjacentHTML("afterend", P.aiImg(P.art("inside"), "insideArt"));
+  }
+  // Жетоны-поинты на плашке; треснувший — тот же жетон, обесцвеченный, с трещиной поверх.
+  if (P.art("token")) {
+    stage.querySelectorAll(".coin").forEach(function (c) {
+      c.classList.add("aiTok");
+      c.insertAdjacentHTML("afterbegin", P.aiImg(P.art("token"), "tokArt"));
+    });
+  }
   // Кодовый диск от ИИ (руны, часы, печать — по теме): крутится, как векторный; центр — в самой картинке.
   if (P.art("dial")) {
     $("dialSpr").innerHTML = P.aiImg(P.art("dial"), "dialArt");

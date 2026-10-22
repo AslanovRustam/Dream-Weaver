@@ -89,5 +89,10 @@
 .land #hand { left: 508px; top: 488px; }
 
 #safe.aiDoor .sfFrame { display: none; }
+#safe img.insideArt { position: absolute; left: 58px; top: 58px; width: 684px; height: 744px; object-fit: fill; border-radius: 32px; }
+.coin.aiTok, .coin.aiTok.broken { background: none; box-shadow: none; }
+.coin.aiTok::after { display: none; }
+.coin img.tokArt { position: absolute; inset: 0; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .5)); }
+.coin.broken img.tokArt { filter: grayscale(1) brightness(.6) drop-shadow(0 4px 10px rgba(0, 0, 0, .5)); }
 #door img.doorArt { position: absolute; inset: 0; object-fit: fill; border-radius: 32px; }
 #dialSpr img.dialArt { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0, 0, 0, .55)); }

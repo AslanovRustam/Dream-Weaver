@@ -650,6 +650,16 @@ export const SCENE_PARTS: Record<SceneId, ScenePart[]> = {
       subject:
         "a round rotating LOCK DIAL seen perfectly straight-on, a perfect circle filling the canvas: a combination dial by default, but shaped by the theme (a runic seal, a clock face, a magic sigil, a cyber lock…), with radial ticks or symbols around the rim and a decorative knob in the centre; NO readable text or digits",
     },
+    {
+      id: "inside", kind: "object", label: "Содержимое", hint: "Видно, когда хранилище открылось", size: 700,
+      subject:
+        "the INSIDE of the opened treasure container of this game seen perfectly straight-on: a deep dark cavity with shelves or a nest, piled with a glowing hoard that fits the theme (gold bars and coins by default; crystals, potions, relics, data cores…), a tall rectangle filling the canvas edge to edge, warm light from inside, no door, no frame around it",
+    },
+    {
+      id: "token", kind: "object", label: "Жетон", hint: "Поинты на плашке: по одному за нажатие", size: 200,
+      subject:
+        "a single round TOKEN seen straight-on, a perfect circle filling the canvas: a gold coin with an emblem by default, but shaped by the theme (a rune stone, an amulet, a gem medallion, a cyber chip…); NO text or digits",
+    },
   ],
   wheel: [
     { id: "frame", kind: "wheel-frame", label: "Рама колеса", hint: "Обод с лампочками — главный объект" },

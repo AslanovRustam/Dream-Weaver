@@ -54,7 +54,7 @@ const symbols = withArt ? await Promise.all(COLORS.map((c, i) => stub(c, i === 0
 const art = withArt
   ? Object.fromEntries(
       await Promise.all(
-        ["door", "dial", "chest", "chestOpen", "plane", "ball", "cardBack", "coin", "pot", "bomb", "mascot", "pointer", "hub"].map(
+        ["door", "dial", "inside", "token", "chest", "chestOpen", "plane", "ball", "cardBack", "coin", "pot", "bomb", "mascot", "pointer", "hub"].map(
           async (k, i) => [k, await stub(COLORS[i % COLORS.length], k.slice(0, 5), 320, 320)] as const,
         ),
       ),
