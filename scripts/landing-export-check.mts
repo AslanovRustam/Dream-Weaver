@@ -196,18 +196,22 @@ for (const m of MECHANICS) {
     const rot1 = await p3.evaluate(`getComputedStyle(document.querySelector("[data-exgames] .ring")).getPropertyValue("--rot")`);
     check(`${m.id}: карусель крутится перетаскиванием`, Math.abs(parseFloat(String(rot1)) - parseFloat(String(rot0))) > 30, `${rot0} → ${rot1}`);
     check(`${m.id}: перетаскивание не уводит на оффер`, p3.url().startsWith("https://landing.test/"), p3.url());
-    // ближайшая к центру обложка лицом к нам (между обложками бывает зазор)
-    const pt = (await p3.evaluate(`(() => {
-      const g = document.querySelector("[data-exgames]").getBoundingClientRect(), cx = g.x + g.width / 2;
-      let best = null;
-      for (const c of document.querySelectorAll("[data-exgames] .gc")) {
-        const r = c.getBoundingClientRect(), x = r.x + r.width / 2;
-        if (!best || Math.abs(x - cx) < Math.abs(best.x - cx)) best = { x, y: r.y + r.height / 2 };
-      }
-      return best;
-    })()`)) as { x: number; y: number };
-    await p3.mouse.click(pt.x, pt.y);
-    await p3.waitForURL(/offer.example/, { timeout: 3000 }).catch(() => {});
+    // ближайшая к центру обложка лицом к нам (между обложками бывает зазор).
+    // Карусель вращается сама, и точка, посчитанная за миг до клика, иногда
+    // попадает в зазор — до трёх попыток с пересчётом точки.
+    for (let attempt = 0; attempt < 3 && !p3.url().startsWith("https://offer.example/go"); attempt++) {
+      const pt = (await p3.evaluate(`(() => {
+        const g = document.querySelector("[data-exgames]").getBoundingClientRect(), cx = g.x + g.width / 2;
+        let best = null;
+        for (const c of document.querySelectorAll("[data-exgames] .gc")) {
+          const r = c.getBoundingClientRect(), x = r.x + r.width / 2;
+          if (!best || Math.abs(x - cx) < Math.abs(best.x - cx)) best = { x, y: r.y + r.height / 2 };
+        }
+        return best;
+      })()`)) as { x: number; y: number };
+      await p3.mouse.click(pt.x, pt.y);
+      await p3.waitForURL(/offer.example/, { timeout: 2000 }).catch(() => {});
+    }
     check(`${m.id}: клик по обложке — на оффер`, p3.url().startsWith("https://offer.example/go"), p3.url());
     await p3.close();
   }
