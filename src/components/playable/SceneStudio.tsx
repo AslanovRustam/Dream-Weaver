@@ -45,6 +45,7 @@ import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { paletteFromHex, paletteFromImage, uiFromPalette, wheelFromPalette } from "@/lib/imagePalette";
 import type { UiPalette, WheelPalette } from "@/lib/scenes/presets";
 import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
+import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { useAuth } from "@/lib/auth-context";
 import {
   DEFAULT_WIN_INDEX,
@@ -438,6 +439,18 @@ export function SceneStudio({
     if (part) await applyPart(part, dataUrl);
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_scene", apply: applyAsset });
+  // Сгенерировали картинку — проект сразу в «Мои проекты», не дожидаясь скачивания.
+  useProjectAutosave({
+    uid: restored ? user?.id : null,
+    art: [d.bgImage, d.art],
+    save: () =>
+      saveProject({
+        kind: mode === "landing" ? "landing-scene" : "playable",
+        scene,
+        name: d.brandName.trim() ? `${meta.label} — ${d.brandName.trim()}` : meta.label,
+        uid: user?.id,
+      }),
+  });
 
   /** Ошибка уходит наверх: панель сборки покажет причину по-человечески (фильтр, кредиты, таймаут). */
   const runInTab = (route: string, body: Record<string, unknown>, key: string) => async () => {

@@ -8,6 +8,7 @@ import { CrashGame } from "@/components/CrashGame";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { forgetProject, saveProject } from "@/lib/projects";
+import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { useAuth } from "@/lib/auth-context";
 import { buildCrashHtml } from "@/lib/crashExport";
 import { apiFetch } from "@/lib/api-client";
@@ -513,6 +514,12 @@ export function CrashLandingApp() {
     if (key === "rocket") setRocketIcon(await trimTransparent(dataUrl));
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_crash", apply: applyAsset });
+  // Сгенерировали картинку — проект сразу в «Мои проекты», не дожидаясь скачивания.
+  useProjectAutosave({
+    uid: user?.id,
+    art: [bgImage, charImages, rocketIcon, extras],
+    save: () => saveProject({ kind: "landing-crash", name: `${headline || "Crash-игра"} — ${brand}`, uid: user?.id }),
+  });
 
   /**
    * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что

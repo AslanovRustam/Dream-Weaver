@@ -115,6 +115,8 @@ export async function PUT(request: Request) {
       { onConflict: "user_id,id" },
     );
   if (isMissingTable(error)) return unavailable();
+  // 23514 — ограничение kind ещё без «campaign» (миграция 0019 не применена): молчим, как без таблицы.
+  if ((error as { code?: string } | null)?.code === "23514") return unavailable();
   if (error) return Response.json({ error: "Не удалось сохранить проект" }, { status: 500 });
   return Response.json({ ok: true, updatedAt: now });
 }

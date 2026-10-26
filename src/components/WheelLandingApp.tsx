@@ -20,6 +20,7 @@ import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { forgetProject, saveProject } from "@/lib/projects";
+import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { useAuth } from "@/lib/auth-context";
 import { buildWheelHtml } from "@/lib/wheelExport";
 import { apiFetch } from "@/lib/api-client";
@@ -494,6 +495,12 @@ export function WheelLandingApp() {
     }
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_wheel", apply: applyAsset });
+  // Сгенерировали картинку — проект сразу в «Мои проекты», не дожидаясь скачивания.
+  useProjectAutosave({
+    uid: user?.id,
+    art: [bgImage, charImages, extras],
+    save: () => saveProject({ kind: "landing-wheel", name: `${headline || "Колесо фортуны"} — ${brand}`, uid: user?.id }),
+  });
 
   /**
    * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что

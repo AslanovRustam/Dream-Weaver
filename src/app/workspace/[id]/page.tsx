@@ -34,10 +34,10 @@ import { useWorkspace } from "@/lib/workspace-context";
 import {
   getMockProjects,
   mockWorkspaceSpend,
+  projectTypeInfo,
   type Project,
   type ProjectType,
 } from "@/lib/historyMock";
-import { SECTION_BY_ID } from "@/lib/sections";
 import type { Workspace } from "@/lib/workspaces";
 
 const LANGS: { value: string; label: string }[] = [
@@ -172,7 +172,7 @@ export default function WorkspaceDetailPage() {
         }}
         onOpen={(p) => {
           setActive(ws.id);
-          const route = SECTION_BY_ID.get(p.type)!.route;
+          const route = projectTypeInfo(p.type).route;
           router.push(p.real && p.type === "banner" ? `${route}?card=${p.id}` : route);
         }}
       />

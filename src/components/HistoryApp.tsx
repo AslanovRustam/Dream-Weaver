@@ -51,6 +51,7 @@ import { listDrafts, removeDraft, type DraftMeta } from "@/lib/emailDraftsStore"
 import { getBrowserClient } from "@/lib/supabase/browser";
 import {
   getMockProjects,
+  projectTypeInfo,
   type CreditTx,
   type Project,
   type ProjectType,
@@ -61,13 +62,17 @@ type SortKey = "new" | "old" | "name";
 type ViewMode = "grid" | "list";
 
 // Типы — только открытых разделов: закрытый раздел не светится в фильтре.
-const TYPES: ProjectType[] = (["banner", "landing", "playable", "email", "video"] as ProjectType[]).filter((t) => isSectionEnabled(t));
+const TYPES: ProjectType[] = [
+  "campaign" as ProjectType,
+  ...(["banner", "landing", "playable", "email", "video"] as ProjectType[]).filter((t) => isSectionEnabled(t as SectionId)),
+];
 const TYPE_PLURAL: Record<ProjectType, string> = {
   banner: "Баннеры",
   landing: "Лендинги",
   playable: "Плейблы",
   video: "Видео",
   email: "Письма",
+  campaign: "Кампании",
 };
 
 // Feature flag: "Избранное" is temporarily hidden across История (desktop filter
@@ -283,6 +288,7 @@ function ProjectsTab() {
       toast("Открытие проектов этого типа скоро — пока доступны баннеры");
       return;
     }
+    if (p.type === "campaign") return router.push("/campaign");
     router.push(sectionEntryRoute(SECTION_BY_ID.get(p.type)!));
   };
   // Read-only card detail (hero + resizes). Banner-only for now, which is also
@@ -507,7 +513,7 @@ function toggleSel(setSelected: React.Dispatch<React.SetStateAction<Set<string>>
 }
 
 export function Preview({ p, rounded }: { p: Project; rounded: string }) {
-  const Icon = SECTION_BY_ID.get(p.type)!.icon;
+  const Icon = projectTypeInfo(p.type).icon;
   return (
     <div className={`relative overflow-hidden bg-background ${rounded}`}>
       {p.thumb ? (
@@ -522,7 +528,7 @@ export function Preview({ p, rounded }: { p: Project; rounded: string }) {
           </span>
         </span>
       ) : null}
-      <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-accent-green backdrop-blur" title={SECTION_BY_ID.get(p.type)!.title}>
+      <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-accent-green backdrop-blur" title={projectTypeInfo(p.type).title}>
         <Icon className="h-3.5 w-3.5" />
       </span>
       {p.uploadFailed ? (
@@ -870,7 +876,7 @@ function CreditsTab() {
 
 function CreditRow({ t, onProject }: { t: CreditTx; onProject?: () => void }) {
   const isTopup = t.kind === "topup";
-  const SecIcon = t.section ? SECTION_BY_ID.get(t.section)!.icon : null;
+  const SecIcon = t.section ? projectTypeInfo(t.section).icon : null;
   return (
     <div className="flex items-center gap-3 bg-card px-3 py-3 sm:px-4">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isTopup ? "bg-accent-green/15 text-accent-green" : "bg-white/5 text-muted-foreground"}`}>
@@ -906,7 +912,7 @@ export function TypePills({ type, onType, wrap }: { type: ProjectType | "all"; o
         Все
       </button>
       {TYPES.map((t) => {
-        const Icon = SECTION_BY_ID.get(t)!.icon;
+        const Icon = projectTypeInfo(t).icon;
         const active = type === t;
         return (
           <button key={t} type="button" onClick={() => onType(t)} className={`${base} inline-flex items-center gap-1.5 ${active ? "bg-accent-green text-on-accent" : "border border-border text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
@@ -1023,7 +1029,7 @@ function useIsMobile() {
 function mapSavedProjects(list: ProjectMeta[]): Project[] {
   return list.map((p) => ({
     id: p.id,
-    type: (p.kind === "playable" ? "playable" : "landing") as ProjectType,
+    type: (p.kind === "playable" ? "playable" : p.kind === "campaign" ? "campaign" : "landing") as ProjectType,
     name: p.name || projectCaption(p.kind),
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,

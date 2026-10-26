@@ -1,3 +1,5 @@
+import { Layers, type LucideIcon } from "lucide-react";
+import { SECTION_BY_ID } from "./sections";
 // ⚠️ MOCK / PLACEHOLDER DATA for the История section.
 //
 // Two things aren't backed by the API yet:
@@ -19,7 +21,14 @@ import presetSport from "@/assets/preset-sport.jpg";
 // History exists only for the generative sections — not ads/stats. Keep this an
 // explicit subset of SectionId so adding non-generative sections never forces
 // history maps to cover them.
-export type ProjectType = "banner" | "landing" | "playable" | "video" | "email";
+export type ProjectType = "banner" | "landing" | "playable" | "video" | "email" | "campaign";
+
+/** Значок, название и адрес вида проекта: кампания — не раздел SECTIONS, у неё своё. */
+export function projectTypeInfo(t: ProjectType): { icon: LucideIcon; title: string; route: string } {
+  if (t === "campaign") return { icon: Layers, title: "Кампания", route: "/campaign" };
+  const s = SECTION_BY_ID.get(t)!;
+  return { icon: s.icon, title: s.title, route: s.route };
+}
 
 export type Project = {
   id: string;
@@ -58,6 +67,7 @@ const GRAD: Record<ProjectType, string> = {
   playable: "linear-gradient(135deg,#141a10,#4d7c0f,#a3e635)",
   video: "linear-gradient(135deg,#141b2e,#6366f1,#0a0e18)",
   email: "linear-gradient(135deg,#0b1220,#1d4ed8,#22c55e)",
+  campaign: "linear-gradient(135deg,#111827,#a3e635,#7c3aed)",
 };
 
 const H = 3600_000;
@@ -152,6 +162,7 @@ const SPEND_LABEL: Record<ProjectType, string> = {
   playable: "Генерация плейбла",
   video: "Генерация видео",
   email: "Генерация письма",
+  campaign: "Генерация кампании",
 };
 
 /** Mock credit-usage log (spend + topups), newest first. */

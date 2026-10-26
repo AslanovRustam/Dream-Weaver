@@ -21,6 +21,7 @@ import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/
 import { sliceIconGrid } from "@/lib/spriteSlice";
 import { downloadText, slugify } from "@/lib/download";
 import { forgetProject, saveProject } from "@/lib/projects";
+import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { useAuth } from "@/lib/auth-context";
 import { buildSlotHtml } from "@/lib/slotExport";
 import { apiFetch } from "@/lib/api-client";
@@ -624,6 +625,12 @@ export function SlotLandingApp() {
     }
   };
   const assetRun = useAssetRun({ resumeKey: "dw_jobs_slot", apply: applyAsset });
+  // Сгенерировали картинку — проект сразу в «Мои проекты», не дожидаясь скачивания.
+  useProjectAutosave({
+    uid: user?.id,
+    art: [bgImage, charImages, symbols, extras],
+    save: () => saveProject({ kind: "landing-slot", name: `${headline || "Слот-машина"} — ${brand}`, uid: user?.id }),
+  });
 
   /**
    * Шаги сборки. Каждый умеет два пути: на сервере (route + body — то же, что

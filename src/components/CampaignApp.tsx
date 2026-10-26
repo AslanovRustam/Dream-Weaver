@@ -34,7 +34,9 @@ import { EMAIL_TEMPLATES } from "@/lib/emailTemplates";
 import { paletteFromImage } from "@/lib/imagePalette";
 import type { LandingKind } from "@/lib/landingKit";
 import { isSectionEnabled } from "@/lib/mvp";
-import { forgetProject } from "@/lib/projects";
+import { CAMPAIGN_BRIEF_KEY, forgetProject, saveProject } from "@/lib/projects";
+import { useProjectAutosave } from "@/lib/useProjectAutosave";
+import { useAuth } from "@/lib/auth-context";
 import {
   briefAccent,
   briefBanner,
@@ -421,6 +423,20 @@ export function CampaignApp() {
     );
   };
   const lucky = useAssetRun({ resumeKey: "dw_jobs_campaign", apply: applyLucky });
+  // Нарисовалась графика — кампания в «Моих проектах»: бриф и вся графика, откроется как есть.
+  const { user } = useAuth();
+  useProjectAutosave({
+    uid: user?.id,
+    art: [art],
+    save: () =>
+      saveProject({
+        kind: "campaign",
+        scene: art?.scene ?? b.scene,
+        name: [b.topic.trim() || art?.themeName || "Кампания", b.brand.trim()].filter(Boolean).join(" — "),
+        uid: user?.id,
+        data: async () => ({ brief: { ...latestB.current, i18n: undefined, bg: undefined, art: undefined }, art }),
+      }),
+  });
   /**
    * Шапка письма — тот же баннер, но без текстов (правкой готового баннера,
    * а не новой генерацией — иначе картинка была бы другой). Идёт после
@@ -494,6 +510,7 @@ export function CampaignApp() {
     if (!roll) return;
     if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
     luckyScene.current = roll.scene;
+    forgetProject(CAMPAIGN_BRIEF_KEY); // новая графика — новая кампания в истории
     setArt({ scene: roll.scene, theme: roll.theme, themeName: roll.themeName });
     setB((p) => ({ ...p, landing: "scene", scene: roll.scene }));
     setTab("landing");
