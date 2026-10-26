@@ -115,9 +115,27 @@ export function AppHeader() {
   const isBannerEditor = pathname === "/banner";
 
   const [me, setLocalMe] = useState<MeResponse | null>(cachedMe);
-  const [uploadStatus, setUploadStatus] = useState<{ failed: number; pending: number } | null>(
-    null,
-  );
+  type UploadItem = { cardId: string | null; name: string; count: number; latest: string };
+  const [uploadStatus, setUploadStatus] = useState<{
+    failed: number;
+    pending: number;
+    items?: UploadItem[];
+  } | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadHiding, setUploadHiding] = useState(false);
+  /** «Скрыть»: упавшие загрузки повторить нельзя (ресайзы режутся в браузере) — убираем из счётчика. */
+  const dismissUploads = async () => {
+    setUploadHiding(true);
+    try {
+      await apiJson("/api/history/upload-status", { method: "POST", json: { action: "dismiss" } });
+      setUploadStatus((p) => (p ? { ...p, failed: 0, items: [] } : p));
+      setUploadOpen(false);
+    } catch {
+      /* не вышло — значок останется, можно повторить */
+    } finally {
+      setUploadHiding(false);
+    }
+  };
 
   const [projectName, setProjectName] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -161,7 +179,9 @@ export function AppHeader() {
     }
     let cancelled = false;
     const fetchStatus = () => {
-      apiJson<{ failed: number; pending: number }>("/api/history/upload-status")
+      apiJson<{ failed: number; pending: number; items?: UploadItem[] }>(
+        "/api/history/upload-status",
+      )
         .then((r) => {
           if (!cancelled) setUploadStatus(r);
         })
@@ -248,364 +268,424 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
-          {isHub ? (
-            <Link
-              href="/"
-              aria-label={t("header.homeAria")}
-              className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
-            >
-              <LogoArt />
-            </Link>
-          ) : (
-            <>
-              {/* Logo → Hub. The lime accent lives on the section switcher beside
+    <>
+      <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+            {isHub ? (
+              <Link
+                href="/"
+                aria-label={t("header.homeAria")}
+                className="flex shrink-0 items-center rounded text-base font-bold tracking-tight text-foreground transition hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+              >
+                <LogoArt />
+              </Link>
+            ) : (
+              <>
+                {/* Logo → Hub. The lime accent lives on the section switcher beside
                   it, so the two can't be confused. Falls back to the text
                   wordmark (full on ≥sm, "DW" on mobile) until the logo file is
                   present. */}
+                <button
+                  type="button"
+                  onClick={() => requestNavigate("/")}
+                  aria-label={t("header.homeAria")}
+                  title={t("header.home")}
+                  className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                >
+                  <LogoArt />
+                </button>
+                <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
+              </>
+            )}
+            {isBannerEditor ? (
+              <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                <span className="shrink-0 text-muted-foreground">/</span>
+                <ProjectNameEditor value={projectName} onCommit={commitName} />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
               <button
                 type="button"
-                onClick={() => requestNavigate("/")}
-                aria-label={t("header.homeAria")}
-                title={t("header.home")}
-                className="relative flex shrink-0 items-center rounded text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                onClick={() => setUploadOpen(true)}
+                title={t("header.uploadFailed", { n: uploadStatus.failed })}
+                className="hidden items-center gap-1 rounded-md border border-[var(--status-premium)]/40 bg-[var(--status-premium)]/10 px-2 py-1 text-xs text-[var(--status-premium)] sm:flex"
               >
-                <LogoArt />
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {uploadStatus.failed}
               </button>
-              <SectionSwitcher pathname={pathname} onNavigate={requestNavigate} />
-            </>
-          )}
-          {isBannerEditor ? (
-            <div className="hidden min-w-0 items-center gap-2 sm:flex">
-              <span className="shrink-0 text-muted-foreground">/</span>
-              <ProjectNameEditor value={projectName} onCommit={commitName} />
-            </div>
-          ) : null}
-        </div>
+            ) : null}
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          {!isHub && uploadStatus && uploadStatus.failed > 0 ? (
-            <Link
-              href="/history"
-              title={t("header.uploadFailed", { n: uploadStatus.failed })}
-              className="hidden items-center gap-1 rounded-md border border-[var(--status-premium)]/40 bg-[var(--status-premium)]/10 px-2 py-1 text-xs text-[var(--status-premium)] sm:flex"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {uploadStatus.failed}
-            </Link>
-          ) : null}
+            {!isHub ? <GenerationIndicator /> : null}
 
-          {!isHub ? <GenerationIndicator /> : null}
-
-          {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
-          {/* Workspace quick-switcher — icon only. Shown on every page (Hub
+            {!isGuest ? <CreditsButton label={creditsLabel} /> : null}
+            {/* Workspace quick-switcher — icon only. Shown on every page (Hub
               included). Full management: /workspace. The language switcher now
               lives inside the avatar menu (below) to keep the mobile bar light. */}
-          {!isGuest ? (
-            <WorkspaceSwitcher
-              onSelect={requestWorkspaceSwitch}
-              onCreate={() => requestNavigate("/workspace?new=1")}
-            />
-          ) : null}
-          {!isHub && !isGuest ? (
-            <>
-              <span className="max-sm:hidden sm:contents">
-                <NotificationsMenu />
-              </span>
-              <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
-                <ProjectsMenu />
-              </div>
-            </>
-          ) : null}
-
-          {isGuest ? (
-            <GuestAuthButtons />
-          ) : (
-          <DropdownMenu
-            open={menuOpen}
-            onOpenChange={(o) => {
-              setMenuOpen(o);
-              if (!o) setNotifOpen(false);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={t("header.profile.trigger")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
-              >
-                <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              sideOffset={10}
-              className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
-            >
-              <div className="flex items-center gap-3 px-2 py-2">
-                <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
-                  <UserAvatar src={avatar} className="h-full w-full" />
+            {!isGuest ? (
+              <WorkspaceSwitcher
+                onSelect={requestWorkspaceSwitch}
+                onCreate={() => requestNavigate("/workspace?new=1")}
+              />
+            ) : null}
+            {!isHub && !isGuest ? (
+              <>
+                <span className="max-sm:hidden sm:contents">
+                  <NotificationsMenu />
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate ds-h4">{display}</p>
-                  <p className="truncate ds-caption">{displayEmail}</p>
+                <div className="hidden items-center gap-1 sm:gap-1.5 md:flex">
+                  <ProjectsMenu />
                 </div>
-              </div>
+              </>
+            ) : null}
 
-              {/* No fixed-pool pip bar — there is no plan max in the model, so
+            {isGuest ? (
+              <GuestAuthButtons />
+            ) : (
+              <DropdownMenu
+                open={menuOpen}
+                onOpenChange={(o) => {
+                  setMenuOpen(o);
+                  if (!o) setNotifOpen(false);
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t("header.profile.trigger")}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 focus:outline-none max-sm:h-11 max-sm:w-11"
+                  >
+                    <UserAvatar src={avatar} className="h-9 w-9 max-sm:h-8 max-sm:w-8" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={10}
+                  className="w-72 rounded-xl border-border bg-popover p-2 text-foreground"
+                >
+                  <div className="flex items-center gap-3 px-2 py-2">
+                    <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-green ring-offset-2 ring-offset-popover">
+                      <UserAvatar src={avatar} className="h-full w-full" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate ds-h4">{display}</p>
+                      <p className="truncate ds-caption">{displayEmail}</p>
+                    </div>
+                  </div>
+
+                  {/* No fixed-pool pip bar — there is no plan max in the model, so
                   a 10-segment bar was meaningless. Show the balance; go amber +
                   add a top-up hint when it runs low. */}
-              {(() => {
-                const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
-                return (
-                  <Link
-                    href={low ? "/billing" : "/account"}
-                    className={`mt-1 block rounded-xl border p-3 transition ${
-                      low
-                        ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
-                        : "border-white/10 bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="ds-h4">{t("header.credits.title")}</span>
-                      <span
-                        className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+                  {(() => {
+                    const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
+                    return (
+                      <Link
+                        href={low ? "/billing" : "/account"}
+                        className={`mt-1 block rounded-xl border p-3 transition ${
+                          low
+                            ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                        }`}
                       >
-                        {creditsLabel}
-                      </span>
-                    </div>
-                    {low ? (
-                      <p className="mt-1 text-xs text-[color:var(--status-premium)]">
-                        {t("header.credits.low")}
-                      </p>
-                    ) : null}
-                  </Link>
-                );
-              })()}
+                        <div className="flex items-center justify-between">
+                          <span className="ds-h4">{t("header.credits.title")}</span>
+                          <span
+                            className={`text-lg font-semibold tabular-nums ${low ? "text-[color:var(--status-premium)]" : "text-accent-green"}`}
+                          >
+                            {creditsLabel}
+                          </span>
+                        </div>
+                        {low ? (
+                          <p className="mt-1 text-xs text-[color:var(--status-premium)]">
+                            {t("header.credits.low")}
+                          </p>
+                        ) : null}
+                      </Link>
+                    );
+                  })()}
 
-              <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
-                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Crown className="h-4 w-4 text-accent-green" />
-                  {t("header.credits.more")}
-                </span>
-                <Link
-                  href="/billing"
-                  className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
-                >
-                  {t("header.credits.topUpShort")}
-                </Link>
-              </div>
+                  <div className="mb-1 mt-2 flex items-center justify-between px-2 py-1.5">
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Crown className="h-4 w-4 text-accent-green" />
+                      {t("header.credits.more")}
+                    </span>
+                    <Link
+                      href="/billing"
+                      className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
+                    >
+                      {t("header.credits.topUpShort")}
+                    </Link>
+                  </div>
 
-              {/* Mobile-only: notifications live here since the header bell is
+                  {/* Mobile-only: notifications live here since the header bell is
                   hidden on narrow screens. Collapsible accordion — tapping the
                   row expands the list inline, without leaving the menu. */}
-              <div className="sm:hidden">
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setNotifOpen((o) => {
-                      const next = !o;
-                      if (next) void notifMarkAllRead();
-                      return next;
-                    });
-                  }}
-                  aria-expanded={notifOpen}
-                  className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <span className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    {t("header.notifications.title")}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    {notifUnread > 0 ? (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
-                        {notifUnread}
+                  <div className="sm:hidden">
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setNotifOpen((o) => {
+                          const next = !o;
+                          if (next) void notifMarkAllRead();
+                          return next;
+                        });
+                      }}
+                      aria-expanded={notifOpen}
+                      className="justify-between text-foreground focus:bg-white/10 focus:text-foreground"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Bell className="h-4 w-4" />
+                        {t("header.notifications.title")}
                       </span>
+                      <span className="flex items-center gap-1.5">
+                        {notifUnread > 0 ? (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-green px-1 ds-micro font-bold text-on-accent">
+                            {notifUnread}
+                          </span>
+                        ) : null}
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            notifOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </span>
+                    </DropdownMenuItem>
+                    {notifOpen ? (
+                      <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
+                        {notifItems.length === 0 ? (
+                          <p className="px-2 py-3 text-sm text-muted-foreground">
+                            {notifLoaded ? t("header.notifications.empty") : "Загрузка…"}
+                          </p>
+                        ) : (
+                          notifItems.map((n) => {
+                            const Icon = notifIcon(n.type);
+                            const href =
+                              typeof n.meta?.href === "string" ? (n.meta.href as string) : null;
+                            return (
+                              <button
+                                key={n.id}
+                                type="button"
+                                onClick={() => {
+                                  if (href) router.push(href);
+                                }}
+                                className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-white/5"
+                              >
+                                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
+                                  <Icon className="h-3.5 w-3.5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium">{n.title}</p>
+                                  {n.body ? (
+                                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                                      {n.body}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span className="shrink-0 ds-micro text-muted-foreground">
+                                  {relativeTime(n.created_at)}
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
                     ) : null}
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${
-                        notifOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </span>
-                </DropdownMenuItem>
-                {notifOpen ? (
-                  <div className="max-h-56 space-y-0.5 overflow-y-auto pl-1">
-                    {notifItems.length === 0 ? (
-                      <p className="px-2 py-3 text-sm text-muted-foreground">
-                        {notifLoaded ? t("header.notifications.empty") : "Загрузка…"}
-                      </p>
-                    ) : (
-                      notifItems.map((n) => {
-                        const Icon = notifIcon(n.type);
-                        const href = typeof n.meta?.href === "string" ? (n.meta.href as string) : null;
-                        return (
-                          <button
-                            key={n.id}
-                            type="button"
-                            onClick={() => {
-                              if (href) router.push(href);
-                            }}
-                            className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-white/5"
-                          >
-                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-green/15 text-accent-green">
-                              <Icon className="h-3.5 w-3.5" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{n.title}</p>
-                              {n.body ? (
-                                <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
-                              ) : null}
-                            </div>
-                            <span className="shrink-0 ds-micro text-muted-foreground">
-                              {relativeTime(n.created_at)}
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
                   </div>
-                ) : null}
-              </div>
 
-              <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuSeparator className="bg-border" />
 
-              <DropdownMenuItem
-                asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <Link href="/account">
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  {t("header.profile.account")}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <Link href="/workspace">
-                  <Briefcase className="mr-2 h-4 w-4" />
-                  {t("workspace.switch")}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <Link href="/history">
-                  <Clock className="mr-2 h-4 w-4" />
-                  {t("header.profile.history")}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <Link href="/help">
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  {t("header.profile.help")}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <Link href="/legal">
-                  <Scale className="mr-2 h-4 w-4" />
-                  {t("header.profile.legal")}
-                </Link>
-              </DropdownMenuItem>
-              {isAdmin ? (
-                <DropdownMenuItem
-                  asChild
-                  className="text-foreground focus:bg-white/10 focus:text-foreground"
-                >
-                  <Link href="/admin">
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    {t("header.profile.admin")}
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator className="bg-border" />
-              {/* Interface language — moved here from the header to keep the
+                  <DropdownMenuItem
+                    asChild
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <Link href="/account">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      {t("header.profile.account")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    asChild
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <Link href="/workspace">
+                      <Briefcase className="mr-2 h-4 w-4" />
+                      {t("workspace.switch")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    asChild
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <Link href="/history">
+                      <Clock className="mr-2 h-4 w-4" />
+                      {t("header.profile.history")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    asChild
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <Link href="/help">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      {t("header.profile.help")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    asChild
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <Link href="/legal">
+                      <Scale className="mr-2 h-4 w-4" />
+                      {t("header.profile.legal")}
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin ? (
+                    <DropdownMenuItem
+                      asChild
+                      className="text-foreground focus:bg-white/10 focus:text-foreground"
+                    >
+                      <Link href="/admin">
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        {t("header.profile.admin")}
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuSeparator className="bg-border" />
+                  {/* Interface language — moved here from the header to keep the
                   mobile bar light. Segmented RU / EN / UA; switching is instant
                   and keeps the menu open (plain buttons, not menu items). */}
-              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                <span className="flex items-center gap-2 text-sm text-foreground">
-                  <Globe className="h-4 w-4 text-accent-green" />
-                  {t("header.language.title")}
-                </span>
-                <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
-                  {UI_LOCALES.map((l) => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => setLocale(l.code)}
-                      aria-pressed={l.code === locale}
-                      className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
-                        l.code === locale
-                          ? "bg-accent-green text-on-accent"
-                          : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                      }`}
-                    >
-                      {l.short}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={async () => {
-                  await signOut();
-                  router.push("/login");
-                }}
-                className="text-foreground focus:bg-white/10 focus:text-foreground"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                {t("header.profile.signOut")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          )}
+                  <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                    <span className="flex items-center gap-2 text-sm text-foreground">
+                      <Globe className="h-4 w-4 text-accent-green" />
+                      {t("header.language.title")}
+                    </span>
+                    <div className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5">
+                      {UI_LOCALES.map((l) => (
+                        <button
+                          key={l.code}
+                          type="button"
+                          onClick={() => setLocale(l.code)}
+                          aria-pressed={l.code === locale}
+                          className={`min-w-[2rem] rounded-md px-2 py-1 text-xs font-semibold transition ${
+                            l.code === locale
+                              ? "bg-accent-green text-on-accent"
+                              : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                          }`}
+                        >
+                          {l.short}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await signOut();
+                      router.push("/login");
+                    }}
+                    className="text-foreground focus:bg-white/10 focus:text-foreground"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {t("header.profile.signOut")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Unsaved-changes guard modal — shown when leaving a generator with
+        {/* Unsaved-changes guard modal — shown when leaving a generator with
           unsaved work (section switcher / logo). Radix portals it to <body>. */}
-      <Dialog
-        open={pending !== null}
-        onOpenChange={(o) => {
-          if (!o) setPending(null);
-        }}
-      >
-        <DialogContent
-          hideClose
-          className="w-full max-w-sm rounded-2xl border border-border bg-panel p-6"
+        <Dialog
+          open={pending !== null}
+          onOpenChange={(o) => {
+            if (!o) setPending(null);
+          }}
         >
-          <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
-          <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
-          <div className="mt-5 flex justify-end gap-2">
+          <DialogContent
+            hideClose
+            className="w-full max-w-sm rounded-2xl border border-border bg-panel p-6"
+          >
+            <DialogTitle className="ds-h4">{t("header.unsavedModal.title")}</DialogTitle>
+            <p className="mt-2 text-sm text-muted-foreground">{t("header.unsavedModal.body")}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                className="min-h-11 flex-1 whitespace-nowrap rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground sm:flex-none sm:px-5"
+              >
+                {t("header.unsavedModal.stay")}
+              </button>
+              <button
+                type="button"
+                onClick={runPending}
+                className="min-h-11 flex-1 whitespace-nowrap rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:flex-none sm:px-5"
+              >
+                {t("header.unsavedModal.leave")}
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </header>
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Не сохранились в облаке</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Эти файлы не загрузились на сервер. Повторить загрузку нельзя — ресайзы режутся в
+            браузере в момент генерации. Сами проекты в истории на месте; пересоберите ресайзы из
+            проекта, если они нужны.
+          </p>
+          <ul className="max-h-60 space-y-1.5 overflow-y-auto text-sm">
+            {(uploadStatus?.items ?? []).map((it) => (
+              <li
+                key={it.cardId ?? "-"}
+                className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+              >
+                {it.cardId ? (
+                  <Link
+                    href={`/history/${it.cardId}`}
+                    onClick={() => setUploadOpen(false)}
+                    className="min-w-0 truncate hover:underline"
+                  >
+                    {it.name}
+                  </Link>
+                ) : (
+                  <span className="min-w-0 truncate">{it.name}</span>
+                )}
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {it.count} шт. ·{" "}
+                  {new Date(it.latest).toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setPending(null)}
-              className="min-h-11 flex-1 whitespace-nowrap rounded-lg border border-[color:var(--border-strong)] px-4 text-sm font-medium text-muted-foreground transition hover:bg-[var(--overlay-hover)] hover:text-foreground sm:flex-none sm:px-5"
+              onClick={() => setUploadOpen(false)}
+              className="h-9 rounded-lg border border-border px-3 text-sm"
             >
-              {t("header.unsavedModal.stay")}
+              Закрыть
             </button>
             <button
               type="button"
-              onClick={runPending}
-              className="min-h-11 flex-1 whitespace-nowrap rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:flex-none sm:px-5"
+              disabled={uploadHiding}
+              onClick={() => void dismissUploads()}
+              className="h-9 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
-              {t("header.unsavedModal.leave")}
+              Скрыть
             </button>
           </div>
         </DialogContent>
       </Dialog>
-    </header>
+    </>
   );
 }
 
@@ -749,9 +829,7 @@ function GenerationIndicator() {
         : "border-accent-green/30 bg-accent-green/5 text-accent-green/80";
 
   return (
-    <div
-      className={"flex items-center gap-1 rounded-md border px-2 py-1 text-xs " + tone}
-    >
+    <div className={"flex items-center gap-1 rounded-md border px-2 py-1 text-xs " + tone}>
       <button
         type="button"
         onClick={() => router.push("/banner")}
@@ -875,7 +953,9 @@ function SectionSwitcher({
               ) : (
                 <LayoutGrid className="h-4 w-4 shrink-0 text-accent-green" />
               )}
-              <span className="text-foreground">{current ? current.title : t("header.sections.all")}</span>
+              <span className="text-foreground">
+                {current ? current.title : t("header.sections.all")}
+              </span>
             </span>
             <span className="flex items-center sm:hidden">
               {CurrentIcon ? (
@@ -890,50 +970,50 @@ function SectionSwitcher({
             />
           </button>
         </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={8}
-        className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
-      >
-        {SECTIONS.map((s) => {
-          const Icon = s.icon;
-          const active = s.id === current?.id;
-          const soon = !isSectionEnabled(s.id);
-          if (soon) {
+        <DropdownMenuContent
+          align="start"
+          sideOffset={8}
+          className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
+        >
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const active = s.id === current?.id;
+            const soon = !isSectionEnabled(s.id);
+            if (soon) {
+              return (
+                <DropdownMenuItem
+                  key={s.id}
+                  disabled
+                  onSelect={(e) => e.preventDefault()}
+                  className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm text-hint opacity-60 max-sm:py-3 max-sm:text-base"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Icon className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
+                    {s.title}
+                  </span>
+                  <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                    Скоро
+                  </span>
+                </DropdownMenuItem>
+              );
+            }
             return (
               <DropdownMenuItem
                 key={s.id}
-                disabled
-                onSelect={(e) => e.preventDefault()}
-                className="justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm text-hint opacity-60 max-sm:py-3 max-sm:text-base"
+                onClick={() => go(sectionEntryRoute(s))}
+                className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
+                  active ? "bg-white/5" : ""
+                }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 max-sm:h-5 max-sm:w-5" />
+                  <Icon className="h-4 w-4 text-accent-green max-sm:h-5 max-sm:w-5" />
                   {s.title}
                 </span>
-                <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-                  Скоро
-                </span>
+                {active ? <Check className="h-4 w-4 text-accent-green" /> : null}
               </DropdownMenuItem>
             );
-          }
-          return (
-            <DropdownMenuItem
-              key={s.id}
-              onClick={() => go(sectionEntryRoute(s))}
-              className={`justify-between gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base ${
-                active ? "bg-white/5" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <Icon className="h-4 w-4 text-accent-green max-sm:h-5 max-sm:w-5" />
-                {s.title}
-              </span>
-              {active ? <Check className="h-4 w-4 text-accent-green" /> : null}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
+          })}
+        </DropdownMenuContent>
       </DropdownMenu>
       {showHint ? (
         <div
@@ -941,9 +1021,7 @@ function SectionSwitcher({
           className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-accent-green/40 bg-popover p-3 text-foreground shadow-xl max-sm:w-[calc(100vw-2rem)]"
         >
           <span className="absolute -top-1.5 left-6 h-3 w-3 rotate-45 border-l border-t border-accent-green/40 bg-popover" />
-          <p className="text-xs leading-relaxed text-foreground">
-            {t("header.sections.coach")}
-          </p>
+          <p className="text-xs leading-relaxed text-foreground">{t("header.sections.coach")}</p>
           <button
             type="button"
             onClick={dismissHint}
@@ -1036,7 +1114,9 @@ function NotificationsMenu() {
                     ) : null}
                   </div>
                   <span className="flex shrink-0 items-center gap-1.5 ds-micro text-muted-foreground">
-                    {unreadDot ? <span className="h-1.5 w-1.5 rounded-full bg-accent-green" /> : null}
+                    {unreadDot ? (
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent-green" />
+                    ) : null}
                     {relativeTime(n.created_at)}
                   </span>
                 </button>
