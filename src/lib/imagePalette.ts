@@ -16,6 +16,33 @@ export type ImagePalette = {
   hue2: number | null;
   /** Насыщенность главного тона, 0–1. */
   sat: number;
+  /**
+   * Светлота выбранного цвета, 0–1 — только у цвета пипетки или палитры. Тогда
+   * гамма держит и его насыщенность, и яркость: тёмный приглушённый цвет даёт
+   * тёмную приглушённую гамму, а не тот же яркий тон. У картинки — нет: там
+   * яркость и насыщенность подобраны под читаемость.
+   */
+  light?: number;
+};
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+/**
+ * Насыщенность и светлота с поправкой на выбранный цвет. s, l — как для
+ * картинки (подобраны под читаемость); у выбранного цвета насыщенность
+ * масштабируется его насыщенностью, а светлота сдвигается к его светлоте
+ * (от акцента l0 = 66), с пределами, чтобы текст оставался читаемым.
+ */
+function tone(p: ImagePalette, s: number, l: number): [number, number] {
+  if (p.light === undefined) return [s, l];
+  const sk = clamp(p.sat / 0.8, 0.12, 1.15);
+  const dl = clamp(p.light * 100, 30, 82) - 66;
+  // Светлые (g1) и самые тёмные (ink) ступени двигаем меньше — иначе пропадает контраст.
+  const weight = l > 85 || l < 20 ? 0.35 : 1;
+  return [clamp(s * sk, 4, 100), clamp(l + dl * weight, 4, 97)];
+}
+const hexT = (p: ImagePalette, h: number, s: number, l: number) => {
+  const [ss, ll] = tone(p, s, l);
+  return hex(h, ss, ll);
 };
 
 function hex(h: number, s: number, l: number): string {
@@ -94,16 +121,16 @@ export function uiFromPalette(p: ImagePalette): UiPalette {
   }
   const h = p.hue;
   return {
-    g1: hex(h, 95, 93),
-    g2: hex(h, 90, 72),
-    g3: hex(h, 82, 52),
-    g4: hex(h, 78, 34),
-    ink: hex(h, 70, 9),
-    accent: hex(h, 90, 66),
-    rim: hex(h, 70, 48),
+    g1: hexT(p, h, 95, 93),
+    g2: hexT(p, h, 90, 72),
+    g3: hexT(p, h, 82, 52),
+    g4: hexT(p, h, 78, 34),
+    ink: hexT(p, h, 70, 9),
+    accent: hexT(p, h, 90, 66),
+    rim: hexT(p, h, 70, 48),
     // Плашки — глубокий тёмный тон картинки, чтобы не торчали коричневым на синем или зелёном.
-    plate1: hex(h, 45, 17) + "f0",
-    plate2: hex(h, 50, 7) + "f5",
+    plate1: hexT(p, h, 45, 17) + "f0",
+    plate2: hexT(p, h, 50, 7) + "f5",
   };
 }
 
@@ -117,20 +144,20 @@ export function wheelFromPalette(p: ImagePalette): WheelPalette {
   }
   const h = p.hue, h2 = p.hue2 ?? (h + 200) % 360;
   return {
-    a: [hex(h, 80, 58), hex(h, 75, 28)],
-    b: [hex(h2, 55, 32), hex(h2, 55, 13)],
-    win: [hex(h, 95, 88), hex(h, 85, 55)],
-    line: hex(h, 85, 75),
+    a: [hexT(p, h, 80, 58), hexT(p, h, 75, 28)],
+    b: [hexT(p, h2, 55, 32), hexT(p, h2, 55, 13)],
+    win: [hexT(p, h, 95, 88), hexT(p, h, 85, 55)],
+    line: hexT(p, h, 85, 75),
     ink: "#ffffff",
-    stroke: hex(h, 70, 10),
-    winInk: hex(h, 70, 15),
-    winStroke: hex(h, 95, 92),
+    stroke: hexT(p, h, 70, 10),
+    winInk: hexT(p, h, 70, 15),
+    winStroke: hexT(p, h, 95, 92),
   };
 }
 
 /** Акцент лендинга (кнопки, подсветка) — в тон картинке. */
 export function accentFromPalette(p: ImagePalette): string {
-  return p.hue === null ? "#cfd8e6" : hex(p.hue, 88, 58);
+  return p.hue === null ? "#cfd8e6" : hexT(p, p.hue, 88, 58);
 }
 
 /** Палитра из одного цвета (пипетка, выбор цвета): тон и насыщенность этого цвета. */
@@ -138,7 +165,7 @@ export function paletteFromHex(hexColor: string): ImagePalette {
   const m = /^#?([0-9a-f]{6})$/i.exec(hexColor.trim());
   if (!m) return { hue: null, hue2: null, sat: 0 };
   const n = parseInt(m[1], 16);
-  const [h, s] = rgbToHsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  const [h, s, l] = rgbToHsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
   // Почти серый цвет — «серебро», как у бесцветной картинки.
-  return s < 0.12 ? { hue: null, hue2: null, sat: s } : { hue: h, hue2: null, sat: s };
+  return s < 0.12 ? { hue: null, hue2: null, sat: s } : { hue: h, hue2: null, sat: s, light: l };
 }

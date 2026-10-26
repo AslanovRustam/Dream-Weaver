@@ -6,7 +6,7 @@
 // цветные зоны — два тона; все цвета — валидный hex (сборка сцены отбрасывает
 // палитру с кривым цветом и откатывается к пресету).
 
-import { accentFromPalette, paletteFromPixels, uiFromPalette, wheelFromPalette } from "../src/lib/imagePalette";
+import { accentFromPalette, paletteFromHex, paletteFromPixels, uiFromPalette, wheelFromPalette } from "../src/lib/imagePalette";
 
 let failed = 0;
 let passed = 0;
@@ -48,6 +48,15 @@ for (const [name, p] of [["красная", red], ["серая", grey], ["две
   const all = [...Object.values(ui), ...wh.a, ...wh.b, ...wh.win, wh.line, wh.ink, wh.stroke, wh.winInk, wh.winStroke, accentFromPalette(p)];
   check(`${name}: все цвета — hex`, all.every((c) => HEX.test(c)), all.find((c) => !HEX.test(c)) ?? "");
 }
+
+// Пипетка держит и насыщенность, и яркость цвета, а не только тон.
+const lum = (h: string) => { const n = parseInt(h.slice(1, 7), 16); return ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11; };
+const chroma = (h: string) => { const n = parseInt(h.slice(1, 7), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; return Math.max(...c) - Math.min(...c); };
+const bright = uiFromPalette(paletteFromHex("#ff2a2a")), darkPick = uiFromPalette(paletteFromHex("#5a1010")), muted = uiFromPalette(paletteFromHex("#b88a8a"));
+check("пипетка: тёмный цвет → тёмная гамма", lum(darkPick.accent) < lum(bright.accent) - 40 && lum(darkPick.g3) < lum(bright.g3), `${darkPick.accent} vs ${bright.accent}`);
+check("пипетка: приглушённый цвет → приглушённая гамма", chroma(muted.accent) < chroma(bright.accent) * 0.6, `${muted.accent} vs ${bright.accent}`);
+check("пипетка: плашки остаются тёмными у светлого цвета", lum(uiFromPalette(paletteFromHex("#ffb0b0")).plate1 ?? "#ffffff") < 90);
+check("картинка: гамма как раньше (без светлоты пипетки)", uiFromPalette(red).accent === uiFromPalette({ ...red, light: undefined }).accent);
 
 const bluePlate = uiFromPalette(blue).plate1 ?? "";
 check("синяя → плашка тёмно-синяя, не коричневая", /^#[0-9a-f]{8}$/.test(bluePlate) && parseInt(bluePlate.slice(5, 7), 16) > parseInt(bluePlate.slice(1, 3), 16), bluePlate);
