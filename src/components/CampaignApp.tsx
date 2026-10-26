@@ -186,7 +186,7 @@ export function CampaignApp() {
   const [tzFilled, setTzFilled] = useState<string[]>([]);
   const tzFile = useRef<HTMLInputElement>(null);
   const TZ_LABELS: Record<string, string> = {
-    topic: "тематика", brand: "бренд", site: "лого с сайта", kind: "тип трафика", lang: "язык", offer: "оффер",
+    topic: "тематика", brand: "бренд", site: "бренд и лого с сайта", kind: "тип трафика", lang: "язык", offer: "оффер",
     headline: "заголовок", cta: "кнопка", link: "ссылка", amount: "выигрыш", unit: "единица", parts: "что делаем",
   };
   const applyTz = async (fields: Record<string, string>) => {
@@ -210,7 +210,21 @@ export function CampaignApp() {
         filled.push(TZ_LABELS.lang);
       }
       str("topic", fields.topic, 200);
-      if (fields.brand && !looksLikeUrl(fields.brand)) str("brand", fields.brand, 40);
+      // Игра из ТЗ — сцена лендинга и плейбла, закреплена для «Мне повезёт».
+      const game = SCENES.find((sc) => sc.id === fields.game?.trim());
+      if (game) {
+        next.scene = game.id;
+        next.fixedScene = game.id;
+        next.landing = "scene";
+        filled.push(`игра «${game.label}»`);
+      }
+      // Название игры — не бренд (в ТЗ «название казино — Plinko»): тогда бренд возьмём с сайта.
+      const isGameName = (s: string) => {
+        const v = s.trim().toLowerCase();
+        return SCENES.some((sc) => sc.id === v || sc.label.toLowerCase() === v) || /^(plinko|aviator|mines|crash|slots?|sweet bonanza|gates of olympus)$/.test(v);
+      };
+      if (fields.brand && !looksLikeUrl(fields.brand) && !isGameName(fields.brand)) str("brand", fields.brand, 40);
+      else if (fields.brand && isGameName(fields.brand) && !fields.site) next.brand = "";
       str("offer", fields.offer, 80);
       str("headline", fields.headline, 60);
       str("cta", fields.cta, 24);
@@ -239,7 +253,12 @@ export function CampaignApp() {
         setB((p) => ({
           ...p,
           logo,
-          brand: p.brand.trim() || (r.brand_name && !looksLikeUrl(r.brand_name) ? r.brand_name : nameFromHost(r.site_url || fields.site)),
+          brand:
+            p.brand.trim() && !(fields.brand && p.brand.trim() === fields.brand.trim() && SCENES.some((sc) => sc.id === p.brand.trim().toLowerCase()))
+              ? p.brand
+              : r.brand_name && !looksLikeUrl(r.brand_name)
+                ? r.brand_name
+                : nameFromHost(r.site_url || fields.site),
           ...(/^#[0-9a-f]{6}$/i.test(r.accent_color_hex) && !p.pickColor && !p.ref ? { pickColor: r.accent_color_hex } : {}),
         }));
         filled.push(TZ_LABELS.site);
@@ -276,15 +295,20 @@ export function CampaignApp() {
   const [planning, setPlanning] = useState(false);
   const topic = b.topic.trim();
   // Без тематики — тема с рефа или случайная.
+  /** Сцены для «Мне повезёт»: игра из ТЗ — только она. */
+  const luckyScenes = b.fixedScene ? [b.fixedScene] : LUCKY_SCENES[b.kind];
   useEffect(() => {
-    if (ready && !topic) setRoll((prev) => luckyRoll(b.kind, b.refScene, prev));
-  }, [ready, b.kind, b.refScene, topic]);
+    if (ready && !topic) setRoll((prev) => {
+      const r = luckyRoll(b.kind, b.refScene, prev);
+      return b.fixedScene ? { ...r, scene: b.fixedScene } : r;
+    });
+  }, [ready, b.kind, b.refScene, topic, b.fixedScene]);
   // Тематика задана — сцена, визуал и заголовок подбираются по ней (после паузы в наборе).
   useEffect(() => {
     if (!ready || !topic) return;
     let alive = true;
     const id = window.setTimeout(async () => {
-      const scenes = LUCKY_SCENES[b.kind];
+      const scenes = luckyScenes;
       if (isGuest) {
         // Без входа — без подбора: тема как есть, сцена случайная.
         setRoll({ scene: scenes[Math.floor(Math.random() * scenes.length)], theme: topic, themeName: topic });
@@ -308,10 +332,15 @@ export function CampaignApp() {
       alive = false;
       window.clearTimeout(id);
     };
-  }, [ready, topic, b.kind, b.lang, isGuest]);
+  }, [ready, topic, b.kind, b.lang, isGuest, b.fixedScene]); // eslint-disable-line react-hooks/exhaustive-deps
   /** «Другая»: с тематикой — другая сцена в той же теме; без неё — другая тема и сцена. */
   const rerollLucky = () =>
     setRoll((prev) => {
+      if (b.fixedScene) {
+        // Игра задана в ТЗ — «Другая» меняет только тему.
+        const r = luckyRoll(b.kind, b.refScene, prev);
+        return { ...(topic && prev ? prev : r), scene: b.fixedScene };
+      }
       if (!topic || !prev) return luckyRoll(b.kind, b.refScene, prev);
       const others = LUCKY_SCENES[b.kind].filter((s) => s !== prev.scene);
       return { ...prev, scene: others[Math.floor(Math.random() * others.length)] ?? prev.scene };

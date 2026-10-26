@@ -87,16 +87,33 @@ export const CAMPAIGN_BRIEF_SCHEMA: BriefSchema = {
   genHint: "рекламная кампания iGaming: лендинг, плейбл, письмо и баннер в одной теме",
   fields: [
     { key: "topic", label: "Тематика", hint: "сеттинг/тема кампании своими словами: викинги, Хэллоуин, финал Лиги чемпионов, персонаж" },
-    { key: "brand", label: "Бренд", hint: "название бренда/проекта" },
+    {
+      key: "brand",
+      label: "Бренд",
+      hint:
+        "название КАЗИНО / букмекера — оператора, чей сайт рекламируем. НЕ название игры или слота: Plinko, Aviator, Mines, " +
+        "Crash, Sweet Bonanza, Gates of Olympus — это игры, их в brand не ставь. Если в ТЗ «название казино» совпадает с " +
+        "названием игры, бренд — по домену сайта (olymp-csn.com → Olymp)",
+    },
+    {
+      key: "game",
+      label: "Игра",
+      hint:
+        "игра/механика, которую ТЗ просит сделать (лендинг-игра или плейбл): plinko — шарик падает на множители; wheel — колесо " +
+        "фортуны; slot — слот-барабаны; aviator — самолёт/краш-множитель; mines — мины и алмазы; scratch — скретч-карта; " +
+        "chests — сундуки; safe — сейф; cases — кейсы; roulette — рулетка; penalty — пенальти; basket — баскетбол; darts; dice; " +
+        "claw — автомат-хваталка; memory; catcher; cut; blast; match3; quiz. Только если ТЗ явно описывает игру",
+      enum: ["safe","wheel","scratch","slot","chests","aviator","plinko","memory","catcher","basket","penalty","roulette","mines","cases","claw","darts","dice","cut","blast","match3","quiz"],
+    },
     { key: "site", label: "Сайт бренда", hint: "адрес сайта или домен бренда, если указан" },
     { key: "kind", label: "Тип трафика", hint: "казино или ставки на спорт", enum: ["casino", "sport"] },
-    { key: "lang", label: "Язык", hint: "язык креативов — ISO-код из двух букв: ru, uk, en, es, de, pl, pt, fr, it, tr, kk, az, uz…" },
+    { key: "lang", label: "Язык", hint: "язык креативов — ISO-код из двух букв: ru, uk, en, es, de, pl, pt, fr, it, tr, kk, az, uz… («RU, rus» → ru)" },
     { key: "offer", label: "Оффер", hint: "главный оффер: «+200% к депозиту и 500 FS», «фрибет 100 €»" },
     { key: "headline", label: "Заголовок", hint: "заголовок первого экрана, если задан в ТЗ" },
     { key: "cta", label: "Кнопка", hint: "текст кнопки, ≤24 символов" },
     { key: "link", label: "Ссылка", hint: "ссылка по кнопкам: оффер или трекер (http…)" },
     { key: "amount", label: "Выигрыш", hint: "число выигрыша в игре, только цифры: 500, 100" },
     { key: "unit", label: "Единица", hint: "единица выигрыша: FS, €, $, ₸" },
-    { key: "parts", label: "Что делать", hint: "какие части нужны, через запятую из: landing, playable, email, banner — только если ТЗ это явно ограничивает" },
+    { key: "parts", label: "Что делать", hint: "какие части нужны, через запятую из: landing (лендинг), playable (плейбл, «имитация игры»), email (письмо), banner (баннер) — только если ТЗ это явно перечисляет" },
   ],
 };

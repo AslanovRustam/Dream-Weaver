@@ -27,6 +27,11 @@ const SCENE_HINTS: Record<string, string> = {
   match3: "match-three gems on a board — candy, jewels, bright cheerful worlds, fruit",
   penalty: "score a football penalty past a goalkeeper — football, stadiums, finals, heroes",
   basket: "shoot a basketball into the hoop — basketball, streetball, arenas",
+  // Остальные — когда игру задали в ТЗ (тогда список из одной сцены).
+  plinko: "drop a ball through a peg board onto multipliers — plinko",
+  wheel: "spin a fortune wheel", slot: "spin slot reels", scratch: "scratch a card", aviator: "a plane flies up while the multiplier grows",
+  memory: "find matching card pairs", catcher: "catch falling coins in a pot", roulette: "spin a roulette wheel", claw: "grab a prize with a claw machine",
+  darts: "throw darts at a prize board", dice: "roll two dice", cut: "slice flying objects", blast: "tap groups of gems to blast them", quiz: "answer a bonus quiz",
 };
 
 export async function POST(request: Request) {

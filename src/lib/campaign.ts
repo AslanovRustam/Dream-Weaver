@@ -43,6 +43,8 @@ export type CampaignBrief = {
   autoHeadline: string;
   /** Какие части кампании делаем: снятая — не во вкладках, не в ZIP, не генерируется. */
   parts?: CampaignParts;
+  /** Игра, заданная в ТЗ (plinko…): «Мне повезёт» не подменяет её случайной сценой. */
+  fixedScene?: SceneId;
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
