@@ -42,6 +42,7 @@ import {
   briefPlayableHtml,
   briefSource,
   defaultBrief,
+  LUCKY_SCENES,
   luckyBannerPayload,
   luckyRoll,
   type CampaignArt,
@@ -168,9 +169,49 @@ export function CampaignApp() {
 
   // ---- «Мне повезёт»: случайная тема (или с рефа) и сцена → вся графика от ИИ одной кнопкой
   const [roll, setRoll] = useState<LuckyRoll | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const topic = b.topic.trim();
+  // Без тематики — тема с рефа или случайная.
   useEffect(() => {
-    if (ready) setRoll((prev) => luckyRoll(b.kind, b.refScene, prev));
-  }, [ready, b.kind, b.refScene]);
+    if (ready && !topic) setRoll((prev) => luckyRoll(b.kind, b.refScene, prev));
+  }, [ready, b.kind, b.refScene, topic]);
+  // Тематика задана — сцена, визуал и заголовок подбираются по ней (после паузы в наборе).
+  useEffect(() => {
+    if (!ready || !topic) return;
+    let alive = true;
+    const id = window.setTimeout(async () => {
+      const scenes = LUCKY_SCENES[b.kind];
+      if (isGuest) {
+        // Без входа — без подбора: тема как есть, сцена случайная.
+        setRoll({ scene: scenes[Math.floor(Math.random() * scenes.length)], theme: topic, themeName: topic });
+        return;
+      }
+      setPlanning(true);
+      try {
+        const res = await apiFetch("/api/campaign-plan", { method: "POST", json: { theme: topic, kind: b.kind, lang: b.lang, scenes } });
+        const plan = (await res.json().catch(() => ({}))) as { scene?: string; visual?: string; headline?: string; error?: string };
+        if (!alive) return;
+        if (!res.ok || !plan.scene) throw new Error(plan.error || "Не удалось подобрать");
+        setRoll({ scene: plan.scene as LuckyRoll["scene"], theme: plan.visual || topic, themeName: topic });
+        setB((p) => ({ ...p, autoHeadline: plan.headline ?? "" }));
+      } catch {
+        if (alive) setRoll({ scene: scenes[0], theme: topic, themeName: topic });
+      } finally {
+        if (alive) setPlanning(false);
+      }
+    }, 900);
+    return () => {
+      alive = false;
+      window.clearTimeout(id);
+    };
+  }, [ready, topic, b.kind, b.lang, isGuest]);
+  /** «Другая»: с тематикой — другая сцена в той же теме; без неё — другая тема и сцена. */
+  const rerollLucky = () =>
+    setRoll((prev) => {
+      if (!topic || !prev) return luckyRoll(b.kind, b.refScene, prev);
+      const others = LUCKY_SCENES[b.kind].filter((s) => s !== prev.scene);
+      return { ...prev, scene: others[Math.floor(Math.random() * others.length)] ?? prev.scene };
+    });
   /** Сцена, под которую идёт текущая сборка, — для раскладки деталей, пришедших позже. */
   const luckyScene = useRef(b.scene);
   const luckyBrief = useMemo(() => ({ ...full, landing: "scene" as const, scene: roll?.scene ?? b.scene }), [full, roll, b.scene]);
@@ -531,12 +572,26 @@ export function CampaignApp() {
           <p className="mt-1 ds-caption">Лендинг, плейбл, письмо и баннер — в одной теме, с одним оффером и одной ссылкой.</p>
         </div>
 
+        <div>
+          <label htmlFor="campaign-topic" className="mb-1.5 block ds-caption">Тематика — остальное подберём сами</label>
+          <input
+            id="campaign-topic"
+            value={b.topic}
+            maxLength={200}
+            onChange={(e) => setB((p) => ({ ...p, topic: e.target.value, ...(e.target.value.trim() ? {} : { autoHeadline: "" }) }))}
+            className={INPUT}
+            placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
+          />
+        </div>
+
         <div className="flex flex-col gap-2">
           <div className="flex items-start justify-between gap-3">
             <p className="ds-caption">
-              {roll ? (
+              {planning ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Подбираем сцену, визуал и заголовок…</span>
+              ) : roll ? (
                 <>
-                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Лендинг и плейбл — с графикой от ИИ на всех элементах.
+                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Лендинг, плейбл и баннер — с графикой от ИИ на всех элементах.
                 </>
               ) : (
                 "Выбираем тему…"
@@ -544,9 +599,9 @@ export function CampaignApp() {
             </p>
             <button
               type="button"
-              onClick={() => setRoll((prev) => luckyRoll(b.kind, b.refScene, prev))}
-              disabled={lucky.running}
-              title={b.refScene ? "Другая сцена (тема — с рефа)" : "Другая тема и сцена"}
+              onClick={rerollLucky}
+              disabled={lucky.running || planning}
+              title={topic ? "Другая сцена в той же тематике" : b.refScene ? "Другая сцена (тема — с рефа)" : "Другая тема и сцена"}
               className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition disabled:opacity-50 ${CHIP_OFF}`}
             >
               <Dices className="h-3.5 w-3.5" /> Другая
@@ -561,7 +616,7 @@ export function CampaignApp() {
             credits={luckyCredits}
             onStart={startLucky}
             onCancel={lucky.cancel}
-            disabled={!roll}
+            disabled={!roll || planning}
           />
           {art ? (
             <p className="ds-caption">

@@ -144,6 +144,14 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("баннер: спорт — промо ставок, без оффера — заголовок", sp.prompt.startsWith("sports-betting") && sp.banner_text.length > 0);
 }
 
+// ---- тематика: заголовок, подобранный по ней, — пока нет своего
+{
+  const tb: CampaignBrief = { ...defaultBrief("casino", "ru"), topic: "пираты", autoHeadline: "ПИРАТСКИЙ БОНУС" };
+  check("тематика: подобранный заголовок в лендинге", (await briefLandingHtml(tb, load)).includes("ПИРАТСКИЙ БОНУС"));
+  check("тематика: свой заголовок главнее", briefEmail({ ...tb, headline: "МОЙ ЗАГОЛОВОК" }).heroTitle.startsWith("МОЙ ЗАГОЛОВОК"));
+  check("тематика: без неё — заголовок по умолчанию", !briefLandingHtml.length || briefEmail(defaultBrief("casino", "ru")).heroTitle.startsWith("ЗАБЕРИ СВОЙ БОНУС"));
+}
+
 // ---- гамма и реф
 {
   const blue: CampaignBrief = { ...defaultBrief("casino", "en"), link: LINK, pickColor: "#2a6cff", refScene: "neon city rooftop at night" };

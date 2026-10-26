@@ -33,6 +33,14 @@ import { buildWheelHtml } from "./wheelExport";
 export type CampaignLanding = "wheel" | "slot" | "crash" | "match" | "scene";
 
 export type CampaignBrief = {
+  /**
+   * Тематика кампании своими словами («викинги», «Хэллоуин», «финал ЛЧ») —
+   * главный ввод: по ней подбираются сцена, визуал для ИИ и заголовок
+   * (/api/campaign-plan), и рисует «Мне повезёт». Пусто — тема с рефа или случайная.
+   */
+  topic: string;
+  /** Заголовок, подобранный по тематике; свой заголовок (headline) главнее. */
+  autoHeadline: string;
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
@@ -158,6 +166,8 @@ export function briefDefaults(kind: LandingKind, lang: string, tr: CampaignI18n 
 export function defaultBrief(kind: LandingKind = "casino", lang = "ru"): CampaignBrief {
   const d = briefDefaults(kind, lang);
   return {
+    topic: "",
+    autoHeadline: "",
     brand: "",
     logo: "",
     kind,
@@ -179,7 +189,7 @@ const tr = (b: CampaignBrief): CampaignI18n => b.i18n ?? {};
 /** Перевод есть — собираем на английском наборе и накладываем его; иначе — готовый набор языка. */
 const translated = (b: CampaignBrief) => !isBuiltInLang(b.lang) && Object.keys(tr(b)).length > 0;
 
-export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
+export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || b.autoHeadline?.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
 /** Название бренда; есть только лого — без названия (не печатаем заглушку «BRAND» рядом с лого). */
 const brandName = (b: CampaignBrief) => b.brand.trim() || (b.logo ? "" : "BRAND");
 
