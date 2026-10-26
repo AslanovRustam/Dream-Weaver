@@ -418,7 +418,7 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
     language: b.lang,
     aspect_ratio: "16:9",
     model: "openai/gpt-5.4-image-2",
-    quality: "medium" as const,
+    quality: "high" as const,
     template_options: "",
   };
 }

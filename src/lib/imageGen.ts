@@ -268,15 +268,7 @@ export async function generateImage(payload: GeneratePayload): Promise<GenerateR
         // string already has a user-friendly message — surface it.
         const detail = (data as { detail?: string }).detail || "";
         if (detail) throw new Error(detail);
-        const q = payload.quality || "medium";
-        if (q === "high") {
-          throw new Error(
-            "Таймаут сервера: High часто не успевает за лимит (~60с). Попробуйте Medium или Low.",
-          );
-        }
-        if (q === "medium") {
-          throw new Error("Таймаут сервера. Попробуйте ещё раз или переключитесь на Low.");
-        }
+        // Качество выбирает сервер (мастер — high), пользователю переключать нечего.
         throw new Error("Таймаут сервера. Попробуйте упростить референсы или повторите.");
       }
       if (res.status === 422) {

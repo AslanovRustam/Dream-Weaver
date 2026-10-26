@@ -984,8 +984,13 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
         );
         const hasSlotLogo = !!(body.slot_logo && body.slot_logo.startsWith("data:"));
         const presetId = (body.preset_id || "").trim();
-        const quality: "low" | "medium" | "high" =
-          body.quality === "high" ? "high" : body.quality === "medium" ? "medium" : "low";
+        // Мастер-баннер — всегда максимальное качество (high): это главный
+        // креатив, он идёт в ресайзы и в кампанию. Ресайзы — как просил клиент
+        // (medium): их десятки, а композиция уже задана мастером.
+        const isResizeRequest = !!(body.source_image && body.source_image.startsWith("data:"));
+        const quality: "low" | "medium" | "high" = !isResizeRequest
+          ? "high"
+          : body.quality === "high" ? "high" : body.quality === "medium" ? "medium" : "low";
         // Martial-arts preset rides the Event pipeline with a different visual
         // skin (styleVariant). It counts as "event-like" for every shared
         // field (event text, subheadline, person on/off + gender, fidelity).
