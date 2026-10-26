@@ -3,7 +3,7 @@
 import { apiFetch } from "./api-client";
 import type { EmailAssetUrls } from "./emailExport";
 import { EMAIL_BLOCK_DEFAULTS, type EmailDraft } from "./mailing";
-import { APP_STORE_ICON, GOOGLE_PLAY_ICON } from "./emailStoreIcons";
+import { APP_STORE_BADGE, GOOGLE_PLAY_BADGE } from "./emailStoreBadges";
 
 /**
  * Разместить картинки письма на хостинге перед выгрузкой.
@@ -30,8 +30,8 @@ export function emailImages(draft: EmailDraft): Partial<Record<keyof EmailAssetU
     else if (draft.brandMode === "logo" && draft.logo) out.logo = draft.logo;
   }
   if (blocks.apps) {
-    out.appStore = APP_STORE_ICON;
-    out.googlePlay = GOOGLE_PLAY_ICON;
+    out.appStore = APP_STORE_BADGE;
+    out.googlePlay = GOOGLE_PLAY_BADGE;
   }
   return out;
 }

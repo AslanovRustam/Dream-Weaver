@@ -37,12 +37,12 @@ import {
   type EmailDraft,
 } from "./mailing";
 import {
-  APP_STORE_ICON,
-  APP_STORE_ICON_WIDTH,
-  GOOGLE_PLAY_ICON,
-  GOOGLE_PLAY_ICON_WIDTH,
-  STORE_ICON_HEIGHT,
-} from "./emailStoreIcons";
+  APP_STORE_BADGE,
+  APP_STORE_BADGE_WIDTH,
+  GOOGLE_PLAY_BADGE,
+  GOOGLE_PLAY_BADGE_WIDTH,
+  STORE_BADGE_HEIGHT,
+} from "./emailStoreBadges";
 
 const AMP = /&/g;
 const LT = /</g;
@@ -188,38 +188,25 @@ ${head}${rows}
 }
 
 const STORES = [
-  { label: "App Store", icon: APP_STORE_ICON, width: APP_STORE_ICON_WIDTH },
-  { label: "Google Play", icon: GOOGLE_PLAY_ICON, width: GOOGLE_PLAY_ICON_WIDTH },
+  { label: "App Store", icon: APP_STORE_BADGE, width: APP_STORE_BADGE_WIDTH },
+  { label: "Google Play", icon: GOOGLE_PLAY_BADGE, width: GOOGLE_PLAY_BADGE_WIDTH },
 ];
 
 /** Ряд «магазины приложений» и ряд платёжных систем — ячейками, без div.
  *  Каждый включается своей галочкой, поэтому рисуем только то, что выбрано. */
 function extrasBlock(draft: EmailDraft, p: Palette, blocks: EmailBlocks, assets: EmailAssetUrls): string {
   if (!blocks.apps && !blocks.payments) return "";
-  // Кнопка магазина — чёрная плашка со значком и подписью, как того требуют
-  // фирменные правила обоих магазинов. Значок и подпись стоят в отдельных
-  // ячейках: это горизонтальный ряд, а не склейка двух узлов в одной ячейке
-  // (global_anti_glue_rule).
+  // Кнопка магазина — одна картинка (чёрная плашка, значок, подпись), как
+  // официальные бейджи. Ячейкой с чёрным фоном она была раньше, но Gmail на
+  // Android перекрашивает письмо целиком: фон светлел, а белый значок-картинка
+  // оставался белым и пропадал. Картинки клиенты не перекрашивают.
   const icons: Record<string, string | undefined> = {
     "App Store": assets.appStore,
     "Google Play": assets.googlePlay,
   };
   const stores = STORES.map(
     (s) =>
-      `<td align="center" style="padding:0 4px;">
-                        <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
-                          <tr>
-                            <td bgcolor="#000000" style="background-color:#000000;border-radius:8px;padding:8px 14px;">
-                              <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;">
-                                <tr>
-                                  <td valign="middle" style="padding:0;font-size:0;line-height:0;"><img src="${esc(icons[s.label] ?? s.icon)}" width="${s.width}" height="${STORE_ICON_HEIGHT}" alt="" style="${IMG_STYLE}width:${s.width}px;height:${STORE_ICON_HEIGHT}px;" /></td>
-                                  <td valign="middle" style="padding:0 0 0 8px;font-family:${FONT};font-size:12px;line-height:18px;font-weight:bold;color:#ffffff;">${esc(s.label)}</td>
-                                </tr>
-                              </table>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>`,
+      `<td align="center" style="padding:0 4px;font-size:0;line-height:0;"><img src="${esc(icons[s.label] ?? s.icon)}" width="${s.width}" height="${STORE_BADGE_HEIGHT}" alt="${esc(s.label)}" style="${IMG_STYLE}width:${s.width}px;height:${STORE_BADGE_HEIGHT}px;" /></td>`,
   ).join("");
   // global_anti_glue_rule: разные подписи нельзя складывать в одну ячейку —
   // ни через <br/>, ни через два <span> подряд, ни через &nbsp;. Они стоят в
