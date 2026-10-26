@@ -3,7 +3,7 @@
 //
 // Body: { product: SectionId, text?: string, fileBase64?: string, fileName?: string }
 // Response: { fields: Record<string,string>, generationPrompt: string, briefChars: number }
-import { BRIEF_SCHEMAS } from "@/lib/briefSchemas";
+import { BRIEF_SCHEMAS, CAMPAIGN_BRIEF_SCHEMA } from "@/lib/briefSchemas";
 import type { SectionId } from "@/lib/sections";
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, rejectLargeBody, sniffDocument } from "@/lib/request-guard";
@@ -83,8 +83,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const product = body.product as SectionId | undefined;
-  const schema = product ? BRIEF_SCHEMAS[product] : undefined;
+  const product = body.product as SectionId | "campaign" | undefined;
+  // Кампания — не раздел, у неё своя схема ТЗ.
+  const schema = product === "campaign" ? CAMPAIGN_BRIEF_SCHEMA : product ? BRIEF_SCHEMAS[product] : undefined;
   if (!schema || schema.fields.length === 0) {
     return Response.json({ error: "Unknown or unsupported product" }, { status: 400 });
   }

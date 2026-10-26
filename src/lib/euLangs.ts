@@ -1,4 +1,4 @@
-// Европейские языки для кампании. У четырёх (ru, uk, en, es) — готовые тексты
+// Европейские языки для кампании (и рынки СНГ: Казахстан, Узбекистан, Кыргызстан, Таджикистан, Туркменистан). У четырёх (ru, uk, en, es) — готовые тексты
 // во всех частях; остальные получают перевод английского набора текстов
 // (см. campaignI18n.ts) — один раз на язык и набор, с кэшем в браузере.
 
@@ -51,6 +51,10 @@ export const EU_LANGS: EuLang[] = [
   { id: "hy", label: "Հայերեն", english: "Armenian", locale: "hy-AM" },
   { id: "az", label: "Azərbaycan", english: "Azerbaijani", locale: "az-AZ" },
   { id: "kk", label: "Қазақша", english: "Kazakh", locale: "kk-KZ" },
+  { id: "uz", label: "Oʻzbekcha", english: "Uzbek (Latin script)", locale: "uz-UZ" },
+  { id: "ky", label: "Кыргызча", english: "Kyrgyz", locale: "ky-KG" },
+  { id: "tg", label: "Тоҷикӣ", english: "Tajik", locale: "tg-TJ" },
+  { id: "tk", label: "Türkmençe", english: "Turkmen", locale: "tk-TM" },
   { id: "ca", label: "Català", english: "Catalan", locale: "ca-ES" },
   { id: "eu", label: "Euskara", english: "Basque", locale: "eu-ES" },
   { id: "gl", label: "Galego", english: "Galician", locale: "gl-ES" },

@@ -11,6 +11,8 @@ import { Dices, Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, Mon
 import { toast } from "sonner";
 
 import { BrandLookup } from "@/components/BrandLookup";
+import { lookupBrand } from "@/lib/brandLookup";
+import { looksLikeUrl, nameFromHost } from "@/lib/brandExtract";
 import { useAuthGate } from "@/components/AuthGate";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
@@ -177,6 +179,99 @@ export function CampaignApp() {
   }, [art, artLoaded]);
 
   // ---- «Мне повезёт»: случайная тема (или с рефа) и сцена → вся графика от ИИ одной кнопкой
+  // ---- ТЗ: файл (.txt, .docx, .pdf) или текст → поля брифа кампании
+  const [topicMode, setTopicMode] = useState<"topic" | "tz">("topic");
+  const [tzText, setTzText] = useState("");
+  const [tzBusy, setTzBusy] = useState(false);
+  const [tzFilled, setTzFilled] = useState<string[]>([]);
+  const tzFile = useRef<HTMLInputElement>(null);
+  const TZ_LABELS: Record<string, string> = {
+    topic: "тематика", brand: "бренд", site: "лого с сайта", kind: "тип трафика", lang: "язык", offer: "оффер",
+    headline: "заголовок", cta: "кнопка", link: "ссылка", amount: "выигрыш", unit: "единица", parts: "что делаем",
+  };
+  const applyTz = async (fields: Record<string, string>) => {
+    const filled: string[] = [];
+    // Новый бриф считаем сразу (а не в updater React — тот выполнится позже, и список «что заполнено» был бы пуст).
+    {
+      const p = latestB.current;
+      const next = { ...p };
+      const str = (k: keyof CampaignBrief, v: string | undefined, max: number) => {
+        if (v && v.trim()) {
+          (next as Record<string, unknown>)[k] = v.trim().slice(0, max);
+          filled.push(TZ_LABELS[k as string] ?? String(k));
+        }
+      };
+      if (fields.kind === "casino" || fields.kind === "sport") {
+        next.kind = fields.kind;
+        filled.push(TZ_LABELS.kind);
+      }
+      if (fields.lang && EU_LANGS.some((l) => l.id === fields.lang.trim().toLowerCase())) {
+        next.lang = fields.lang.trim().toLowerCase();
+        filled.push(TZ_LABELS.lang);
+      }
+      str("topic", fields.topic, 200);
+      if (fields.brand && !looksLikeUrl(fields.brand)) str("brand", fields.brand, 40);
+      str("offer", fields.offer, 80);
+      str("headline", fields.headline, 60);
+      str("cta", fields.cta, 24);
+      if (fields.link && /^https?:\/\//i.test(fields.link.trim())) str("link", fields.link, 500);
+      const amount = Number(String(fields.amount ?? "").replace(/[^\d.]/g, ""));
+      if (amount > 0) {
+        next.amount = Math.round(amount);
+        filled.push(TZ_LABELS.amount);
+      }
+      str("unit", fields.unit, 12);
+      if (fields.parts) {
+        const want = fields.parts.toLowerCase();
+        const chosen = { landing: want.includes("landing"), playable: want.includes("playable"), email: want.includes("email"), banner: want.includes("banner") };
+        if (Object.values(chosen).some(Boolean)) {
+          next.parts = chosen;
+          filled.push(TZ_LABELS.parts);
+        }
+      }
+      setB(next);
+    }
+    // Сайт бренда в ТЗ — лого, название и цвет с него (как «Найти по сайту»).
+    if (fields.site && !isGuest) {
+      try {
+        const r = await lookupBrand(fields.site);
+        const logo = await shrinkPng(r.logo_data_url, 256).catch(() => r.logo_data_url);
+        setB((p) => ({
+          ...p,
+          logo,
+          brand: p.brand.trim() || (r.brand_name && !looksLikeUrl(r.brand_name) ? r.brand_name : nameFromHost(r.site_url || fields.site)),
+          ...(/^#[0-9a-f]{6}$/i.test(r.accent_color_hex) && !p.pickColor && !p.ref ? { pickColor: r.accent_color_hex } : {}),
+        }));
+        filled.push(TZ_LABELS.site);
+      } catch {
+        /* сайт не нашёлся — остальное из ТЗ уже на месте */
+      }
+    }
+    setTzFilled(filled);
+    return filled;
+  };
+  const parseTz = async (file?: File) => {
+    if (isGuest) return openGate("Разбор ТЗ — после входа");
+    const text = tzText.trim();
+    if (!file && !text) return;
+    if (file && file.size > 10 * 1024 * 1024) return toast.error("Файл ТЗ до 10 МБ");
+    setTzBusy(true);
+    setTzFilled([]);
+    try {
+      const payload = file ? { product: "campaign", fileBase64: await readFile(file), fileName: file.name } : { product: "campaign", text };
+      const res = await apiFetch("/api/parse-brief", { method: "POST", json: payload });
+      const data = (await res.json().catch(() => ({}))) as { fields?: Record<string, string>; error?: string };
+      if (!res.ok || !data.fields) throw new Error(data.error || "Не удалось разобрать ТЗ");
+      const filled = await applyTz(data.fields);
+      if (filled.length) toast.success(`Из ТЗ: ${filled.join(", ")}`);
+      else toast("В ТЗ не нашлось данных для кампании — впишите тематику руками");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось разобрать ТЗ");
+    } finally {
+      setTzBusy(false);
+    }
+  };
+
   const [roll, setRoll] = useState<LuckyRoll | null>(null);
   const [planning, setPlanning] = useState(false);
   const topic = b.topic.trim();
@@ -622,15 +717,88 @@ export function CampaignApp() {
         </div>
 
         <div>
-          <label htmlFor="campaign-topic" className="mb-1.5 block ds-caption">Тематика — остальное подберём сами</label>
-          <input
-            id="campaign-topic"
-            value={b.topic}
-            maxLength={200}
-            onChange={(e) => setB((p) => ({ ...p, topic: e.target.value, ...(e.target.value.trim() ? {} : { autoHeadline: "" }) }))}
-            className={INPUT}
-            placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
-          />
+          <div role="tablist" className="mb-2 grid grid-cols-2 gap-2">
+            {(
+              [
+                ["topic", "Ввести тематику"],
+                ["tz", "Загрузить ТЗ"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={topicMode === id}
+                onClick={() => setTopicMode(id)}
+                className={`rounded-lg border px-3 py-2 text-sm transition ${topicMode === id ? CHIP_ON : CHIP_OFF}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {topicMode === "topic" ? (
+            <>
+              <label htmlFor="campaign-topic" className="mb-1.5 block ds-caption">Тематика — остальное подберём сами</label>
+              <input
+                id="campaign-topic"
+                value={b.topic}
+                maxLength={200}
+                onChange={(e) => setB((p) => ({ ...p, topic: e.target.value, ...(e.target.value.trim() ? {} : { autoHeadline: "" }) }))}
+                className={INPUT}
+                placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
+              />
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="ds-caption">
+                ТЗ файлом (.docx, .pdf, .txt) или текстом: возьмём тематику, бренд и сайт (лого с него), оффер, заголовок, кнопку,
+                ссылку, язык, тип трафика и что делать.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={tzBusy}
+                  onClick={() => tzFile.current?.click()}
+                  className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-sm transition disabled:opacity-60 ${CHIP_OFF}`}
+                >
+                  {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {tzBusy ? "Разбираем ТЗ…" : "Загрузить файл ТЗ"}
+                </button>
+                <input
+                  ref={tzFile}
+                  type="file"
+                  accept=".docx,.pdf,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void parseTz(f);
+                  }}
+                />
+              </div>
+              <textarea
+                id="campaign-tz"
+                value={tzText}
+                onChange={(e) => setTzText(e.target.value)}
+                rows={4}
+                placeholder="…или вставьте текст ТЗ"
+                className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
+              />
+              <button
+                type="button"
+                disabled={tzBusy || !tzText.trim()}
+                onClick={() => void parseTz()}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              >
+                {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Разобрать текст ТЗ
+              </button>
+              {tzFilled.length ? (
+                <p className="ds-caption">
+                  Заполнено из ТЗ: {tzFilled.join(", ")}.{b.topic ? <> Тематика: <b className="text-foreground">{b.topic}</b>.</> : null}
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <fieldset>

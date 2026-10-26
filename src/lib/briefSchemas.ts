@@ -77,3 +77,26 @@ export interface BriefResult {
   fields: Record<string, string>;
   generationPrompt: string;
 }
+
+/**
+ * ТЗ кампании «всё в одном»: тематика и всё, что кампания умеет взять из ТЗ.
+ * Кампания — не раздел (SectionId), поэтому схема отдельно; parse-brief
+ * принимает product: "campaign".
+ */
+export const CAMPAIGN_BRIEF_SCHEMA: BriefSchema = {
+  genHint: "рекламная кампания iGaming: лендинг, плейбл, письмо и баннер в одной теме",
+  fields: [
+    { key: "topic", label: "Тематика", hint: "сеттинг/тема кампании своими словами: викинги, Хэллоуин, финал Лиги чемпионов, персонаж" },
+    { key: "brand", label: "Бренд", hint: "название бренда/проекта" },
+    { key: "site", label: "Сайт бренда", hint: "адрес сайта или домен бренда, если указан" },
+    { key: "kind", label: "Тип трафика", hint: "казино или ставки на спорт", enum: ["casino", "sport"] },
+    { key: "lang", label: "Язык", hint: "язык креативов — ISO-код из двух букв: ru, uk, en, es, de, pl, pt, fr, it, tr, kk, az, uz…" },
+    { key: "offer", label: "Оффер", hint: "главный оффер: «+200% к депозиту и 500 FS», «фрибет 100 €»" },
+    { key: "headline", label: "Заголовок", hint: "заголовок первого экрана, если задан в ТЗ" },
+    { key: "cta", label: "Кнопка", hint: "текст кнопки, ≤24 символов" },
+    { key: "link", label: "Ссылка", hint: "ссылка по кнопкам: оффер или трекер (http…)" },
+    { key: "amount", label: "Выигрыш", hint: "число выигрыша в игре, только цифры: 500, 100" },
+    { key: "unit", label: "Единица", hint: "единица выигрыша: FS, €, $, ₸" },
+    { key: "parts", label: "Что делать", hint: "какие части нужны, через запятую из: landing, playable, email, banner — только если ТЗ это явно ограничивает" },
+  ],
+};
