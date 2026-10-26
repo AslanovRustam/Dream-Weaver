@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefSource, defaultBrief, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
+import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import type { LandingKind, LandingLang } from "../src/lib/landingKit";
 import type { SceneLoader } from "../src/lib/scenes/build";
@@ -109,6 +109,30 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("только лого: промпт баннера без «BRAND»", !briefBanner(onlyLogo).prompt.includes("BRAND"));
   const neither = await briefLandingHtml({ ...defaultBrief("casino", "ru"), landing: "wheel" }, load);
   check("ни названия, ни лого: заглушка на месте", neither.includes("BRAND"));
+}
+
+// ---- «Мне повезёт»: графика ИИ доходит до лендинга на сцене, плейбла, блоков и редакторов
+{
+  const PX = (c: string) => `data:image/png;base64,${c}`;
+  const IMG = PX("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+  const roll = luckyRoll("casino", "", null, () => 0);
+  check("повезёт: сцена из списка, тема с названием", LUCKY_SCENES.casino.includes(roll.scene) && !!roll.theme && !!roll.themeName);
+  check("повезёт: реф задаёт тему", luckyRoll("casino", "misty fjord", null).theme === "misty fjord");
+  const again = luckyRoll("casino", "", roll, () => 0);
+  check("повезёт: «другая» — не та же сцена", again.scene !== roll.scene);
+  const art: CampaignArt = {
+    scene: "safe", theme: "vikings", themeName: "Викинги", bg: IMG + "#bg", reward: IMG + "#rw",
+    art: { door: IMG + "#door", dial: IMG + "#dial" }, bonusImgs: [IMG + "#b0", IMG + "#b1"], gameImgs: [IMG + "#g0"],
+  };
+  const lb: CampaignBrief = { ...defaultBrief("casino", "ru"), link: LINK, landing: "scene", scene: "safe", art };
+  const sc = briefScene(lb);
+  check("повезёт: плейбл — фон, детали, награда", sc.bgImage === art.bg && (sc.art as Record<string, string>).door === art.art!.door && sc.reward === art.reward);
+  const lhtml = await briefLandingHtml(lb, load);
+  check("повезёт: лендинг — детали и блоки с картинками", lhtml.includes("#door") && lhtml.includes("#b1") && lhtml.includes("#g0"));
+  const other = briefScene({ ...lb, scene: "chests" });
+  check("повезёт: у другой сцены деталей нет, фон остаётся", !other.art && other.bgImage === art.bg);
+  const sd = briefEditorDraft(lb, "playable").writes[0][1] as { art?: Record<string, string>; theme?: string; bgImage?: string };
+  check("повезёт: в редактор — детали, фон и тема", sd.art?.door === art.art!.door && sd.theme === "vikings" && sd.bgImage === art.bg);
 }
 
 // ---- гамма и реф

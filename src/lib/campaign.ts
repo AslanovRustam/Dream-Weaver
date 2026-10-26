@@ -9,6 +9,10 @@
 //
 // Язык — любой европейский: у ru/uk/en/es готовые тексты, остальные собираются
 // на английском наборе с переводом поверх (campaignI18n.ts, brief.i18n).
+//
+// «Мне повезёт» (brief.art): одной кнопкой — тема (с рефа или случайная),
+// лендинг на сцене и вся графика от ИИ — фон, детали сцены, символы, награда,
+// картинки бонусов и игр. Одни и те же картинки идут в лендинг и в плейбл.
 
 import { buildCrashHtml } from "./crashExport";
 import { applyFlat, campaignSource, kitStringsFrom, type CampaignI18n } from "./campaignI18n";
@@ -21,6 +25,7 @@ import { buildMatchHtml } from "./matchExport";
 import { sceneDraftKey } from "./projects";
 import { wrapSceneLanding } from "./sceneLanding";
 import { buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "./scenes/build";
+import type { FrameArt } from "./scenes/art";
 import { DEFAULT_WIN_INDEX, scenePreset } from "./scenes/presets";
 import { buildSlotHtml } from "./slotExport";
 import { buildWheelHtml } from "./wheelExport";
@@ -58,7 +63,73 @@ export type CampaignBrief = {
   bg?: string;
   /** Переводы для языка без готовых текстов (campaignI18n). Не сохраняется. */
   i18n?: CampaignI18n;
+  /** Графика «Мне повезёт». Хранится отдельно (IndexedDB) — в localStorage не влезает. */
+  art?: CampaignArt | null;
 };
+
+/** Графика кампании от ИИ — общая для лендинга на сцене и плейбла. */
+export type CampaignArt = {
+  /** Сцена, под которую нарисованы детали: у другой сцены они не подойдут (фон и блоки — подойдут). */
+  scene: SceneId;
+  /** Тема, по которой рисовали, — подпись в интерфейсе и тема для редакторов. */
+  theme: string;
+  /** Название темы для людей. */
+  themeName: string;
+  bg?: string;
+  reward?: string;
+  symbols?: string[];
+  art?: Record<string, string | FrameArt>;
+  /** Картинки карточек бонусов — по порядку карточек с заголовками. */
+  bonusImgs?: string[];
+  /** Обложки игр (или иконки матчей) — по порядку. */
+  gameImgs?: string[];
+  /** Палитра сгенерированного фона — гамма, если нет рефа и пипетки. */
+  palette?: ImagePalette | null;
+};
+
+/** Сцены для «Мне повезёт»: те, где главное на экране целиком рисует ИИ, а не вектор. */
+export const LUCKY_SCENES: Record<LandingKind, SceneId[]> = {
+  casino: ["safe", "chests", "cases", "mines", "match3"],
+  sport: ["penalty", "basket"],
+};
+/** Темы для «Мне повезёт» без рефа: насыщенные сеттинги, в которых ИИ рисует красиво. */
+export const LUCKY_THEMES: Record<LandingKind, { name: string; prompt: string }[]> = {
+  casino: [
+    { name: "Египет фараонов", prompt: "ancient Egypt: golden pharaoh tomb, scarabs, turquoise and lapis lazuli, warm torchlight" },
+    { name: "Викинги", prompt: "Norse vikings: carved oak and forged iron, runes, frost and firelight, northern lights" },
+    { name: "Лунный Новый год", prompt: "lunar new year: red lanterns, jade dragons, gold coins, night festival glow" },
+    { name: "Пиратская бухта", prompt: "pirate cove: treasure cave, weathered wood and brass, emerald sea glow, candlelight" },
+    { name: "Олимп", prompt: "Greek Olympus: white marble temples, gold laurels, lightning, bright sky blue" },
+    { name: "Храм ацтеков", prompt: "Aztec jungle temple: carved stone glyphs, jade, quetzal feathers, golden sun" },
+    { name: "Киберпанк", prompt: "neon cyberpunk city: holograms, chrome, magenta and cyan neon in the rain" },
+    { name: "Конфетное королевство", prompt: "candy kingdom: glossy sweets, pastel pink and mint, sugar glitter, soft daylight" },
+    { name: "Дикий Запад", prompt: "wild west saloon: desert sunset, tooled leather, copper and brass, dusty gold light" },
+    { name: "Ведьмин лес", prompt: "witch's Halloween forest: carved pumpkins, purple mist, glowing potions, moonlight" },
+    { name: "Атлантида", prompt: "sunken Atlantis: pearls and coral, bioluminescent teal, sunken gold, deep ocean light" },
+    { name: "Ирландская удача", prompt: "Irish luck: emerald hills, four-leaf clovers, rainbow, pots of gold, soft sunlight" },
+  ],
+  sport: [
+    { name: "Ночной стадион", prompt: "night football stadium under floodlights, light rain, wet grass reflections, electric atmosphere" },
+    { name: "Финал чемпионата", prompt: "championship final: golden confetti, trophy glow, packed stands, dramatic spotlights" },
+    { name: "Уличный неон", prompt: "street football court in a neon city at night, graffiti walls without text, magenta and cyan glow" },
+    { name: "Пляж на закате", prompt: "beach sports at sunset: golden sand, palm silhouettes, warm orange and pink sky" },
+    { name: "Ледовая арена", prompt: "winter ice arena: frosted blue lights, crisp white ice, cold steel and glass" },
+  ],
+};
+
+export type LuckyRoll = { scene: SceneId; theme: string; themeName: string };
+
+/** Случайная сцена и тема (не повторяя прошлую); есть реф — тема с него. */
+export function luckyRoll(kind: LandingKind, refScene: string, prev?: LuckyRoll | null, rnd: () => number = Math.random): LuckyRoll {
+  const pick = <T,>(list: T[], not?: (x: T) => boolean): T => {
+    const pool = list.length > 1 && not ? list.filter((x) => !not(x)) : list;
+    return pool[Math.floor(rnd() * pool.length) % pool.length];
+  };
+  const scene = pick(LUCKY_SCENES[kind], (s) => s === prev?.scene);
+  if (refScene.trim()) return { scene, theme: refScene.trim(), themeName: "по рефу" };
+  const t = pick(LUCKY_THEMES[kind], (x) => x.prompt === prev?.theme);
+  return { scene, theme: t.prompt, themeName: t.name };
+}
 
 const OFFER: Record<LandingKind, Record<LandingLang, string>> = {
   casino: { ru: "+200% к депозиту и 500 фриспинов", uk: "+200% до депозиту і 500 фриспінів", en: "+200% deposit bonus and 500 free spins", es: "+200% de depósito y 500 giros gratis" },
@@ -113,7 +184,7 @@ const brandName = (b: CampaignBrief) => b.brand.trim() || (b.logo ? "" : "BRAND"
 /** Гамма кампании: пипетка главнее рефа; нет ни того, ни другого — null (цвета по умолчанию). */
 export function briefPalette(b: CampaignBrief): ImagePalette | null {
   if (b.pickColor) return paletteFromHex(b.pickColor);
-  return b.refPalette ?? null;
+  return b.refPalette ?? b.art?.palette ?? null;
 }
 export function briefAccent(b: CampaignBrief): string {
   const p = briefPalette(b);
@@ -130,7 +201,9 @@ export function plainBackground(accent: string): string {
     `<rect width="1600" height="1600" fill="#07080d"/><rect width="1600" height="1600" fill="url(#g)"/></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
-const briefBg = (b: CampaignBrief) => b.bg || plainBackground(briefAccent(b));
+const briefBg = (b: CampaignBrief) => b.art?.bg || b.bg || plainBackground(briefAccent(b));
+/** Детали сцены от ИИ — только для той сцены, под которую рисовали. */
+const sceneArt = (b: CampaignBrief) => (b.art && b.art.scene === b.scene ? b.art : null);
 
 /** Блоки лендинга: язык (с переводом), оффер — первой карточкой бонусов. */
 export function briefExtras(b: CampaignBrief): LandingExtras {
@@ -144,6 +217,14 @@ export function briefExtras(b: CampaignBrief): LandingExtras {
   if (b.offer.trim()) {
     x.bonuses = { ...x.bonuses, items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title: b.offer.trim().slice(0, 40) } : it)) };
   }
+  // Картинки «Мне повезёт»: бонусы — по карточкам с заголовками, игры — по порядку.
+  const bon = b.art?.bonusImgs ?? [];
+  if (bon.length) {
+    let k = 0;
+    x.bonuses = { ...x.bonuses, items: x.bonuses.items.map((it) => (it.title.trim() && bon[k] ? { ...it, image: bon[k++] } : it)) };
+  }
+  const games = b.art?.gameImgs ?? [];
+  if (games.length) x.games = { ...x.games, items: x.games.items.map((g, i) => (games[i] ? { ...g, image: games[i] } : g)) };
   return x;
 }
 
@@ -217,6 +298,7 @@ export function briefScene(b: CampaignBrief): SceneConfig {
     winIndex: DEFAULT_WIN_INDEX,
     lang: b.lang,
     ...(pal ? { ui: uiFromPalette(pal), palette: wheelFromPalette(pal) } : {}),
+    ...(sceneArt(b) ? { art: sceneArt(b)!.art ?? {}, symbols: sceneArt(b)!.symbols ?? [], reward: sceneArt(b)!.reward ?? "" } : {}),
   };
 }
 
@@ -273,7 +355,7 @@ export function briefSource(b: CampaignBrief): CampaignI18n {
 
 /** Баннер: пресет по типу трафика и промпт из бренда, оффера и сцены рефа. */
 export function briefBanner(b: CampaignBrief): { preset: string; prompt: string } {
-  const scene = b.refScene.trim() || (b.kind === "sport" ? "night stadium under floodlights" : "luxury casino with glowing lights");
+  const scene = b.art?.theme || b.refScene.trim() || (b.kind === "sport" ? "night stadium under floodlights" : "luxury casino with glowing lights");
   return {
     preset: b.kind === "sport" ? "preset4" : "preset1",
     prompt: `${brandName(b) ? brandName(b) + " — " : ""}${b.offer || briefHeadline(b)}. ${scene}.`,
@@ -305,8 +387,9 @@ function sceneDraft(b: CampaignBrief, landing: boolean) {
     clickUrl: b.link,
     targets: ["mraid"],
     bgImage: c.bgImage,
-    // Сцена рефа — тема для «Вся графика под тему»; гамма — та же, что в кампании.
-    theme: b.refScene,
+    // Тема «Мне повезёт» или сцена рефа — тема для «Вся графика под тему»; гамма — та же, что в кампании.
+    theme: b.art?.theme || b.refScene,
+    ...(sceneArt(b) ? { art: c.art, symbols: c.symbols, reward: c.reward } : {}),
     ...(b.pickColor ? { pickColor: b.pickColor } : {}),
     ...(landing ? { extras: briefExtras(b) } : {}),
   };
@@ -322,7 +405,7 @@ export function briefEditorDraft(b: CampaignBrief, part: "landing" | "playable")
   }
   const m = MECH_KEY[b.landing];
   const c = mechanicCommon(b);
-  const data: Record<string, unknown> = { ...c, topic: b.offer, theme: b.refScene };
+  const data: Record<string, unknown> = { ...c, topic: b.offer, theme: b.art?.theme || b.refScene };
   if (b.landing === "wheel") data.prizes = WHEEL_PRIZES(b);
   if (b.landing === "slot") data.attempts = [b.offer || `${b.amount} ${b.unit}`];
   if (b.landing === "crash") data.maxAttempts = 2;

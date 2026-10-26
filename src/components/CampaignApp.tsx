@@ -7,12 +7,17 @@
 // с брифом внутри, чтобы довести руками и ИИ-графикой в стиле рефа.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, MonitorSmartphone, Gamepad2, Pipette, Trash2, Upload } from "lucide-react";
+import { Dices, Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, MonitorSmartphone, Gamepad2, Pipette, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuthGate } from "@/components/AuthGate";
+import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
+import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
+import { idbGet, idbSet } from "@/lib/idbStore";
+import { prepareScenePart, sceneAiStyle, scenePartRequest } from "@/lib/scenes/assets";
+import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { browserLoader } from "@/lib/scenes/build";
-import { SCENES } from "@/lib/scenes/presets";
+import { SCENES, scenePartsFor } from "@/lib/scenes/presets";
 import { buildEmailHtml } from "@/lib/emailExport";
 import { persistDraft } from "@/lib/emailDraftsStore";
 import { shrinkPng } from "@/lib/imageCompress";
@@ -28,17 +33,22 @@ import {
   briefBanner,
   briefDefaults,
   briefEditorDraft,
+  briefExtras,
   briefEmail,
   briefHeadline,
   briefLandingHtml,
   briefPlayableHtml,
   briefSource,
   defaultBrief,
+  luckyRoll,
+  type CampaignArt,
   type CampaignBrief,
+  type LuckyRoll,
   type CampaignLanding,
 } from "@/lib/campaign";
 
 const KEY = "dw_campaign_brief";
+const ART_KEY = "campaign_art";
 const INPUT = "h-10 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
 const CHIP_ON = "border-accent-green bg-accent-green/10 text-accent-green";
 const CHIP_OFF = "border-border text-foreground/70 hover:bg-white/5";
@@ -102,7 +112,7 @@ function loadBrief(): CampaignBrief {
 
 export function CampaignApp() {
   const router = useRouter();
-  const { isGuest } = useAuthGate();
+  const { isGuest, openGate } = useAuthGate();
   const [b, setB] = useState<CampaignBrief>(defaultBrief);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("landing");
@@ -114,7 +124,10 @@ export function CampaignApp() {
   const [translating, setTranslating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [hasEyeDropper, setHasEyeDropper] = useState(false);
-  const full = useMemo(() => ({ ...b, i18n }), [b, i18n]);
+  /** Графика «Мне повезёт» — в IndexedDB: несколько мегабайт картинок в localStorage не влезают. */
+  const [art, setArt] = useState<CampaignArt | null>(null);
+  const [artLoaded, setArtLoaded] = useState(false);
+  const full = useMemo(() => ({ ...b, i18n, art }), [b, i18n, art]);
   const logoInput = useRef<HTMLInputElement>(null);
   const refInput = useRef<HTMLInputElement>(null);
   useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
@@ -139,6 +152,91 @@ export function CampaignApp() {
       }
     }
   }, [b, ready]);
+
+  useEffect(() => {
+    void idbGet<CampaignArt>(ART_KEY).then((a) => {
+      if (a && typeof a === "object" && a.scene) setArt(a);
+      setArtLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (artLoaded) void idbSet(ART_KEY, art ?? undefined);
+  }, [art, artLoaded]);
+
+  // ---- «Мне повезёт»: случайная тема (или с рефа) и сцена → вся графика от ИИ одной кнопкой
+  const [roll, setRoll] = useState<LuckyRoll | null>(null);
+  useEffect(() => {
+    if (ready) setRoll((prev) => luckyRoll(b.kind, b.refScene, prev));
+  }, [ready, b.kind, b.refScene]);
+  /** Сцена, под которую идёт текущая сборка, — для раскладки деталей, пришедших позже. */
+  const luckyScene = useRef(b.scene);
+  const luckyBrief = useMemo(() => ({ ...full, landing: "scene" as const, scene: roll?.scene ?? b.scene }), [full, roll, b.scene]);
+  const luckyExtras = useMemo(() => briefExtras(luckyBrief), [luckyBrief]);
+  const extrasAssets = useExtrasAssets({
+    value: luckyExtras,
+    // Хук отдаёт блоки целиком — нам нужны только картинки: бонусы по карточкам с заголовками, игры по порядку.
+    onChange: (x) =>
+      setArt((a) =>
+        a && {
+          ...a,
+          bonusImgs: x.bonuses.items.filter((it) => it.title.trim()).map((it) => it.image ?? ""),
+          gameImgs: x.games.items.map((g) => g.image ?? ""),
+        },
+      ),
+    kind: b.kind,
+    theme: roll?.theme ?? "",
+  });
+  const applyLucky = async (key: string, dataUrl: string) => {
+    if (key.startsWith("x-")) {
+      await extrasAssets.apply(key.slice(2), dataUrl);
+      return;
+    }
+    const part = scenePartsFor(luckyScene.current).find((p) => `s-${p.id}` === key);
+    if (!part) return;
+    const patch = await prepareScenePart(part, dataUrl);
+    // Фон задаёт гамму, если нет рефа и пипетки.
+    const palette = patch.bgImage ? await paletteFromImage(patch.bgImage).catch(() => null) : undefined;
+    setArt((a) =>
+      a && {
+        ...a,
+        ...(patch.bgImage ? { bg: patch.bgImage, palette } : {}),
+        ...(patch.reward ? { reward: patch.reward } : {}),
+        ...(patch.symbols ? { symbols: patch.symbols } : {}),
+        ...(patch.art ? { art: { ...(a.art ?? {}), ...patch.art } } : {}),
+      },
+    );
+  };
+  const lucky = useAssetRun({ resumeKey: "dw_jobs_campaign", apply: applyLucky });
+  const callStep = (key: string, route: string, body: Record<string, unknown>) => async () => {
+    const res = await apiFetch(route, { method: "POST", json: body });
+    const data = (await res.json().catch(() => ({}))) as { imageUrl?: string; error?: string; detail?: string };
+    if (!res.ok || !data.imageUrl) throw new Error([data.error, data.detail].filter(Boolean).join(" — ") || "Не удалось сгенерировать");
+    await applyLucky(key, data.imageUrl);
+    return true;
+  };
+  /** Вся графика: детали сцены, фон, награда — и картинки блоков лендинга. */
+  const luckySteps = (): AssetStep[] => {
+    if (!roll) return [];
+    const style = sceneAiStyle(roll.theme);
+    return [
+      ...scenePartsFor(roll.scene).map((p) => {
+        const r = scenePartRequest(p, style, roll.theme);
+        return { id: `s-${p.id}`, label: p.label, credits: r.credits, run: callStep(`s-${p.id}`, r.route, r.body), server: { route: r.route, body: r.body } };
+      }),
+      ...extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })),
+    ];
+  };
+  const luckyCredits = luckySteps().reduce((sum, st) => sum + st.credits, 0);
+  const startLucky = () => {
+    if (!roll) return;
+    if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
+    luckyScene.current = roll.scene;
+    setArt({ scene: roll.scene, theme: roll.theme, themeName: roll.themeName });
+    setB((p) => ({ ...p, landing: "scene", scene: roll.scene }));
+    setTab("landing");
+    void lucky.start(luckySteps());
+  };
+  const sceneLabel = (id: string) => SCENES.find((s) => s.id === id)?.label ?? id;
 
   // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
   const source = useMemo(() => briefSource(b), [b.lang, b.kind, b.scene]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -404,6 +502,49 @@ export function CampaignApp() {
           <p className="ds-caption">Кампания</p>
           <h1 className="ds-h1 mt-1">Всё из одного брифа</h1>
           <p className="mt-1 ds-caption">Лендинг, плейбл, письмо и баннер — в одной теме, с одним оффером и одной ссылкой.</p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="ds-caption">
+              {roll ? (
+                <>
+                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Лендинг и плейбл — с графикой от ИИ на всех элементах.
+                </>
+              ) : (
+                "Выбираем тему…"
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => setRoll((prev) => luckyRoll(b.kind, b.refScene, prev))}
+              disabled={lucky.running}
+              title={b.refScene ? "Другая сцена (тема — с рефа)" : "Другая тема и сцена"}
+              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition disabled:opacity-50 ${CHIP_OFF}`}
+            >
+              <Dices className="h-3.5 w-3.5" /> Другая
+            </button>
+          </div>
+          <AssetRunPanel
+            title="Мне повезёт"
+            plan={luckySteps()}
+            steps={lucky.steps}
+            running={lucky.running}
+            notEnough={lucky.notEnough}
+            credits={luckyCredits}
+            onStart={startLucky}
+            onCancel={lucky.cancel}
+            disabled={!roll}
+          />
+          {art ? (
+            <p className="ds-caption">
+              Графика кампании: {art.themeName} — {sceneLabel(art.scene)}
+              {art.scene !== b.scene ? " (детали — для другой сцены; фон и блоки — на месте)" : ""}.{" "}
+              <button type="button" onClick={() => setArt(null)} disabled={lucky.running} className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+                Убрать графику
+              </button>
+            </p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-2">

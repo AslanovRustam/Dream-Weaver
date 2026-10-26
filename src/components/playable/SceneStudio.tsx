@@ -32,9 +32,8 @@ import { useAuthGate } from "@/components/AuthGate";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { apiFetch } from "@/lib/api-client";
 import { shrinkPng } from "@/lib/imageCompress";
-import { sliceIconGrid } from "@/lib/spriteSlice";
-import { PLAYABLE_ASSET_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
-import { prepareBackground, prepareSprite, prepareWheelFrame, type FrameArt } from "@/lib/scenes/art";
+import { prepareSprite, type FrameArt } from "@/lib/scenes/art";
+import { mergeScenePatch, prepareScenePart, sceneAiStyle, scenePartRequest } from "@/lib/scenes/assets";
 import { NETWORK_BY_ID, PLAYABLE_NETWORKS, type PlayableNetwork } from "@/lib/scenes/networks";
 import { packageFor } from "@/lib/scenes/export";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
@@ -424,31 +423,8 @@ export function SceneStudio({
 
   /** Довести картинку детали до сцены: обрезка, ужатие, у рамы — радиус. */
   const applyPart = async (part: ScenePart, dataUrl: string) => {
-    switch (part.kind) {
-      case "scene-bg": {
-        const out = await prepareBackground(dataUrl);
-        return setD((p) => ({ ...p, bgImage: out }));
-      }
-      case "reward": {
-        const out = await prepareSprite(dataUrl, 600);
-        return setD((p) => ({ ...p, reward: out }));
-      }
-      case "wheel-frame": {
-        const frame = await prepareWheelFrame(dataUrl);
-        return setD((p) => ({ ...p, art: { ...p.art, frame } }));
-      }
-      case "symbols": {
-        // Сетка 3×2 одним вызовом → шесть иконок.
-        const tiles = await sliceIconGrid(dataUrl, 3, 2);
-        const symbols = await Promise.all(tiles.map((t) => prepareSprite(t, 256, true)));
-        return setD((p) => ({ ...p, symbols }));
-      }
-      default: {
-        const size = part.size ?? (part.kind === "wheel-pointer" ? 300 : part.kind === "wheel-hub" ? 320 : 420);
-        const out = await prepareSprite(dataUrl, size, part.kind === "wheel-hub");
-        return setD((p) => ({ ...p, art: { ...p.art, [part.id]: out } }));
-      }
-    }
+    const patch = await prepareScenePart(part, dataUrl);
+    setD((p) => mergeScenePatch(p, patch));
   };
   // Лендинг на сцене: картинки блоков (бонусы, обложки игр) — в той же сборке и по теме сцены.
   const extrasAssets = useExtrasAssets({ value: extras, onChange: setExtras, kind, theme: d.theme.trim() || meta.bgTheme });
@@ -475,7 +451,7 @@ export function SceneStudio({
    * Стиль для ИИ — только из темы (нет темы — из обстановки самой сцены), без
    * готовых палитр: пресеты перекрашивали любую тему в своё золото или неон.
    */
-  const style = `materials, colour palette, lighting and mood taken from the theme "${d.theme.trim() || meta.bgTheme}" — do NOT default to generic casino gold or rubies unless the theme itself asks for it; every asset of this game shares this look`;
+  const style = sceneAiStyle(d.theme.trim() || meta.bgTheme);
   const partImages = (part: ScenePart): string[] => {
     if (part.kind === "symbols") return d.symbols;
     if (part.id === "bg") return d.bgImage ? [d.bgImage] : [];
@@ -496,28 +472,8 @@ export function SceneStudio({
 
   /** Шаг генерации детали: символы — одной сеткой, остальное — своим роутом. */
   const stepFor = (part: ScenePart): AssetStep => {
-    const theme = d.theme.trim();
-    if (part.kind === "symbols") {
-      const body = {
-        prompt: [part.subject, `STYLE (shared by the whole game): ${style}.`, theme ? `THEME: ${theme}.` : ""].filter(Boolean).join(" "),
-        count: 6,
-      };
-      return {
-        id: part.id,
-        label: part.label,
-        credits: SLOT_SYMBOLS_PRICE_CREDITS,
-        run: runInTab("/api/generate-slot-symbols", body, part.id),
-        server: { route: "/api/generate-slot-symbols", body },
-      };
-    }
-    const body = { kind: part.kind, style, theme, ...(part.subject ? { subject: part.subject } : {}), ...(part.person ? { person: true } : {}) };
-    return {
-      id: part.id,
-      label: part.label,
-      credits: PLAYABLE_ASSET_PRICE_CREDITS,
-      run: runInTab("/api/generate-playable-asset", body, part.id),
-      server: { route: "/api/generate-playable-asset", body },
-    };
+    const req = scenePartRequest(part, style, d.theme);
+    return { id: part.id, label: part.label, credits: req.credits, run: runInTab(req.route, req.body, part.id), server: { route: req.route, body: req.body } };
   };
   const included = (part: ScenePart) => d.parts[part.id] !== false;
   const assetSteps = (): AssetStep[] => [
