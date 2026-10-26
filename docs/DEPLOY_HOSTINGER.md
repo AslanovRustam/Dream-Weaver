@@ -516,6 +516,10 @@ CRON_SECRET=<длинная случайная строка>
 # Ключ: console.x.ai → API Keys → тип «Grok API». Без ключа — просто отказ, как раньше.
 XAI_API_KEY=xai-...
 
+# Необязательно. «Найти по сайту»: прокси для сайтов, закрытых из страны сервера (403/451, обрыв).
+# DNS-блокировки провайдера обходятся и без него — адрес берётся через публичный DNS (Cloudflare/Google).
+# FETCH_PROXY_URL=http://user:pass@host:port
+
 PORT=3000
 NODE_ENV=production
 ```
