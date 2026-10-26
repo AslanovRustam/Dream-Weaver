@@ -123,15 +123,23 @@ ${k.head}
   .odd.fav{border-color:${accent};background:${accent}33;box-shadow:0 0 14px ${accent}66}
   .hint{margin-top:10px;text-align:center;font-size:12px;color:rgba(255,255,255,.75)}
   .offer{display:${cfg.showOffer ? "flex" : "none"};align-items:center;gap:10px;width:min(92vw,420px);border-radius:14px;padding:10px 14px;background:linear-gradient(90deg,${accent}33,rgba(255,255,255,.06));border:1px solid ${accent}66}
-  .offer .amt{font-size:20px;font-weight:900;white-space:nowrap;color:${accent};text-shadow:0 0 10px ${accent}66}
+  .offer .amt{font-size:20px;font-weight:900;white-space:nowrap;color:#fff;text-shadow:0 0 12px ${accent},0 1px 2px rgba(0,0,0,.6)}
   .offer .txt{font-size:12px;line-height:1.25;color:rgba(255,255,255,.85)}
   .cta{position:relative;z-index:3;margin:6px 0 4px;width:82%;max-width:380px;border:0;border-radius:999px;padding:15px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}cc);box-shadow:0 8px 20px rgba(0,0,0,.35)}
   .cta:active{transform:scale(.97)}
+  /* Телефон вертикально: персонаж на 74% высоты наезжал на фрибет и кнопку, а над карточкой
+     оставалась пустота. С персонажами карточка, оффер и кнопка — внизу, персонажи — в полосе
+     между таймером и карточкой (чуть заходят за неё). Без персонажей — по центру, как было. */
+  @media (max-aspect-ratio:3/4){
+    .stage.has-char .mid{justify-content:flex-end}
+    .stage.has-char .char{bottom:auto;top:clamp(96px,14%,150px);height:38%;max-width:52%}
+    .stage.has-char .char.left{left:-4%}.stage.has-char .char.right{right:-4%}
+  }
 ${k.css}
 </style>
 </head>
 <body>
-  <div class="stage">${k.stageArt}
+  <div class="stage${cfg.charLeft || cfg.charRight ? " has-char" : ""}">${k.stageArt}
     ${charImg(cfg.charLeft, "left")}
     ${charImg(cfg.charRight, "right")}
     <div class="col">

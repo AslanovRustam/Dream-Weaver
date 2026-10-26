@@ -853,6 +853,8 @@ function introCss(dark: boolean): string {
   .goArt{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;${dark ? "mix-blend-mode:screen;opacity:.85" : "opacity:.55"}}
   .goFl{position:absolute;z-index:1;pointer-events:none;width:var(--s);aspect-ratio:1;translate:calc(var(--px,0) * var(--d) * 1px) calc((var(--py,0) * var(--d) - var(--sy,0) * var(--d) * .012) * 1px)}
   .goFl.near{z-index:4;filter:blur(1.2px) drop-shadow(0 14px 18px rgba(0,0,0,.5))}
+  /* Телефон вертикально: ближние объекты попадают на оффер и кнопку — уводим их за контент. */
+  @media (max-aspect-ratio:3/4){.goFl.near{z-index:1}}
   .goFl.far{filter:blur(1.6px) brightness(.85);opacity:.85}
   .goFl.mid{filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
   .goFl>*{display:block;width:100%;height:100%;object-fit:contain;animation:goBob var(--t,6s) ease-in-out infinite;animation-delay:var(--dl,0s)}
