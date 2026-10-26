@@ -28,6 +28,7 @@ import { SettingsSection } from "@/components/SettingsSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { useConfirm } from "@/components/ui/confirm";
+import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { apiFetch } from "@/lib/api-client";
@@ -839,6 +840,13 @@ export function SceneStudio({
             </SettingsSection>
 
             <SettingsSection title="Бренд" done={!!(d.logo || d.brandName.trim())} open={open.brand} onToggle={() => toggle("brand")}>
+              {/* Найти по сайту: лого и название; фирменный цвет — гаммой (как пипетка). */}
+              <BrandLookup
+                className="mb-3"
+                onFound={(f) =>
+                  setD((p) => ({ ...p, brandName: f.brandName || p.brandName, logo: f.logoDataUrl, ...(/^#[0-9a-f]{6}$/i.test(f.accentHex) ? { pickColor: f.accentHex } : {}) }))
+                }
+              />
               <label className="mb-1.5 block ds-caption">Название — показывается, если нет лого</label>
               <input value={d.brandName} maxLength={32} onChange={(e) => set("brandName", e.target.value)} className={INPUT} />
               <div className="mt-3 flex items-center gap-3">

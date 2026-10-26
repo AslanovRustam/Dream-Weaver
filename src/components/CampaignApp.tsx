@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Dices, Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, MonitorSmartphone, Gamepad2, Pipette, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
@@ -666,6 +667,18 @@ export function CampaignApp() {
           ))}
         </div>
 
+        {/* Найти по сайту: лого (уйдёт в баннер и шапку письма), название и фирменный цвет. */}
+        <BrandLookup
+          onFound={(f) =>
+            setB((p) => ({
+              ...p,
+              brand: f.brandName || p.brand,
+              logo: f.logoDataUrl,
+              // Фирменный цвет — гаммой кампании, если её не задали пипеткой и нет рефа.
+              ...(/^#[0-9a-f]{6}$/i.test(f.accentHex) && !p.pickColor && !p.ref ? { pickColor: f.accentHex } : {}),
+            }))
+          }
+        />
         <div className="flex gap-2">
           <div className="flex-1">
             <label className="mb-1.5 block ds-caption">Бренд — название, лого или оба</label>

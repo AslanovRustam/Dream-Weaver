@@ -28,6 +28,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { toast } from "sonner";
 import { imageCredits, CHARACTER_PRICE_CREDITS, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { SuggestButton } from "@/components/landing/SuggestButton";
+import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { AssetRunPanel } from "@/components/landing/AssetRunPanel";
@@ -870,6 +871,14 @@ export function SlotLandingApp() {
             <SuggestButton topic={topic} field="headline" mechanic="slot" onFill={setHeadline} />
           </div>
         </Field>
+        {/* Найти по сайту: лого, название и фирменный цвет — как в генераторе баннеров. */}
+        <BrandLookup
+          onFound={(f) => {
+            if (f.brandName) setBrand(f.brandName);
+            setBrandLogo(f.logoDataUrl);
+            if (/^#[0-9a-f]{6}$/i.test(f.accentHex)) setAccent(f.accentHex);
+          }}
+        />
         <Field label="Бренд">
           {brandLogo ? (
               <div className="flex h-11 items-center gap-2">

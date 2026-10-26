@@ -41,6 +41,7 @@ import {
   newDraft,
 } from "@/lib/mailing";
 import { OptionalBlock } from "@/components/email/OptionalBlock";
+import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
 import { emailImages, hostEmailImages } from "@/lib/emailAssets";
 import { DraftPicker } from "@/components/email/DraftPicker";
@@ -581,6 +582,16 @@ export function EmailGenApp() {
 
         <OptionalBlock {...blockProps("hero")}>
           <div>
+            {/* Найти по сайту: лого (режим «Лого»), название и фирменный цвет кнопки. */}
+            <BrandLookup
+              className="mb-3"
+              onFound={(f) => {
+                if (f.brandName) set("brand", f.brandName);
+                set("logo", f.logoDataUrl);
+                set("brandMode", "logo");
+                if (/^#[0-9a-f]{6}$/i.test(f.accentHex)) set("accent", f.accentHex);
+              }}
+            />
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <label className="ds-h4">Бренд</label>
