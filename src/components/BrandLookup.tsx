@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { lookupBrand, BrandLookupError, type BrandLookupResult } from "@/lib/brandLookup";
+import { looksLikeUrl, nameFromHost } from "@/lib/brandExtract";
 
 export type BrandLookupFound = {
   brandName: string;
@@ -75,7 +76,8 @@ export function BrandLookup({
       setLastStyle(r.style);
       setLastPalette(r.palette);
       onFound({
-        brandName: r.brand_name,
+        // Адрес вместо названия (старый сервер, SPA без title) — название из домена.
+        brandName: !r.brand_name || looksLikeUrl(r.brand_name) ? nameFromHost(r.site_url || q) : r.brand_name,
         logoDataUrl,
         accentHex: r.accent_color_hex,
         style: r.style,

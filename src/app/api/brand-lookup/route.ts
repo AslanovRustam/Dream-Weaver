@@ -26,7 +26,7 @@
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { logSystem, newRequestId } from "@/lib/logger";
 import { fetchPublicHtml, fetchPublicImage } from "@/lib/safe-fetch";
-import { extractLogoCandidates, extractSiteName } from "@/lib/brandExtract";
+import { extractLogoCandidates, extractSiteName, looksLikeUrl as looksLikeAddress, nameFromHost } from "@/lib/brandExtract";
 import { rateLimitResponse, sniffImageMime } from "@/lib/request-guard";
 import { sanitizeVisionText, VISION_VOCAB_RULE } from "@/lib/visionSafety";
 
@@ -177,7 +177,9 @@ export async function POST(request: Request) {
 
     // 2. EXTRACT candidates + a clean site-name fallback.
     const candidates = extractLogoCandidates(html, finalUrl);
-    const siteName = extractSiteName(html) || query;
+    // Названия на странице нет (SPA) или там адрес — берём из домена: olymp-csn.com → «Olymp».
+    const fromPage = extractSiteName(html);
+    const siteName = fromPage && !looksLikeAddress(fromPage) ? fromPage : nameFromHost(finalUrl || query);
 
     let logoDataUrl = "";
     for (const c of candidates.slice(0, 6)) {

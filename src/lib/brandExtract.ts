@@ -94,21 +94,57 @@ export function extractLogoCandidates(html: string, baseUrl: string): LogoCandid
   return Array.from(byUrl.values()).sort((a, b) => b.score - a.score);
 }
 
-/** og:site_name, else the page <title> (trimmed of a trailing " — Slogan"
- *  suffix many sites append), else "". */
+/** og:site_name, else the app name metas (application-name,
+ *  apple-mobile-web-app-title), else the page <title> (trimmed of a trailing
+ *  " — Slogan" suffix many sites append), else "". */
 export function extractSiteName(html: string): string {
   const headEnd = html.indexOf("</head>");
   const head = headEnd > 0 ? html.slice(0, headEnd) : html.slice(0, 40_000);
   const metaTags = head.match(/<meta\b[^>]*>/gi) ?? [];
-  for (const tag of metaTags) {
-    const a = attrsOf(tag);
-    if ((a.property || "").toLowerCase() === "og:site_name" && a.content) {
-      return a.content.trim();
+  const meta = (key: string) => {
+    for (const tag of metaTags) {
+      const a = attrsOf(tag);
+      if (((a.property || a.name || "").toLowerCase() === key) && a.content?.trim()) return a.content.trim();
     }
-  }
+    return "";
+  };
+  const fromMeta = meta("og:site_name") || meta("application-name") || meta("apple-mobile-web-app-title");
+  if (fromMeta) return fromMeta;
   const titleMatch = /<title[^>]*>([^<]*)<\/title>/i.exec(head);
   if (titleMatch?.[1]) {
     return titleMatch[1].split(/[|–—-]/)[0].trim();
   }
   return "";
 }
+
+/** Служебные слова в доменах казино и букмекеров — не часть названия бренда. */
+const GENERIC_DOMAIN_WORDS = new Set([
+  "www", "csn", "cas", "casino", "casinos", "kazino", "bet", "bets", "betting", "online", "official", "app", "apps",
+  "play", "win", "slots", "slot", "club", "sport", "sports", "game", "games", "mirror", "site", "web", "uz", "ru", "ua", "kz",
+]);
+/** Вторые уровни вроде co.uk, com.ua: название — уровнем выше. */
+const SECOND_LEVELS = new Set(["co", "com", "net", "org", "gov", "ac"]);
+
+/**
+ * Название бренда из домена, когда на странице его нет (SPA без title и meta):
+ * olymp-csn.com → «Olymp», pin-up.casino → «Pin Up», 1xbet.com → «1xbet».
+ */
+export function nameFromHost(urlOrHost: string): string {
+  let host = urlOrHost.trim();
+  try {
+    host = new URL(/^https?:\/\//i.test(host) ? host : `https://${host}`).hostname;
+  } catch {
+    /* как есть */
+  }
+  const labels = host.toLowerCase().replace(/^www\./, "").split(".").filter(Boolean);
+  if (labels.length === 0) return "";
+  let i = labels.length >= 2 ? labels.length - 2 : 0;
+  if (i > 0 && SECOND_LEVELS.has(labels[i]) && labels[labels.length - 1].length === 2) i -= 1;
+  const tokens = labels[i].split(/[-_]+/).filter(Boolean);
+  const kept = tokens.filter((t) => !GENERIC_DOMAIN_WORDS.has(t));
+  const words = kept.length ? kept : tokens;
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+/** Похоже на адрес, а не на название — такое в поле «Бренд» не ставим. */
+export const looksLikeUrl = (s: string) => /^(https?:\/\/|www\.)|\.[a-z]{2,}(\/|$)/i.test(s.trim());
