@@ -17,7 +17,7 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
-import { ThemeStrip } from "@/components/landing/ThemeStrip";
+import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { accentFromPalette, paletteFromImage } from "@/lib/imagePalette";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
@@ -731,27 +731,26 @@ export function MatchLandingApp() {
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Что хотите на лендинге: вид спорта, оффер, визуал…"
           />
-          <p className="mt-1.5 ds-caption">Обязательно. По тематике ИИ подбирает тексты, команды и промпты — жмите ✨ у полей.</p>
+          <p className="mt-1.5 ds-caption">
+            Обязательно. Ввели или сменили тематику — жмите «Применить тему»: ИИ перепишет заголовок, кнопку и промпты картинок под неё.
+            Отдельное поле можно переподобрать ✨ рядом с ним.
+          </p>
+          <ApplyTopicButton
+            topic={topic}
+            mechanic="match"
+            fill={[
+              { field: "headline", set: setHeadline },
+              { field: "bg", set: setTheme },
+              { field: "character", side: "left", set: (t: string) => setCharPrompts((p) => ({ ...p, left: t })) },
+              ...(charPrompts.right.trim() || topicHasPair(topic)
+                ? [{ field: "character" as const, side: "right" as const, set: (t: string) => setCharPrompts((p) => ({ ...p, right: t })) }]
+                : []),
+              { field: "teams", set: applyTeams },
+              { field: "icon", set: setCrestTheme },
+              { field: "cta", set: setCtaText },
+            ]}
+          />
         </div>
-
-        <ThemeStrip
-          kind="sport"
-          extras={extras}
-          onExtras={setExtras}
-          onApply={(t, h, bg) => {
-            const prev = { accent, headline, theme, bgImage };
-            setAccent(t.accent);
-            setHeadline(h);
-            setTheme(t.theme);
-            setBgImage(bg);
-            return () => {
-              setAccent(prev.accent);
-              setHeadline(prev.headline);
-              setTheme(prev.theme);
-              setBgImage(prev.bgImage);
-            };
-          }}
-        />
 
         <BannerReferenceField
           value={bannerRef}

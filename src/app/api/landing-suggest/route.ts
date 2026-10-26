@@ -11,7 +11,8 @@ import { extractUsage, recordUsage } from "@/lib/usage";
 export const runtime = "nodejs";
 
 type Field = "headline" | "cta" | "bg" | "character" | "icon" | "teams";
-type Body = { topic?: string; field?: Field; mechanic?: string };
+/** side — какой персонаж из названных в теме: left — первый, right — второй. */
+type Body = { topic?: string; field?: Field; mechanic?: string; side?: "left" | "right" };
 
 const MECH_LABEL: Record<string, string> = {
   wheel: "колесо фортуны (fortune wheel)",
@@ -20,7 +21,7 @@ const MECH_LABEL: Record<string, string> = {
   match: "матч-прогноз (pick the match winner, sports betting)",
 };
 
-function buildMessages(theme: string, field: Field, mechanic: string) {
+function buildMessages(theme: string, field: Field, mechanic: string, side?: "left" | "right") {
   const mech = MECH_LABEL[mechanic] || "гемблинг-механика";
   switch (field) {
     case "headline":
@@ -48,10 +49,24 @@ function buildMessages(theme: string, field: Field, mechanic: string) {
     case "character":
       return {
         system:
-          "You are an art director. Write a concise description IN ENGLISH of a MASCOT CHARACTER for a gambling landing — " +
-          "who/what it is, key attributes, outfit and vibe, fitting the theme; tasteful and fully clothed. " +
+          "You are an art director. Write a concise description IN ENGLISH of a CHARACTER for a gambling landing — " +
+          "who it is, key attributes, outfit and vibe; tasteful and fully clothed. " +
+          "If the theme NAMES characters, heroes, celebrities or a franchise (e.g. Superman, Batman, Zeus), describe THAT " +
+          "character by name with their recognizable look (costume, colours, emblem) — never replace them with an invented mascot. " +
+          (side === "right"
+            ? "Describe the SECOND character named in the theme; if only one is named, a fitting companion or rival from the same world. "
+            : side === "left"
+              ? "Describe the FIRST character named in the theme. "
+              : "") +
+          "Only if the theme names nobody, invent a fitting mascot. " +
           "Do NOT mention render style, framing or background — that is added automatically. Return ONLY the character description.",
-        user: `Landing mechanic: ${mech}. Theme / wishes: ${theme}`,
+        user:
+          `Landing mechanic: ${mech}. Theme / wishes: ${theme}` +
+          (side === "right"
+            ? "\nThis is the RIGHT character slot: describe the SECOND character named in the theme (not the first one)."
+            : side === "left"
+              ? "\nThis is the LEFT character slot: describe the FIRST character named in the theme."
+              : ""),
       };
     // Icon prompts. The generators already pin down shape, angle, transparent
     // background and slicing, so these only describe the SUBJECT and look.
@@ -131,7 +146,8 @@ export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-  const { system, user } = buildMessages(theme, field, mechanic);
+  const side = body.side === "left" || body.side === "right" ? body.side : undefined;
+  const { system, user } = buildMessages(theme, field, mechanic, side);
   let content = "";
   let usageData: unknown = null;
   try {
@@ -151,16 +167,26 @@ export async function POST(request: Request) {
       }),
     });
     if (!res.ok) {
-      return Response.json({ error: "LLM недоступен", detail: (await res.text()).slice(0, 200) }, { status: 502 });
+      return Response.json(
+        { error: "LLM недоступен", detail: (await res.text()).slice(0, 200) },
+        { status: 502 },
+      );
     }
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     usageData = data;
     content = (data.choices?.[0]?.message?.content ?? "").trim();
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : "Ошибка запроса" }, { status: 502 });
+    return Response.json(
+      { error: e instanceof Error ? e.message : "Ошибка запроса" },
+      { status: 502 },
+    );
   }
 
-  const text = content.replace(/^["'`]+|["'`]+$/g, "").trim();
+  // Без markdown: модель иногда выделяет имя «**Superman**:» — в промпт картинки это не нужно.
+  const text = content
+    .replace(/\*\*|__/g, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
   if (!text) return Response.json({ error: "Пустой ответ" }, { status: 502 });
 
   await recordUsage(authedUser.id, {

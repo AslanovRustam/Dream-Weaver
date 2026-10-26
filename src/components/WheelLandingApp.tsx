@@ -33,7 +33,7 @@ import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
-import { ThemeStrip } from "@/components/landing/ThemeStrip";
+import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { accentFromPalette, paletteFromImage } from "@/lib/imagePalette";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
@@ -694,29 +694,24 @@ export function WheelLandingApp() {
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Что хотите на лендинге: тематика, оффер, визуал…"
           />
-          <p className="mt-1 ds-caption">
-            Обязательно. По тематике ИИ подбирает тексты и промпты — жмите ✨ у полей.
+          <p className="mt-1.5 ds-caption">
+            Обязательно. Ввели или сменили тематику — жмите «Применить тему»: ИИ перепишет заголовок, кнопку и промпты картинок под неё.
+            Отдельное поле можно переподобрать ✨ рядом с ним.
           </p>
+          <ApplyTopicButton
+            topic={topic}
+            mechanic="wheel"
+            fill={[
+              { field: "headline", set: setHeadline },
+              { field: "bg", set: setTheme },
+              { field: "character", side: "left", set: (t: string) => setCharPrompts((p) => ({ ...p, left: t })) },
+              ...(charPrompts.right.trim() || topicHasPair(topic)
+                ? [{ field: "character" as const, side: "right" as const, set: (t: string) => setCharPrompts((p) => ({ ...p, right: t })) }]
+                : []),
+              { field: "cta", set: setCtaText },
+            ]}
+          />
         </Field>
-
-        <ThemeStrip
-          kind="casino"
-          extras={extras}
-          onExtras={setExtras}
-          onApply={(t, h, bg) => {
-            const prev = { accent, headline, theme, bgImage };
-            setAccent(t.accent);
-            setHeadline(h);
-            setTheme(t.theme);
-            setBgImage(bg);
-            return () => {
-              setAccent(prev.accent);
-              setHeadline(prev.headline);
-              setTheme(prev.theme);
-              setBgImage(prev.bgImage);
-            };
-          }}
-        />
 
         <BannerReferenceField
           value={bannerRef}
