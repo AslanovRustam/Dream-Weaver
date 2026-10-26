@@ -132,6 +132,8 @@ type Body = {
   person_gender?: "female" | "male" | null;
   brand_name?: string;
   brand_logo?: string;
+  /** Кампания: символ из лого (без надписи) можно повторить в декоре — на фишках, монетах, орнаменте. */
+  brand_logo_decor?: boolean;
   language?: string;
   slot_name?: string;
   slot_screenshot?: string;
@@ -1647,7 +1649,10 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
               );
             } else {
               refLines.push(
-                `One attached reference image is the BRAND LOGO${brandName ? ` of "${brandName}"` : ""}. Reproduce it exactly (preserve shape, proportions, colors, wordmark) as a small clean brand mark in a corner. Do not redesign.`,
+                `One attached reference image is the BRAND LOGO${brandName ? ` of "${brandName}"` : ""}. Reproduce it exactly (preserve shape, proportions, colors, wordmark) as a small clean brand mark in a corner. Do not redesign.` +
+                  (body.brand_logo_decor
+                    ? " In addition, weave the logo's SYMBOL (the icon part only, never its wordmark or letters) into the scene as a decorative motif — embossed on coins or chips, engraved on props, repeated in ornaments — so the visual feels branded."
+                    : ""),
               );
             }
           });

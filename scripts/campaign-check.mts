@@ -141,6 +141,10 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("баннер: 16:9, универсальный пресет", bp.aspect_ratio === "16:9" && bp.preset_id === "preset1");
   check("баннер: тема, оффер, кнопка, бренд, язык", bp.prompt.includes("vikings") && bp.banner_text === "MEGA OFFER 777" && bp.button_text === "Odbierz" && bp.brand_name === "Lucky" && bp.language === "pl");
   const sp = luckyBannerPayload({ ...defaultBrief("sport", "ru"), offer: "" }, "night stadium");
+  const LG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const lg = luckyBannerPayload({ ...defaultBrief("casino", "ru"), logo: LG }, "vikings");
+  check("баннер: лого — референсом, символ — в декор", lg.brand_logo === LG && lg.brand_logo_decor === true);
+  check("баннер: без лого — без декора", luckyBannerPayload(defaultBrief("casino", "ru"), "x").brand_logo_decor === false);
   check("баннер: спорт — промо ставок, без оффера — заголовок", sp.prompt.startsWith("sports-betting") && sp.banner_text.length > 0);
 }
 

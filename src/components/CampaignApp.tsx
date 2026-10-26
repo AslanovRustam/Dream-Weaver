@@ -269,7 +269,9 @@ export function CampaignApp() {
     try {
       // Баннер ужимаем до 1536 px по ширине: запросу хватает, а тело — в разы меньше.
       const src = await shrinkPng(banner, 1536).catch(() => banner);
-      const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: { textlessOf: src, aspectRatio: "16:9", feature: "email-hero", brand: b.brand } });
+      // Лого бренда — вторым референсом: в шапке оно остаётся, тексты — нет.
+      const logo = b.logo ? { logoBase64: b.logo, logoMode: "reference" } : {};
+      const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: { textlessOf: src, aspectRatio: "16:9", feature: "email-hero", brand: b.brand, ...logo } });
       const data = (await res.json().catch(() => ({}))) as { imageUrl?: string; error?: string };
       if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сделать шапку письма");
       const hero = data.imageUrl;

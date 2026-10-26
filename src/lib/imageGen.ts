@@ -5,6 +5,8 @@ import { CONTENT_FILTER_PREFIX, describeProviderError } from "@/lib/generation-e
 import { centerCrop } from "@/lib/resizePlan";
 
 export type GeneratePayload = {
+  /** Символ из лого (без надписи) можно повторить в декоре сцены — для кампании. */
+  brand_logo_decor?: boolean;
   preset_id: string;
   /** Директива варианта: чем этот кадр отличается от соседних в пачке. */
   variation?: string;
@@ -197,6 +199,7 @@ export function bannerRequestBody(payload: GeneratePayload): Record<string, unkn
     person_gender: payload.person_gender,
     brand_name: payload.brand_name || "",
     brand_logo: payload.brand_logo || "",
+    brand_logo_decor: !!payload.brand_logo_decor,
     language: payload.language || "auto",
     slot_name: payload.slot_name || "",
     slot_screenshot: payload.slot_screenshot || "",

@@ -214,18 +214,31 @@ export async function POST(request: Request) {
   // Источник уходит в image-to-image, промпт — «повтори, убери текст».
   const textlessOf = typeof body.textlessOf === "string" && body.textlessOf.startsWith("data:image/") ? body.textlessOf : "";
   if (textlessOf) {
+    // Лого бренда (если отдано референсом) остаётся: одна копия у верха, его символ — можно в декоре.
+    const logoRef = drawsLogo ? refs.find((r) => r.dataUrl === body.logoBase64) : undefined;
     refs.splice(0, refs.length, {
       dataUrl: textlessOf,
       note:
-        "SOURCE: the attached image is the approved campaign banner. Reproduce THIS SAME image — identical composition, " +
-        "framing, objects, characters, colours, materials and lighting — but REMOVE every piece of text: headline, letters, " +
-        "numbers, buttons, badges, logos and wordmarks. Repaint those areas naturally so the background continues seamlessly. " +
-        "Do not add anything new.",
+        "SOURCE: the attached campaign banner. Reproduce THIS SAME image — identical composition, framing, objects, " +
+        "characters, colours, materials and lighting — but REMOVE every piece of text: headline, letters, numbers, buttons " +
+        "and badges" +
+        (logoRef ? "" : ", logos and wordmarks") +
+        ". Repaint those areas naturally so the background continues seamlessly. Do not add anything new" +
+        (logoRef ? " except the brand logo described below." : "."),
     });
+    if (logoRef) {
+      refs.push({
+        dataUrl: logoRef.dataUrl,
+        note:
+          "BRAND LOGO: the second attached image is the brand's logo. Draw it exactly as it is — same shapes, proportions, " +
+          "colours and wordmark — ONCE, in a clean area near the top, small (about 15% of the width). Its SYMBOL (icon part " +
+          "only, never the wordmark) may also appear as a decorative motif on props, coins or ornaments already in the scene.",
+      });
+    }
   }
   const aspectRatio = (body.aspectRatio || "").trim() || "3:2";
   const size = openAiSizeString(aspectRatio);
-  const fullPrompt = ((textlessOf ? `Clean text-free version of the attached banner, same image.\n\n${NO_TEXT}` : prompt) + (refs.length ? "\n\n" + refs.map((r) => r.note).join("\n") : "")).slice(
+  const fullPrompt = ((textlessOf ? `Clean text-free version of the attached banner, same image.\n\n${noText}` : prompt) + (refs.length ? "\n\n" + refs.map((r) => r.note).join("\n") : "")).slice(
     0,
     4000,
   );

@@ -386,7 +386,9 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
     person_enabled: false,
     person_gender: null,
     brand_name: b.brand.trim(),
+    // Лого — референсом (image-to-image): как есть в углу, а его символ — в декоре сцены.
     brand_logo: b.logo,
+    brand_logo_decor: !!b.logo,
     language: b.lang,
     aspect_ratio: "16:9",
     model: "openai/gpt-5.4-image-2",
