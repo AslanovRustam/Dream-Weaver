@@ -17,7 +17,7 @@ import { idbGet, idbSet } from "@/lib/idbStore";
 import { prepareScenePart, sceneAiStyle, scenePartRequest } from "@/lib/scenes/assets";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { bannerRequestBody, generateImage, type GeneratePayload } from "@/lib/imageGen";
-import { BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { BANNER_PRICE_CREDITS, EMAIL_HERO_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { browserLoader } from "@/lib/scenes/build";
 import { SCENES, scenePartsFor } from "@/lib/scenes/presets";
 import { buildEmailHtml } from "@/lib/emailExport";
@@ -137,7 +137,8 @@ export function CampaignApp() {
   useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
 
   const showPlayable = isSectionEnabled("playable");
-  const showEmail = isSectionEnabled("email");
+  /** Письмо — всегда часть кампании; открыть его в редакторе — только где раздел писем открыт. */
+  const emailEditor = isSectionEnabled("email");
   const set = <K extends keyof CampaignBrief>(k: K, v: CampaignBrief[K]) => setB((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -233,6 +234,7 @@ export function CampaignApp() {
   const applyLucky = async (key: string, dataUrl: string) => {
     if (key === "banner") {
       setArt((a) => a && { ...a, banner: dataUrl });
+      void makeEmailHero(dataUrl);
       return;
     }
     if (key.startsWith("x-")) {
@@ -255,6 +257,29 @@ export function CampaignApp() {
     );
   };
   const lucky = useAssetRun({ resumeKey: "dw_jobs_campaign", apply: applyLucky });
+  /**
+   * Шапка письма — тот же баннер, но без текстов (правкой готового баннера,
+   * а не новой генерацией — иначе картинка была бы другой). Идёт после
+   * баннера: ей нужен готовый.
+   */
+  const [heroBusy, setHeroBusy] = useState(false);
+  const makeEmailHero = async (banner: string) => {
+    if (isGuest) return;
+    setHeroBusy(true);
+    try {
+      // Баннер ужимаем до 1536 px по ширине: запросу хватает, а тело — в разы меньше.
+      const src = await shrinkPng(banner, 1536).catch(() => banner);
+      const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: { textlessOf: src, aspectRatio: "16:9", feature: "email-hero", brand: b.brand } });
+      const data = (await res.json().catch(() => ({}))) as { imageUrl?: string; error?: string };
+      if (!res.ok || !data.imageUrl) throw new Error(data.error || "Не удалось сделать шапку письма");
+      const hero = data.imageUrl;
+      setArt((a) => a && { ...a, emailHero: hero });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось сделать шапку письма");
+    } finally {
+      setHeroBusy(false);
+    }
+  };
   const callStep = (key: string, route: string, body: Record<string, unknown>) => async () => {
     const res = await apiFetch(route, { method: "POST", json: body });
     const data = (await res.json().catch(() => ({}))) as { imageUrl?: string; error?: string; detail?: string };
@@ -290,7 +315,9 @@ export function CampaignApp() {
       server: { route: "/api/generate-image", body: bannerRequestBody(payload) },
     };
   };
-  const luckyCredits = luckySteps().reduce((sum, st) => sum + st.credits, 0);
+  /** В смете — ещё шапка письма: делается из готового баннера, после него. */
+  const HERO_PLAN = { id: "email-hero", label: "Шапка письма — баннер без текстов", credits: EMAIL_HERO_PRICE_CREDITS };
+  const luckyCredits = luckySteps().reduce((sum, st) => sum + st.credits, 0) + HERO_PLAN.credits;
   const startLucky = () => {
     if (!roll) return;
     if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
@@ -372,7 +399,7 @@ export function CampaignApp() {
     };
   }, [full, ready, showPlayable]);
 
-  const emailHtml = useMemo(() => (showEmail ? buildEmailHtml(briefEmail(full)) : ""), [full, showEmail]);
+  const emailHtml = useMemo(() => buildEmailHtml(briefEmail(full)), [full]);
   /** Поле ещё не трогали руками: пустое или равно умолчанию брифа на этом языке. */
   const untouched = (p: CampaignBrief, k: "offer" | "cta" | "headline") => {
     const v = p[k].trim();
@@ -518,7 +545,7 @@ export function CampaignApp() {
         zip.file("playable/web.html", await briefPlayableHtml(full, browserLoader, "web"));
         zip.file("playable/mraid.html", await briefPlayableHtml(full, browserLoader, "mraid"));
       }
-      if (showEmail) zip.file("email/email.html", emailHtml);
+      zip.file("email/email.html", emailHtml);
       // Баннер «Мне повезёт» — как есть, в его формате.
       const banner = art?.banner?.match(/^data:image\/(\w+);base64,(.+)$/);
       if (banner) zip.file(`banner/banner-16x9.${banner[1] === "jpeg" ? "jpg" : banner[1]}`, banner[2], { base64: true });
@@ -530,7 +557,7 @@ export function CampaignApp() {
           "landing/index.html — лендинг, один файл: загрузите на хостинг или в трекер.",
           showPlayable ? "playable/mraid.html — плейбл для MRAID-сетей (AppLovin, Unity, Liftoff); web.html — для сайта." : "",
           art?.banner ? "banner/ — баннер 16:9; другие размеры — в генераторе баннеров (раздел «Мои проекты»)." : "",
-          showEmail ? "email/email.html — письмо; картинки сторов перед рассылкой залейте через генератор писем." : "",
+          "email/email.html — письмо: шапка — баннер кампании без текстов; картинки перед рассылкой разместите на хостинге (генератор писем делает это при выгрузке).",
           "",
           `Ссылка по кнопкам: ${b.link || "не задана — добавьте в редакторах"}`,
         ]
@@ -557,7 +584,7 @@ export function CampaignApp() {
   const tabs: { id: Tab; label: string; icon: typeof Mail; on: boolean }[] = [
     { id: "landing", label: "Лендинг", icon: MonitorSmartphone, on: true },
     { id: "playable", label: "Плейбл", icon: Gamepad2, on: showPlayable },
-    { id: "email", label: "Письмо", icon: Mail, on: showEmail },
+    { id: "email", label: "Письмо", icon: Mail, on: true },
     { id: "banner", label: "Баннер", icon: Megaphone, on: true },
   ];
   const accent = briefAccent(b);
@@ -609,7 +636,7 @@ export function CampaignApp() {
           </div>
           <AssetRunPanel
             title="Мне повезёт"
-            plan={luckySteps()}
+            plan={[...luckySteps(), HERO_PLAN]}
             steps={lucky.steps}
             running={lucky.running}
             notEnough={lucky.notEnough}
@@ -832,7 +859,16 @@ export function CampaignApp() {
           ) : tab === "playable" ? (
             <iframe title="Плейбл кампании" srcDoc={playableHtml} sandbox="allow-scripts" className="block w-full max-w-[340px] rounded-xl border border-border bg-black" style={{ aspectRatio: "9 / 16" }} />
           ) : tab === "email" ? (
-            <div className="w-full overflow-x-auto">
+            <div className="flex w-full flex-col items-center gap-2 overflow-x-auto">
+              {heroBusy ? (
+                <p className="inline-flex items-center gap-1.5 ds-caption">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Делаем шапку письма из баннера — без текстов…
+                </p>
+              ) : art?.banner && !art.emailHero ? (
+                <button type="button" onClick={() => void makeEmailHero(art.banner!)} className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition ${CHIP_OFF}`}>
+                  <ImageIcon className="h-4 w-4" /> Сделать шапку из баннера · {EMAIL_HERO_PRICE_CREDITS}
+                </button>
+              ) : null}
               <iframe title="Письмо кампании" srcDoc={emailHtml} sandbox="" className="mx-auto block h-[720px] w-[640px] rounded-xl border border-border bg-white" />
             </div>
           ) : (
@@ -854,7 +890,7 @@ export function CampaignApp() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className={`flex flex-wrap items-center justify-center gap-2 ${tab === "email" && !emailEditor ? "hidden" : ""}`}>
           <button
             type="button"
             onClick={() => void openEditor(tab)}
@@ -870,7 +906,7 @@ export function CampaignApp() {
             : tab === "playable"
               ? "Плейбл играется в превью. В архиве — версии для MRAID-сетей и для сайта."
               : tab === "email"
-                ? "Письмо по шаблону под ваш тип трафика — тема, заголовок, кнопка и цвет из брифа."
+                ? "Письмо по шаблону под ваш тип трафика — тексты, кнопка и цвет из брифа; шапка — баннер кампании без текстов (после «Мне повезёт»)."
                 : "Генерация баннера тратит кредиты; остальные части кампании — бесплатно."}
         </p>
       </section>

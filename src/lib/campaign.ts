@@ -95,6 +95,8 @@ export type CampaignArt = {
   palette?: ImagePalette | null;
   /** Баннер 16:9 в той же теме (генератор баннеров). */
   banner?: string;
+  /** Шапка письма — тот же баннер без текстов (generate-email-hero, textlessOf). */
+  emailHero?: string;
 };
 
 /** Сцены для «Мне повезёт»: те, где главное на экране целиком рисует ИИ, а не вектор. */
@@ -350,6 +352,8 @@ export function briefEmail(b: CampaignBrief): EmailDraft {
     heroTitle: offer ? `${briefHeadline(b)}: **${offer.toUpperCase()}**` : d.heroTitle,
     ctaText: b.cta ? b.cta.toUpperCase() : d.ctaText,
     accent: briefAccent(b),
+    // Шапка — баннер кампании без текстов: тексты письма живые, их не дублируем картинкой.
+    ...(b.art?.emailHero ? { heroImage: b.art.emailHero, heroSource: b.art.emailHero, blocks: { ...d.blocks, hero: true } } : {}),
     ...(b.logo ? { logo: b.logo, brandMode: "logo" as const } : {}),
   };
 }

@@ -12,7 +12,9 @@
 // builders for their AI background + character generation — same engine,
 // just a different prompt source.
 //
-// Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model? }
+// Body: { brand?, heroTitle?, body?, logoBase64?, logoMode?, model?, textlessOf? }
+//   textlessOf — готовый баннер (data URL): нарисовать ТУ ЖЕ картинку без
+//   текстов, кнопок и цифр (шапка письма кампании «такая же, как баннер»).
 // Response: { imageUrl (data URL), prompt, costUsd }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
@@ -49,6 +51,8 @@ type Body = {
   palette?: { accent?: string; base?: string };
   aspectRatio?: string;
   feature?: string;
+  /** Готовый баннер — нарисовать ту же картинку без текстов (шапка письма кампании). */
+  textlessOf?: string;
 };
 
 const NO_TEXT =
@@ -134,6 +138,7 @@ export async function POST(request: Request) {
   for (const [k, v] of [
     ["logoBase64", body.logoBase64],
     ["styleReferenceImage", body.styleReferenceImage],
+    ["textlessOf", body.textlessOf],
   ] as const) {
     const bad = assertImageDataUrl(k, v);
     if (bad) return bad;
@@ -168,11 +173,14 @@ export async function POST(request: Request) {
   const noText = drawsLogo ? NO_TEXT_WITH_LOGO : NO_TEXT;
 
   const preset = (body.presetTemplate || "").trim();
-  if (!preset && !brief) return Response.json({ error: "Пустой бриф" }, { status: 400 });
-  const base = preset
-    ? preset
-    : (await composePrompt(brief, apiKey, noText)) ||
-      `Cinematic iGaming promotional hero banner for: ${brief}`;
+  const hasSource = typeof body.textlessOf === "string" && body.textlessOf.startsWith("data:image/");
+  if (!preset && !brief && !hasSource) return Response.json({ error: "Пустой бриф" }, { status: 400 });
+  // С источником (копия баннера без текста) промпт-агент не нужен.
+  const base = hasSource
+    ? ""
+    : preset
+      ? preset
+      : (await composePrompt(brief, apiKey, noText)) || `Cinematic iGaming promotional hero banner for: ${brief}`;
   // Правила композиции — только для баннера письма: они требуют широкий кадр
   // 16:9. Этот же роут рисует фоны лендингов и плейблов (3:2, 9:16, 1:1), и
   // там такое правило спорило бы с пропорцией холста.
@@ -202,9 +210,22 @@ export async function POST(request: Request) {
     });
   }
 
+  // Шапка письма кампании: та же картинка, что баннер, только без надписей.
+  // Источник уходит в image-to-image, промпт — «повтори, убери текст».
+  const textlessOf = typeof body.textlessOf === "string" && body.textlessOf.startsWith("data:image/") ? body.textlessOf : "";
+  if (textlessOf) {
+    refs.splice(0, refs.length, {
+      dataUrl: textlessOf,
+      note:
+        "SOURCE: the attached image is the approved campaign banner. Reproduce THIS SAME image — identical composition, " +
+        "framing, objects, characters, colours, materials and lighting — but REMOVE every piece of text: headline, letters, " +
+        "numbers, buttons, badges, logos and wordmarks. Repaint those areas naturally so the background continues seamlessly. " +
+        "Do not add anything new.",
+    });
+  }
   const aspectRatio = (body.aspectRatio || "").trim() || "3:2";
   const size = openAiSizeString(aspectRatio);
-  const fullPrompt = (prompt + (refs.length ? "\n\n" + refs.map((r) => r.note).join("\n") : "")).slice(
+  const fullPrompt = ((textlessOf ? `Clean text-free version of the attached banner, same image.\n\n${NO_TEXT}` : prompt) + (refs.length ? "\n\n" + refs.map((r) => r.note).join("\n") : "")).slice(
     0,
     4000,
   );

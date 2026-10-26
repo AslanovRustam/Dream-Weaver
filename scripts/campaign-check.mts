@@ -152,6 +152,15 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("тематика: без неё — заголовок по умолчанию", !briefLandingHtml.length || briefEmail(defaultBrief("casino", "ru")).heroTitle.startsWith("ЗАБЕРИ СВОЙ БОНУС"));
 }
 
+// ---- письмо в кампании: шапка — баннер без текстов
+{
+  const HERO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==#hero";
+  const withHero: CampaignBrief = { ...defaultBrief("casino", "ru"), art: { scene: "safe", theme: "vikings", themeName: "Викинги", emailHero: HERO } };
+  const em = briefEmail(withHero);
+  check("письмо: шапка — баннер без текстов", em.heroImage === HERO && em.blocks.hero === true && buildEmailHtml(em).includes("#hero"));
+  check("письмо: без шапки — как раньше", !briefEmail(defaultBrief("casino", "ru")).heroImage);
+}
+
 // ---- гамма и реф
 {
   const blue: CampaignBrief = { ...defaultBrief("casino", "en"), link: LINK, pickColor: "#2a6cff", refScene: "neon city rooftop at night" };
