@@ -10,6 +10,7 @@ import { safeFetchImage } from "@/lib/safe-fetch";
 import { rateLimitResponse, MAX_DATAURL_BYTES, acquireSlot, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 import { grokOnFailure, grokPrimaryText } from "@/lib/grokImage";
+import { EU_LANGS } from "@/lib/euLangs";
 
 export const runtime = "nodejs";
 // The master model (openai/gpt-5.4-image-2) can take ~2–3 min per banner, so
@@ -165,15 +166,10 @@ type Body = {
 // DB (total_tokens × coefficient), not by hard-coded provider prices —
 // we keep the old USD reference removed.
 
-const LANG_LABELS: Record<string, string> = {
-  ru: "Russian (Русский)",
-  uk: "Ukrainian (Українська)",
-  en: "English",
-  es: "Spanish (Español)",
-  de: "German (Deutsch)",
-  fr: "French (Français)",
-  pl: "Polish (Polski)",
-};
+/** Язык текстов на баннере: все европейские (как у кампании) — «German (Deutsch)». */
+const LANG_LABELS: Record<string, string> = Object.fromEntries(
+  EU_LANGS.map((l) => [l.id, l.english === l.label ? l.english : `${l.english} (${l.label})`]),
+);
 
 // openAiSizeFor moved to src/lib/imageSizes.ts so it can be shared
 // with cardWriter (which records the same dimensions on the

@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
+import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import type { LandingKind, LandingLang } from "../src/lib/landingKit";
 import type { SceneLoader } from "../src/lib/scenes/build";
@@ -133,6 +133,15 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("повезёт: у другой сцены деталей нет, фон остаётся", !other.art && other.bgImage === art.bg);
   const sd = briefEditorDraft(lb, "playable").writes[0][1] as { art?: Record<string, string>; theme?: string; bgImage?: string };
   check("повезёт: в редактор — детали, фон и тема", sd.art?.door === art.art!.door && sd.theme === "vikings" && sd.bgImage === art.bg);
+}
+
+// ---- «Мне повезёт»: баннер — в теме, с оффером и кнопкой, на языке кампании
+{
+  const bp = luckyBannerPayload({ ...defaultBrief("casino", "pl"), brand: "Lucky", offer: "MEGA OFFER 777", cta: "Odbierz" }, "vikings");
+  check("баннер: 16:9, универсальный пресет", bp.aspect_ratio === "16:9" && bp.preset_id === "preset1");
+  check("баннер: тема, оффер, кнопка, бренд, язык", bp.prompt.includes("vikings") && bp.banner_text === "MEGA OFFER 777" && bp.button_text === "Odbierz" && bp.brand_name === "Lucky" && bp.language === "pl");
+  const sp = luckyBannerPayload({ ...defaultBrief("sport", "ru"), offer: "" }, "night stadium");
+  check("баннер: спорт — промо ставок, без оффера — заголовок", sp.prompt.startsWith("sports-betting") && sp.banner_text.length > 0);
 }
 
 // ---- гамма и реф

@@ -85,6 +85,8 @@ export type CampaignArt = {
   gameImgs?: string[];
   /** Палитра сгенерированного фона — гамма, если нет рефа и пипетки. */
   palette?: ImagePalette | null;
+  /** Баннер 16:9 в той же теме (генератор баннеров). */
+  banner?: string;
 };
 
 /** Сцены для «Мне повезёт»: те, где главное на экране целиком рисует ИИ, а не вектор. */
@@ -351,6 +353,32 @@ export function briefSource(b: CampaignBrief): CampaignI18n {
     defaults: briefDefaults(b.kind, "en"),
     email: baseEmail({ ...b, brand: "BRAND", link: "" }),
   });
+}
+
+/**
+ * Баннер для «Мне повезёт»: универсальный пресет, тема кампании, оффер
+ * заголовком и кнопка — на языке кампании. 16:9; ресайзы — в генераторе баннеров.
+ */
+export function luckyBannerPayload(b: CampaignBrief, theme: string) {
+  const what = b.kind === "sport" ? "sports-betting promo" : "online casino promo";
+  return {
+    preset_id: "preset1",
+    prompt: `${what} key visual in the theme: ${theme}`,
+    banner_text: (b.offer.trim() || briefHeadline(b)).slice(0, 80),
+    button_text: (b.cta.trim() || briefDefaults(b.kind, b.lang, tr(b)).cta).slice(0, 24),
+    banner_text_enabled: true,
+    button_text_enabled: true,
+    ad_texts_enabled: true,
+    person_enabled: false,
+    person_gender: null,
+    brand_name: b.brand.trim(),
+    brand_logo: b.logo,
+    language: b.lang,
+    aspect_ratio: "16:9",
+    model: "openai/gpt-5.4-image-2",
+    quality: "medium" as const,
+    template_options: "",
+  };
 }
 
 /** Баннер: пресет по типу трафика и промпт из бренда, оффера и сцены рефа. */

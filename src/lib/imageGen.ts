@@ -180,64 +180,68 @@ export type GenerateResult = {
   generation_id?: string | null;
 };
 
+/** Тело запроса /api/generate-image — то же для вкладки и для серверной очереди генераций. */
+export function bannerRequestBody(payload: GeneratePayload): Record<string, unknown> {
+  const preset = PRESETS.find((p) => p.id === payload.preset_id);
+  const subject = payload.prompt.trim();
+  return {
+    preset_id: payload.preset_id,
+    subject,
+    template: preset?.template ?? null,
+    banner_text: payload.banner_text || "",
+    button_text: payload.button_text || "",
+    aspect_ratio: payload.aspect_ratio,
+    model: payload.model,
+    ad_texts_enabled: payload.ad_texts_enabled,
+    person_enabled: payload.person_enabled,
+    person_gender: payload.person_gender,
+    brand_name: payload.brand_name || "",
+    brand_logo: payload.brand_logo || "",
+    language: payload.language || "auto",
+    slot_name: payload.slot_name || "",
+    slot_screenshot: payload.slot_screenshot || "",
+    slot_logo: payload.slot_logo || "",
+    event_text: payload.event_text || "",
+    subheadline_text: payload.subheadline_text || "",
+    banner_text_enabled: !!payload.banner_text_enabled,
+    button_text_enabled: !!payload.button_text_enabled,
+    subheadline_enabled: !!payload.subheadline_enabled,
+    sport_type: payload.sport_type || "",
+    match_type: payload.match_type || "",
+    side_a_name: payload.side_a_name || "",
+    side_a_logo: payload.side_a_logo || "",
+    side_b_name: payload.side_b_name || "",
+    side_b_logo: payload.side_b_logo || "",
+    event_name: payload.event_name || "",
+    match_datetime: payload.match_datetime || "",
+    location: payload.location || "",
+    bonus_text: payload.bonus_text || "",
+    bonus_enabled: !!payload.bonus_enabled,
+    players_enabled: payload.players_enabled,
+    side_a_players: payload.side_a_players || "",
+    side_b_players: payload.side_b_players || "",
+    quality: payload.quality || "medium",
+    template_options: payload.template_options || "",
+    variation: payload.variation || "",
+    source_image: payload.source_image,
+    target_w: payload.target_w,
+    target_h: payload.target_h,
+    master_details: payload.master_details,
+    group_id: payload.group_id,
+    card_id: payload.card_id,
+    skip_history_attach: payload.skip_history_attach,
+  };
+}
+
 export async function generateImage(payload: GeneratePayload): Promise<GenerateResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
   const startedAt = Date.now();
   try {
-    const preset = PRESETS.find((p) => p.id === payload.preset_id);
-    const subject = payload.prompt.trim();
-
     const res = await apiFetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        preset_id: payload.preset_id,
-        subject,
-        template: preset?.template ?? null,
-        banner_text: payload.banner_text || "",
-        button_text: payload.button_text || "",
-        aspect_ratio: payload.aspect_ratio,
-        model: payload.model,
-        ad_texts_enabled: payload.ad_texts_enabled,
-        person_enabled: payload.person_enabled,
-        person_gender: payload.person_gender,
-        brand_name: payload.brand_name || "",
-        brand_logo: payload.brand_logo || "",
-        language: payload.language || "auto",
-        slot_name: payload.slot_name || "",
-        slot_screenshot: payload.slot_screenshot || "",
-        slot_logo: payload.slot_logo || "",
-        event_text: payload.event_text || "",
-        subheadline_text: payload.subheadline_text || "",
-        banner_text_enabled: !!payload.banner_text_enabled,
-        button_text_enabled: !!payload.button_text_enabled,
-        subheadline_enabled: !!payload.subheadline_enabled,
-        sport_type: payload.sport_type || "",
-        match_type: payload.match_type || "",
-        side_a_name: payload.side_a_name || "",
-        side_a_logo: payload.side_a_logo || "",
-        side_b_name: payload.side_b_name || "",
-        side_b_logo: payload.side_b_logo || "",
-        event_name: payload.event_name || "",
-        match_datetime: payload.match_datetime || "",
-        location: payload.location || "",
-        bonus_text: payload.bonus_text || "",
-        bonus_enabled: !!payload.bonus_enabled,
-        players_enabled: payload.players_enabled,
-        side_a_players: payload.side_a_players || "",
-        side_b_players: payload.side_b_players || "",
-        quality: payload.quality || "medium",
-        template_options: payload.template_options || "",
-        variation: payload.variation || "",
-        source_image: payload.source_image,
-        target_w: payload.target_w,
-        target_h: payload.target_h,
-        master_details: payload.master_details,
-        group_id: payload.group_id,
-        card_id: payload.card_id,
-        skip_history_attach: payload.skip_history_attach,
-      }),
+      body: JSON.stringify(bannerRequestBody(payload)),
       signal: controller.signal,
     });
     const data = (await res.json().catch(() => ({}))) as {

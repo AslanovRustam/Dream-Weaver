@@ -16,6 +16,8 @@ import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { idbGet, idbSet } from "@/lib/idbStore";
 import { prepareScenePart, sceneAiStyle, scenePartRequest } from "@/lib/scenes/assets";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
+import { bannerRequestBody, generateImage, type GeneratePayload } from "@/lib/imageGen";
+import { BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { browserLoader } from "@/lib/scenes/build";
 import { SCENES, scenePartsFor } from "@/lib/scenes/presets";
 import { buildEmailHtml } from "@/lib/emailExport";
@@ -40,6 +42,7 @@ import {
   briefPlayableHtml,
   briefSource,
   defaultBrief,
+  luckyBannerPayload,
   luckyRoll,
   type CampaignArt,
   type CampaignBrief,
@@ -187,6 +190,10 @@ export function CampaignApp() {
     theme: roll?.theme ?? "",
   });
   const applyLucky = async (key: string, dataUrl: string) => {
+    if (key === "banner") {
+      setArt((a) => a && { ...a, banner: dataUrl });
+      return;
+    }
     if (key.startsWith("x-")) {
       await extrasAssets.apply(key.slice(2), dataUrl);
       return;
@@ -224,7 +231,23 @@ export function CampaignApp() {
         return { id: `s-${p.id}`, label: p.label, credits: r.credits, run: callStep(`s-${p.id}`, r.route, r.body), server: { route: r.route, body: r.body } };
       }),
       ...extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })),
+      bannerStep(roll.theme),
     ];
+  };
+  /** Баннер в той же теме — генератором баннеров; попадает и в «Мои проекты» как обычный баннер. */
+  const bannerStep = (theme: string): AssetStep => {
+    const payload = luckyBannerPayload(full, theme) as GeneratePayload;
+    return {
+      id: "banner",
+      label: "Баннер 16:9",
+      credits: BANNER_PRICE_CREDITS,
+      run: async () => {
+        const r = await generateImage(payload);
+        await applyLucky("banner", r.image);
+        return true;
+      },
+      server: { route: "/api/generate-image", body: bannerRequestBody(payload) },
+    };
   };
   const luckyCredits = luckySteps().reduce((sum, st) => sum + st.credits, 0);
   const startLucky = () => {
@@ -455,6 +478,9 @@ export function CampaignApp() {
         zip.file("playable/mraid.html", await briefPlayableHtml(full, browserLoader, "mraid"));
       }
       if (showEmail) zip.file("email/email.html", emailHtml);
+      // Баннер «Мне повезёт» — как есть, в его формате.
+      const banner = art?.banner?.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (banner) zip.file(`banner/banner-16x9.${banner[1] === "jpeg" ? "jpg" : banner[1]}`, banner[2], { base64: true });
       zip.file(
         "README.txt",
         [
@@ -462,6 +488,7 @@ export function CampaignApp() {
           "",
           "landing/index.html — лендинг, один файл: загрузите на хостинг или в трекер.",
           showPlayable ? "playable/mraid.html — плейбл для MRAID-сетей (AppLovin, Unity, Liftoff); web.html — для сайта." : "",
+          art?.banner ? "banner/ — баннер 16:9; другие размеры — в генераторе баннеров (раздел «Мои проекты»)." : "",
           showEmail ? "email/email.html — письмо; картинки сторов перед рассылкой залейте через генератор писем." : "",
           "",
           `Ссылка по кнопкам: ${b.link || "не задана — добавьте в редакторах"}`,
@@ -754,6 +781,13 @@ export function CampaignApp() {
               <iframe title="Письмо кампании" srcDoc={emailHtml} sandbox="" className="mx-auto block h-[720px] w-[640px] rounded-xl border border-border bg-white" />
             </div>
           ) : (
+            art?.banner ? (
+              <div className="flex w-full flex-col items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={art.banner} alt="Баннер кампании" className="w-full max-w-2xl rounded-xl border border-border" />
+                <p className="ds-caption">Баннер 16:9 из «Мне повезёт». Другие размеры — в генераторе баннеров (кнопка ниже).</p>
+              </div>
+            ) : (
             <div className="flex w-full max-w-xl flex-col items-center gap-3 py-10 text-center">
               <ImageIcon className="h-8 w-8 text-muted-foreground" />
               <p className="ds-h4">Баннер рисует ИИ — в генераторе баннеров</p>
@@ -761,6 +795,7 @@ export function CampaignApp() {
                 Откроем генератор с вашим брендом, лого и промптом из оффера и темы: «{briefBanner(b).prompt}»
               </p>
             </div>
+            )
           )}
         </div>
 

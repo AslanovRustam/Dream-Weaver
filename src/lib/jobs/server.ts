@@ -37,7 +37,8 @@ export const JOB_ROUTES: Record<string, { credits: () => number }> = {
   "/api/generate-image": { credits: () => estimateBannerCredits() },
 };
 
-export const MAX_STEPS_PER_BATCH = 8;
+/** «Мне повезёт» в кампании: детали сцены, фон, награда, блоки и баннер — до 10 шагов. */
+export const MAX_STEPS_PER_BATCH = 12;
 
 /**
  * Сколько живёт вызов на платформе. Совпадает с maxDuration роутов очереди:
