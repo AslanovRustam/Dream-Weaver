@@ -33,7 +33,8 @@ export function PlayableTile({
         selected ? "border-accent-green shadow-[0_0_30px_rgba(198,255,61,0.16)]" : "border-border hover:bg-[var(--bg-surface-hover)]"
       }`}
     >
-      <LivePreview still={item.preview} className="aspect-[3/4] w-full rounded-md bg-[#0b0d12] bg-cover bg-center" />
+      {/* Кадры сняты 9:16; в 2:3 при сдвиге к 30% влезают и бренд с заголовком, и призыв внизу — режется только юр. строка. */}
+      <LivePreview still={item.preview} className="aspect-[2/3] w-full rounded-md bg-[#0b0d12] bg-cover bg-[position:center_30%]" />
       <p className="truncate text-xs font-medium">{item.name}</p>
       {compact ? null : <p className="-mt-1 line-clamp-2 ds-caption">{item.description}</p>}
       {selected ? (
