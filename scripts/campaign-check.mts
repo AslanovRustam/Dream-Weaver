@@ -14,6 +14,7 @@ import { join } from "node:path";
 
 import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
+import { normalizeTzPlan } from "../src/lib/campaignTz";
 import type { LandingKind, LandingLang } from "../src/lib/landingKit";
 import type { SceneLoader } from "../src/lib/scenes/build";
 
@@ -171,6 +172,29 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("части: по умолчанию — всё", all.landing && all.playable && all.email && all.banner);
   const some = briefParts({ parts: { landing: true, playable: false, email: true, banner: false } });
   check("части: выбор держится", some.landing && !some.playable && some.email && !some.banner);
+}
+
+// ---- как поняли ТЗ: план креативов — только допустимые значения; шаблон письма и текст баннера — в кампанию
+{
+  const p = normalizeTzPlan({
+    summary: "Plinko для Olymp",
+    landing: { make: true, mechanic: "scene", scene: "plinko", why: "игра из ТЗ" },
+    playable: { make: true, scene: "plinko" },
+    banner: { make: true },
+    email: { make: false, template: "nope" },
+    bannerText: "Бонус 222FS + 50 000 ₽",
+    notes: ["сценарий бросков", 5],
+  });
+  check("ТЗ: сцена и механика", p?.landing.mechanic === "scene" && p.landing.scene === "plinko" && p.playable.scene === "plinko");
+  check("ТЗ: неизвестный шаблон письма — welcome", p?.email.template === "welcome" && p.email.make === false);
+  check("ТЗ: заметки — только строки", p?.notes.length === 1);
+  const bad = normalizeTzPlan({ landing: { mechanic: "rocket", scene: "tetris" }, playable: { scene: "tetris" } });
+  check("ТЗ: мусор — колесо без сцены", bad?.landing.mechanic === "wheel" && bad.landing.scene === null && bad.playable.scene === null);
+  check("ТЗ: не JSON-объект — null", normalizeTzPlan("x") === null && normalizeTzPlan(null) === null);
+  const b: CampaignBrief = { ...defaultBrief("casino", "ru"), link: LINK, emailTemplate: "reload", bannerText: "Бонус 222FS" };
+  check("ТЗ: шаблон письма из плана", briefEmail(b).body !== briefEmail({ ...b, emailTemplate: "" }).body);
+  check("ТЗ: текст баннера из плана", luckyBannerPayload(b, "plinko").banner_text === "Бонус 222FS");
+  check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
 }
 
 // ---- гамма и реф

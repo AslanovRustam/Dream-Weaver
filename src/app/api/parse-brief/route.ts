@@ -8,6 +8,7 @@ import type { SectionId } from "@/lib/sections";
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, rejectLargeBody, sniffDocument } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
+import { interpretCampaignTz } from "@/lib/campaignTz";
 
 export const runtime = "nodejs";
 
@@ -153,6 +154,8 @@ export async function POST(request: Request) {
   if (!apiKey) {
     return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
   }
+  // Кампания: параллельно с полями — интерпретация ТЗ (какие креативы подходят и почему).
+  const planP = product === "campaign" ? interpretCampaignTz(brief, apiKey).catch(() => ({ plan: null, usage: null })) : null;
   const providers = [
     { url: "https://api.openai.com/v1/chat/completions", key: apiKey, model: "gpt-4o-mini" },
   ];
@@ -230,5 +233,17 @@ export async function POST(request: Request) {
   }
   const generationPrompt = typeof parsed.generationPrompt === "string" ? parsed.generationPrompt.trim() : "";
 
-  return Response.json({ fields, generationPrompt, briefChars, costUsd: usage.costUsd });
+  let plan = null;
+  let costUsd = usage.costUsd;
+  if (planP) {
+    const r = await planP;
+    plan = r.plan;
+    if (r.usage) {
+      const u = extractUsage(r.usage, "gpt-5.4-mini");
+      await recordUsage(authedUser.id, { model: "gpt-5.4-mini", feature: "parse-brief", type: "llm", ...u });
+      if (typeof u.costUsd === "number") costUsd = (costUsd ?? 0) + u.costUsd;
+    }
+  }
+
+  return Response.json({ fields, generationPrompt, briefChars, costUsd, plan });
 }

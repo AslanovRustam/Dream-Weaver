@@ -29,6 +29,8 @@ import { shrinkPng } from "@/lib/imageCompress";
 import { apiFetch } from "@/lib/api-client";
 import { sourceHash, type CampaignI18n } from "@/lib/campaignI18n";
 import { EU_LANGS, isBuiltInLang } from "@/lib/euLangs";
+import type { CampaignTzPlan } from "@/lib/campaignTz";
+import { EMAIL_TEMPLATES } from "@/lib/emailTemplates";
 import { paletteFromImage } from "@/lib/imagePalette";
 import type { LandingKind } from "@/lib/landingKit";
 import { isSectionEnabled } from "@/lib/mvp";
@@ -189,7 +191,7 @@ export function CampaignApp() {
     topic: "тематика", brand: "бренд", site: "бренд и лого с сайта", kind: "тип трафика", lang: "язык", offer: "оффер",
     headline: "заголовок", cta: "кнопка", link: "ссылка", amount: "выигрыш", unit: "единица", parts: "что делаем",
   };
-  const applyTz = async (fields: Record<string, string>) => {
+  const applyTz = async (fields: Record<string, string>, plan: CampaignTzPlan | null = null) => {
     const filled: string[] = [];
     // Новый бриф считаем сразу (а не в updater React — тот выполнится позже, и список «что заполнено» был бы пуст).
     {
@@ -243,6 +245,31 @@ export function CampaignApp() {
           filled.push(TZ_LABELS.parts);
         }
       }
+      next.tzPlan = plan;
+      next.emailTemplate = "";
+      next.bannerText = "";
+      if (plan) {
+        // Тематика плана главнее поля: поле модель иногда додумывает из примеров подсказки.
+        if (plan.topic) {
+          next.topic = plan.topic.slice(0, 200);
+          if (!filled.includes(TZ_LABELS.topic)) filled.push(TZ_LABELS.topic);
+        }
+        // Механика лендинга — из доступных для типа трафика.
+        const mech = LANDING_OPTIONS[next.kind].some((o) => o.id === plan.landing.mechanic) ? plan.landing.mechanic : null;
+        const sceneId = (mech === "scene" ? plan.landing.scene : null) ?? plan.playable.scene;
+        const sc = SCENES.find((x) => x.id === sceneId);
+        if (sc) {
+          next.scene = sc.id;
+          next.fixedScene = sc.id;
+          if (!filled.some((f) => f.startsWith("игра"))) filled.push(`игра «${sc.label}»`);
+        }
+        if (mech && (mech !== "scene" || sc)) next.landing = mech;
+        if (!fields.parts) next.parts = { landing: plan.landing.make, playable: plan.playable.make, email: plan.email.make, banner: plan.banner.make };
+        next.emailTemplate = plan.email.template;
+        next.bannerText = plan.bannerText;
+        if (!next.headline.trim() && plan.headline) next.autoHeadline = plan.headline;
+        filled.push("подбор креативов");
+      }
       setB(next);
     }
     // Сайт бренда в ТЗ — лого, название и цвет с него (как «Найти по сайту»).
@@ -279,9 +306,9 @@ export function CampaignApp() {
     try {
       const payload = file ? { product: "campaign", fileBase64: await readFile(file), fileName: file.name } : { product: "campaign", text };
       const res = await apiFetch("/api/parse-brief", { method: "POST", json: payload });
-      const data = (await res.json().catch(() => ({}))) as { fields?: Record<string, string>; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { fields?: Record<string, string>; plan?: CampaignTzPlan | null; error?: string };
       if (!res.ok || !data.fields) throw new Error(data.error || "Не удалось разобрать ТЗ");
-      const filled = await applyTz(data.fields);
+      const filled = await applyTz(data.fields, data.plan ?? null);
       if (filled.length) toast.success(`Из ТЗ: ${filled.join(", ")}`);
       else toast("В ТЗ не нашлось данных для кампании — впишите тематику руками");
     } catch (e) {
@@ -312,6 +339,11 @@ export function CampaignApp() {
       if (isGuest) {
         // Без входа — без подбора: тема как есть, сцена случайная.
         setRoll({ scene: scenes[Math.floor(Math.random() * scenes.length)], theme: topic, themeName: topic });
+        return;
+      }
+      const tz = latestB.current.tzPlan;
+      if (tz && tz.topic && tz.topic === topic && tz.visual) {
+        setRoll({ scene: latestB.current.fixedScene ?? scenes[0], theme: tz.visual, themeName: topic });
         return;
       }
       setPlanning(true);
@@ -826,6 +858,7 @@ export function CampaignApp() {
                   Заполнено из ТЗ: {tzFilled.join(", ")}.{b.topic ? <> Тематика: <b className="text-foreground">{b.topic}</b>.</> : null}
                 </p>
               ) : null}
+              {b.tzPlan ? <TzPlanCard plan={b.tzPlan} kind={b.kind} /> : null}
             </div>
           )}
         </div>
@@ -1168,6 +1201,43 @@ export function CampaignApp() {
                 : "Генерация баннера тратит кредиты; остальные части кампании — бесплатно."}
         </p>
       </section>
+    </div>
+  );
+}
+
+/** «Как поняли ТЗ»: что делаем и почему — выбор креативов по ТЗ. */
+function TzPlanCard({ plan, kind }: { plan: CampaignTzPlan; kind: LandingKind }) {
+  const sceneLabel = (id: string | null) => SCENES.find((s) => s.id === id)?.label ?? id ?? "";
+  const mech = LANDING_OPTIONS[kind].find((o) => o.id === plan.landing.mechanic)?.label ?? plan.landing.mechanic;
+  const rows: { on: boolean; title: string; what: string; why: string }[] = [
+    { on: plan.landing.make, title: "Лендинг", what: plan.landing.mechanic === "scene" ? `игра «${sceneLabel(plan.landing.scene)}»` : mech, why: plan.landing.why },
+    { on: plan.playable.make, title: "Плейбл", what: plan.playable.scene ? `«${sceneLabel(plan.playable.scene)}»` : "", why: plan.playable.why },
+    { on: plan.banner.make, title: "Баннер", what: plan.bannerText ? `«${plan.bannerText}»` : "", why: plan.banner.why },
+    { on: plan.email.make, title: "Письмо", what: EMAIL_TEMPLATES.find((t) => t.id === plan.email.template)?.name ?? plan.email.template, why: plan.email.why },
+  ];
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-elevated/60 p-3 text-sm">
+      <p className="font-semibold">Как поняли ТЗ</p>
+      {plan.summary ? <p className="ds-caption">{plan.summary}</p> : null}
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.title} className={r.on ? "" : "opacity-50"}>
+            <b>{r.title}</b>
+            {r.on ? (r.what ? <> — {r.what}</> : null) : " — не делаем"}
+            {r.why ? <span className="block ds-caption">{r.why}</span> : null}
+          </li>
+        ))}
+      </ul>
+      {plan.notes.length ? (
+        <div className="ds-caption">
+          <p className="font-medium text-foreground/80">Из ТЗ не сделаем как написано:</p>
+          <ul className="list-disc pl-4">
+            {plan.notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

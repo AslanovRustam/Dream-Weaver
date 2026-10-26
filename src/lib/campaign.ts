@@ -32,6 +32,8 @@ import { buildWheelHtml } from "./wheelExport";
 
 export type CampaignLanding = "wheel" | "slot" | "crash" | "match" | "scene";
 
+import type { CampaignTzPlan } from "./campaignTz";
+
 export type CampaignBrief = {
   /**
    * Тематика кампании своими словами («викинги», «Хэллоуин», «финал ЛЧ») —
@@ -45,6 +47,12 @@ export type CampaignBrief = {
   parts?: CampaignParts;
   /** Игра, заданная в ТЗ (plinko…): «Мне повезёт» не подменяет её случайной сценой. */
   fixedScene?: SceneId;
+  /** Шаблон письма, подобранный по ТЗ (id из EMAIL_TEMPLATES); пусто — по типу трафика. */
+  emailTemplate?: string;
+  /** Текст баннера, подобранный по ТЗ; пусто — оффер или заголовок. */
+  bannerText?: string;
+  /** Как поняли ТЗ: выбор креативов с причинами — для карточки в форме. */
+  tzPlan?: CampaignTzPlan | null;
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
@@ -348,7 +356,10 @@ export async function briefPlayableHtml(b: CampaignBrief, load: SceneLoader, net
 
 /** Письмо по шаблону под тип трафика — до брифа и перевода: с него берутся тексты для переводчика. */
 function baseEmail(b: CampaignBrief): EmailDraft {
-  const tpl = EMAIL_TEMPLATES.find((x) => x.id === (b.kind === "sport" ? "express" : "welcome")) ?? EMAIL_TEMPLATES[0];
+  const tpl =
+    EMAIL_TEMPLATES.find((x) => x.id === b.emailTemplate) ??
+    EMAIL_TEMPLATES.find((x) => x.id === (b.kind === "sport" ? "express" : "welcome")) ??
+    EMAIL_TEMPLATES[0];
   return applyTemplate({ ...newDraft(), brand: brandName(b), ctaUrl: b.link }, tpl);
 }
 
@@ -393,7 +404,7 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
   return {
     preset_id: "preset1",
     prompt: `${what} key visual in the theme: ${theme}`,
-    banner_text: (b.offer.trim() || briefHeadline(b)).slice(0, 80),
+    banner_text: (b.bannerText?.trim() || b.offer.trim() || briefHeadline(b)).slice(0, 80),
     button_text: (b.cta.trim() || briefDefaults(b.kind, b.lang, tr(b)).cta).slice(0, 24),
     banner_text_enabled: true,
     button_text_enabled: true,
