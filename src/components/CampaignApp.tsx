@@ -1,12 +1,13 @@
 "use client";
 
 // Кампания: один бриф — лендинг, плейбл, письмо и баннер в одном стиле.
-// Слева бриф, справа превью каждой части (собираются в браузере, без ИИ),
-// «Скачать всё» — ZIP с готовыми файлами, «Открыть в редакторе» — черновик
-// нужного редактора с брифом внутри, чтобы довести руками и ИИ-графикой.
+// Слева бриф: референс (с него цвета, фон и тексты), язык, оффер, механики;
+// справа превью каждой части (собираются в браузере). «Скачать всё» — ZIP
+// с готовыми файлами, «Открыть в редакторе» — черновик нужного редактора
+// с брифом внутри, чтобы довести руками и ИИ-графикой в стиле рефа.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, ExternalLink, ImageIcon, Mail, Megaphone, MonitorSmartphone, Gamepad2, Trash2, Upload } from "lucide-react";
+import { Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, MonitorSmartphone, Gamepad2, Pipette, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuthGate } from "@/components/AuthGate";
@@ -15,18 +16,23 @@ import { SCENES } from "@/lib/scenes/presets";
 import { buildEmailHtml } from "@/lib/emailExport";
 import { persistDraft } from "@/lib/emailDraftsStore";
 import { shrinkPng } from "@/lib/imageCompress";
-import { LANDING_LANGS, type LandingKind, type LandingLang } from "@/lib/landingKit";
-import { landingThemesFor, loadThemeBackground, themeBackground, themePhotoUrl } from "@/lib/landingThemes";
+import { apiFetch } from "@/lib/api-client";
+import { sourceHash, type CampaignI18n } from "@/lib/campaignI18n";
+import { EU_LANGS, isBuiltInLang } from "@/lib/euLangs";
+import { paletteFromImage } from "@/lib/imagePalette";
+import type { LandingKind } from "@/lib/landingKit";
 import { isSectionEnabled } from "@/lib/mvp";
 import { forgetProject } from "@/lib/projects";
 import {
+  briefAccent,
   briefBanner,
+  briefDefaults,
   briefEditorDraft,
   briefEmail,
   briefHeadline,
   briefLandingHtml,
   briefPlayableHtml,
-  briefTheme,
+  briefSource,
   defaultBrief,
   type CampaignBrief,
   type CampaignLanding,
@@ -61,10 +67,54 @@ function readFile(file: File): Promise<string> {
   });
 }
 
+/** Картинка → квадрат-обложка side×side (центр), с фильтром канваса. */
+async function coverSquare(src: string, side: number, filter = "none", type = "image/webp", q = 0.85): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("image"));
+    i.src = src;
+  });
+  const c = document.createElement("canvas");
+  c.width = c.height = side;
+  const ctx = c.getContext("2d");
+  if (!ctx) return src;
+  const k = Math.max(side / img.naturalWidth, side / img.naturalHeight);
+  const w = img.naturalWidth * k, h = img.naturalHeight * k;
+  ctx.filter = filter;
+  // с фильтром размытия края тянут прозрачность — рисуем с запасом
+  const pad = filter === "none" ? 0 : side * 0.08;
+  ctx.drawImage(img, (side - w) / 2 - pad, (side - h) / 2 - pad, w + pad * 2, h + pad * 2);
+  const out = c.toDataURL(type, q);
+  return out.startsWith("data:" + type) ? out : c.toDataURL("image/jpeg", q);
+}
+/** Реф для хранения — сторона до 1024, как есть по пропорциям. */
+async function shrinkRef(src: string): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("image"));
+    i.src = src;
+  });
+  const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * k);
+  c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+  const out = c.toDataURL("image/webp", 0.86);
+  return out.startsWith("data:image/webp") ? out : c.toDataURL("image/jpeg", 0.86);
+}
+
+const trKey = (lang: string, hash: string) => `dw_campaign_tr:${lang}:${hash}`;
+
 function loadBrief(): CampaignBrief {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return { ...defaultBrief(), ...(JSON.parse(raw) as Partial<CampaignBrief>) };
+    // старые брифы с темой: тему просто не читаем, язык — любой из списка
+    if (raw) {
+      const p = { ...defaultBrief(), ...(JSON.parse(raw) as Partial<CampaignBrief>) };
+      return EU_LANGS.some((l) => l.id === p.lang) ? p : { ...p, lang: "ru" };
+    }
   } catch {
     /* хранилище недоступно */
   }
@@ -80,10 +130,17 @@ export function CampaignApp() {
   const [landingHtml, setLandingHtml] = useState("");
   const [playableHtml, setPlayableHtml] = useState("");
   const [zipping, setZipping] = useState(false);
-  /** Фон темы от ИИ (data-URL) — грузится при смене темы, в бриф не сохраняется. */
-  const [themeBg, setThemeBg] = useState("");
-  const full = useMemo(() => ({ ...b, bg: themeBg }), [b, themeBg]);
+  /** Фон из рефа (размытый) — считается из рефа, в бриф не сохраняется. */
+  const [refBg, setRefBg] = useState("");
+  /** Перевод для языка без готовых текстов (и письма — для всех, кроме русского). */
+  const [i18n, setI18n] = useState<CampaignI18n>({});
+  const [translating, setTranslating] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [hasEyeDropper, setHasEyeDropper] = useState(false);
+  const full = useMemo(() => ({ ...b, bg: refBg, i18n }), [b, refBg, i18n]);
   const logoInput = useRef<HTMLInputElement>(null);
+  const refInput = useRef<HTMLInputElement>(null);
+  useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
 
   const showPlayable = isSectionEnabled("playable");
   const showEmail = isSectionEnabled("email");
@@ -99,23 +156,77 @@ export function CampaignApp() {
       window.localStorage.setItem(KEY, JSON.stringify(b));
     } catch {
       try {
-        window.localStorage.setItem(KEY, JSON.stringify({ ...b, logo: "" }));
+        window.localStorage.setItem(KEY, JSON.stringify({ ...b, logo: "", ref: "" }));
       } catch {
         /* без сохранения */
       }
     }
   }, [b, ready]);
 
+  // Фон — сам реф, сильно размытый и притемнённый: цвета и настроение рефа без его текста.
   useEffect(() => {
     let alive = true;
-    setThemeBg("");
-    void loadThemeBackground(b.themeId).then((bg) => {
-      if (alive) setThemeBg(bg);
-    });
+    if (!b.ref) {
+      setRefBg("");
+      return;
+    }
+    void coverSquare(b.ref, 1400, "blur(42px) brightness(.55) saturate(1.15)")
+      .then((bg) => alive && setRefBg(bg))
+      .catch(() => alive && setRefBg(""));
     return () => {
       alive = false;
     };
-  }, [b.themeId]);
+  }, [b.ref]);
+
+  // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
+  const source = useMemo(() => briefSource(b), [b.lang, b.kind, b.scene]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!ready) return;
+    const keys = Object.keys(source);
+    if (!keys.length) {
+      setI18n({});
+      return;
+    }
+    const key = trKey(b.lang, sourceHash(source));
+    try {
+      const cached = window.localStorage.getItem(key);
+      if (cached) {
+        setI18n(JSON.parse(cached) as CampaignI18n);
+        return;
+      }
+    } catch {
+      /* без кэша */
+    }
+    setI18n({});
+    if (isGuest) return;
+    let alive = true;
+    setTranslating(true);
+    void apiFetch("/api/translate-texts", { method: "POST", json: { lang: b.lang, texts: source } })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { texts?: CampaignI18n; error?: string };
+        if (!res.ok || !data.texts) throw new Error(data.error || "Не удалось перевести");
+        if (!alive) return;
+        setI18n(data.texts);
+        try {
+          window.localStorage.setItem(key, JSON.stringify(data.texts));
+        } catch {
+          /* без кэша */
+        }
+      })
+      .catch((e) => alive && toast.error(e instanceof Error ? e.message : "Не удалось перевести"))
+      .finally(() => alive && setTranslating(false));
+    return () => {
+      alive = false;
+    };
+  }, [source, b.lang, ready, isGuest]);
+
+  // Перевод пришёл — умолчания брифа (ещё не тронутые руками) тоже на этом языке.
+  useEffect(() => {
+    if (!i18n["brief.offer"] && !i18n["brief.cta"]) return;
+    const en = briefDefaults(b.kind, "en");
+    const now = briefDefaults(b.kind, b.lang, i18n);
+    setB((p) => ({ ...p, offer: p.offer === en.offer ? now.offer : p.offer, cta: p.cta === en.cta ? now.cta : p.cta }));
+  }, [i18n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Превью — после паузы в наборе.
   useEffect(() => {
@@ -138,19 +249,71 @@ export function CampaignApp() {
   }, [full, ready, showPlayable]);
 
   const emailHtml = useMemo(() => (showEmail ? buildEmailHtml(briefEmail(full)) : ""), [full, showEmail]);
-  const themes = useMemo(() => landingThemesFor(b.kind).map((t) => ({ t, bg: themeBackground(t.id) })), [b.kind]);
-
   const switchKind = (kind: LandingKind) => {
     if (kind === b.kind) return;
     const d = defaultBrief(kind, b.lang);
-    setB((p) => ({ ...d, brand: p.brand, logo: p.logo, link: p.link, cta: p.cta }));
+    setB((p) => ({ ...d, brand: p.brand, logo: p.logo, link: p.link, cta: p.cta, ref: p.ref, refScene: p.refScene, refPalette: p.refPalette, pickColor: p.pickColor }));
   };
-  const switchLang = (lang: LandingLang) => {
+  const switchLang = (lang: string) => {
     if (lang === b.lang) return;
-    const was = defaultBrief(b.kind, b.lang);
-    const now = defaultBrief(b.kind, lang);
-    // Свои тексты не трогаем; заменяем только то, что ещё из пресета.
+    const was = briefDefaults(b.kind, b.lang, i18n);
+    const now = briefDefaults(b.kind, lang);
+    // Свои тексты не трогаем; заменяем только то, что ещё из пресета (или перевода).
     setB((p) => ({ ...p, lang, offer: p.offer === was.offer ? now.offer : p.offer, cta: p.cta === was.cta ? now.cta : p.cta }));
+  };
+
+  /**
+   * Реф: ужимаем, считаем палитру (цвета всей кампании) и разбираем картинку:
+   * бренд, заголовок, оффер, кнопка — если они на ней есть, и сцена — тема для ИИ.
+   */
+  const pickRef = async (file: File | undefined) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    let ref = "";
+    try {
+      ref = await shrinkRef(await readFile(file));
+    } catch {
+      toast.error("Не удалось прочитать картинку");
+      return;
+    }
+    const refPalette = await paletteFromImage(ref).catch(() => null);
+    setB((p) => ({ ...p, ref, refPalette, pickColor: undefined, refScene: "" }));
+    if (isGuest) {
+      toast("Цвета и фон взяты с рефа. Тексты с картинки читаем после входа.");
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const mechanic = b.landing === "wheel" || b.landing === "slot" || b.landing === "crash" ? b.landing : undefined;
+      const res = await apiFetch("/api/analyze-banner-for-landing", { method: "POST", json: { source_image: ref, mechanic } });
+      const data = (await res.json().catch(() => ({}))) as {
+        result?: { headline?: string; subheadline?: string; cta_text?: string; brand_name?: string; background_prompt?: string };
+        error?: string;
+      };
+      if (!res.ok || !data.result) throw new Error(data.error || "Не удалось разобрать реф");
+      const r = data.result;
+      setB((p) => ({
+        ...p,
+        brand: p.brand.trim() || (r.brand_name ?? "").slice(0, 40),
+        headline: (r.headline ?? "").trim().slice(0, 60) || p.headline,
+        offer: (r.subheadline ?? "").trim().slice(0, 80) || p.offer,
+        cta: (r.cta_text ?? "").trim().slice(0, 24) || p.cta,
+        refScene: (r.background_prompt ?? "").trim(),
+      }));
+      toast.success("Реф разобран: цвета, фон и тексты — с картинки. Проверьте язык текстов.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось разобрать реф");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+  const pickFromScreen = async () => {
+    try {
+      const Ctor = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+      const { sRGBHex } = await new Ctor().open();
+      if (/^#[0-9a-f]{6}$/i.test(sRGBHex)) set("pickColor", sRGBHex);
+    } catch {
+      /* закрыли пипетку — ничего не меняем */
+    }
   };
   const pickLogo = async (file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -164,13 +327,13 @@ export function CampaignApp() {
   const openEditor = async (part: "landing" | "playable" | "email" | "banner") => {
     try {
       if (part === "email") {
-        const d = briefEmail(b);
+        const d = briefEmail(full);
         await persistDraft(d, !isGuest);
         router.push(`/email?draft=${encodeURIComponent(d.id)}`);
         return;
       }
       if (part === "banner") {
-        const s = briefBanner(b);
+        const s = briefBanner(full);
         window.localStorage.setItem("dw_hub_prompt", s.prompt);
         if (b.brand.trim()) window.localStorage.setItem("brand_name", b.brand.trim());
         if (b.logo) window.localStorage.setItem("brand_logo", b.logo);
@@ -237,7 +400,7 @@ export function CampaignApp() {
     { id: "email", label: "Письмо", icon: Mail, on: showEmail },
     { id: "banner", label: "Баннер", icon: Megaphone, on: true },
   ];
-  const theme = briefTheme(b);
+  const accent = briefAccent(b);
   const needsScene = b.landing === "scene" || showPlayable;
 
   return (
@@ -284,37 +447,91 @@ export function CampaignApp() {
         </div>
 
         <div>
-          <label className="mb-1.5 block ds-caption">Язык</label>
-          <div className="grid grid-cols-2 gap-2">
-            {LANDING_LANGS.map((l) => (
-              <button key={l.id} type="button" onClick={() => switchLang(l.id)} aria-pressed={b.lang === l.id} className={`rounded-lg border px-2 py-2 text-sm transition ${b.lang === l.id ? CHIP_ON : CHIP_OFF}`}>
-                {l.label}
-              </button>
-            ))}
+          <label className="mb-1.5 block ds-caption">Референс — по нему цвета, фон и тексты кампании</label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => refInput.current?.click()}
+              className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-elevated"
+              aria-label="Загрузить референс"
+            >
+              {b.ref ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={b.ref} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Upload className="h-5 w-5 text-muted-foreground" />
+              )}
+            </button>
+            <div className="min-w-0 flex-1 ds-caption">
+              {analyzing ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Разбираем картинку…</span>
+              ) : b.ref ? (
+                <>
+                  {b.refScene ? <span className="line-clamp-3">Сцена: {b.refScene}</span> : "Цвета и фон — с рефа."}
+                  <span className="mt-1 flex gap-3">
+                    <button type="button" onClick={() => refInput.current?.click()} className="text-foreground/80 hover:text-foreground">Заменить</button>
+                    <button type="button" onClick={() => setB((p) => ({ ...p, ref: "", refScene: "", refPalette: null }))} className="text-foreground/80 hover:text-foreground">Убрать</button>
+                  </span>
+                </>
+              ) : (
+                "Баннер, ключевой визуал или скрин конкурента: возьмём цвета, фон, бренд, заголовок и оффер, а сцену передадим ИИ в редакторах."
+              )}
+            </div>
+            <input ref={refInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void pickRef(e.target.files?.[0]); e.target.value = ""; }} />
           </div>
         </div>
 
         <div>
-          <label className="mb-1.5 block ds-caption">Тема — цвет, фон и объекты везде</label>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {themes.map(({ t, bg }) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setB((p) => ({ ...p, themeId: t.id, headline: "" }))}
-                aria-pressed={b.themeId === t.id}
-                className={`relative flex h-16 w-24 shrink-0 items-end overflow-hidden rounded-lg border p-1 ${b.themeId === t.id ? "border-accent-green" : "border-border"}`}
-                style={{ backgroundImage: `url(${themePhotoUrl(t.id)}), url(${bg})`, backgroundSize: "cover", backgroundPosition: "center" }}
-              >
-                <span className="truncate rounded bg-black/55 px-1 text-[11px] font-semibold text-white">{t.name}</span>
+          <label className="mb-1.5 block ds-caption">Гамма — кнопки, плашки, колесо, письмо</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => set("pickColor", undefined)}
+              aria-pressed={!b.pickColor}
+              title={b.ref ? "Цвета берутся с рефа" : "Загрузите реф — цвета возьмём с него"}
+              className={`flex h-10 items-center gap-2 rounded-lg border px-2.5 text-sm transition ${!b.pickColor ? CHIP_ON : CHIP_OFF}`}
+            >
+              <span className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: briefAccent({ ...b, pickColor: undefined }) }} />
+              {b.ref ? "Авто — по рефу" : "Авто"}
+            </button>
+            {hasEyeDropper ? (
+              <button type="button" onClick={() => void pickFromScreen()} title="Взять цвет с экрана — с рефа, превью или любой картинки" className={`flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-sm transition ${CHIP_OFF}`}>
+                <Pipette className="h-4 w-4" /> Пипетка
               </button>
-            ))}
+            ) : null}
+            <label title="Выбрать цвет" className={`relative flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm transition ${b.pickColor ? CHIP_ON : CHIP_OFF}`}>
+              <span className="h-5 w-5 rounded-full ring-1 ring-white/30" style={{ background: b.pickColor ?? accent }} />
+              {b.pickColor ? b.pickColor.toUpperCase() : "Свой цвет"}
+              <input type="color" value={b.pickColor ?? accent} onChange={(e) => set("pickColor", e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+            </label>
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block ds-caption">Язык</label>
+          <select value={b.lang} onChange={(e) => switchLang(e.target.value)} className={INPUT}>
+            {EU_LANGS.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          {!isBuiltInLang(b.lang) ? (
+            <p className="mt-1.5 ds-caption">
+              {translating ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Переводим тексты кампании…</span>
+              ) : isGuest && !Object.keys(i18n).length ? (
+                "Перевод — после входа; пока тексты на английском."
+              ) : (
+                "Тексты переведены ИИ — проверьте оффер и кнопку."
+              )}
+            </p>
+          ) : null}
         </div>
 
         <div>
           <label className="mb-1.5 block ds-caption">Заголовок</label>
-          <input value={b.headline} maxLength={60} onChange={(e) => set("headline", e.target.value)} className={INPUT} placeholder={theme.headline[b.lang]} />
+          <input value={b.headline} maxLength={60} onChange={(e) => set("headline", e.target.value)} className={INPUT} placeholder={briefHeadline({ ...full, headline: "" })} />
         </div>
         <div>
           <label className="mb-1.5 block ds-caption">Оффер</label>
@@ -372,7 +589,7 @@ export function CampaignApp() {
         >
           <Download className="h-4 w-4" /> {zipping ? "Собираем…" : "Скачать всё — ZIP"}
         </button>
-        <p className="-mt-2 ds-caption">Без ИИ: фон — рисованный фон темы. ИИ-графику добавите в редакторе каждой части.</p>
+        <p className="-mt-2 ds-caption">Фон — размытый реф, цвета — его гамма. ИИ-графику в стиле рефа добавите в редакторе каждой части.</p>
       </section>
 
       <section className="flex min-w-0 flex-1 flex-col gap-3">
@@ -424,7 +641,7 @@ export function CampaignApp() {
         </div>
         <p className="text-center ds-caption">
           {tab === "landing"
-            ? `Заголовок: «${briefHeadline(b)}». Лендинг играется прямо в превью и прокручивается до блоков.`
+            ? `Заголовок: «${briefHeadline(full)}». Лендинг играется прямо в превью и прокручивается до блоков.`
             : tab === "playable"
               ? "Плейбл играется в превью. В архиве — версии для MRAID-сетей и для сайта."
               : tab === "email"

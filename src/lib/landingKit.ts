@@ -36,6 +36,14 @@ export type LandingStyle = "vivid" | "premium";
 
 export type LandingExtras = {
   lang: LandingLang;
+  /**
+   * Язык страницы, если он не из готовых (кампания на немецком, польском…):
+   * тогда lang — набор, на котором собрано (en), а подписи блоков и механики
+   * переведены в strings.
+   */
+  htmlLang?: string;
+  /** Переведённые подписи блоков и механики поверх готовых (см. htmlLang). */
+  strings?: Partial<LandingStrings>;
   /** Первый экран: постановка появления, линейная графика; стиль блоков под ним. */
   look: {
     intro: boolean;
@@ -133,6 +141,8 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
 };
 
 export const landingStrings = (lang: LandingLang): LandingStrings => STRINGS[lang] ?? STRINGS.ru;
+/** Подписи для этих блоков: готовые по lang + переводы поверх (кампания на любом языке). */
+const kitStrings = (x: LandingExtras): LandingStrings => ({ ...landingStrings(x.lang), ...(x.strings ?? {}) });
 
 const LEGAL: Record<LandingLang, string> = {
   ru: "18+. Азартные игры могут вызывать зависимость. Играйте ответственно. Бонус для новых игроков, условия на сайте.",
@@ -733,7 +743,7 @@ function kitScript(x: LandingExtras, ctaUrl: string, kind: LandingKind): string 
     sport: kind === "sport",
     names: NAMES[x.lang],
     cur: x.winners.currency.slice(0, 6),
-    won: landingStrings(x.lang).won,
+    won: kitStrings(x).won,
     pixels: !!(x.tracking.metaPixel || x.tracking.tiktokPixel || x.tracking.gtm),
   };
   // __goCta — единственный путь со страницы на оффер: события пикселей,
@@ -1006,7 +1016,8 @@ const INTRO_SCRIPT = `
 `;
 
 export type KitParts = {
-  lang: LandingLang;
+  /** Для <html lang>: язык страницы, а не набор, на котором она собрана. */
+  lang: string;
   head: string;
   css: string;
   legalLine: string;
@@ -1022,9 +1033,9 @@ export type KitParts = {
 /** Куски страницы для экспорта механики. extras не задан — умолчания (ru). */
 export function kitParts(extras: LandingExtras | undefined, accent: string, dark: boolean, ctaUrl: string, kind: LandingKind): KitParts {
   const x = extras ? normalizeExtras(extras, kind) : defaultExtras("ru", kind);
-  const strings = landingStrings(x.lang);
+  const strings = kitStrings(x);
   return {
-    lang: x.lang,
+    lang: x.htmlLang && /^[a-z]{2,3}(-[A-Za-z0-9]{2,4})*$/.test(x.htmlLang) ? x.htmlLang : x.lang,
     head: introHead(x.look) + trackingHead(x.tracking),
     css: kitCss(accent, dark) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
