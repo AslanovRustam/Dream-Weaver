@@ -23,7 +23,7 @@ import { recordUsage } from "@/lib/usage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 import { openAiSizeString } from "@/lib/imageSizes";
 import { HERO_PROMPT_RULES } from "@/lib/emailHeroRules";
-import { grokOnFilter } from "@/lib/grokImage";
+import { grokOnFilter, grokPrimaryText } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -218,9 +218,13 @@ export async function POST(request: Request) {
   if (!charge.ok) return charge.response;
   const refund = () => refundFlat(supa, user.id, EMAIL_HERO_PRICE_CREDITS, { ...billing, reason: "provider_failure" });
 
+  // Тест: IMAGE_PROVIDER=grok — картинку сразу рисует Grok, OpenAI не вызывается.
+  const primary = await grokPrimaryText({ prompt: fullPrompt, size: size, transparent: false, format: "png", refs: refs.map((r) => r.dataUrl) });
   let res: Response;
   try {
-    if (refs.length > 0) {
+    if (primary) {
+      res = new Response(primary.text, { status: 200 });
+    } else if (refs.length > 0) {
       const form = new FormData();
       form.append("model", HERO_IMAGE_MODEL);
       form.append("prompt", fullPrompt);
@@ -266,7 +270,7 @@ export async function POST(request: Request) {
 
   let text = await res.text();
   // OpenAI не пропустил по фильтру — тот же запрос в Grok (если подключён XAI_API_KEY).
-  const grok = await grokOnFilter(res.ok, text, { prompt: fullPrompt, size: size, transparent: false, format: "png" });
+  const grok = primary ?? (await grokOnFilter(res.ok, text, { prompt: fullPrompt, size: size, transparent: false, format: "png" }));
   if (grok) text = grok.text;
   if (!res.ok && !grok) {
     let msg = text.slice(0, 300);

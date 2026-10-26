@@ -9,6 +9,7 @@ import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
 import { rateLimitResponse, MAX_DATAURL_BYTES, acquireSlot, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
+import { grokOnFilter, grokPrimaryText } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 // The master model (openai/gpt-5.4-image-2) can take ~2–3 min per banner, so
@@ -1680,7 +1681,12 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           );
           const promptForOpenAI = promptWithRefs.slice(0, 4000);
 
-          if (refs.length > 0) {
+          // Тест: IMAGE_PROVIDER=grok — баннер сразу рисует Grok, OpenAI не вызывается.
+          const grokOpts = { prompt: promptWithRefs, size, transparent: false, format: "jpeg" as const, refs: refs.map((r) => r.dataUrl) };
+          const primary = await grokPrimaryText(grokOpts);
+          if (primary) {
+            res = new Response(primary.text, { status: 200 });
+          } else if (refs.length > 0) {
             const form = new FormData();
             form.append("model", openAiModel);
             form.append("prompt", promptForOpenAI);
@@ -1723,8 +1729,11 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
             });
           }
 
-          const text = await res.text();
-          if (!res.ok) {
+          let text = await res.text();
+          // OpenAI не пропустил по фильтру — тот же баннер в Grok (если подключён XAI_API_KEY).
+          const grok = primary ?? (await grokOnFilter(res.ok, text, grokOpts));
+          if (grok) text = grok.text;
+          if (!res.ok && !grok) {
             console.error("Image provider error", res.status, text);
             const isQuota =
               res.status === 429 &&
@@ -1767,15 +1776,15 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
             image = item?.b64_json ? `data:image/jpeg;base64,${item.b64_json}` : item?.url;
             const u = data.usage;
             usage = {
-              provider: "openai",
-              model: openAiModel,
+              provider: grok ? "xai" : "openai",
+              model: grok?.model ?? openAiModel,
               quality,
               input_text_tokens: u?.input_tokens_details?.text_tokens ?? 0,
               input_image_tokens: u?.input_tokens_details?.image_tokens ?? 0,
               output_image_tokens: u?.output_tokens ?? 0,
               input_tokens: u?.input_tokens ?? null,
               total_tokens: u?.total_tokens ?? null,
-              cost_usd: null,
+              cost_usd: grok?.costUsd ?? null,
             };
           } catch (e) {
             console.error("OpenAI response parse failed", e);

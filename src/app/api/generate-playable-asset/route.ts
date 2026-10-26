@@ -18,7 +18,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
-import { grokConfigured, grokGenerate, grokOnFilter } from "@/lib/grokImage";
+import { grokConfigured, grokGenerate, grokOnFilter, grokPrimary } from "@/lib/grokImage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 
 export const runtime = "nodejs";
@@ -246,9 +246,11 @@ export async function POST(request: Request) {
 
   let res!: Response;
   let text = "";
-  const direct = grokFirst
+  // Тема-персонаж — сразу Grok; в тестовом режиме (IMAGE_PROVIDER=grok) — сразу Grok для любой детали.
+  const grokPrompt = grokFirst || (grokPrimary() ? attempts[0] : "");
+  const direct = grokPrompt
     ? await grokGenerate({
-        prompt: grokFirst,
+        prompt: grokPrompt,
         size: spec.size,
         transparent: spec.transparent,
         format: spec.transparent ? "png" : "jpeg",

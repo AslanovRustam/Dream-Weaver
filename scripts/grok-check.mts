@@ -9,7 +9,7 @@
 
 import sharp from "sharp";
 
-import { grokConfigured, grokOnFilter, isFilterRejection, keyOutBackground } from "../src/lib/grokImage";
+import { grokConfigured, grokFrame, grokOnFilter, grokPrimary, grokPrimaryText, isFilterRejection, keyOutBackground } from "../src/lib/grokImage";
 
 let failed = 0;
 let passed = 0;
@@ -53,6 +53,25 @@ delete process.env.XAI_API_KEY;
 check("без XAI_API_KEY Grok выключен", !grokConfigured() && (await grokOnFilter(false, '{"error":{"message":"rejected by the safety system"}}', { prompt: "x", size: "1024x1024", transparent: true })) === null);
 if (saved !== undefined) process.env.XAI_API_KEY = saved;
 check("при успехе OpenAI Grok не вызывается", (await grokOnFilter(true, "{}", { prompt: "x", size: "1024x1024", transparent: true })) === null);
+
+// пропорции: ближайшая из тех, что принимает Grok
+const ar = (s: string) => grokFrame(s).aspect_ratio;
+check("пропорции: квадрат, 3:2, 2:3, 16:9 баннера", ar("1024x1024") === "1:1" && ar("1536x1024") === "3:2" && ar("1024x1536") === "2:3" && ar("1792x1008") === "16:9");
+check("пропорции: широкие и узкие баннеры", ar("1456x728") === "2:1" && ar("2048x880") === "20:9" && ar("1080x1350") === "3:4" && ar("600x1200") === "1:2");
+check("разрешение: 2k для больших", grokFrame("2048x2048").resolution === "2k" && grokFrame("1024x1024").resolution === "1k");
+
+// тестовый режим: включается только переменной и только с ключом
+const savedKey = process.env.XAI_API_KEY, savedMode = process.env.IMAGE_PROVIDER;
+process.env.XAI_API_KEY = "xai-test";
+delete process.env.IMAGE_PROVIDER;
+check("режим Grok выключен без IMAGE_PROVIDER", !grokPrimary() && (await grokPrimaryText({ prompt: "x", size: "1024x1024", transparent: false })) === null);
+process.env.IMAGE_PROVIDER = "grok";
+check("IMAGE_PROVIDER=grok + ключ — режим включён", grokPrimary());
+delete process.env.XAI_API_KEY;
+check("IMAGE_PROVIDER=grok без ключа — выключен", !grokPrimary());
+if (savedKey !== undefined) process.env.XAI_API_KEY = savedKey;
+if (savedMode !== undefined) process.env.IMAGE_PROVIDER = savedMode;
+else delete process.env.IMAGE_PROVIDER;
 
 console.log(failed ? `\n${failed} провалено, ${passed} прошло` : `✓ все ${passed} проверок прошли`);
 process.exit(failed ? 1 : 0);
