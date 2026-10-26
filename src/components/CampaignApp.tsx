@@ -67,27 +67,6 @@ function readFile(file: File): Promise<string> {
   });
 }
 
-/** Картинка → квадрат-обложка side×side (центр), с фильтром канваса. */
-async function coverSquare(src: string, side: number, filter = "none", type = "image/webp", q = 0.85): Promise<string> {
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = () => reject(new Error("image"));
-    i.src = src;
-  });
-  const c = document.createElement("canvas");
-  c.width = c.height = side;
-  const ctx = c.getContext("2d");
-  if (!ctx) return src;
-  const k = Math.max(side / img.naturalWidth, side / img.naturalHeight);
-  const w = img.naturalWidth * k, h = img.naturalHeight * k;
-  ctx.filter = filter;
-  // с фильтром размытия края тянут прозрачность — рисуем с запасом
-  const pad = filter === "none" ? 0 : side * 0.08;
-  ctx.drawImage(img, (side - w) / 2 - pad, (side - h) / 2 - pad, w + pad * 2, h + pad * 2);
-  const out = c.toDataURL(type, q);
-  return out.startsWith("data:" + type) ? out : c.toDataURL("image/jpeg", q);
-}
 /** Реф для хранения — сторона до 1024, как есть по пропорциям. */
 async function shrinkRef(src: string): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -130,14 +109,12 @@ export function CampaignApp() {
   const [landingHtml, setLandingHtml] = useState("");
   const [playableHtml, setPlayableHtml] = useState("");
   const [zipping, setZipping] = useState(false);
-  /** Фон из рефа (размытый) — считается из рефа, в бриф не сохраняется. */
-  const [refBg, setRefBg] = useState("");
   /** Перевод для языка без готовых текстов (и письма — для всех, кроме русского). */
   const [i18n, setI18n] = useState<CampaignI18n>({});
   const [translating, setTranslating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [hasEyeDropper, setHasEyeDropper] = useState(false);
-  const full = useMemo(() => ({ ...b, bg: refBg, i18n }), [b, refBg, i18n]);
+  const full = useMemo(() => ({ ...b, i18n }), [b, i18n]);
   const logoInput = useRef<HTMLInputElement>(null);
   const refInput = useRef<HTMLInputElement>(null);
   useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
@@ -162,21 +139,6 @@ export function CampaignApp() {
       }
     }
   }, [b, ready]);
-
-  // Фон — сам реф, сильно размытый и притемнённый: цвета и настроение рефа без его текста.
-  useEffect(() => {
-    let alive = true;
-    if (!b.ref) {
-      setRefBg("");
-      return;
-    }
-    void coverSquare(b.ref, 1400, "blur(42px) brightness(.55) saturate(1.15)")
-      .then((bg) => alive && setRefBg(bg))
-      .catch(() => alive && setRefBg(""));
-    return () => {
-      alive = false;
-    };
-  }, [b.ref]);
 
   // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
   const source = useMemo(() => briefSource(b), [b.lang, b.kind, b.scene]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -249,10 +211,30 @@ export function CampaignApp() {
   }, [full, ready, showPlayable]);
 
   const emailHtml = useMemo(() => (showEmail ? buildEmailHtml(briefEmail(full)) : ""), [full, showEmail]);
+  /** Поле ещё не трогали руками: пустое или равно умолчанию брифа на этом языке. */
+  const untouched = (p: CampaignBrief, k: "offer" | "cta" | "headline") => {
+    const v = p[k].trim();
+    return !v || v === briefDefaults(p.kind, p.lang, i18n)[k];
+  };
   const switchKind = (kind: LandingKind) => {
     if (kind === b.kind) return;
     const d = defaultBrief(kind, b.lang);
-    setB((p) => ({ ...d, brand: p.brand, logo: p.logo, link: p.link, cta: p.cta, ref: p.ref, refScene: p.refScene, refPalette: p.refPalette, pickColor: p.pickColor }));
+    const now = briefDefaults(kind, b.lang, i18n);
+    // Своё (оффер, заголовок, кнопка, сумма) не теряем — меняем только то, что ещё по умолчанию.
+    setB((p) => ({
+      ...d,
+      brand: p.brand,
+      logo: p.logo,
+      link: p.link,
+      lang: p.lang,
+      ref: p.ref,
+      refScene: p.refScene,
+      refPalette: p.refPalette,
+      pickColor: p.pickColor,
+      offer: untouched(p, "offer") ? now.offer : p.offer,
+      cta: untouched(p, "cta") ? now.cta : p.cta,
+      headline: untouched(p, "headline") ? "" : p.headline,
+    }));
   };
   const switchLang = (lang: string) => {
     if (lang === b.lang) return;
@@ -278,7 +260,7 @@ export function CampaignApp() {
     const refPalette = await paletteFromImage(ref).catch(() => null);
     setB((p) => ({ ...p, ref, refPalette, pickColor: undefined, refScene: "" }));
     if (isGuest) {
-      toast("Цвета и фон взяты с рефа. Тексты с картинки читаем после входа.");
+      toast("Цвета взяты с рефа. Тексты с картинки читаем после входа.");
       return;
     }
     setAnalyzing(true);
@@ -291,15 +273,27 @@ export function CampaignApp() {
       };
       if (!res.ok || !data.result) throw new Error(data.error || "Не удалось разобрать реф");
       const r = data.result;
+      // Тексты с картинки — на языке кампании (переводчик оставит как есть, если язык уже тот).
+      let texts: Record<string, string> = {};
+      for (const [k, v] of [["headline", r.headline], ["offer", r.subheadline], ["cta", r.cta_text]] as const) {
+        if (v && v.trim()) texts[k] = v.trim();
+      }
+      if (Object.keys(texts).length) {
+        const tr = await apiFetch("/api/translate-texts", { method: "POST", json: { lang: b.lang, texts } })
+          .then((res) => (res.ok ? (res.json() as Promise<{ texts?: Record<string, string> }>) : null))
+          .catch(() => null);
+        if (tr?.texts) texts = { ...texts, ...tr.texts };
+      }
+      // Заполняем только пустое и стандартное — вписанное руками не трогаем.
       setB((p) => ({
         ...p,
         brand: p.brand.trim() || (r.brand_name ?? "").slice(0, 40),
-        headline: (r.headline ?? "").trim().slice(0, 60) || p.headline,
-        offer: (r.subheadline ?? "").trim().slice(0, 80) || p.offer,
-        cta: (r.cta_text ?? "").trim().slice(0, 24) || p.cta,
+        headline: texts.headline && untouched(p, "headline") ? texts.headline.slice(0, 60) : p.headline,
+        offer: texts.offer && untouched(p, "offer") ? texts.offer.slice(0, 80) : p.offer,
+        cta: texts.cta && untouched(p, "cta") ? texts.cta.slice(0, 24) : p.cta,
         refScene: (r.background_prompt ?? "").trim(),
       }));
-      toast.success("Реф разобран: цвета, фон и тексты — с картинки. Проверьте язык текстов.");
+      toast.success("Реф разобран: цвета и тексты — с картинки, на языке кампании. Вписанное вами не меняли.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось разобрать реф");
     } finally {
@@ -422,8 +416,8 @@ export function CampaignApp() {
 
         <div className="flex gap-2">
           <div className="flex-1">
-            <label className="mb-1.5 block ds-caption">Бренд</label>
-            <input value={b.brand} maxLength={40} onChange={(e) => set("brand", e.target.value)} className={INPUT} placeholder="Название бренда" />
+            <label className="mb-1.5 block ds-caption">Бренд — название, лого или оба</label>
+            <input value={b.brand} maxLength={40} onChange={(e) => set("brand", e.target.value)} className={INPUT} placeholder={b.logo ? "Можно без названия — есть лого" : "Название бренда"} />
           </div>
           <div>
             <label className="mb-1.5 block ds-caption">Лого</label>
@@ -467,14 +461,14 @@ export function CampaignApp() {
                 <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Разбираем картинку…</span>
               ) : b.ref ? (
                 <>
-                  {b.refScene ? <span className="line-clamp-3">Сцена: {b.refScene}</span> : "Цвета и фон — с рефа."}
+                  {b.refScene ? <span className="line-clamp-3">Сцена: {b.refScene}</span> : "Цвета — с рефа."}
                   <span className="mt-1 flex gap-3">
                     <button type="button" onClick={() => refInput.current?.click()} className="text-foreground/80 hover:text-foreground">Заменить</button>
                     <button type="button" onClick={() => setB((p) => ({ ...p, ref: "", refScene: "", refPalette: null }))} className="text-foreground/80 hover:text-foreground">Убрать</button>
                   </span>
                 </>
               ) : (
-                "Баннер, ключевой визуал или скрин конкурента: возьмём цвета, фон, бренд, заголовок и оффер, а сцену передадим ИИ в редакторах."
+                "Баннер, ключевой визуал или скрин конкурента: возьмём цвета, бренд, заголовок и оффер, а сцену передадим ИИ в редакторах."
               )}
             </div>
             <input ref={refInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void pickRef(e.target.files?.[0]); e.target.value = ""; }} />
@@ -589,7 +583,7 @@ export function CampaignApp() {
         >
           <Download className="h-4 w-4" /> {zipping ? "Собираем…" : "Скачать всё — ZIP"}
         </button>
-        <p className="-mt-2 ds-caption">Фон — размытый реф, цвета — его гамма. ИИ-графику в стиле рефа добавите в редакторе каждой части.</p>
+        <p className="-mt-2 ds-caption">Цвета — гамма рефа. ИИ-графику в стиле рефа добавите в редакторе каждой части.</p>
       </section>
 
       <section className="flex min-w-0 flex-1 flex-col gap-3">

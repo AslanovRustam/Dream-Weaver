@@ -94,6 +94,23 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("de: письмо переведено, бренд на месте", mail.includes("DE·") && !mail.includes("BRAND"));
 }
 
+// ---- бренд: название, лого или оба — с одним лого заглушка «BRAND» нигде не печатается
+{
+  const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const onlyLogo: CampaignBrief = { ...defaultBrief("casino", "ru"), logo: LOGO, link: LINK, offer: "MEGA OFFER 777" };
+  for (const landing of ["wheel", "scene"] as CampaignLanding[]) {
+    const html = await briefLandingHtml({ ...onlyLogo, landing }, load);
+    check(`только лого/${landing}: без «BRAND»`, !html.includes(">BRAND<") && !html.includes('"brandName":"BRAND"'));
+  }
+  const pl = await briefPlayableHtml(onlyLogo, load);
+  check("только лого: плейбл без «BRAND»", !pl.includes('"brandName":"BRAND"'));
+  const em = briefEmail(onlyLogo);
+  check("только лого: тема письма — просто оффер", em.subject === "MEGA OFFER 777" && em.brandMode === "logo");
+  check("только лого: промпт баннера без «BRAND»", !briefBanner(onlyLogo).prompt.includes("BRAND"));
+  const neither = await briefLandingHtml({ ...defaultBrief("casino", "ru"), landing: "wheel" }, load);
+  check("ни названия, ни лого: заглушка на месте", neither.includes("BRAND"));
+}
+
 // ---- гамма и реф
 {
   const blue: CampaignBrief = { ...defaultBrief("casino", "en"), link: LINK, pickColor: "#2a6cff", refScene: "neon city rooftop at night" };

@@ -107,7 +107,8 @@ const tr = (b: CampaignBrief): CampaignI18n => b.i18n ?? {};
 const translated = (b: CampaignBrief) => !isBuiltInLang(b.lang) && Object.keys(tr(b)).length > 0;
 
 export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
-const brandName = (b: CampaignBrief) => b.brand.trim() || "BRAND";
+/** Название бренда; есть только лого — без названия (не печатаем заглушку «BRAND» рядом с лого). */
+const brandName = (b: CampaignBrief) => b.brand.trim() || (b.logo ? "" : "BRAND");
 
 /** Гамма кампании: пипетка главнее рефа; нет ни того, ни другого — null (цвета по умолчанию). */
 export function briefPalette(b: CampaignBrief): ImagePalette | null {
@@ -227,7 +228,7 @@ export async function briefLandingHtml(b: CampaignBrief, load: SceneLoader): Pro
   if (b.landing === "crash") return buildCrashHtml({ ...c, maxAttempts: 2 });
   if (b.landing === "match") return buildMatchHtml({ ...c, ...matchFields(b) });
   const scene = await buildScenePlayable(briefScene(b), { network: "web", preview: false, load });
-  return wrapSceneLanding(scene, { extras: c.extras, accent: c.accent, ctaUrl: b.link, kind: b.kind, title: c.brand });
+  return wrapSceneLanding(scene, { extras: c.extras, accent: c.accent, ctaUrl: b.link, kind: b.kind, title: c.brand || briefHeadline(b) });
 }
 
 export async function briefPlayableHtml(b: CampaignBrief, load: SceneLoader, network: "web" | "mraid" = "web"): Promise<string> {
@@ -250,8 +251,8 @@ export function briefEmail(b: CampaignBrief): EmailDraft {
   const offer = b.offer.trim();
   return {
     ...d,
-    name: `Кампания · ${brandName(b)}`,
-    subject: offer ? `${brandName(b)}: ${offer}` : d.subject,
+    name: `Кампания · ${brandName(b) || "лого"}`,
+    subject: offer ? (brandName(b) ? `${brandName(b)}: ${offer}` : offer) : d.subject,
     heroTitle: offer ? `${briefHeadline(b)}: **${offer.toUpperCase()}**` : d.heroTitle,
     ctaText: b.cta ? b.cta.toUpperCase() : d.ctaText,
     accent: briefAccent(b),
@@ -275,7 +276,7 @@ export function briefBanner(b: CampaignBrief): { preset: string; prompt: string 
   const scene = b.refScene.trim() || (b.kind === "sport" ? "night stadium under floodlights" : "luxury casino with glowing lights");
   return {
     preset: b.kind === "sport" ? "preset4" : "preset1",
-    prompt: `${brandName(b)} — ${b.offer || briefHeadline(b)}. ${scene}.`,
+    prompt: `${brandName(b) ? brandName(b) + " — " : ""}${b.offer || briefHeadline(b)}. ${scene}.`,
   };
 }
 
