@@ -23,6 +23,7 @@ import { recordUsage } from "@/lib/usage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 import { openAiSizeString } from "@/lib/imageSizes";
 import { HERO_PROMPT_RULES } from "@/lib/emailHeroRules";
+import { grokOnFilter } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -263,8 +264,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const text = await res.text();
-  if (!res.ok) {
+  let text = await res.text();
+  // OpenAI не пропустил по фильтру — тот же запрос в Grok (если подключён XAI_API_KEY).
+  const grok = await grokOnFilter(res.ok, text, { prompt: fullPrompt, size: size, transparent: false, format: "png" });
+  if (grok) text = grok.text;
+  if (!res.ok && !grok) {
     let msg = text.slice(0, 300);
     try {
       msg = (JSON.parse(text) as { error?: { message?: string } }).error?.message || msg;
@@ -295,15 +299,15 @@ export async function POST(request: Request) {
 
   const iu = imageUsageFromResponse(json);
   await recordUsage(user.id, {
-    model: HERO_IMAGE_MODEL,
+    model: grok?.model ?? HERO_IMAGE_MODEL,
     feature: (body.feature || "").trim() || "hero-image",
     type: "image",
     promptTokens: iu.inputText,
     inputImageTokens: iu.inputImage,
     completionTokens: iu.output,
     totalTokens: iu.total,
-    costUsd: iu.costUsd,
+    costUsd: grok?.costUsd ?? iu.costUsd,
   });
 
-  return Response.json({ imageUrl, prompt, costUsd: iu.costUsd, costCredits: EMAIL_HERO_PRICE_CREDITS, balance: charge.balance });
+  return Response.json({ imageUrl, prompt, costUsd: grok?.costUsd ?? iu.costUsd, costCredits: EMAIL_HERO_PRICE_CREDITS, balance: charge.balance });
 }

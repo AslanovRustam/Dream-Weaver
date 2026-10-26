@@ -11,6 +11,7 @@ import { chargeFlat, refundFlat } from "@/lib/billing";
 import { TEAM_CREST_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
+import { grokOnFilter } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -126,8 +127,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const text = await res.text();
-  if (!res.ok) {
+  let text = await res.text();
+  // OpenAI не пропустил по фильтру — тот же запрос в Grok (если подключён XAI_API_KEY).
+  const grok = await grokOnFilter(res.ok, text, { prompt: full, size: "1024x1024", transparent: true, format: "png" });
+  if (grok) text = grok.text;
+  if (!res.ok && !grok) {
     let msg = text.slice(0, 300);
     try {
       msg = (JSON.parse(text) as { error?: { message?: string } }).error?.message || msg;
@@ -157,18 +161,18 @@ export async function POST(request: Request) {
 
   const iu = imageUsageFromResponse(json);
   await recordUsage(user.id, {
-    model: CREST_IMAGE_MODEL,
+    model: grok?.model ?? CREST_IMAGE_MODEL,
     feature: "landing-team-crest",
     type: "image",
     promptTokens: iu.inputText,
     inputImageTokens: iu.inputImage,
     completionTokens: iu.output,
     totalTokens: iu.total,
-    costUsd: iu.costUsd,
+    costUsd: grok?.costUsd ?? iu.costUsd,
   });
   return Response.json({
     imageUrl: `data:image/png;base64,${b64}`,
-    costUsd: iu.costUsd,
+    costUsd: grok?.costUsd ?? iu.costUsd,
     costCredits: TEAM_CREST_PRICE_CREDITS,
     balance: charge.balance,
   });

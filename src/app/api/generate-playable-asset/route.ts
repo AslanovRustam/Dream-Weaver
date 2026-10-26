@@ -18,6 +18,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
+import { grokConfigured, grokGenerate, grokOnFilter } from "@/lib/grokImage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 
 export const runtime = "nodejs";
@@ -29,6 +30,11 @@ const COMMON =
   "Premium mobile casino game asset, high-end 3D render, glossy polished materials, rich fine detail, " +
   "dramatic studio lighting with crisp specular highlights, vivid saturated colours. " +
   "ABSOLUTELY NO text, letters, numbers, logos or watermarks anywhere.";
+/** То же для Grok, когда рисуем персонажа темы: эмблема — часть образа. */
+const COMMON_MARKS = COMMON.replace(
+  "ABSOLUTELY NO text, letters, numbers, logos or watermarks anywhere.",
+  "No captions, random text or watermarks; the character's own emblem and insignia are part of the look.",
+);
 
 type Spec = { prompt: string; size: string; transparent: boolean; quality: "medium" | "high" };
 
@@ -93,7 +99,8 @@ const KINDS: Record<string, Spec> = {
  * Предмет сцены по описанию из пресета (сундук, самолёт, дверь сейфа…):
  * описание приходит в subject, рамка промпта — здесь.
  */
-function objectSpec(subject: string): Spec {
+/** marks — образ персонажа темы целиком, с эмблемой (только для Grok: OpenAI такое не пропускает). */
+function objectSpec(subject: string, marks = false): Spec {
   return {
     prompt:
       `A single game object: ${subject}. ` +
@@ -102,7 +109,9 @@ function objectSpec(subject: string): Spec {
       "in fantasy or a witch's sealed cabinet in mystic; a chest becomes a crystal casket). " +
       "Centred with a little padding, nothing else in the image, crisp clean " +
       "edges, transparent background, no ground, no shadow plate. PEOPLE: any person is an adult, fully clothed, " +
-      "friendly non-sexual pose, with an original friendly face; no emblems, chest symbols, logos or lettering on clothes.",
+      (marks
+        ? "friendly non-sexual pose, wearing the full signature costume of the theme's character, emblem and insignia included."
+        : "friendly non-sexual pose, with an original friendly face; no emblems, chest symbols, logos or lettering on clothes."),
     size: "1024x1024",
     transparent: true,
     quality: "medium",
@@ -128,7 +137,7 @@ async function personBrief(
   theme: string,
   role: string,
   apiKey: string,
-): Promise<{ setting: string; costume: string } | null> {
+): Promise<{ setting: string; costume: string; named: boolean } | null> {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -148,10 +157,11 @@ async function personBrief(
     const j = JSON.parse(data.choices?.[0]?.message?.content || "{}") as {
       setting?: unknown;
       costume?: unknown;
+      named?: unknown;
     };
     const setting = typeof j.setting === "string" ? j.setting.trim().slice(0, 200) : "";
     const costume = typeof j.costume === "string" ? j.costume.trim().slice(0, 400) : "";
-    return setting && costume ? { setting, costume } : null;
+    return setting && costume ? { setting, costume, named: j.named === true } : null;
   } catch {
     return null;
   }
@@ -192,8 +202,13 @@ export async function POST(request: Request) {
 
   // Попытки по очереди: следующая — только если фильтр заблокировал предыдущую.
   const attempts: string[] = [];
+  /** Тема — известный персонаж: человека сразу рисует Grok, в его полном образе с эмблемой. */
+  let grokFirst = "";
   if (body.kind === "object" && body.person && theme) {
     const brief = await personBrief(theme, subject.slice(0, 120), apiKey);
+    if (brief?.named && grokConfigured()) {
+      grokFirst = `${objectSpec(subject, true).prompt}\n\nSTYLE (shared by every asset of this game — keep it consistent): ${style}.\nTHEME: ${theme}.\n\n${COMMON_MARKS}`;
+    }
     // имя темы не должно попасть в промпт и через стиль («…taken from the theme "супермен"»)
     const safe = (s: string, to: string) => s.split(theme).join(to);
     if (brief) {
@@ -231,37 +246,61 @@ export async function POST(request: Request) {
 
   let res!: Response;
   let text = "";
-  for (let i = 0; i < attempts.length; i++) {
-    try {
-      res = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: MODEL,
-          prompt: attempts[i],
-          size: spec.size,
-          quality: spec.quality,
-          n: 1,
-          background: spec.transparent ? "transparent" : "opaque",
-          output_format: spec.transparent ? "png" : "jpeg",
-          moderation: "low",
-        }),
-      });
-    } catch (e) {
-      await refund();
-      return Response.json(
-        { error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) },
-        { status: 502 },
-      );
-    }
+  const direct = grokFirst
+    ? await grokGenerate({
+        prompt: grokFirst,
+        size: spec.size,
+        transparent: spec.transparent,
+        format: spec.transparent ? "png" : "jpeg",
+      })
+    : null;
+  // Grok не ответил — как раньше: безымянный образ через OpenAI.
+  if (!direct)
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        res = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: MODEL,
+            prompt: attempts[i],
+            size: spec.size,
+            quality: spec.quality,
+            n: 1,
+            background: spec.transparent ? "transparent" : "opaque",
+            output_format: spec.transparent ? "png" : "jpeg",
+            moderation: "low",
+          }),
+        });
+      } catch (e) {
+        await refund();
+        return Response.json(
+          { error: "Провайдер недоступен", detail: e instanceof Error ? e.message : String(e) },
+          { status: 502 },
+        );
+      }
 
-    text = await res.text();
-    // Заблокировал фильтр, а есть попытка помягче — пробуем её.
-    if (!res.ok && i < attempts.length - 1 && /safety|moderation|content|rejected/i.test(text))
-      continue;
-    break;
-  }
-  if (!res.ok) {
+      text = await res.text();
+      // Заблокировал фильтр, а есть попытка помягче — пробуем её.
+      if (!res.ok && i < attempts.length - 1 && /safety|moderation|content|rejected/i.test(text))
+        continue;
+      break;
+    }
+  // Все попытки OpenAI отклонены фильтром — первая (с образом из брифа) уходит в Grok, если он подключён.
+  const grok = direct
+    ? {
+        text: JSON.stringify({ data: [{ b64_json: direct.b64 }] }),
+        costUsd: direct.costUsd,
+        model: direct.model,
+      }
+    : await grokOnFilter(res.ok, text, {
+        prompt: attempts[0],
+        size: spec.size,
+        transparent: spec.transparent,
+        format: spec.transparent ? "png" : "jpeg",
+      });
+  if (grok) text = grok.text;
+  if (!grok && !res.ok) {
     let msg = text.slice(0, 300);
     try {
       msg = (JSON.parse(text) as { error?: { message?: string } }).error?.message || msg;
@@ -292,19 +331,19 @@ export async function POST(request: Request) {
 
   const iu = imageUsageFromResponse(json);
   await recordUsage(user.id, {
-    model: MODEL,
+    model: grok?.model ?? MODEL,
     feature: `playable-${body.kind}`,
     type: "image",
     promptTokens: iu.inputText,
     inputImageTokens: iu.inputImage,
     completionTokens: iu.output,
     totalTokens: iu.total,
-    costUsd: iu.costUsd,
+    costUsd: grok?.costUsd ?? iu.costUsd,
   });
 
   return Response.json({
     imageUrl,
-    costUsd: iu.costUsd,
+    costUsd: grok?.costUsd ?? iu.costUsd,
     costCredits: PLAYABLE_ASSET_PRICE_CREDITS,
     balance: charge.balance,
   });

@@ -512,6 +512,10 @@ FTP_BASE_URL=https://demo.promo/sv/public_html/dream-weaver
 # Эндпоинт ретеншена закрыт этим секретом (сам ретеншен крутится in-process)
 CRON_SECRET=<длинная случайная строка>
 
+# Запасная генерация картинок: если OpenAI отказал по фильтру — тот же запрос в xAI Grok.
+# Ключ: console.x.ai → API Keys → тип «Grok API». Без ключа — просто отказ, как раньше.
+XAI_API_KEY=xai-...
+
 PORT=3000
 NODE_ENV=production
 ```
