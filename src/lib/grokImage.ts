@@ -1,5 +1,6 @@
-// Запасная генерация картинок через xAI Grok Imagine — когда OpenAI не пропускает
-// запрос по фильтру (персонаж, бренд, «цензура»). Только сервер.
+// Запасная генерация картинок через xAI Grok Imagine — только когда OpenAI вернул
+// ошибку: отказ по фильтру (персонаж, бренд, «цензура»), перегрузка, лимиты.
+// Пока OpenAI отвечает — Grok не вызывается. Только сервер.
 //
 // Как устроено:
 //   - тот же промпт, что ушёл в OpenAI; эмблемы и знаки персонажа темы Grok
@@ -16,8 +17,8 @@
 // Модель grok-imagine-image-2.0, качество medium; ответ — JPEG, ~1–1.5 мин
 // (с референсами — /v1/images/edits, до 5 картинок, ~20–30 с).
 //
-// ТЕСТ: IMAGE_PROVIDER=grok — вся генерация картинок сразу в Grok, OpenAI не
-// вызывается (grokPrimaryText). Вернуть как было — убрать переменную.
+// Ручной тест (не для прода): IMAGE_PROVIDER=grok — вся генерация сразу в Grok,
+// OpenAI не вызывается (grokPrimaryText). Без переменной ничего не делает.
 
 import sharp from "sharp";
 
@@ -156,15 +157,15 @@ export async function grokGenerate(opts: GrokOpts): Promise<GrokResult | null> {
 }
 
 /**
- * Если OpenAI отказал по фильтру — тот же запрос в Grok. Возвращает текст ответа
- * в форме OpenAI (подставить вместо ответа OpenAI) или null — оставить отказ как есть.
+ * OpenAI вернул ошибку (любую: фильтр, 5xx, лимиты) — тот же запрос в Grok.
+ * Возвращает текст ответа в форме OpenAI (подставить вместо ответа OpenAI)
+ * или null — OpenAI ответил нормально, Grok не подключён или тоже не смог.
  */
-export async function grokOnFilter(
+export async function grokOnFailure(
   okFromOpenAi: boolean,
-  openAiText: string,
   opts: GrokOpts,
 ): Promise<GrokText | null> {
-  if (okFromOpenAi || !grokConfigured() || !isFilterRejection(openAiText)) return null;
+  if (okFromOpenAi || !grokConfigured()) return null;
   return asOpenAiText(await grokGenerate(opts));
 }
 

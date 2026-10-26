@@ -18,7 +18,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { chargeFlat, refundFlat } from "@/lib/billing";
 import { PLAYABLE_ASSET_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
-import { grokConfigured, grokGenerate, grokOnFilter, grokPrimary } from "@/lib/grokImage";
+import { grokConfigured, grokGenerate, grokOnFailure, grokPrimary } from "@/lib/grokImage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
 
 export const runtime = "nodejs";
@@ -202,34 +202,37 @@ export async function POST(request: Request) {
 
   // Попытки по очереди: следующая — только если фильтр заблокировал предыдущую.
   const attempts: string[] = [];
-  /** Тема — известный персонаж: человека сразу рисует Grok, в его полном образе с эмблемой. */
-  let grokFirst = "";
   if (body.kind === "object" && body.person && theme) {
     const brief = await personBrief(theme, subject.slice(0, 120), apiKey);
     if (brief?.named && grokConfigured()) {
-      grokFirst = `${objectSpec(subject, true).prompt}\n\nSTYLE (shared by every asset of this game — keep it consistent): ${style}.\nTHEME: ${theme}.\n\n${COMMON_MARKS}`;
-    }
-    // имя темы не должно попасть в промпт и через стиль («…taken from the theme "супермен"»)
-    const safe = (s: string, to: string) => s.split(theme).join(to);
-    if (brief) {
+      // Тема — известный персонаж, а Grok подключён: просим OpenAI полный образ с эмблемой.
+      // OpenAI такое обычно не пропускает — тогда тот же промпт рисует Grok (grokOnFailure ниже).
+      attempts.push(
+        `${objectSpec(subject, true).prompt}\n\nSTYLE (shared by every asset of this game — keep it consistent): ${style}.\nTHEME: ${theme}.\n\n${COMMON_MARKS}`,
+      );
+    } else {
+      // имя темы не должно попасть в промпт и через стиль («…taken from the theme "супермен"»)
+      const safe = (s: string, to: string) => s.split(theme).join(to);
+      if (brief) {
+        attempts.push(
+          promptFor(
+            objectSpec(`${subject}. Outfit: ${brief.costume}`).prompt,
+            brief.setting,
+            safe(style, brief.setting),
+          ),
+        );
+      }
+      const setting = brief?.setting || "the theme's colour palette";
       attempts.push(
         promptFor(
-          objectSpec(`${subject}. Outfit: ${brief.costume}`).prompt,
-          brief.setting,
-          safe(style, brief.setting),
+          objectSpec(
+            `${subject}. An ORIGINAL generic character in a plain outfit using only the colour palette of the setting — no cape, mask, costume or motif of any known hero`,
+          ).prompt,
+          setting,
+          safe(style, setting),
         ),
       );
     }
-    const setting = brief?.setting || "the theme's colour palette";
-    attempts.push(
-      promptFor(
-        objectSpec(
-          `${subject}. An ORIGINAL generic character in a plain outfit using only the colour palette of the setting — no cape, mask, costume or motif of any known hero`,
-        ).prompt,
-        setting,
-        safe(style, setting),
-      ),
-    );
   } else {
     attempts.push(promptFor(spec.prompt, theme, style));
   }
@@ -246,17 +249,15 @@ export async function POST(request: Request) {
 
   let res!: Response;
   let text = "";
-  // Тема-персонаж — сразу Grok; в тестовом режиме (IMAGE_PROVIDER=grok) — сразу Grok для любой детали.
-  const grokPrompt = grokFirst || (grokPrimary() ? attempts[0] : "");
-  const direct = grokPrompt
+  // Ручной тест (IMAGE_PROVIDER=grok): вся деталь сразу в Grok, OpenAI не вызывается.
+  const direct = grokPrimary()
     ? await grokGenerate({
-        prompt: grokPrompt,
+        prompt: attempts[0],
         size: spec.size,
         transparent: spec.transparent,
         format: spec.transparent ? "png" : "jpeg",
       })
     : null;
-  // Grok не ответил — как раньше: безымянный образ через OpenAI.
   if (!direct)
     for (let i = 0; i < attempts.length; i++) {
       try {
@@ -288,14 +289,14 @@ export async function POST(request: Request) {
         continue;
       break;
     }
-  // Все попытки OpenAI отклонены фильтром — первая (с образом из брифа) уходит в Grok, если он подключён.
+  // OpenAI так и не дал картинку (фильтр на всех попытках, перегрузка, лимиты) — первая попытка уходит в Grok.
   const grok = direct
     ? {
         text: JSON.stringify({ data: [{ b64_json: direct.b64 }] }),
         costUsd: direct.costUsd,
         model: direct.model,
       }
-    : await grokOnFilter(res.ok, text, {
+    : await grokOnFailure(res.ok, {
         prompt: attempts[0],
         size: spec.size,
         transparent: spec.transparent,

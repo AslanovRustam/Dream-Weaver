@@ -9,7 +9,7 @@
 
 import sharp from "sharp";
 
-import { grokConfigured, grokFrame, grokOnFilter, grokPrimary, grokPrimaryText, isFilterRejection, keyOutBackground } from "../src/lib/grokImage";
+import { grokConfigured, grokFrame, grokOnFailure, grokPrimary, grokPrimaryText, isFilterRejection, keyOutBackground } from "../src/lib/grokImage";
 
 let failed = 0;
 let passed = 0;
@@ -50,9 +50,9 @@ check("отказ по фильтру распознаётся", isFilterRejecti
 check("обычная ошибка — не фильтр", !isFilterRejection(JSON.stringify({ error: { message: "Rate limit reached" } })));
 const saved = process.env.XAI_API_KEY;
 delete process.env.XAI_API_KEY;
-check("без XAI_API_KEY Grok выключен", !grokConfigured() && (await grokOnFilter(false, '{"error":{"message":"rejected by the safety system"}}', { prompt: "x", size: "1024x1024", transparent: true })) === null);
+check("без XAI_API_KEY Grok выключен", !grokConfigured() && (await grokOnFailure(false, { prompt: "x", size: "1024x1024", transparent: true })) === null);
 if (saved !== undefined) process.env.XAI_API_KEY = saved;
-check("при успехе OpenAI Grok не вызывается", (await grokOnFilter(true, "{}", { prompt: "x", size: "1024x1024", transparent: true })) === null);
+check("при успехе OpenAI Grok не вызывается", (await grokOnFailure(true, { prompt: "x", size: "1024x1024", transparent: true })) === null);
 
 // пропорции: ближайшая из тех, что принимает Grok
 const ar = (s: string) => grokFrame(s).aspect_ratio;

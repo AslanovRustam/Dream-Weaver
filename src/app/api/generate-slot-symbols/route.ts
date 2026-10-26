@@ -18,7 +18,7 @@ import { chargeFlat, refundFlat } from "@/lib/billing";
 import { SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { recordUsage } from "@/lib/usage";
 import { imageUsageFromResponse } from "@/lib/openai-pricing";
-import { grokOnFilter, grokPrimaryText } from "@/lib/grokImage";
+import { grokOnFailure, grokPrimaryText } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -157,8 +157,8 @@ export async function POST(request: Request) {
   }
 
   let text = await res.text();
-  // OpenAI не пропустил по фильтру — тот же запрос в Grok (если подключён XAI_API_KEY).
-  const grok = primary ?? (await grokOnFilter(res.ok, text, { prompt: full, size: GRID_SIZE, transparent: true, format: "png" }));
+  // OpenAI вернул ошибку (фильтр, перегрузка, лимиты) — тот же запрос в Grok (если подключён XAI_API_KEY).
+  const grok = primary ?? (await grokOnFailure(res.ok, { prompt: full, size: GRID_SIZE, transparent: true, format: "png" }));
   if (grok) text = grok.text;
   if (!res.ok && !grok) {
     let msg = text.slice(0, 300);

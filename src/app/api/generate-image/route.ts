@@ -9,7 +9,7 @@ import { openAiSizeString, resolveCanvasSize } from "@/lib/imageSizes";
 import { safeFetchImage } from "@/lib/safe-fetch";
 import { rateLimitResponse, MAX_DATAURL_BYTES, acquireSlot, assertImageDataUrl, rejectLargeBody } from "@/lib/request-guard";
 import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
-import { grokOnFilter, grokPrimaryText } from "@/lib/grokImage";
+import { grokOnFailure, grokPrimaryText } from "@/lib/grokImage";
 
 export const runtime = "nodejs";
 // The master model (openai/gpt-5.4-image-2) can take ~2–3 min per banner, so
@@ -1730,8 +1730,8 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           }
 
           let text = await res.text();
-          // OpenAI не пропустил по фильтру — тот же баннер в Grok (если подключён XAI_API_KEY).
-          const grok = primary ?? (await grokOnFilter(res.ok, text, grokOpts));
+          // OpenAI вернул ошибку (фильтр, перегрузка, лимиты) — тот же баннер в Grok (если подключён XAI_API_KEY).
+          const grok = primary ?? (await grokOnFailure(res.ok, grokOpts));
           if (grok) text = grok.text;
           if (!res.ok && !grok) {
             console.error("Image provider error", res.status, text);
