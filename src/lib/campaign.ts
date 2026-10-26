@@ -41,6 +41,8 @@ export type CampaignBrief = {
   topic: string;
   /** Заголовок, подобранный по тематике; свой заголовок (headline) главнее. */
   autoHeadline: string;
+  /** Какие части кампании делаем: снятая — не во вкладках, не в ZIP, не генерируется. */
+  parts?: CampaignParts;
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
@@ -74,6 +76,17 @@ export type CampaignBrief = {
   /** Графика «Мне повезёт». Хранится отдельно (IndexedDB) — в localStorage не влезает. */
   art?: CampaignArt | null;
 };
+
+export type CampaignPart = "landing" | "playable" | "email" | "banner";
+export type CampaignParts = Record<CampaignPart, boolean>;
+export const CAMPAIGN_PARTS: { id: CampaignPart; label: string }[] = [
+  { id: "landing", label: "Лендинг" },
+  { id: "playable", label: "Плейбл" },
+  { id: "email", label: "Письмо" },
+  { id: "banner", label: "Баннер" },
+];
+/** Части кампании; старые брифы без выбора — всё. */
+export const briefParts = (b: Pick<CampaignBrief, "parts">): CampaignParts => ({ landing: true, playable: true, email: true, banner: true, ...(b.parts ?? {}) });
 
 /** Графика кампании от ИИ — общая для лендинга на сцене и плейбла. */
 export type CampaignArt = {

@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
+import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import type { LandingKind, LandingLang } from "../src/lib/landingKit";
 import type { SceneLoader } from "../src/lib/scenes/build";
@@ -163,6 +163,14 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   const em = briefEmail(withHero);
   check("письмо: шапка — баннер без текстов", em.heroImage === HERO && em.blocks.hero === true && buildEmailHtml(em).includes("#hero"));
   check("письмо: без шапки — как раньше", !briefEmail(defaultBrief("casino", "ru")).heroImage);
+}
+
+// ---- что делаем: старые брифы — всё, выбор сохраняется по частям
+{
+  const all = briefParts(defaultBrief("casino", "ru"));
+  check("части: по умолчанию — всё", all.landing && all.playable && all.email && all.banner);
+  const some = briefParts({ parts: { landing: true, playable: false, email: true, banner: false } });
+  check("части: выбор держится", some.landing && !some.playable && some.email && !some.banner);
 }
 
 // ---- гамма и реф

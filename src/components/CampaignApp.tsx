@@ -46,6 +46,8 @@ import {
   LUCKY_SCENES,
   luckyBannerPayload,
   luckyRoll,
+  briefParts,
+  CAMPAIGN_PARTS,
   type CampaignArt,
   type CampaignBrief,
   type LuckyRoll,
@@ -138,9 +140,14 @@ export function CampaignApp() {
   useEffect(() => setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window), []);
 
   const showPlayable = isSectionEnabled("playable");
+  /** Что делаем в этой кампании (галочки); плейбл — ещё и если раздел открыт. */
+  const parts = briefParts(b);
+  const doPlayable = parts.playable && showPlayable;
   /** Письмо — всегда часть кампании; открыть его в редакторе — только где раздел писем открыт. */
   const emailEditor = isSectionEnabled("email");
   const set = <K extends keyof CampaignBrief>(k: K, v: CampaignBrief[K]) => setB((p) => ({ ...p, [k]: v }));
+  const latestB = useRef(b);
+  latestB.current = b;
 
   useEffect(() => {
     setB(loadBrief());
@@ -235,7 +242,7 @@ export function CampaignApp() {
   const applyLucky = async (key: string, dataUrl: string) => {
     if (key === "banner") {
       setArt((a) => a && { ...a, banner: dataUrl });
-      void makeEmailHero(dataUrl);
+      if (briefParts(latestB.current).email) void makeEmailHero(dataUrl);
       return;
     }
     if (key.startsWith("x-")) {
@@ -295,12 +302,17 @@ export function CampaignApp() {
     if (!roll) return [];
     const style = sceneAiStyle(roll.theme);
     return [
-      ...scenePartsFor(roll.scene).map((p) => {
-        const r = scenePartRequest(p, style, roll.theme);
-        return { id: `s-${p.id}`, label: p.label, credits: r.credits, run: callStep(`s-${p.id}`, r.route, r.body), server: { route: r.route, body: r.body } };
-      }),
-      ...extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })),
-      bannerStep(roll.theme),
+      // Детали сцены — для лендинга на сцене и для плейбла.
+      ...(parts.landing || doPlayable
+        ? scenePartsFor(roll.scene).map((p) => {
+            const r = scenePartRequest(p, style, roll.theme);
+            return { id: `s-${p.id}`, label: p.label, credits: r.credits, run: callStep(`s-${p.id}`, r.route, r.body), server: { route: r.route, body: r.body } };
+          })
+        : []),
+      // Картинки блоков — только у лендинга.
+      ...(parts.landing ? extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })) : []),
+      // Баннер — сам по себе или как основа шапки письма.
+      ...(parts.banner || parts.email ? [bannerStep(roll.theme)] : []),
     ];
   };
   /** Баннер в той же теме — генератором баннеров; попадает и в «Мои проекты» как обычный баннер. */
@@ -308,7 +320,7 @@ export function CampaignApp() {
     const payload = luckyBannerPayload(full, theme) as GeneratePayload;
     return {
       id: "banner",
-      label: "Баннер 16:9",
+      label: parts.banner ? "Баннер 16:9" : "Баннер — основа для шапки письма",
       credits: BANNER_PRICE_CREDITS,
       run: async () => {
         const r = await generateImage(payload);
@@ -320,7 +332,8 @@ export function CampaignApp() {
   };
   /** В смете — ещё шапка письма: делается из готового баннера, после него. */
   const HERO_PLAN = { id: "email-hero", label: "Шапка письма — баннер без текстов", credits: EMAIL_HERO_PRICE_CREDITS };
-  const luckyCredits = luckySteps().reduce((sum, st) => sum + st.credits, 0) + HERO_PLAN.credits;
+  const luckyPlan = [...luckySteps(), ...(parts.email ? [HERO_PLAN] : [])];
+  const luckyCredits = luckyPlan.reduce((sum, st) => sum + st.credits, 0);
   const startLucky = () => {
     if (!roll) return;
     if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
@@ -388,7 +401,7 @@ export function CampaignApp() {
     let alive = true;
     const id = window.setTimeout(async () => {
       try {
-        const [l, p] = await Promise.all([briefLandingHtml(full, browserLoader), showPlayable ? briefPlayableHtml(full, browserLoader) : Promise.resolve("")]);
+        const [l, p] = await Promise.all([parts.landing ? briefLandingHtml(full, browserLoader) : Promise.resolve(""), doPlayable ? briefPlayableHtml(full, browserLoader) : Promise.resolve("")]);
         if (!alive) return;
         setLandingHtml(l);
         setPlayableHtml(p);
@@ -400,7 +413,7 @@ export function CampaignApp() {
       alive = false;
       window.clearTimeout(id);
     };
-  }, [full, ready, showPlayable]);
+  }, [full, ready, parts.landing, doPlayable]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const emailHtml = useMemo(() => buildEmailHtml(briefEmail(full)), [full]);
   /** Поле ещё не трогали руками: пустое или равно умолчанию брифа на этом языке. */
@@ -543,24 +556,24 @@ export function CampaignApp() {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       const slug = (b.brand.trim() || "campaign").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "") || "campaign";
-      zip.file("landing/index.html", await briefLandingHtml(full, browserLoader));
-      if (showPlayable) {
+      if (parts.landing) zip.file("landing/index.html", await briefLandingHtml(full, browserLoader));
+      if (doPlayable) {
         zip.file("playable/web.html", await briefPlayableHtml(full, browserLoader, "web"));
         zip.file("playable/mraid.html", await briefPlayableHtml(full, browserLoader, "mraid"));
       }
-      zip.file("email/email.html", emailHtml);
+      if (parts.email) zip.file("email/email.html", emailHtml);
       // Баннер «Мне повезёт» — как есть, в его формате.
       const banner = art?.banner?.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (banner) zip.file(`banner/banner-16x9.${banner[1] === "jpeg" ? "jpg" : banner[1]}`, banner[2], { base64: true });
+      if (banner && parts.banner) zip.file(`banner/banner-16x9.${banner[1] === "jpeg" ? "jpg" : banner[1]}`, banner[2], { base64: true });
       zip.file(
         "README.txt",
         [
           `Кампания ${b.brand || ""}`.trim(),
           "",
-          "landing/index.html — лендинг, один файл: загрузите на хостинг или в трекер.",
-          showPlayable ? "playable/mraid.html — плейбл для MRAID-сетей (AppLovin, Unity, Liftoff); web.html — для сайта." : "",
-          art?.banner ? "banner/ — баннер 16:9; другие размеры — в генераторе баннеров (раздел «Мои проекты»)." : "",
-          "email/email.html — письмо: шапка — баннер кампании без текстов; картинки перед рассылкой разместите на хостинге (генератор писем делает это при выгрузке).",
+          parts.landing ? "landing/index.html — лендинг, один файл: загрузите на хостинг или в трекер." : "",
+          doPlayable ? "playable/mraid.html — плейбл для MRAID-сетей (AppLovin, Unity, Liftoff); web.html — для сайта." : "",
+          art?.banner && parts.banner ? "banner/ — баннер 16:9; другие размеры — в генераторе баннеров (раздел «Мои проекты»)." : "",
+          parts.email ? "email/email.html — письмо: шапка — баннер кампании без текстов; картинки перед рассылкой разместите на хостинге (генератор писем делает это при выгрузке)." : "",
           "",
           `Ссылка по кнопкам: ${b.link || "не задана — добавьте в редакторах"}`,
         ]
@@ -585,11 +598,17 @@ export function CampaignApp() {
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Mail; on: boolean }[] = [
-    { id: "landing", label: "Лендинг", icon: MonitorSmartphone, on: true },
-    { id: "playable", label: "Плейбл", icon: Gamepad2, on: showPlayable },
-    { id: "email", label: "Письмо", icon: Mail, on: true },
-    { id: "banner", label: "Баннер", icon: Megaphone, on: true },
+    { id: "landing", label: "Лендинг", icon: MonitorSmartphone, on: parts.landing },
+    { id: "playable", label: "Плейбл", icon: Gamepad2, on: doPlayable },
+    { id: "email", label: "Письмо", icon: Mail, on: parts.email },
+    { id: "banner", label: "Баннер", icon: Megaphone, on: parts.banner },
   ];
+  // Сняли галочку с открытой вкладки — на первую оставшуюся.
+  const shownTabs = tabs.filter((t) => t.on).map((t) => t.id).join(",");
+  useEffect(() => {
+    const list = shownTabs.split(",") as Tab[];
+    if (list.length && !list.includes(tab)) setTab(list[0]);
+  }, [shownTabs, tab]);
   const accent = briefAccent(b);
   const needsScene = b.landing === "scene" || showPlayable;
 
@@ -613,6 +632,33 @@ export function CampaignApp() {
             placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
           />
         </div>
+
+        <fieldset>
+          <legend className="mb-1.5 ds-caption">Что делаем</legend>
+          <div className="flex flex-wrap gap-2">
+            {CAMPAIGN_PARTS.filter((p) => p.id !== "playable" || showPlayable).map((p) => {
+              const on = parts[p.id];
+              // Хотя бы одна часть остаётся.
+              const last = on && CAMPAIGN_PARTS.filter((x) => parts[x.id] && (x.id !== "playable" || showPlayable)).length === 1;
+              return (
+                <label
+                  key={p.id}
+                  className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition ${on ? CHIP_ON : CHIP_OFF} ${last ? "cursor-not-allowed opacity-70" : ""}`}
+                  title={last ? "Хотя бы одну часть оставьте" : undefined}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={last}
+                    onChange={(e) => setB((prev) => ({ ...prev, parts: { ...briefParts(prev), [p.id]: e.target.checked } }))}
+                    className="h-4 w-4 accent-[var(--accent-green,#c6ff3d)]"
+                  />
+                  {p.label}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-start justify-between gap-3">
@@ -639,7 +685,7 @@ export function CampaignApp() {
           </div>
           <AssetRunPanel
             title="Мне повезёт"
-            plan={[...luckySteps(), HERO_PLAN]}
+            plan={luckyPlan}
             steps={lucky.steps}
             running={lucky.running}
             notEnough={lucky.notEnough}
