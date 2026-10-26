@@ -56,9 +56,11 @@ export function isSectionEnabled(id: string): boolean {
 
 export function isRouteEnabled(route: string): boolean {
   if (MVP_ENABLED_ROUTES.has(route)) return true;
-  // A previewed section brings its own routes with it, so the sidebar entry
-  // and the hub tile stop being greyed out together.
-  for (const id of PREVIEW_SECTIONS) {
+  // An open section — live in the MVP or previewed — brings its own routes with
+  // it, so the sidebar entry and the hub tile stop being greyed out together.
+  // (Live sections used to be missing here: a section added to
+  // MVP_ENABLED_SECTION_IDS opened on the hub but stayed «Скоро» in the sidebar.)
+  for (const id of [...MVP_ENABLED_SECTION_IDS, ...PREVIEW_SECTIONS]) {
     const section = SECTION_BY_ID.get(id as SectionId);
     if (section && (route === section.route || route === section.entryRoute)) return true;
   }
