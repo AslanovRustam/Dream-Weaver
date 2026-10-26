@@ -70,41 +70,10 @@ export type LandingTemplateCategory = {
   templates: LandingTemplate[];
 };
 
-// Verticals mirror the Banner-generator categories. Each has a primary template
+// Categories mirror the Banner-generator: Gambling and Sport (betting included). Each has a primary template
 // plus one alternative style revealed by "Все" — the alternative changes the
 // accent colour of the generated landing so the choice is visible.
 export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
-  {
-    id: "betting",
-    label: "Betting",
-    templates: [
-      {
-        id: "betting-classic",
-        vertical: "betting",
-        name: "Ставки — классик",
-        description: "Спорт-беттинг: коэффициенты, экспресс, бонус на депозит",
-        accent: "#38bdf8",
-        gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#38bdf8)",
-      },
-      {
-        id: "betting-match",
-        vertical: "betting",
-        name: "Матч-прогноз",
-        description: "Лендинг под матч: команды, коэффициенты, таймер и оффер — кнопки ведут на ставку",
-        accent: "#38bdf8",
-        gradient: "linear-gradient(135deg,#052e16,#16a34a,#38bdf8)",
-        interactive: "match",
-      },
-      {
-        id: "betting-express",
-        vertical: "betting",
-        name: "Экспресс дня",
-        description: "Акцент на экспрессы и фрибет",
-        accent: "#22d3ee",
-        gradient: "linear-gradient(135deg,#020617,#0ea5e9,#22d3ee)",
-      },
-    ],
-  },
   {
     id: "gambling",
     label: "Gambling",
@@ -154,10 +123,37 @@ export const LANDING_TEMPLATE_CATEGORIES: LandingTemplateCategory[] = [
       },
     ],
   },
+  // Спорт и беттинг — один раздел (как у баннеров): шаблоны ставок лежат здесь же,
+  // vertical "betting" у них остаётся — от него зависят тексты лендинга.
   {
     id: "sport",
     label: "Sport",
     templates: [
+      {
+        id: "betting-classic",
+        vertical: "betting",
+        name: "Ставки — классик",
+        description: "Спорт-беттинг: коэффициенты, экспресс, бонус на депозит",
+        accent: "#38bdf8",
+        gradient: "linear-gradient(135deg,#0b1220,#1d4ed8,#38bdf8)",
+      },
+      {
+        id: "betting-match",
+        vertical: "betting",
+        name: "Матч-прогноз",
+        description: "Лендинг под матч: команды, коэффициенты, таймер и оффер — кнопки ведут на ставку",
+        accent: "#38bdf8",
+        gradient: "linear-gradient(135deg,#052e16,#16a34a,#38bdf8)",
+        interactive: "match",
+      },
+      {
+        id: "betting-express",
+        vertical: "betting",
+        name: "Экспресс дня",
+        description: "Акцент на экспрессы и фрибет",
+        accent: "#22d3ee",
+        gradient: "linear-gradient(135deg,#020617,#0ea5e9,#22d3ee)",
+      },
       {
         id: "sport-match",
         vertical: "sport",

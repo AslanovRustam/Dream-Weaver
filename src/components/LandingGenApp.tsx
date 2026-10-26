@@ -71,7 +71,7 @@ const ALL_ON: Record<LandingSectionId, boolean> = {
 };
 
 const VERTICAL_LABEL: Record<LandingVertical, string> = {
-  betting: "Betting",
+  betting: "Sport",
   gambling: "Gambling",
   sport: "Sport",
 };
