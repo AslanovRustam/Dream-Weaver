@@ -70,23 +70,27 @@ function buildMessages(theme: string, field: Field, mechanic: string, side?: "le
       };
     // Icon prompts. The generators already pin down shape, angle, transparent
     // background and slicing, so these only describe the SUBJECT and look.
-    // Two invented club names for the match card, "A vs B". Real clubs are
-    // trademarks — the generator is told to avoid them.
+    // Two club names for the match card, "A vs B": the ones named in the theme
+    // (real clubs too — brand use is on the user, see Terms), else invented.
     case "teams":
       return {
         system:
-          "Ты — маркетолог спортивного беттинга. Придумай ДВА ВЫМЫШЛЕННЫХ названия команд/клубов под тематику " +
-          "(не используй реальные клубы, лиги и города-бренды вроде «Реал» или «Барселона»). Короткие, 1–2 слова каждое, " +
-          "на языке тематики. Верни ТОЛЬКО строку вида «Команда А vs Команда Б», без кавычек и пояснений.",
+          "Ты — маркетолог спортивного беттинга. Нужны ДВЕ команды для лендинга матча. " +
+          "Если тематика НАЗЫВАЕТ команды или клубы (в т.ч. реальные) — " +
+          "верни ИМЕННО их, в привычном полном написании, ничего не выдумывая и не переименовывая. " +
+          "Только если команды не названы — придумай две ВЫМЫШЛЕННЫЕ команды под тематику (1–2 слова каждая), не реальные клубы. " +
+          "Язык — как в тематике. Верни ТОЛЬКО строку вида «Команда А vs Команда Б», без кавычек и пояснений.",
         user: `Тематика: ${theme}`,
       };
     case "icon":
       if (mechanic === "match") {
         return {
           system:
-            "You are an art director. Write a concise (1 sentence) description IN ENGLISH of the visual theme for an " +
-            "INVENTED sports club crest — heraldic symbol idea, colors, material/finish — fitting the theme. Never " +
-            "reference real clubs or leagues. Do NOT mention shape, framing or background — that is added automatically. " +
+            "You are an art director. Write a concise (1 sentence) description IN ENGLISH of the visual theme for the " +
+            "sports club crests — heraldic symbol idea, colors, material/finish — fitting the theme. It is shared by BOTH " +
+            "crests: if the theme names real clubs (each crest is drawn from its own club name), describe ONLY the common " +
+            "finish and mood — never mix the clubs symbols or colours into one. Otherwise invent a fitting symbol idea. " +
+            "Do NOT mention shape, framing or background — that is added automatically. " +
             "Return ONLY the theme description.",
           user: `Theme / wishes: ${theme}`,
         };

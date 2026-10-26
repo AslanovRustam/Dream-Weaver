@@ -66,12 +66,13 @@ export async function POST(request: Request) {
     : "";
 
   const full =
-    `A single premium sports club CREST / badge for ${sportHint} named "${team}" — an INVENTED emblem that ` +
-    `does not resemble any real club, league or brand logo. Shield or roundel shape, bold heraldic ` +
+    `A single premium sports club CREST / badge for ${sportHint} named "${team}". If "${team}" is a real club, ` +
+    `draw its recognizable crest: its known symbol, shape and club colours (the user takes responsibility for ` +
+    `brand use — see Terms). Otherwise invent one: shield or roundel shape, bold heraldic ` +
     `symbol derived from the name (animal, landmark, tool, star), the team name lettered on a ribbon or ` +
     `band, two or three team colors, glossy enamel-and-metal finish with strong specular highlights, a ` +
     `bold dark beveled outline and a soft drop shadow — the polished game-icon look, NOT a flat vector.` +
-    (theme ? ` Overall theme / palette wishes: ${theme}.` : "") +
+    (theme ? ` Overall theme / palette wishes: ${theme} (for a real club its own crest and colours win over these wishes).` : "") +
     referenceClause +
     `\n\nOUTPUT: centered in frame with generous padding on all sides. FULLY TRANSPARENT background — no ` +
     `scene, no extra text, no numbering.`;

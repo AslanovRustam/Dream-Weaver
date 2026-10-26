@@ -712,7 +712,7 @@ export function MatchLandingApp() {
               Сбросить по умолчанию
             </button>
           </div>
-          <p className="ds-overline text-accent-green">Лендинг · Betting</p>
+          <p className="ds-overline text-accent-green">Лендинг · Sport</p>
           <h1 className="ds-h1 mt-1">Матч-прогноз</h1>
           <p className="ds-body mt-2 text-muted-foreground">
             Лендинг под конкретный матч: команды, коэффициенты, таймер до начала и оффер. Ставка не делается на странице — коэффициенты и кнопка ведут на букмекера.
