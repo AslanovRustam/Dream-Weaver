@@ -7,7 +7,7 @@
 import { SECTION_BY_ID, type SectionId } from "./sections";
 
 /** Section ids that are live in the MVP. */
-export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "landing"]);
+export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "landing", "playable"]);
 
 /** Routes that are reachable in the MVP (adds the hub + working History).
  *  History is a real feature (loads/edits generation_cards via /api/history), so
@@ -45,7 +45,7 @@ const PREVIEW_SECTIONS = new Set(
  * Имя ветки Vercel подставляет в сборку системной переменной; на main
  * (прод) она другая — там всё по-прежнему закрыто, даже после слияния.
  */
-const TEST_BRANCH_SECTIONS = ["email", "mailing", "playable"];
+const TEST_BRANCH_SECTIONS = ["email", "mailing"];
 if (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF === "test") {
   TEST_BRANCH_SECTIONS.forEach((id) => PREVIEW_SECTIONS.add(id));
 }
