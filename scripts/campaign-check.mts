@@ -198,6 +198,17 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
 }
 
+// ---- шрифт сцены: подмножества Inter по символам текста (казахский, польский), без лишнего веса
+{
+  const kk = await briefPlayableHtml({ ...defaultBrief("casino", "ru"), cta: "АЙНАЛДЫРЫҢЫЗ ҰТЫҢЫЗ" }, load);
+  const pl = await briefPlayableHtml({ ...defaultBrief("casino", "ru"), cta: "ZAKRĘĆ I WYGRAJ" }, load);
+  const ru = await briefPlayableHtml({ ...defaultBrief("casino", "ru"), cta: "КРУТИ И ВЫИГРЫВАЙ" }, load);
+  const faces = (h: string) => (h.match(/@font-face\{font-family:"PInter"/g) ?? []).length;
+  check("шрифт: казахский — + кириллица-ext", kk.includes("U+0460-052F") && faces(kk) === 3, String(faces(kk)));
+  check("шрифт: польский — + латиница-ext", pl.includes("U+0100-02BA") && !pl.includes("U+0460-052F"));
+  check("шрифт: русский — только базовые", faces(ru) === 2);
+}
+
 // ---- блоки лендинга: новые выключены по умолчанию, включённые рисуются, старые черновики дополняются
 {
   const base = defaultExtras("ru", "sport");

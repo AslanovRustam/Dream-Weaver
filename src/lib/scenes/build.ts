@@ -118,6 +118,41 @@ function inlineScript(js: string, name: string): string {
   return `<script>\n${js}\n</script>`;
 }
 
+/**
+ * Подмножества Inter сверх базовых латиницы и кириллицы — только если в текстах
+ * сцены есть их символы. Без них казахские Ң Ұ Ү Қ Ғ Ә Ө, польские ą ł,
+ * румынские ș ț, турецкие ğ ş, греческий рисовались системным шрифтом —
+ * другие толщина и высота посреди слова. Встраивать всегда — +130 КБ к файлу.
+ */
+const EXTRA_FONTS: { file: string; test: RegExp; range: string }[] = [
+  {
+    file: "playable/fonts/inter-cyrillic-ext.woff2",
+    test: /[Ѡ-ԯᲀ-ᲊⷠ-ⷿꙀ-ꚟ]/,
+    range: "U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+  },
+  {
+    file: "playable/fonts/inter-latin-ext.woff2",
+    test: /[Ā-ʺʽ-˿Ḁ-ỿⱠ-Ɀ꜠-ꟿ]/,
+    range: "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF",
+  },
+  {
+    file: "playable/fonts/inter-greek.woff2",
+    test: /[Ͱ-Ͽ]/,
+    range: "U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF",
+  },
+];
+
+async function extraFonts(text: string, load: SceneLoader): Promise<string> {
+  const need = EXTRA_FONTS.filter((f) => f.test.test(text));
+  const data = await Promise.all(need.map((f) => load.base64(f.file)));
+  return need
+    .map(
+      (f, i) =>
+        `@font-face{font-family:"PInter";font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${data[i]}) format("woff2");unicode-range:${f.range}}`,
+    )
+    .join("");
+}
+
 export async function buildScenePlayable(
   cfg: SceneConfig,
   opts: { network: PlayableNetwork; preview: boolean; load: SceneLoader },
@@ -137,7 +172,8 @@ export async function buildScenePlayable(
     `@font-face{font-family:"PInter";font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${fontLatin}) format("woff2");` +
     "unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}" +
     `@font-face{font-family:"PInter";font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${fontCyr}) format("woff2");` +
-    "unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}";
+    "unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}" +
+    (await extraFonts(JSON.stringify(cfg) + sceneHtml, load));
   // Фон — через CSS-переменную: сценарий решает, где и как его показывать.
   const bg = cfg.bgImage && /^data:image\//.test(cfg.bgImage) ? `:root{--img-bg:url("${cfg.bgImage}")}` : "";
 
