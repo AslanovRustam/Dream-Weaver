@@ -243,6 +243,11 @@ export function ImageGenApp() {
   }, [uiMode]);
   const advanced = uiMode === "advanced";
   const [pendingBriefGen, setPendingBriefGen] = useState(false);
+  /** Выбранный шаблон — для разбора ТЗ: ТЗ сплавляется с ним в усиленный бриф. */
+  const briefTemplate = (() => {
+    const p = PRESETS.find((x) => x.id === preset);
+    return p ? { name: p.name, description: p.description, prompt: p.template ?? "" } : undefined;
+  })();
   const applyBrief = (f: Record<string, string>) => {
     if (f.prompt) setPrompt(f.prompt);
     if (f.brand) setBrandName(f.brand);
@@ -939,7 +944,7 @@ export function ImageGenApp() {
         JSON.stringify({
           brand_name: brandName,
           brand_logo: brandLogo,
-          subject: isSlotPreset ? slotName : prompt,
+          subject: isSlotPreset ? prompt.trim() || slotName : prompt,
           language,
           banner_text: bannerTextEnabled ? bannerText : "",
           cta: buttonTextEnabled ? buttonText : "",
@@ -1017,7 +1022,8 @@ export function ImageGenApp() {
       preset_id: preset,
       button_text: buttonTextEnabled ? buttonText : "",
       banner_text: bannerTextEnabled ? bannerText : "",
-      prompt: isSlotPreset ? slotName : prompt,
+      // «Слот»: описание (оно же усиленное ТЗ) — направление; название слота — отдельно.
+      prompt: isSlotPreset ? prompt.trim() || slotName : prompt,
       model: MODEL_IDS[model],
       aspect_ratio: ratio,
       ad_texts_enabled: isSlotPreset || isSportPreset ? true : adTextsEnabled,
@@ -1184,6 +1190,7 @@ export function ImageGenApp() {
             <div className="flex flex-col gap-6">
               <BriefUploader
                 product="banner"
+                template={briefTemplate}
                 onApply={applyBrief}
                 onGenerate={(r) => {
                   applyBrief(r.fields);
@@ -1192,11 +1199,12 @@ export function ImageGenApp() {
                 }}
               />
 
-              {!isSlotPreset && (
+              {/* У «Слота» описание необязательно: направление креатива (в т.ч. усиленное ТЗ). */}
+              {(
                 <div>
                   <label className="mb-2 block ds-h4">
                     {isSportPreset ? "Опишите матч / событие" : "Описание"}{" "}
-                    <span className="text-[color:var(--status-error)]">*</span>
+                    {isSlotPreset ? <span className="text-muted-foreground">(опционально)</span> : <span className="text-[color:var(--status-error)]">*</span>}
                   </label>
                   <textarea
                     data-tour="banner-prompt"

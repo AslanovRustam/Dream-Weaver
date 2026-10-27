@@ -76,6 +76,8 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
 export interface BriefResult {
   fields: Record<string, string>;
   generationPrompt: string;
+  /** Баннер: ТЗ сплавлено с шаблоном — что усилили (поле «Описание» уже усиленное). */
+  enhanced?: { ideas: string[]; template: string } | null;
 }
 
 /**

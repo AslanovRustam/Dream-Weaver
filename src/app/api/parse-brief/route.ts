@@ -10,6 +10,7 @@ import { rateLimitResponse, rejectLargeBody, sniffDocument } from "@/lib/request
 import { extractUsage, recordUsage } from "@/lib/usage";
 import { interpretCampaignTz } from "@/lib/campaignTz";
 import { readTzLinks, tzLinksPrompt } from "@/lib/tzLinks";
+import { enhanceBannerBrief } from "@/lib/bannerTz";
 
 export const runtime = "nodejs";
 // Кампания: до разбора открываем ссылки ТЗ (до 8 с), затем две модели параллельно.
@@ -25,6 +26,8 @@ type Body = {
   text?: string;
   fileBase64?: string;
   fileName?: string;
+  /** Баннер: выбранный шаблон — ТЗ сплавляется с ним в усиленный бриф. */
+  template?: { name?: unknown; description?: unknown; prompt?: unknown };
 };
 
 async function extractDocx(buf: Buffer): Promise<string> {
@@ -165,6 +168,16 @@ export async function POST(request: Request) {
     product === "campaign"
       ? interpretCampaignTz(linksCtx ? `${brief}\n\n${linksCtx}` : brief, apiKey).catch(() => ({ plan: null, usage: null }))
       : null;
+  // Баннер: параллельно с полями — арт-директор сплавляет ТЗ с выбранным шаблоном.
+  const tplRaw = body.template && typeof body.template === "object" ? body.template : null;
+  const tpl = tplRaw
+    ? {
+        name: typeof tplRaw.name === "string" ? tplRaw.name.slice(0, 80) : "",
+        description: typeof tplRaw.description === "string" ? tplRaw.description.slice(0, 300) : "",
+        prompt: typeof tplRaw.prompt === "string" ? tplRaw.prompt.slice(0, 3000) : "",
+      }
+    : null;
+  const enhanceP = product === "banner" ? enhanceBannerBrief(brief, tpl, apiKey).catch(() => ({ result: null, usage: null })) : null;
   const providers = [
     { url: "https://api.openai.com/v1/chat/completions", key: apiKey, model: "gpt-4o-mini" },
   ];
@@ -254,5 +267,22 @@ export async function POST(request: Request) {
     }
   }
 
-  return Response.json({ fields, generationPrompt, briefChars, costUsd, plan, links });
+  // Усиленный бриф баннера — вместо сырого описания и текстов.
+  let enhanced: { ideas: string[]; template: string } | null = null;
+  if (enhanceP) {
+    const r = await enhanceP;
+    if (r.result) {
+      fields.prompt = r.result.prompt;
+      if (r.result.bannerText) fields.bannerText = r.result.bannerText;
+      if (r.result.buttonText) fields.buttonText = r.result.buttonText;
+      enhanced = { ideas: r.result.ideas, template: tpl?.name ?? "" };
+    }
+    if (r.usage) {
+      const u = extractUsage(r.usage, "gpt-5.4-mini");
+      await recordUsage(authedUser.id, { model: "gpt-5.4-mini", feature: "parse-brief-banner", type: "llm", ...u });
+      if (typeof u.costUsd === "number") costUsd = (costUsd ?? 0) + u.costUsd;
+    }
+  }
+
+  return Response.json({ fields, generationPrompt, briefChars, costUsd, plan, links, enhanced });
 }

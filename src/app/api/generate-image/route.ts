@@ -188,6 +188,8 @@ function slotPrompt(
   language: string,
   hasScreenshot: boolean,
   hasLogo: boolean,
+  /** Описание из формы (в т.ч. ТЗ, усиленное под шаблон) — направление визуала. */
+  direction = "",
 ): string {
   const [w, h] = aspectRatio.split(":").map(Number);
   const layout =
@@ -207,6 +209,9 @@ function slotPrompt(
       : // Без названия модель подставляла реальный слот (Book of Ra) — чужую торговую марку.
         "Create a premium modern gaming advertisement banner for an ORIGINAL, invented slot game. Do NOT depict or name any real slot title, provider or logo (no Book of Ra, Sweet Bonanza, Gates of Olympus, etc.).",
     `Aspect ratio: ${aspectRatio}. ${layout}`,
+    ...(direction
+      ? [`CREATIVE DIRECTION (follow it for the key visual, objects, palette, effects and mood, within the layout and style below): ${direction}`]
+      : []),
     "Style: vibrant cinematic gaming advertising, glossy high contrast, rich dark atmospheric background, dimensional depth, rim light, neon accents, particles, smoke, reflections, professional contrast and clean hierarchy.",
     hasScreenshot
       ? "Use the attached slot screenshot as the key visual reference: preserve its character/symbol identity, art direction, color palette and mood, but rebuild it as a polished premium ad composition; do not copy tiny UI text."
@@ -1101,6 +1106,7 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
               language,
               hasSlotScreenshot,
               hasSlotLogo || hasLogo,
+              subject && subject !== slotName ? subject : "",
             );
           } else if (template) {
             finalPrompt = await adaptPrompt(

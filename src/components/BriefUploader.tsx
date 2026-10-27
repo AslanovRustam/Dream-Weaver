@@ -14,10 +14,13 @@ export function BriefUploader({
   product,
   onApply,
   onGenerate,
+  template,
 }: {
   product: SectionId;
   onApply: (fields: Record<string, string>) => void;
   onGenerate: (result: BriefResult) => void;
+  /** Баннер: выбранный шаблон — ТЗ не просто раскладывается по полям, а сплавляется с ним в усиленный бриф. */
+  template?: { name: string; description: string; prompt: string };
 }) {
   const schema = BRIEF_SCHEMAS[product];
   const [mode, setMode] = useState<"file" | "text">("file");
@@ -67,7 +70,7 @@ export function BriefUploader({
     setResult(null);
     setApplied(false);
     try {
-      const base: Record<string, unknown> = { product };
+      const base: Record<string, unknown> = { product, ...(template ? { template } : {}) };
       let payload: Record<string, unknown> = base;
       if (mode === "file") {
         if (!file) {
@@ -120,7 +123,9 @@ export function BriefUploader({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Загрузить ТЗ</p>
-          <p className="ds-caption">ИИ прочитает бриф и заполнит поля или сгенерирует продукт.</p>
+          <p className="ds-caption">
+            {template ? "ИИ соединит ТЗ с выбранным шаблоном в усиленный бриф — и заполнит поля или сразу сгенерирует." : "ИИ прочитает бриф и заполнит поля или сгенерирует продукт."}
+          </p>
         </div>
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`}
@@ -214,6 +219,20 @@ export function BriefUploader({
 
       {result ? (
         <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+          {result.enhanced ? (
+            <div className="mb-3 rounded-lg border border-accent-green/30 bg-accent-green/[0.06] p-2.5">
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-green">
+                <Wand2 className="h-3.5 w-3.5" /> ТЗ усилено под шаблон{result.enhanced.template ? ` «${result.enhanced.template}»` : ""}
+              </p>
+              {result.enhanced.ideas.length ? (
+                <ul className="mt-1.5 list-disc pl-4 text-xs text-muted-foreground">
+                  {result.enhanced.ideas.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-2">
             <p className="ds-caption">
               Извлечено полей:{" "}
@@ -249,7 +268,7 @@ export function BriefUploader({
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-medium text-foreground">{labelFor(k)}</span>
-                        <span className="block truncate text-xs text-muted-foreground" title={v}>
+                        <span className={`block text-xs text-muted-foreground ${k === "prompt" && result.enhanced ? "whitespace-pre-wrap" : "truncate"}`} title={v}>
                           {v}
                         </span>
                       </span>
