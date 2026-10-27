@@ -127,21 +127,38 @@ ${k.head}
   .offer .txt{font-size:12px;line-height:1.25;color:rgba(255,255,255,.85)}
   .cta{position:relative;z-index:3;margin:6px 0 4px;width:82%;max-width:380px;border:0;border-radius:999px;padding:15px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#fff;cursor:pointer;background:linear-gradient(180deg,${accent},${accent}cc);box-shadow:0 8px 20px rgba(0,0,0,.35)}
   .cta:active{transform:scale(.97)}
-  /* Телефон вертикально: персонаж на 74% высоты наезжал на фрибет и кнопку, а над карточкой
-     оставалась пустота. С персонажами карточка, оффер и кнопка — внизу, персонажи — в полосе
-     между таймером и карточкой (чуть заходят за неё). Без персонажей — по центру, как было. */
+  /* Персонажи — один раз в разметке (картинки тяжёлые): на десктопе .pchars «прозрачен» и
+     они стоят по краям экрана (позиционируются от .col — она во весь экран), на телефоне —
+     над карточкой. Контент — выше персонажей. */
+  .pchars{display:contents}
+  .top,h1,.cd,.card,.offer{position:relative;z-index:3}
+  /* Телефон вертикально. Карточка: команды друг под другом, крупный герб и название, VS —
+     разделителем, коэффициенты крупнее. Персонажи — не по краям экрана (наезжали на оффер и
+     кнопку), а над карточкой: стоят «за ней», ногами уходят под её верх и занимают всё
+     свободное место между таймером и карточкой. */
   @media (max-aspect-ratio:3/4){
-    .stage.has-char .mid{justify-content:flex-end}
-    .stage.has-char .char{bottom:auto;top:clamp(96px,14%,150px);height:38%;max-width:52%}
-    .stage.has-char .char.left{left:-4%}.stage.has-char .char.right{right:-4%}
+    .mid{justify-content:flex-end;gap:10px}
+    .pchars{display:flex;flex:1 1 0;min-height:0;width:100%;align-items:flex-end;justify-content:center;margin-bottom:-56px;pointer-events:none}
+    /* z-index:0 — во flex-раскладке он действует и без position: с 2 персонаж лёг бы поверх карточки. */
+    .pchars .char{position:static;z-index:0;height:auto;max-height:100%;max-width:62%;min-width:0}
+    .pchars .char+.char{margin-left:-14%}
+    .card{position:relative;z-index:1;padding:14px 16px}
+    .teams{grid-template-columns:1fr;gap:4px}
+    .team{flex-direction:row;justify-content:flex-start;gap:14px;padding:4px 2px}
+    .team .name{font-size:clamp(18px,5.6vw,24px);text-align:left;white-space:nowrap}
+    .crest{width:clamp(56px,17vw,76px);height:clamp(56px,17vw,76px);flex:none}
+    .crest.ph{font-size:24px}
+    .vs{flex-direction:row;gap:10px;width:100%}
+    .vs::before,.vs::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent)}
+    .vs .ico{font-size:22px}.vs b{font-size:18px}
+    .odds{margin-top:14px;gap:10px}
+    .odd{padding:12px 6px}.odd b{font-size:22px}
   }
 ${k.css}
 </style>
 </head>
 <body>
-  <div class="stage${cfg.charLeft || cfg.charRight ? " has-char" : ""}">${k.stageArt}
-    ${charImg(cfg.charLeft, "left")}
-    ${charImg(cfg.charRight, "right")}
+  <div class="stage">${k.stageArt}
     <div class="col">
       <div class="top">${
         cfg.brandLogo
@@ -151,6 +168,7 @@ ${k.css}
       <h1>${esc(cfg.headline || "СТАВЬ НА МАТЧ ДНЯ")}</h1>
       <div class="cd" id="cd"><span class="dot"></span><span id="cdText"></span></div>
       <div class="mid">
+        ${cfg.charLeft || cfg.charRight ? `<div class="pchars">${charImg(cfg.charLeft, "left")}${charImg(cfg.charRight, "right")}</div>` : ""}
         <div class="card">
           ${cfg.eventName ? `<div class="event">${esc(cfg.eventName)}</div>` : ""}
           <div class="teams">
