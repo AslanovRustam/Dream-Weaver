@@ -36,6 +36,7 @@ import type { LandingKind } from "@/lib/landingKit";
 import { isSectionEnabled } from "@/lib/mvp";
 import { CAMPAIGN_BRIEF_KEY, forgetProject, saveProject } from "@/lib/projects";
 import { useProjectAutosave } from "@/lib/useProjectAutosave";
+import { enabledBlocks } from "@/components/landing/LandingBlocksPicker";
 import { useAuth } from "@/lib/auth-context";
 import {
   briefAccent,
@@ -46,6 +47,8 @@ import {
   briefEmail,
   briefHeadline,
   briefLandingHtml,
+  briefScene,
+  type CampaignCopy,
   briefPlayableHtml,
   briefSource,
   defaultBrief,
@@ -506,16 +509,63 @@ export function CampaignApp() {
   const HERO_PLAN = { id: "email-hero", label: "Шапка письма — баннер без текстов", credits: EMAIL_HERO_PRICE_CREDITS };
   const luckyPlan = [...luckySteps(), ...(parts.email ? [HERO_PLAN] : [])];
   const luckyCredits = luckyPlan.reduce((sum, st) => sum + st.credits, 0);
-  const startLucky = () => {
+  /**
+   * «Собрать кампанию»: шаг 1 — тема или ТЗ раскладываются по всем частям
+   * (/api/campaign-copy: заголовок, баннер, тексты плейбла, письмо, блоки
+   * лендинга); шаг 2 — графика для отмеченных частей. Шаг 2 стартует из эффекта,
+   * когда бриф с новыми текстами уже отрисован: подсказки картинок бонусов
+   * строятся по их названиям, а смета и баннер — по свежему брифу.
+   */
+  const [copying, setCopying] = useState(false);
+  const [pendingRun, setPendingRun] = useState(false);
+  const startLucky = async () => {
     if (!roll) return;
     if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
+    if (!topic) return toast.error("Введите тематику или загрузите ТЗ — по ним собирается вся кампания");
     luckyScene.current = roll.scene;
-    forgetProject(CAMPAIGN_BRIEF_KEY); // новая графика — новая кампания в истории
+    const nb = { ...full, landing: "scene" as const, scene: roll.scene };
+    setCopying(true);
+    let copy: CampaignCopy | null = null;
+    try {
+      const sc = briefScene(nb);
+      const fields = (SCENES.find((x) => x.id === roll.scene)?.fields ?? [])
+        .filter((fl) => fl.key !== "cta")
+        .map((fl) => ({ key: fl.key, label: fl.label, value: String((sc.text as Record<string, string>)[fl.key] ?? "") }));
+      const tz = b.tzPlan ? [b.tzPlan.summary, ...b.tzPlan.notes].filter(Boolean).join(" ") : "";
+      const res = await apiFetch("/api/campaign-copy", {
+        method: "POST",
+        json: {
+          topic,
+          brief: tz,
+          kind: b.kind,
+          lang: b.lang,
+          brand: b.brand,
+          offer: b.offer,
+          cta: b.cta,
+          parts: { ...parts, playable: doPlayable },
+          scene: { id: roll.scene, fields },
+          blocks: enabledBlocks(briefExtras(nb), b.kind),
+        },
+      });
+      const data = (await res.json().catch(() => ({}))) as { copy?: CampaignCopy; error?: string };
+      if (!res.ok || !data.copy) throw new Error(data.error || "Не удалось разложить тему по креативам");
+      copy = data.copy;
+    } catch (e) {
+      toast.error(`${e instanceof Error ? e.message : "Не удалось разложить тему"} — графику соберём с прежними текстами`);
+    } finally {
+      setCopying(false);
+    }
+    forgetProject(CAMPAIGN_BRIEF_KEY); // новая сборка — новая кампания в истории
     setArt({ scene: roll.scene, theme: roll.theme, themeName: roll.themeName });
-    setB((p) => ({ ...p, landing: "scene", scene: roll.scene }));
+    setB((p) => ({ ...p, landing: "scene", scene: roll.scene, ...(copy ? { copy } : {}) }));
     setTab("landing");
-    void lucky.start(luckySteps());
+    setPendingRun(true);
   };
+  useEffect(() => {
+    if (!pendingRun || b.scene !== roll?.scene) return;
+    setPendingRun(false);
+    void lucky.start(luckySteps());
+  }, [pendingRun, full]); // eslint-disable-line react-hooks/exhaustive-deps
   const sceneLabel = (id: string) => SCENES.find((s) => s.id === id)?.label ?? id;
 
   // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
@@ -912,9 +962,13 @@ export function CampaignApp() {
             <p className="ds-caption">
               {planning ? (
                 <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Подбираем сцену, визуал и заголовок…</span>
+              ) : copying ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Раскладываем тему по креативам: тексты лендинга, плейбла, баннера и письма…</span>
+              ) : !topic ? (
+                "Введите тематику или загрузите ТЗ — по ним соберём тексты для всех частей и графику для отмеченных."
               ) : roll ? (
                 <>
-                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Лендинг, плейбл и баннер — с графикой от ИИ на всех элементах.
+                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Сначала тексты всех частей под тему, затем графика от ИИ для отмеченных: {CAMPAIGN_PARTS.filter((p) => parts[p.id] && (p.id !== "playable" || showPlayable)).map((p) => p.label.toLowerCase()).join(", ")}.
                 </>
               ) : (
                 "Выбираем тему…"
@@ -931,7 +985,7 @@ export function CampaignApp() {
             </button>
           </div>
           <AssetRunPanel
-            title="Мне повезёт"
+            title="Собрать кампанию"
             plan={luckyPlan}
             steps={lucky.steps}
             running={lucky.running}
@@ -939,7 +993,7 @@ export function CampaignApp() {
             credits={luckyCredits}
             onStart={startLucky}
             onCancel={lucky.cancel}
-            disabled={!roll || planning}
+            disabled={!roll || planning || copying || !topic}
           />
           {art ? (
             <p className="ds-caption">
@@ -1184,7 +1238,7 @@ export function CampaignApp() {
               <div className="flex w-full flex-col items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={art.banner} alt="Баннер кампании" className="w-full max-w-2xl rounded-xl border border-border" />
-                <p className="ds-caption">Баннер 16:9 из «Мне повезёт». Другие размеры — в генераторе баннеров (кнопка ниже).</p>
+                <p className="ds-caption">Баннер 16:9 из «Собрать кампанию». Другие размеры — в генераторе баннеров (кнопка ниже).</p>
               </div>
             ) : (
             <div className="flex w-full max-w-xl flex-col items-center gap-3 py-10 text-center">
@@ -1214,7 +1268,7 @@ export function CampaignApp() {
             : tab === "playable"
               ? "Плейбл играется в превью. В архиве — версии для MRAID-сетей и для сайта."
               : tab === "email"
-                ? "Письмо по шаблону под ваш тип трафика — тексты, кнопка и цвет из брифа; шапка — баннер кампании без текстов (после «Мне повезёт»)."
+                ? "Письмо по шаблону под ваш тип трафика — тексты, кнопка и цвет из брифа; шапка — баннер кампании без текстов (после «Собрать кампанию»)."
                 : "Генерация баннера тратит кредиты; остальные части кампании — бесплатно."}
         </p>
       </section>

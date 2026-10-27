@@ -9,7 +9,7 @@
 // Подписи (кнопка «Скопировать», «Место», «Итоговый коэффициент»…) — в данных
 // блока, а не в общих строках: так их переводит кампания вместе с текстами.
 
-import type { LandingKind, LandingLang } from "./landingKit";
+import type { LandingExtras, LandingKind, LandingLang } from "./landingKit";
 import { APP_STORE_BADGE, GOOGLE_PLAY_BADGE } from "./emailStoreBadges";
 
 export type MoreBlocks = {
@@ -390,3 +390,22 @@ export const MORE_BLOCKS_SCRIPT = `
     });
   })();
 `;
+
+type Obj = Record<string, unknown>;
+
+/** Тексты блоков от /api/landing-blocks — поверх своих: картинки карточек, «вкл.» и числа остаются. */
+export function applyBlockTexts(x: LandingExtras, got: Record<string, Obj>): LandingExtras {
+  const next = { ...x } as unknown as Record<string, Obj>;
+  for (const [id, t] of Object.entries(got)) {
+    const cur = next[id];
+    if (!cur || typeof cur !== "object") continue;
+    const merged: Obj = { ...cur, ...t };
+    // У бонусов и игр — картинки по местам карточек.
+    if ((id === "bonuses" || id === "games") && Array.isArray(t.items)) {
+      const old = (cur.items as Obj[] | undefined) ?? [];
+      merged.items = (t.items as Obj[]).map((it, i) => ({ ...it, ...(old[i]?.image ? { image: old[i].image } : {}) }));
+    }
+    next[id] = merged;
+  }
+  return next as unknown as LandingExtras;
+}

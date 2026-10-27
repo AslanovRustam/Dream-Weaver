@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
+import { briefExtras, briefHeadline, liveCopy, briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import { normalizeTzPlan } from "../src/lib/campaignTz";
 import { defaultExtras, kitParts, normalizeExtras, relocalizeExtras, type LandingKind, type LandingLang } from "../src/lib/landingKit";
@@ -196,6 +196,33 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("ТЗ: шаблон письма из плана", briefEmail(b).body !== briefEmail({ ...b, emailTemplate: "" }).body);
   check("ТЗ: текст баннера из плана", luckyBannerPayload(b, "plinko").banner_text === "Бонус 222FS");
   check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
+}
+
+// ---- «Собрать кампанию»: раскладка темы по всем частям; сменили тему — тексты шаблонные
+{
+  const base: CampaignBrief = { ...defaultBrief("casino", "ru"), topic: "супермен и бетмен", scene: "slot", link: LINK, offer: "" };
+  const copy = {
+    topic: "супермен и бетмен",
+    headline: "ГЕРОИ ЖДУТ",
+    bannerText: "Бонус героя 200%",
+    sceneId: "slot",
+    scene: { title: "Крути с героями", cta: "НЕ ДОЛЖНО" },
+    email: { subject: "Герои зовут", body: "Текст письма", steps: ["Раз", "Два", "Три"] },
+    blocks: { faq: { title: "Вопросы героев" }, bonuses: { title: "Бонусы героев" } },
+  };
+  const b: CampaignBrief = { ...base, copy };
+  check("раскладка: заголовок", briefHeadline(b) === "ГЕРОИ ЖДУТ");
+  check("раскладка: баннер", luckyBannerPayload(b, "x").banner_text === "Бонус героя 200%");
+  const em = briefEmail(b);
+  check("раскладка: письмо", em.subject === "Герои зовут" && em.body === "Текст письма" && em.steps.length === 3);
+  const sc = briefScene(b);
+  check("раскладка: плейбл — поля сцены, кнопка своя", (sc.text as Record<string, string>).title === "Крути с героями" && (sc.text as Record<string, string>).cta !== "НЕ ДОЛЖНО");
+  check("раскладка: другая сцена — тексты сцены шаблонные", (briefScene({ ...b, scene: "wheel" }).text as Record<string, string>).title !== "Крути с героями");
+  const x = briefExtras(b);
+  check("раскладка: блоки лендинга", x.faq.title === "Вопросы героев" && x.bonuses.title === "Бонусы героев");
+  const moved: CampaignBrief = { ...b, topic: "викинги" };
+  check("раскладка: сменили тему — не подставляется", !liveCopy(moved) && briefHeadline(moved) !== "ГЕРОИ ЖДУТ" && briefEmail(moved).subject !== "Герои зовут");
+  check("раскладка: свой заголовок главнее", briefHeadline({ ...b, headline: "СВОЙ" }) === "СВОЙ");
 }
 
 // ---- шрифт сцены: подмножества Inter по символам текста (казахский, польский), без лишнего веса

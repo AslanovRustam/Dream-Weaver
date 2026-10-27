@@ -33,6 +33,25 @@ import { buildWheelHtml } from "./wheelExport";
 export type CampaignLanding = "wheel" | "slot" | "crash" | "match" | "scene";
 
 import type { CampaignTzPlan } from "./campaignTz";
+import { applyBlockTexts } from "./landingBlocks";
+
+/**
+ * Тексты всей кампании под тему или ТЗ — «Собрать кампанию», шаг 1
+ * (/api/campaign-copy), на языке кампании. Подставляются поверх шаблонных
+ * в каждую часть; свой заголовок (headline) и текст баннера из ТЗ главнее.
+ */
+export type CampaignCopy = {
+  /** Тема, под которую написано: сменили тему — тексты прежние, пока не соберёте заново. */
+  topic: string;
+  headline?: string;
+  bannerText?: string;
+  /** Тексты плейбла — по полям сцены sceneId (у другой сцены поля другие). */
+  sceneId?: string;
+  scene?: Record<string, string>;
+  email?: { subject?: string; preheader?: string; heroTitle?: string; heroSubtitle?: string; body?: string; stepsTitle?: string; ctaText?: string; steps?: string[] };
+  /** Тексты блоков лендинга (как от /api/landing-blocks). */
+  blocks?: Record<string, Record<string, unknown>>;
+};
 
 export type CampaignBrief = {
   /**
@@ -53,6 +72,8 @@ export type CampaignBrief = {
   bannerText?: string;
   /** Как поняли ТЗ: выбор креативов с причинами — для карточки в форме. */
   tzPlan?: CampaignTzPlan | null;
+  /** Тексты всех частей под тему/ТЗ — см. CampaignCopy. */
+  copy?: CampaignCopy | null;
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
@@ -214,7 +235,11 @@ const tr = (b: CampaignBrief): CampaignI18n => b.i18n ?? {};
 /** Перевод есть — собираем на английском наборе и накладываем его; иначе — готовый набор языка. */
 const translated = (b: CampaignBrief) => !isBuiltInLang(b.lang) && Object.keys(tr(b)).length > 0;
 
-export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || b.autoHeadline?.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
+/** Раскладка темы — пока тема та же; сменили тему — шаблонные тексты, пока не соберёте заново. */
+export const liveCopy = (b: Pick<CampaignBrief, "copy" | "topic">): CampaignCopy | null =>
+  b.copy && b.copy.topic.trim() === b.topic.trim() ? b.copy : null;
+
+export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || liveCopy(b)?.headline?.trim() || b.autoHeadline?.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
 /** Название бренда; есть только лого — без названия (не печатаем заглушку «BRAND» рядом с лого). */
 const brandName = (b: CampaignBrief) => b.brand.trim() || (b.logo ? "" : "BRAND");
 
@@ -251,6 +276,9 @@ export function briefExtras(b: CampaignBrief): LandingExtras {
   } else if (!isBuiltInLang(b.lang)) {
     x.htmlLang = b.lang;
   }
+  // Тексты блоков из раскладки темы — до оффера и картинок: оффер — первой карточкой, картинки — по местам.
+  const cb = liveCopy(b)?.blocks;
+  if (cb) x = applyBlockTexts(x, cb);
   if (b.offer.trim()) {
     x.bonuses = { ...x.bonuses, items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title: b.offer.trim().slice(0, 40) } : it)) };
   }
@@ -312,6 +340,13 @@ function matchFields(b: CampaignBrief) {
 }
 
 /** Конфиг сцены плейбла: тексты пресета (с переводом), сумма и кнопка — из брифа, фон и гамма — рефа. */
+/** Тексты плейбла из раскладки — только поля этой сцены. */
+function sceneCopy(b: CampaignBrief, text: Record<string, string>): Record<string, string> {
+  const c = liveCopy(b);
+  if (!c?.scene || c.sceneId !== b.scene) return {};
+  return Object.fromEntries(Object.entries(c.scene).filter(([k, v]) => k in text && k !== "cta" && v.trim()));
+}
+
 export function briefScene(b: CampaignBrief): SceneConfig {
   const base = baseLang(b.lang);
   let p = scenePreset(b.scene, base);
@@ -322,7 +357,7 @@ export function briefScene(b: CampaignBrief): SceneConfig {
   const pal = briefPalette(b);
   return {
     scene: b.scene,
-    text: { ...p.text, cta: b.cta || p.text.cta },
+    text: { ...p.text, ...sceneCopy(b, p.text), cta: b.cta || p.text.cta },
     amount: b.amount,
     unit: b.unit || p.unit,
     locale: euLang(b.lang).locale,
@@ -371,12 +406,19 @@ export function briefEmail(b: CampaignBrief): EmailDraft {
   for (const [k, v] of Object.entries(tr(b))) if (k.startsWith("email.")) t[k] = v.split("BRAND").join(brandName(b));
   const d = b.lang !== "ru" && Object.keys(t).length ? applyFlat(base, "email", t) : base;
   const offer = b.offer.trim();
+  /** Тексты письма из раскладки темы. */
+  const ec = liveCopy(b)?.email ?? {};
   return {
     ...d,
     name: `Кампания · ${brandName(b) || "лого"}`,
-    subject: offer ? (brandName(b) ? `${brandName(b)}: ${offer}` : offer) : d.subject,
-    heroTitle: offer ? `${briefHeadline(b)}: **${offer.toUpperCase()}**` : d.heroTitle,
-    ctaText: b.cta ? b.cta.toUpperCase() : d.ctaText,
+    subject: ec.subject || (offer ? (brandName(b) ? `${brandName(b)}: ${offer}` : offer) : d.subject),
+    heroTitle: ec.heroTitle || (offer ? `${briefHeadline(b)}: **${offer.toUpperCase()}**` : d.heroTitle),
+    ctaText: b.cta ? b.cta.toUpperCase() : ec.ctaText || d.ctaText,
+    ...(ec.preheader ? { preheader: ec.preheader } : {}),
+    ...(ec.heroSubtitle ? { heroSubtitle: ec.heroSubtitle } : {}),
+    ...(ec.body ? { body: ec.body } : {}),
+    ...(ec.stepsTitle ? { stepsTitle: ec.stepsTitle } : {}),
+    ...(ec.steps?.length ? { steps: ec.steps } : {}),
     accent: briefAccent(b),
     // Шапка — баннер кампании без текстов: тексты письма живые, их не дублируем картинкой.
     ...(b.art?.emailHero ? { heroImage: b.art.emailHero, heroSource: b.art.emailHero, blocks: { ...d.blocks, hero: true } } : {}),
@@ -404,7 +446,7 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
   return {
     preset_id: "preset1",
     prompt: `${what} key visual in the theme: ${theme}`,
-    banner_text: (b.bannerText?.trim() || b.offer.trim() || briefHeadline(b)).slice(0, 80),
+    banner_text: (b.bannerText?.trim() || liveCopy(b)?.bannerText?.trim() || b.offer.trim() || briefHeadline(b)).slice(0, 80),
     button_text: (b.cta.trim() || briefDefaults(b.kind, b.lang, tr(b)).cta).slice(0, 24),
     banner_text_enabled: true,
     button_text_enabled: true,
