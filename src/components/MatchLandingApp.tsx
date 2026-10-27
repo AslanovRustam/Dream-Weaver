@@ -18,6 +18,7 @@ import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
+import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { accentFromPalette, paletteFromImage } from "@/lib/imagePalette";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
@@ -738,6 +739,7 @@ export function MatchLandingApp() {
           <ApplyTopicButton
             topic={topic}
             mechanic="match"
+            blocks={{ extras, kind: "sport", onExtras: setExtras }}
             fill={[
               { field: "headline", set: setHeadline },
               { field: "bg", set: setTheme },
@@ -751,6 +753,8 @@ export function MatchLandingApp() {
             ]}
           />
         </div>
+
+        <LandingBlocksPicker value={extras} onChange={setExtras} kind="sport" />
 
         <BannerReferenceField
           value={bannerRef}

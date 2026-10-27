@@ -12,6 +12,7 @@
 // embedJson, ссылки — через safeCtaUrl, ID пикселей — по строгим шаблонам.
 
 import { embedJson, safeCtaUrl } from "./exportUtils";
+import { defaultMoreBlocks, MORE_BLOCKS_SCRIPT, moreBlocksCss, moreBlocksHtml, normalizeMoreBlocks, relocalizeMoreBlocks, type MoreBlocks } from "./landingBlocks";
 
 export type LandingLang = "ru" | "uk" | "en" | "es";
 export type LandingKind = "casino" | "sport";
@@ -74,7 +75,7 @@ export type LandingExtras = {
   timer: { on: boolean; minutes: number; text: string };
   reviews: { on: boolean; title: string; items: Review[] };
   faq: { on: boolean; title: string; items: FaqItem[] };
-};
+} & MoreBlocks; // + джекпот, промокод, преимущества, VIP, турнир, приложение, экспресс, финал (landingBlocks)
 
 // ---------------------------------------------------------------- тексты
 
@@ -151,7 +152,7 @@ const LEGAL: Record<LandingLang, string> = {
   es: "18+. El juego puede crear adicción. Juega con responsabilidad. Solo nuevos jugadores, aplican T&C.",
 };
 
-type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking" | "look" | "games">;
+type Pack = Omit<LandingExtras, "lang" | "legal" | "tracking" | "look" | "games" | keyof MoreBlocks>;
 
 const GAMES_TITLE: Record<LandingKind, Record<LandingLang, string>> = {
   casino: { ru: "Популярные игры", uk: "Популярні ігри", en: "Popular games", es: "Juegos populares" },
@@ -352,6 +353,7 @@ export function defaultExtras(lang: LandingLang = "ru", kind: LandingKind = "cas
     look: { intro: true, lines: "auto", style: "vivid", floaters: true },
     games: gamesPack(lang, kind),
     ...pack(lang, kind),
+    ...defaultMoreBlocks(lang, kind),
   };
 }
 
@@ -370,6 +372,7 @@ export function relocalizeExtras(x: LandingExtras, lang: LandingLang, kind: Land
     timer: { ...d.timer, on: x.timer.on, minutes: x.timer.minutes },
     reviews: { ...d.reviews, on: x.reviews.on },
     faq: { ...d.faq, on: x.faq.on },
+    ...relocalizeMoreBlocks(x, lang, kind),
   };
 }
 
@@ -392,6 +395,7 @@ export function normalizeExtras(raw: unknown, kind: LandingKind): LandingExtras 
     timer: { ...d.timer, ...(r.timer ?? {}) },
     reviews: { ...d.reviews, ...(r.reviews ?? {}) },
     faq: { ...d.faq, ...(r.faq ?? {}) },
+    ...normalizeMoreBlocks(r, lang, kind),
   };
 }
 
@@ -671,6 +675,7 @@ const FX =
 
 function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string, kind: LandingKind): string {
   const parts: string[] = [];
+  const more = moreBlocksHtml(x, kind, NAMES[x.lang]);
   const cta = `<button type="button" class="cta" data-excta><span class="shine"></span><span>🎁</span><span>${esc(s.claimNow)}</span>${ICON.arrow}</button>`;
   if (x.timer.on) {
     const mm = String(Math.max(1, Math.min(180, x.timer.minutes | 0))).padStart(2, "0");
@@ -688,6 +693,7 @@ function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string, kind:
       .join("");
     parts.push(`<section><h2>${esc(x.bonuses.title)}</h2><div class="bento">${cards}</div></section>`);
   }
+  if (more.afterBonuses) parts.push(more.afterBonuses);
   if (x.games.on && x.games.items.some((g) => g.title.trim())) {
     const list = x.games.items.filter((g) => g.title.trim()).slice(0, 12);
     const step = 360 / list.length;
@@ -709,12 +715,14 @@ function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string, kind:
         `<div class="chips">${x.trust.license.trim() ? `<span>${ICON.shield}${esc(x.trust.license)}</span>` : ""}${pays}</div></section>`,
     );
   }
+  if (more.afterTrust) parts.push(more.afterTrust);
   if (x.steps.on && x.steps.items.length) {
     const st = x.steps.items.filter((t) => t.trim()).map((t, i) => `<div><i>${i + 1}</i><span>${esc(t)}</span></div>`).join("");
     parts.push(`<section><h2>${esc(x.steps.title)}</h2><div class="steps">${st}</div></section>`);
   }
   if (x.bonuses.on || x.steps.on) parts.push(cta);
   if (x.winners.on) parts.push(`<section><h2><span class="dot"></span>${esc(s.winnersTitle)}</h2><div class="tick"><div class="row" data-exticker></div><div class="row" data-exticker2></div></div></section>`);
+  if (more.beforeReviews) parts.push(more.beforeReviews);
   if (x.reviews.on && x.reviews.items.length) {
     const rv = x.reviews.items
       .filter((r) => r.text.trim())
@@ -725,11 +733,13 @@ function sectionsHtml(x: LandingExtras, s: LandingStrings, accent: string, kind:
       .join("");
     parts.push(`<section><h2>${esc(x.reviews.title)}</h2><div class="rev">${rv}</div></section>`);
   }
+  if (more.afterReviews) parts.push(more.afterReviews);
   if (x.faq.on && x.faq.items.length) {
     const fq = x.faq.items.filter((f) => f.q.trim()).map((f, i) => `<details${i === 0 ? " open" : ""}><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
     parts.push(`<section><h2>${esc(x.faq.title)}</h2><div>${fq}</div></section>`);
   }
-  if (parts.length && !(x.bonuses.on || x.steps.on)) parts.push(cta);
+  if (more.end) parts.push(more.end);
+  else if (parts.length && !(x.bonuses.on || x.steps.on)) parts.push(cta);
   parts.push(`<footer><div class="bdg"><div class="age">18+</div><span class="ssl">${ICON.lock}SSL</span></div><div>${esc(x.legal)}</div><div style="margin-top:6px;font-weight:700">${esc(s.responsible)}</div></footer>`);
   return `<main class="ex">${FX}<div class="w">${parts.join("")}</div></main>`;
 }
@@ -1039,11 +1049,11 @@ export function kitParts(extras: LandingExtras | undefined, accent: string, dark
   return {
     lang: x.htmlLang && /^[a-z]{2,3}(-[A-Za-z0-9]{2,4})*$/.test(x.htmlLang) ? x.htmlLang : x.lang,
     head: introHead(x.look) + trackingHead(x.tracking),
-    css: kitCss(accent, dark) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
+    css: kitCss(accent, dark) + moreBlocksCss(accent, tone(dark)) + (x.look.style === "premium" ? premiumCss(accent, dark) : "") + introCss(dark),
     legalLine: x.legal.trim() ? `<div class="exLegalLine">${esc(x.legal)}</div>` : "",
     stageArt: stageArt(x.look, kind, accent) + floatersHtml(x.look, kind, accent),
     after: sectionsHtml(x, strings, accent, kind),
-    script: kitScript(x, ctaUrl, kind) + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : "") + (x.look.floaters ? `<script>${FLOAT_SCRIPT}</script>` : ""),
+    script: kitScript(x, ctaUrl, kind) + (x.jackpot.on || x.promo.on ? `<script>${MORE_BLOCKS_SCRIPT}</script>` : "") + (x.look.intro ? `<script>${INTRO_SCRIPT}</script>` : "") + (x.look.floaters ? `<script>${FLOAT_SCRIPT}</script>` : ""),
     strings,
     stringsJson: embedJson(strings),
   };

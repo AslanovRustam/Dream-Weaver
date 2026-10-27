@@ -236,7 +236,7 @@ export function LandingExtrasPanel({
         <p className="mt-2 ds-caption">На клик кнопки шлём события: Meta — Lead, TikTok — ClickButton, GTM — cta_click.</p>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Блоки под механикой" hint="Бонусы, доверие, шаги, лента, отзывы, FAQ" defaultOpen={false}>
+      <CollapsibleSection title="Блоки под механикой" hint="Тексты блоков: бонусы, джекпот, промокод, турнир, VIP, FAQ…" defaultOpen={false}>
         <label className="mb-1.5 block ds-caption">Стиль блоков</label>
         <div className="mb-3 grid grid-cols-2 gap-2">
           {STYLE_OPTIONS.map((o) => (
@@ -435,6 +435,71 @@ export function LandingExtrasPanel({
               <textarea rows={2} maxLength={240} value={f.a} onChange={(e) => patch("faq", { items: x.faq.items.map((it, j) => (j === i ? { ...it, a: e.target.value } : it)) })} className={AREA} />
             </div>
           ))}
+        </Block>
+
+        <Block label={kind === "sport" ? "Призовой фонд — растущий счётчик" : "Джекпот — растущий счётчик"} on={x.jackpot.on} onToggle={(on) => patch("jackpot", { on })}>
+          <input value={x.jackpot.title} maxLength={60} onChange={(e) => patch("jackpot", { title: e.target.value })} className={INPUT} />
+          <div className="mt-2 grid grid-cols-[1fr_88px] gap-2">
+            <input type="number" min={0} value={x.jackpot.amount} onChange={(e) => patch("jackpot", { amount: Math.max(0, Number(e.target.value) || 0) })} className={INPUT} aria-label="Сумма" />
+            <input value={x.jackpot.currency} maxLength={6} onChange={(e) => patch("jackpot", { currency: e.target.value })} className={INPUT} aria-label="Валюта" />
+          </div>
+        </Block>
+
+        {kind === "sport" ? (
+          <Block label="Экспресс дня" on={x.express.on} onToggle={(on) => patch("express", { on })}>
+            <input value={x.express.title} maxLength={60} onChange={(e) => patch("express", { title: e.target.value })} className={INPUT} />
+            {x.express.items.map((r, i) => (
+              <div key={i} className="mt-2 grid grid-cols-[1fr_1fr_64px] gap-2">
+                <input value={r.match} maxLength={48} onChange={(e) => patch("express", { items: x.express.items.map((it, j) => (j === i ? { ...it, match: e.target.value } : it)) })} className={INPUT} aria-label="Матч" />
+                <input value={r.pick} maxLength={32} onChange={(e) => patch("express", { items: x.express.items.map((it, j) => (j === i ? { ...it, pick: e.target.value } : it)) })} className={INPUT} aria-label="Исход" />
+                <input value={r.odd} maxLength={6} onChange={(e) => patch("express", { items: x.express.items.map((it, j) => (j === i ? { ...it, odd: e.target.value } : it)) })} className={INPUT} aria-label="Коэффициент" />
+              </div>
+            ))}
+          </Block>
+        ) : null}
+
+        <Block label="Промокод с кнопкой «Скопировать»" on={x.promo.on} onToggle={(on) => patch("promo", { on })}>
+          <input value={x.promo.title} maxLength={60} onChange={(e) => patch("promo", { title: e.target.value })} className={INPUT} />
+          <input value={x.promo.code} maxLength={24} onChange={(e) => patch("promo", { code: e.target.value.toUpperCase() })} className={`${INPUT} mt-2 font-mono`} aria-label="Промокод" />
+          <textarea rows={2} maxLength={140} value={x.promo.text} onChange={(e) => patch("promo", { text: e.target.value })} className={`${AREA} mt-2`} />
+        </Block>
+
+        <Block label="Преимущества — 4 карточки" on={x.features.on} onToggle={(on) => patch("features", { on })}>
+          <input value={x.features.title} maxLength={60} onChange={(e) => patch("features", { title: e.target.value })} className={INPUT} />
+          {x.features.items.map((f, i) => (
+            <div key={i} className="mt-2 grid grid-cols-2 gap-2">
+              <input value={f.title} maxLength={32} onChange={(e) => patch("features", { items: x.features.items.map((it, j) => (j === i ? { ...it, title: e.target.value } : it)) })} className={INPUT} />
+              <input value={f.text} maxLength={80} onChange={(e) => patch("features", { items: x.features.items.map((it, j) => (j === i ? { ...it, text: e.target.value } : it)) })} className={INPUT} />
+            </div>
+          ))}
+        </Block>
+
+        <Block label="Турнир — призовой фонд и таблица лидеров" on={x.tournament.on} onToggle={(on) => patch("tournament", { on })}>
+          <input value={x.tournament.title} maxLength={60} onChange={(e) => patch("tournament", { title: e.target.value })} className={INPUT} />
+          <input value={x.tournament.prize} maxLength={24} onChange={(e) => patch("tournament", { prize: e.target.value })} className={`${INPUT} mt-2`} aria-label="Призовой фонд" />
+          <textarea rows={2} maxLength={140} value={x.tournament.text} onChange={(e) => patch("tournament", { text: e.target.value })} className={`${AREA} mt-2`} />
+        </Block>
+
+        <Block label="VIP-уровни" on={x.vip.on} onToggle={(on) => patch("vip", { on })}>
+          <input value={x.vip.title} maxLength={60} onChange={(e) => patch("vip", { title: e.target.value })} className={INPUT} />
+          {x.vip.items.map((v, i) => (
+            <div key={i} className="mt-2 grid grid-cols-[110px_1fr] gap-2">
+              <input value={v.name} maxLength={20} onChange={(e) => patch("vip", { items: x.vip.items.map((it, j) => (j === i ? { ...it, name: e.target.value } : it)) })} className={INPUT} />
+              <input value={v.perk} maxLength={80} onChange={(e) => patch("vip", { items: x.vip.items.map((it, j) => (j === i ? { ...it, perk: e.target.value } : it)) })} className={INPUT} />
+            </div>
+          ))}
+        </Block>
+
+        <Block label="Мобильное приложение — App Store и Google Play" on={x.app.on} onToggle={(on) => patch("app", { on })}>
+          <input value={x.app.title} maxLength={60} onChange={(e) => patch("app", { title: e.target.value })} className={INPUT} />
+          <textarea rows={2} maxLength={140} value={x.app.text} onChange={(e) => patch("app", { text: e.target.value })} className={`${AREA} mt-2`} />
+          <p className="mt-1.5 ds-caption">Значки ведут по ссылке кнопки оффера.</p>
+        </Block>
+
+        <Block label="Финальный призыв перед подвалом" on={x.final.on} onToggle={(on) => patch("final", { on })}>
+          <input value={x.final.title} maxLength={60} onChange={(e) => patch("final", { title: e.target.value })} className={INPUT} />
+          <textarea rows={2} maxLength={140} value={x.final.text} onChange={(e) => patch("final", { text: e.target.value })} className={`${AREA} mt-2`} />
+          <input value={x.final.button} maxLength={28} onChange={(e) => patch("final", { button: e.target.value })} className={`${INPUT} mt-2`} aria-label="Кнопка" />
         </Block>
       </CollapsibleSection>
     </>

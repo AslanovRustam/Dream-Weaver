@@ -18,7 +18,7 @@ import type { SceneId } from "./scenes/build";
 export type CampaignI18n = Record<string, string>;
 
 /** Что не переводим: картинки, валюты, числа, списки платёжек, названия игр. */
-const SKIP = /(^|\.)(image|currency|rating|players|payments|lang|htmlLang|on|minutes)$|^extras\.games\.items\.\d+\.title$/;
+const SKIP = /(^|\.)(image|currency|rating|players|payments|lang|htmlLang|on|minutes|amount|code|odd)$|^extras\.games\.items\.\d+\.title$/;
 const hasLetters = (s: string) => /\p{L}/u.test(s);
 
 /** Плоский словарь строк объекта: { "bonuses.items.0.title": "…" }. */

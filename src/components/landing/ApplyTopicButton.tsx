@@ -13,6 +13,8 @@ import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthGate } from "@/components/AuthGate";
 import { apiFetch } from "@/lib/api-client";
+import type { LandingExtras, LandingKind } from "@/lib/landingKit";
+import { applyBlockTexts, enabledBlocks } from "@/components/landing/LandingBlocksPicker";
 
 type Field = "headline" | "cta" | "bg" | "character" | "icon" | "teams";
 
@@ -33,11 +35,14 @@ export function ApplyTopicButton({
   topic,
   mechanic,
   fill,
+  blocks,
 }: {
   topic: string;
   mechanic: "wheel" | "slot" | "crash" | "match";
   /** Какие поля заполнять и чем. Несколько вызовов одного поля — разные варианты (персонаж слева и справа). */
   fill: { field: Field; side?: "left" | "right"; set: (text: string) => void }[];
+  /** Блоки лендинга: тексты отмеченных — тоже под тему (/api/landing-blocks). */
+  blocks?: { extras: LandingExtras; kind: LandingKind; onExtras: (update: (x: LandingExtras) => LandingExtras) => void };
 }) {
   const [busy, setBusy] = useState(false);
   const { isGuest, openGate } = useAuthGate();
@@ -48,6 +53,22 @@ export function ApplyTopicButton({
     if (isGuest) return openGate("Подбор по теме — после входа");
     setBusy(true);
     try {
+      const ids = blocks ? enabledBlocks(blocks.extras, blocks.kind) : [];
+      const blocksDone =
+        blocks && ids.length
+          ? apiFetch("/api/landing-blocks", {
+              method: "POST",
+              json: { topic, kind: blocks.kind, lang: blocks.extras.htmlLang || blocks.extras.lang, blocks: ids },
+            })
+              .then(async (res) => {
+                const data = res.ok ? ((await res.json().catch(() => null)) as { blocks?: Record<string, Record<string, unknown>> } | null) : null;
+                const got = data?.blocks ?? {};
+                if (!Object.keys(got).length) return false;
+                blocks.onExtras((x) => applyBlockTexts(x, got));
+                return true;
+              })
+              .catch(() => false)
+          : Promise.resolve(false);
       const done = await Promise.all(
         fill.map(async ({ field, side, set }) => {
           const res = await apiFetch("/api/landing-suggest", {
@@ -65,10 +86,11 @@ export function ApplyTopicButton({
           return null;
         }),
       );
-      const ok = [...new Set(done.filter((f): f is Field => !!f))];
+      const ok = [...new Set(done.filter((f): f is Field => !!f))].map((f) => LABELS[f]);
+      if (await blocksDone) ok.push(`тексты блоков (${ids.length})`);
       if (ok.length)
         toast.success(
-          `Тема применена: ${ok.map((f) => LABELS[f]).join(", ")}. Теперь генерируйте картинки — они будут под новую тему.`,
+          `Тема применена: ${ok.join(", ")}. Теперь генерируйте картинки — они будут под новую тему.`,
         );
       else toast.error("Не удалось подобрать — попробуйте ещё раз");
     } finally {

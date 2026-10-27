@@ -27,6 +27,7 @@ import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
+import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { accentFromPalette, paletteFromImage } from "@/lib/imagePalette";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras } from "@/lib/landingKit";
@@ -721,6 +722,7 @@ export function CrashLandingApp() {
           <ApplyTopicButton
             topic={topic}
             mechanic="crash"
+            blocks={{ extras, kind: "casino", onExtras: setExtras }}
             fill={[
               { field: "headline", set: setHeadline },
               { field: "bg", set: setTheme },
@@ -733,6 +735,8 @@ export function CrashLandingApp() {
             ]}
           />
         </div>
+
+        <LandingBlocksPicker value={extras} onChange={setExtras} kind="casino" />
 
         <BannerReferenceField
           value={bannerRef}

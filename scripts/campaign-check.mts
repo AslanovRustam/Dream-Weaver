@@ -15,7 +15,8 @@ import { join } from "node:path";
 import { briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import { normalizeTzPlan } from "../src/lib/campaignTz";
-import type { LandingKind, LandingLang } from "../src/lib/landingKit";
+import { defaultExtras, kitParts, normalizeExtras, relocalizeExtras, type LandingKind, type LandingLang } from "../src/lib/landingKit";
+import { applyBlockTexts } from "../src/components/landing/LandingBlocksPicker";
 import type { SceneLoader } from "../src/lib/scenes/build";
 
 const ROOT = join(process.cwd(), "public");
@@ -195,6 +196,28 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("ТЗ: шаблон письма из плана", briefEmail(b).body !== briefEmail({ ...b, emailTemplate: "" }).body);
   check("ТЗ: текст баннера из плана", luckyBannerPayload(b, "plinko").banner_text === "Бонус 222FS");
   check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
+}
+
+// ---- блоки лендинга: новые выключены по умолчанию, включённые рисуются, старые черновики дополняются
+{
+  const base = defaultExtras("ru", "sport");
+  const off = kitParts(base, "#3366ff", true, "", "sport").after;
+  check("блоки: новые по умолчанию выключены", !/class="x(jp|pr|fn|ap|ex|tr)/.test(off));
+  const on = { ...base };
+  for (const id of ["jackpot", "promo", "features", "vip", "tournament", "app", "express", "final"] as const) on[id] = { ...on[id], on: true } as never;
+  const k = kitParts(on, "#3366ff", true, "", "sport");
+  check("блоки: все новые рисуются", ["xjp", "xpr", "xfts", "xvps", "xtr", "xap", "xex", "xfn"].every((c) => k.after.includes(`class="${c}`)));
+  check("блоки: скрипт джекпота и промокода", k.script.includes("data-exjackpot") && k.script.includes("data-excopy"));
+  check("блоки: экспресс — итоговый коэффициент", k.after.includes((1.72 * 1.85 * 1.55).toFixed(2)));
+  const casino = kitParts({ ...defaultExtras("ru", "casino"), express: { ...defaultExtras("ru", "sport").express, on: true } }, "#f00", true, "", "casino").after;
+  check("блоки: экспресс — только спорт", !casino.includes('class="xex"'));
+  const old = normalizeExtras({ lang: "en", bonuses: { on: true, title: "B", items: [] } }, "casino");
+  check("блоки: старый черновик дополнен", old.promo.code === "WELCOME200" && old.final.on === false);
+  const uk = relocalizeExtras({ ...on, promo: { ...on.promo, code: "MYCODE" } }, "uk", "sport");
+  check("блоки: смена языка — код и включённость те же", uk.promo.code === "MYCODE" && uk.promo.on && uk.promo.copy === "Скопіювати");
+  const withImg = { ...base, bonuses: { ...base.bonuses, items: base.bonuses.items.map((b, i) => ({ ...b, image: i === 0 ? "data:image/png;base64,AA" : undefined })) } };
+  const merged = applyBlockTexts(withImg, { bonuses: { title: "T", items: [{ title: "A", text: "a" }] }, promo: { code: "HERO" } });
+  check("блоки: тексты под тему — картинки на месте", merged.bonuses.title === "T" && merged.bonuses.items[0].image === "data:image/png;base64,AA" && merged.promo.code === "HERO" && merged.promo.copy === base.promo.copy);
 }
 
 // ---- гамма и реф
