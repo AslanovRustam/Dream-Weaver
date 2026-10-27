@@ -61,7 +61,7 @@ for (const m of MECHANICS) {
       }
     }
     check(`${tag}: lang`, html.includes(`<html lang="${lang}">`));
-    check(`${tag}: 18+ на первом экране`, html.includes('class="exLegalLine"') && html.includes(x.legal.slice(0, 20)));
+    check(`${tag}: 18+ на первом экране`, (html.includes('class="exLegalLine"') || html.includes('class="exLegalLine pLegal"')) && html.includes(x.legal.slice(0, 20)));
     check(`${tag}: подвал 18+`, html.includes('<div class="age">18+</div>'));
     check(`${tag}: тексты окна на языке`, html.includes(JSON.stringify(S.claim).slice(1, -1)));
     if (lang !== "en") check(`${tag}: нет зашитого английского`, !/Almost!|Claim bonus'|Jackpot!</.test(html));
@@ -72,8 +72,21 @@ for (const m of MECHANICS) {
     check(`${tag}: без пикселей — ни одного внешнего скрипта`, !/<script[^>]+src=/.test(html));
   }
 
+  // промо-раскладка (по умолчанию): шапка, игра во встроенной странице, 18+ в первом экране, персонаж
+  {
+    const px = defaultExtras("ru", m.kind);
+    const ph = m.build(px, "https://offer.example/go");
+    check(`${m.id}: промо — шапка и первый экран`, ph.includes("class=\"pHead\"") && ph.includes("class=\"pHero") && ph.includes("<iframe"));
+    check(`${m.id}: промо — 18+ в первом экране`, ph.includes("exLegalLine pLegal") && ph.includes(px.legal.slice(0, 20)));
+    check(`${m.id}: промо — игра без шапки и блоков, переход через страницу`, ph.includes("parent.__goCta") && ph.includes(".top,h1,.char"));
+    const full = defaultExtras("ru", m.kind);
+    full.look.sceneHero = "full";
+    check(`${m.id}: «игра на весь экран» — как раньше`, !m.build(full, "").includes("class=\"pHero"));
+  }
+
   // блоки выключены — только подвал
   const off = defaultExtras("ru", m.kind);
+  off.look.sceneHero = "full"; // ниже — проверки первого экрана старой раскладки
   for (const k of ["bonuses", "games", "trust", "steps", "winners", "timer", "reviews", "faq"] as const) off[k].on = false;
   const bare = m.build(off, "");
   check(`${m.id}: карусель выключается`, !bare.includes('class="games"'));
@@ -83,16 +96,18 @@ for (const m of MECHANICS) {
   check(`${m.id}: анимация появления по умолчанию`, bare.includes("classList.add('go-intro')") && bare.includes('class="goArt"'));
   check(`${m.id}: парящие объекты по умолчанию`, (bare.match(/class="goFl /g) ?? []).length === 7);
   const own = defaultExtras("ru", m.kind);
+  own.look.sceneHero = "full";
   own.look.floatImgs = ["data:image/png;base64,AAAA", "javascript:alert(1)"];
   const ownHtml = m.build(own, "");
   check(`${m.id}: свои объекты, мусор отброшен`, ownHtml.split('<img src="data:image/png;base64,AAAA"').length - 1 === 7 && !ownHtml.includes("javascript:alert"));
   const calm = defaultExtras("ru", m.kind);
-  calm.look = { intro: false, lines: "off", style: "vivid", floaters: false };
+  calm.look = { intro: false, lines: "off", style: "vivid", floaters: false, sceneHero: "full" };
   const calmHtml = m.build(calm, "");
   check(`${m.id}: появление, линии и объекты выключаются`, !calmHtml.includes('class="goFl') && !calmHtml.includes("classList.add('go-intro')") && !calmHtml.includes("animate(k,o)") && !calmHtml.includes('class="goArt"'));
   for (const lines of ["rays", "arcs"] as const) {
     const lx = defaultExtras("ru", m.kind);
     lx.look.lines = lines;
+    lx.look.sceneHero = "full";
     check(`${m.id}: линии ${lines}`, m.build(lx, "").includes("data-draw"));
   }
 
@@ -136,6 +151,7 @@ for (const m of MECHANICS) {
     check(`тема ${t.id}: заголовок на 4 языках`, ["ru", "uk", "en", "es"].every((l) => !!t.headline[l as LandingLang]));
     const x = defaultExtras("ru", t.kind);
     x.look.floatTheme = t.id;
+    x.look.sceneHero = "full";
     const m = MECHANICS.find((mm) => mm.kind === t.kind)!;
     const html = m.build(x, "");
     check(`тема ${t.id}: объекты темы в выгрузке`, (html.match(/class="goFl /g) ?? []).length === 7 && !html.includes('<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="46" fill="url(#gf'));
@@ -221,7 +237,10 @@ for (const m of MECHANICS) {
     const p2 = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: reduce ? "reduce" : "no-preference" });
     const errs: string[] = [];
     p2.on("pageerror", (e: Error) => errs.push(String(e)));
-    await p2.setContent(m.build(defaultExtras("ru", m.kind), ""));
+    // Анимация появления — у раскладки «игра на весь экран» (в промо её нет).
+    const fx = defaultExtras("ru", m.kind);
+    fx.look.sceneHero = "full";
+    await p2.setContent(m.build(fx, ""));
     await p2.waitForTimeout(2600);
     // строкой: tsx оборачивает функции в __name, которого нет на странице
     const st = (await p2.evaluate(`(() => {

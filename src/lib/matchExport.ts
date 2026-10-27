@@ -1,5 +1,7 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
-import { kitParts, type LandingExtras } from "./landingKit";
+import { defaultExtras, EMBED_GAME_CSS, EMBED_GO_SCRIPT, kitParts, promoOffer, type LandingExtras } from "./landingKit";
+import { buildPromoPage } from "./sceneLanding";
+import { humanizeOffer } from "./offerText";
 import {
   favouritePick,
   formatOdds,
@@ -16,6 +18,8 @@ import {
 // all lead to the sportsbook (ctaUrl); nothing is played on the page.
 
 export type MatchExportConfig = {
+  /** Только игра — для промо-страницы (iframe); см. EMBED_GAME_CSS. */
+  embed?: boolean;
   brand: string;
   brandLogo?: string;
   headline: string;
@@ -62,6 +66,30 @@ function esc(s: string): string {
 }
 
 export function buildMatchHtml(cfg: MatchExportConfig): string {
+  // Промо-раскладка (по умолчанию): шапка, заголовок, оффер, игра под ними, кнопка, блоки — как у лендингов на сценах.
+  if (!cfg.embed && (cfg.extras?.look.sceneHero ?? "promo") !== "full") {
+    const x = cfg.extras ?? defaultExtras("ru", "sport");
+    return buildPromoPage(buildMatchHtml({ ...cfg, embed: true }), {
+      extras: x,
+      accent: cfg.accent,
+      ctaUrl: cfg.ctaUrl ?? "",
+      kind: "sport",
+      title: cfg.brand || "Матч",
+      promo: {
+        brand: cfg.brand,
+        logo: cfg.brandLogo ?? "",
+        headline: cfg.headline,
+        offer: `${PRIZE_LABEL[cfg.prizeType] ?? ""} ${cfg.prizeAmount} ${cfg.prizeCurrency}`.trim(),
+        cta: cfg.ctaText,
+        game: "Матч",
+        bg: cfg.bgImage,
+        chars: [cfg.charLeft, cfg.charRight].filter((c): c is string => !!c),
+        floats: x.look.floatImgs,
+        frame: { mobile: "min(150vw,700px)", desktop: "min(76vh,700px)" },
+      },
+    });
+  }
+  const embed = !!cfg.embed;
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#38bdf8";
   const k = kitParts(cfg.extras, accent, true, cfg.ctaUrl ?? "", "sport");
   const sport = SPORT_BY_ID.get(cfg.sport) ?? SPORT_BY_ID.get("football")!;
@@ -85,7 +113,7 @@ export function buildMatchHtml(cfg: MatchExportConfig): string {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Match")}</title>
-${k.head}
+${embed ? "" : k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -155,6 +183,7 @@ ${k.head}
     .odd{padding:12px 6px}.odd b{font-size:22px}
   }
 ${k.css}
+${embed ? EMBED_GAME_CSS + ".cta,.offer{display:none!important}.mid{justify-content:center!important}" : ""}
 </style>
 </head>
 <body>
@@ -187,10 +216,10 @@ ${k.css}
       </div>
       <button class="cta" id="cta" type="button">${esc(cfg.ctaText || "СДЕЛАТЬ СТАВКУ")}</button>
     </div>
-    ${k.legalLine}
+    ${embed ? "" : k.legalLine}
   </div>
-  ${k.after}
-  ${k.script}
+  ${embed ? "" : k.after}
+  ${k.script}${embed ? EMBED_GO_SCRIPT : ""}
 <script>
 (function(){
   var T=${k.stringsJson};

@@ -56,7 +56,7 @@ export type LandingExtras = {
     floatImgs?: string[];
     /** Набор объектов готовой темы (landingThemes): тыквы, снежинки, кактусы… */
     floatTheme?: string;
-    /** Лендинг на сцене: promo — текст и оффер + игра в рамке (по умолчанию), full — игра на весь экран. */
+    /** Первый экран любого лендинга (сцена или механика): promo — шапка, текст и оффер + игра (по умолчанию), full — игра на весь экран. */
     sceneHero?: "promo" | "full";
   };
   /** Юр. текст: строка внизу первого экрана и подвал. */
@@ -1051,6 +1051,24 @@ export type KitParts = {
 };
 
 /** Куски страницы для экспорта механики. extras не задан — умолчания (ru). */
+/**
+ * Механика внутри промо-страницы (iframe): только игра. Шапку, заголовок,
+ * персонажей, кнопку оффера, блоки и юр. строку показывает страница; фон —
+ * её (прозрачно). Кнопки игры (SPIN, СТАРТ) остаются.
+ */
+export const EMBED_GAME_CSS =
+  "html,body{background:transparent!important}.stage{background:transparent!important}.stage::after{display:none!important}" +
+  ".top,h1,.char,.pchars,.goFl,.goArt,.exLegalLine{display:none!important}.col{padding-top:10px!important}";
+/** Переход на оффер из игры — через страницу (её пиксели и параметры адреса), не из iframe. */
+export const EMBED_GO_SCRIPT =
+  "<script>(function(){if(window.parent===window)return;var own=window.__goCta;window.__goCta=function(u){try{if(window.parent.__goCta)return window.parent.__goCta(u);}catch(e){}return own&&own(u);};})();</script>";
+
+/** Оффер для первого экрана промо: главная карточка бонусов (как читает игрок). */
+export function promoOffer(x: LandingExtras): string {
+  const t = x.bonuses.on ? x.bonuses.items[0]?.title.trim() ?? "" : "";
+  return t;
+}
+
 export function kitParts(extras: LandingExtras | undefined, accent: string, dark: boolean, ctaUrl: string, kind: LandingKind): KitParts {
   const x = extras ? normalizeExtras(extras, kind) : defaultExtras("ru", kind);
   const strings = kitStrings(x);

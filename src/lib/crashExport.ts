@@ -1,10 +1,14 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
-import { kitParts, type LandingExtras } from "./landingKit";
+import { defaultExtras, EMBED_GAME_CSS, EMBED_GO_SCRIPT, kitParts, promoOffer, type LandingExtras } from "./landingKit";
+import { buildPromoPage } from "./sceneLanding";
+import { humanizeOffer } from "./offerText";
 // Build a self-contained HTML page for a crash-game landing: background,
 // flanking characters, a rising multiplier with a rocket, a CASH OUT button and
 // a win / crash modal — all inline, no external assets.
 
 export type CrashExportConfig = {
+  /** Только игра — для промо-страницы (iframe); см. EMBED_GAME_CSS. */
+  embed?: boolean;
   brand: string;
   /** Optional uploaded brand logo (data URL). Rendered instead of the brand text. */
   brandLogo?: string;
@@ -36,6 +40,30 @@ function esc(s: string): string {
 }
 
 export function buildCrashHtml(cfg: CrashExportConfig): string {
+  // Промо-раскладка (по умолчанию): шапка, заголовок, оффер, игра под ними, кнопка, блоки — как у лендингов на сценах.
+  if (!cfg.embed && (cfg.extras?.look.sceneHero ?? "promo") !== "full") {
+    const x = cfg.extras ?? defaultExtras("ru", "casino");
+    return buildPromoPage(buildCrashHtml({ ...cfg, embed: true }), {
+      extras: x,
+      accent: cfg.accent,
+      ctaUrl: cfg.ctaUrl ?? "",
+      kind: "casino",
+      title: cfg.brand || "Crash",
+      promo: {
+        brand: cfg.brand,
+        logo: cfg.brandLogo ?? "",
+        headline: cfg.headline,
+        offer: humanizeOffer(promoOffer(x), x.lang),
+        cta: "",
+        game: "Crash",
+        bg: cfg.bgImage,
+        chars: [cfg.charLeft, cfg.charRight].filter((c): c is string => !!c),
+        floats: x.look.floatImgs,
+        frame: { mobile: "min(132vw,640px)", desktop: "min(76vh,700px)" },
+      },
+    });
+  }
+  const embed = !!cfg.embed;
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#ef4444";
   const k = kitParts(cfg.extras, accent, !!cfg.dark, cfg.ctaUrl ?? "", "casino");
   const bg = cfg.bgImage
@@ -50,7 +78,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Crash")}</title>
-${k.head}
+${embed ? "" : k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -86,6 +114,7 @@ ${k.head}
   .cta:disabled{cursor:not-allowed;opacity:.6}
   .attemptsInfo{position:relative;z-index:3;margin-top:-2px;font-size:12px;color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.5)}
 ${k.css}
+${embed ? EMBED_GAME_CSS : ""}
 </style>
 </head>
 <body>
@@ -111,10 +140,10 @@ ${k.css}
       <p class="attemptsInfo" id="attemptsInfo" hidden></p>
     </div>
     <div class="modal" id="modal"><div class="card" id="card"></div></div>
-    ${k.legalLine}
+    ${embed ? "" : k.legalLine}
   </div>
-  ${k.after}
-  ${k.script}
+  ${embed ? "" : k.after}
+  ${k.script}${embed ? EMBED_GO_SCRIPT : ""}
 <script>
 (function(){
   var T=${k.stringsJson};

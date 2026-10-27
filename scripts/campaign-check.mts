@@ -49,7 +49,7 @@ for (const kind of ["casino", "sport"] as LandingKind[]) {
       check(`${tag}: лендинг — язык и ссылка`, html.includes(`<html lang="${lang}">`) && html.includes("offer.example"));
       check(`${tag}: оффер в лендинге`, html.includes("MEGA OFFER 777"));
       check(`${tag}: бренд экранирован`, !html.includes("Lucky<b>"));
-      check(`${tag}: парящие объекты`, landing === "scene" || html.includes('class="goFl '));
+      check(`${tag}: промо-первый экран`, html.includes('class="pHero'));
     }
     const b: CampaignBrief = { ...defaultBrief(kind, lang), brand: "Lucky", link: LINK, offer: "MEGA OFFER 777" };
     const pl = await briefPlayableHtml(b, load, "mraid");

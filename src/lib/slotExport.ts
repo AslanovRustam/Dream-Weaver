@@ -1,10 +1,14 @@
 import { cssUrl, embedJson, safeCtaUrl } from "./exportUtils";
-import { kitParts, type LandingExtras } from "./landingKit";
+import { defaultExtras, EMBED_GAME_CSS, EMBED_GO_SCRIPT, kitParts, promoOffer, type LandingExtras } from "./landingKit";
+import { buildPromoPage } from "./sceneLanding";
+import { humanizeOffer } from "./offerText";
 // Build a self-contained HTML page for a slot-machine landing: background,
 // flanking characters, three spinning reels, SPIN button and a win / try-again
 // modal — all inline, no external assets.
 
 export type SlotExportConfig = {
+  /** Только игра — для промо-страницы (iframe); см. EMBED_GAME_CSS. */
+  embed?: boolean;
   brand: string;
   /** Optional uploaded brand logo (data URL). Rendered instead of the brand text. */
   brandLogo?: string;
@@ -50,6 +54,30 @@ function darken(hex: string, amt: number): string {
 }
 
 export function buildSlotHtml(cfg: SlotExportConfig): string {
+  // Промо-раскладка (по умолчанию): шапка, заголовок, оффер, игра под ними, кнопка, блоки — как у лендингов на сценах.
+  if (!cfg.embed && (cfg.extras?.look.sceneHero ?? "promo") !== "full") {
+    const x = cfg.extras ?? defaultExtras("ru", "casino");
+    return buildPromoPage(buildSlotHtml({ ...cfg, embed: true }), {
+      extras: x,
+      accent: cfg.accent,
+      ctaUrl: cfg.ctaUrl ?? "",
+      kind: "casino",
+      title: cfg.brand || "Слот",
+      promo: {
+        brand: cfg.brand,
+        logo: cfg.brandLogo ?? "",
+        headline: cfg.headline,
+        offer: humanizeOffer(promoOffer(x), x.lang),
+        cta: "",
+        game: "Слот",
+        bg: cfg.bgImage,
+        chars: [cfg.charLeft, cfg.charRight].filter((c): c is string => !!c),
+        floats: x.look.floatImgs,
+        frame: { mobile: "min(122vw,600px)", desktop: "min(76vh,680px)" },
+      },
+    });
+  }
+  const embed = !!cfg.embed;
   const accent = /^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#818cf8";
   const k = kitParts(cfg.extras, accent, !!cfg.dark, cfg.ctaUrl ?? "", "casino");
   const symbols =
@@ -74,7 +102,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(cfg.brand || "Spin & Win")}</title>
-${k.head}
+${embed ? "" : k.head}
 <style>
   :root{--accent:${accent};}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -110,6 +138,7 @@ ${k.head}
   .card button{margin-top:16px;width:100%;border:0;border-radius:10px;padding:12px;font-weight:800;color:#fff;cursor:pointer;background:${accent}}
   .card .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1}
 ${k.css}
+${embed ? EMBED_GAME_CSS : ""}
 </style>
 </head>
 <body>
@@ -136,10 +165,10 @@ ${k.css}
       <p class="attemptsInfo" id="attemptsInfo" hidden></p>
     </div>
     <div class="modal" id="modal"><div class="card" id="card"></div></div>
-    ${k.legalLine}
+    ${embed ? "" : k.legalLine}
   </div>
-  ${k.after}
-  ${k.script}
+  ${embed ? "" : k.after}
+  ${k.script}${embed ? EMBED_GO_SCRIPT : ""}
 <script>
 (function(){
   var T=${k.stringsJson};

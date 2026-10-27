@@ -96,6 +96,10 @@ export type ScenePromo = {
   bg?: string;
   reward?: string;
   floats?: string[];
+  /** Персонажи от ИИ (механики): на телефоне первый — справа от заголовка, на десктопе — по бокам рамки с игрой. */
+  chars?: string[];
+  /** Высота области игры: у колеса и слота — почти квадрат, у сцены — вся высота. CSS-значения. */
+  frame?: { mobile: string; desktop: string };
 };
 
 const img = (u: string | undefined) => (u && /^data:image\//.test(u) ? u : "");
@@ -157,7 +161,7 @@ function promoCss(accent: string): string {
   .pBg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.32;filter:saturate(1.1);-webkit-mask-image:linear-gradient(180deg,#000 30%,transparent);mask-image:linear-gradient(180deg,#000 30%,transparent)}
   .pHero::before{content:"";position:absolute;inset:-20% -10% auto -10%;height:80%;background:radial-gradient(50% 60% at 20% 30%,color-mix(in srgb,var(--ac) 30%,transparent),transparent 70%),radial-gradient(40% 50% at 85% 40%,rgba(124,58,237,.35),transparent 70%);pointer-events:none}
   .pWrap{position:relative;z-index:2;display:grid;grid-template-areas:"copy" "game" "act";gap:18px;max-width:1180px;margin:0 auto;padding:0 16px}
-  .pCopy{grid-area:copy;min-width:0}
+  .pCopy{grid-area:copy;min-width:0;position:relative}
   .pEye{display:flex;align-items:center;gap:8px;font:800 11px/1 ${body};letter-spacing:.16em;text-transform:uppercase;color:var(--ac)}
   .pEye b{color:var(--gold);font-size:14px}
   .pHero h1{margin-top:12px;font:900 clamp(30px,8.6vw,72px)/.98 ${head};letter-spacing:-.03em;text-transform:uppercase;overflow-wrap:break-word;hyphens:auto}
@@ -174,7 +178,15 @@ function promoCss(accent: string): string {
   .pTop{display:flex;align-items:center;justify-content:space-between;padding:4px 8px 10px;font:800 10.5px/1 ${body};letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.75)}
   .pTop i{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#3dffb0;box-shadow:0 0 10px #3dffb0;animation:pLive 1.4s ease-in-out infinite}
   .pTop em{font-style:normal;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.07)}
-  .pFrame{height:min(68svh,620px);min-height:420px;border-radius:18px;overflow:hidden;background:#000}
+  .pFrame{height:var(--fhd,min(68svh,620px));min-height:360px;border-radius:18px;overflow:hidden;background:#000}
+  .pFrame.clear{background:transparent}
+  /* Персонаж: телефон — справа от заголовка и бонуса (текст уже уходит левее), десктоп — по бокам рамки. */
+  .pChar{position:absolute;z-index:3;object-fit:contain;object-position:bottom;filter:drop-shadow(0 14px 24px rgba(0,0,0,.55));pointer-events:none}
+  .pChar.m{right:-18px;bottom:-56px;height:clamp(220px,64vw,330px);max-width:52%}
+  .pChar.d{display:none}
+  /* Заголовок — на всю ширину поверх персонажа; сужаются только бонус и условия под ним. */
+  .hasChar .pCopy h1,.hasChar .pEye{position:relative;z-index:4}
+  .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{position:relative;z-index:4;max-width:60%}
   .pFrame iframe{display:block;width:100%;height:100%;border:0}
   .pFl{position:absolute;z-index:1;width:clamp(56px,14vw,96px);filter:drop-shadow(0 12px 18px rgba(0,0,0,.5));animation:pBob 5s ease-in-out infinite;pointer-events:none}
   .pFl.a{left:-6%;top:12%}.pFl.b{right:-7%;top:46%;animation-delay:-1.6s}.pFl.c{left:-4%;bottom:6%;animation-delay:-3s}
@@ -182,6 +194,8 @@ function promoCss(accent: string): string {
   .pAct .pBtn{width:100%;max-width:420px;font-size:15px;padding:18px 22px}
   .pTrust{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:rgba(255,255,255,.6)}
   .pTrust span::before{content:"✓";margin-right:6px;color:var(--ac);font-weight:800}
+  /* 18+ и условия — в первом экране (требование площадок), мелко под кнопкой. */
+  .pAct .pLegal{position:static;padding:0;text-align:left;font-size:10.5px;line-height:1.35;color:rgba(255,255,255,.5);text-shadow:none}
   @keyframes pBob{50%{transform:translateY(-10px) rotate(-3deg)}}
   @keyframes pBobImg{50%{transform:translateY(calc(-55% - 8px)) rotate(-4deg)}}
   @keyframes pLive{50%{opacity:.35}}
@@ -192,7 +206,7 @@ function promoCss(accent: string): string {
     .pGame{max-width:none;width:auto;margin:0 -16px;justify-self:stretch}
     .pCard{padding:0;border:0;border-radius:0;background:none;box-shadow:none}
     .pTop,.pFl{display:none}
-    .pFrame{height:min(82svh,760px);min-height:460px;border-radius:0}
+    .pFrame{height:var(--fhm,min(82svh,760px));min-height:360px;border-radius:0}
     .pAct .pBtn{max-width:none}
   }
   @media(min-width:960px){
@@ -202,7 +216,11 @@ function promoCss(accent: string): string {
     .pWrap{grid-template-columns:1.05fr .95fr;grid-template-areas:"copy game" "act game";column-gap:48px;align-items:center}
     .pAct{align-self:start}
     .pAct .pBtn{width:auto}
-    .pFrame{height:min(76vh,720px)}
+    .pFrame{height:var(--fhd,min(76vh,720px))}
+    .pChar.m{display:none}
+    .pChar.d{display:block;bottom:-2%;height:88%;max-width:46%}
+    .pChar.d.l{left:-34%}.pChar.d.r{right:-34%}
+    .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{max-width:none}
     .pBonus{padding-right:0}
     .pBonus img{position:static;transform:none;margin-left:6px;animation-name:pBob}
   }
@@ -215,6 +233,15 @@ function promoCss(accent: string): string {
   `;
 }
 
+/**
+ * Промо-страница вокруг игры: сцены плейблов и механики (колесо, слот, crash,
+ * матч — их сборщики в режиме embed отдают только игру). Шапка, заголовок,
+ * оффер, игра, кнопка, блоки — одинаково у всех лендингов.
+ */
+export function buildPromoPage(gameHtml: string, opts: { extras: LandingExtras; accent: string; ctaUrl: string; kind: LandingKind; title: string; promo: ScenePromo }): string {
+  return promoPage(gameHtml, opts);
+}
+
 function promoPage(sceneHtml: string, opts: { extras: LandingExtras; accent: string; ctaUrl: string; kind: LandingKind; title: string; promo: ScenePromo }): string {
   const extras: LandingExtras = { ...opts.extras, look: { ...opts.extras.look, intro: false, lines: "off", floaters: false } };
   const k = kitParts(extras, opts.accent, true, opts.ctaUrl, opts.kind);
@@ -223,6 +250,8 @@ function promoPage(sceneHtml: string, opts: { extras: LandingExtras; accent: str
   const logo = img(p.logo) ? `<img src="${p.logo}" alt="${esc(p.brand)}"/>` : esc(p.brand || "LOGO");
   const floats = (p.floats ?? []).map(img).filter(Boolean).slice(0, 3);
   const cta = esc(p.cta || s.claimNow);
+  const chars = (p.chars ?? []).map(img).filter(Boolean).slice(0, 2);
+  const frameVars = p.frame ? ` style="--fhm:${p.frame.mobile};--fhd:${p.frame.desktop}"` : "";
   return `<!doctype html>
 <html lang="${k.lang}">
 <head>
@@ -240,19 +269,21 @@ ${k.css}
 </head>
 <body>
   <header class="pHead"><span class="pLogo">${logo}</span><div class="pHR"><span class="pBadge"><i></i>${esc(s.promoBadge)}</span><button type="button" class="pBtn pBtnSm" data-excta>${cta} ↗</button></div></header>
-  <section class="pHero">
+  <section class="pHero${chars.length ? " hasChar" : ""}">
     ${img(p.bg) ? `<div class="pBg" style="background-image:url('${p.bg}')"></div>` : ""}
     <div class="pWrap">
       <div class="pCopy">
         <div class="pEye"><b>✦</b>${esc(s.promoEyebrow)}</div>
         <h1>${headlineHtml(p.headline)}</h1>
+        ${chars[0] ? `<img class="pChar m" src="${chars[0]}" alt=""/>` : ""}
         ${p.offer.trim() ? `<div class="pBonusT">${esc(s.promoBonus)}</div><div class="pBonus">${offerHtml(p.offer)}${img(p.reward) ? `<img src="${p.reward}" alt=""/>` : ""}</div><p class="pFine">${esc(s.promoFine)}</p>` : ""}
       </div>
       <div class="pGame">
         ${floats.map((u, i) => `<img class="pFl ${"abc"[i]}" src="${u}" alt=""/>`).join("")}
-        <div class="pCard"><div class="pTop"><span><i></i>${esc(p.game)} LIVE</span><em>${esc(s.promoDemo)}</em></div><div class="pFrame"><iframe title="${esc(p.game)}" srcdoc="${esc(sceneHtml)}" allow="autoplay; fullscreen"></iframe></div></div>
+        ${chars.map((u, i) => `<img class="pChar d ${i ? "r" : "l"}" src="${u}" alt=""/>`).join("")}
+        <div class="pCard"><div class="pTop"><span><i></i>${esc(p.game)} LIVE</span><em>${esc(s.promoDemo)}</em></div><div class="pFrame${p.frame ? " clear" : ""}"${frameVars}><iframe title="${esc(p.game)}" srcdoc="${esc(sceneHtml)}" allow="autoplay; fullscreen"></iframe></div></div>
       </div>
-      <div class="pAct"><button type="button" class="pBtn" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div></div>
+      <div class="pAct"><button type="button" class="pBtn" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div>${extras.legal.trim() ? `<p class="exLegalLine pLegal">${esc(extras.legal)}</p>` : ""}</div>
     </div>
   </section>
   ${k.after}
