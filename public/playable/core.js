@@ -114,6 +114,36 @@
     if (width > max) el.style.fontSize = parseFloat(getComputedStyle(el).fontSize) * max / width + "px";
   }
 
+  /**
+   * Кнопка под текст. Переведённый CTA («RO'YXATDAN O'TISH») шире кнопки:
+   * сначала кнопка растёт (по центру, не шире плашки попапа), потом шрифт
+   * мельчает — не меньше 72% (читаемо), и лишь потом — перенос на вторую строку.
+   */
+  function fitButton(btn, box) {
+    var lbl = btn && btn.querySelector(".lbl");
+    if (!lbl || !btn.offsetWidth) return;
+    btn.style.width = btn.style.left = btn.style.fontSize = "";
+    lbl.style.whiteSpace = lbl.style.lineHeight = lbl.style.maxWidth = lbl.style.textAlign = "";
+    var pad = 110;
+    var w0 = btn.offsetWidth, center = btn.offsetLeft + w0 / 2;
+    var maxW = Math.max(w0, box && box.offsetWidth ? box.offsetWidth - 80 : w0);
+    var need = lbl.offsetWidth + pad;
+    if (need <= w0) return;
+    var w = Math.min(need, maxW);
+    btn.style.width = w + "px";
+    btn.style.left = center - w / 2 + "px";
+    if (need <= w) return;
+    var base = parseFloat(getComputedStyle(btn).fontSize);
+    var size = Math.max(base * 0.72, base * (w - pad) / lbl.offsetWidth);
+    btn.style.fontSize = size + "px";
+    if (lbl.offsetWidth + pad > w) {
+      lbl.style.whiteSpace = "normal";
+      lbl.style.lineHeight = "1.05";
+      lbl.style.maxWidth = w - pad + "px";
+      lbl.style.textAlign = "center";
+    }
+  }
+
   function anim(el, frames, opt) {
     var o = { fill: "forwards" };
     for (var k in opt) o[k] = opt[k];
@@ -230,7 +260,10 @@
     im.src = CFG.reward; im.alt = "";
     $("popReward").appendChild(im);
   }
-  if ($("popBtn")) $("popBtn").querySelector(".lbl").innerHTML = rich(T.cta || "");
+  if ($("popBtn")) {
+    $("popBtn").querySelector(".lbl").innerHTML = rich(T.cta || "");
+    fitButton($("popBtn"), $("popBox"));
+  }
 
   // ------------------------------------------------------------ подсказка
   var hintTimer = 0, ended = false;
@@ -352,7 +385,7 @@
     isLand: function () { return land; },
     /** Сцена ставит что-то кодом по координатам — перестроить при повороте экрана. */
     onLayout: function (cb) { onLayout.push(cb); },
-    $: $, rich: rich, setGradText: setGradText, fitText: fitText,
+    $: $, rich: rich, setGradText: setGradText, fitText: fitText, fitButton: fitButton,
     anim: anim, animIn: animIn, wait: wait, rnd: rnd, sparks: sparks, ripple: ripple, flash: flash,
     setIdle: setIdle, scheduleHint: scheduleHint, showPopup: showPopup, SYM: SYM,
     art: art, sym: sym, aiImg: aiImg,
@@ -360,7 +393,8 @@
     boot: function (scene) {
       var started = false;
       // Сумму в попапе меряет сам попап — по итоговой цифре, не по счётчику.
-      function refit() { Array.prototype.forEach.call(stage.querySelectorAll(".gt:not(#popText)"), fitText); }
+      // Шрифт догрузился или сменилась ориентация — тексты и кнопка попапа меряются заново.
+      function refit() { Array.prototype.forEach.call(stage.querySelectorAll(".gt:not(#popText)"), fitText); fitButton($("popBtn"), $("popBox")); }
       function start() {
         if (started) return;
         started = true;

@@ -14,6 +14,10 @@
   var stage = P.stage, canvas = $("graph"), ctx = canvas.getContext("2d");
   var plane = $("plane"), mult = $("mult"), btn = $("cashBtn"), btnLbl = btn.querySelector(".lbl"), tapText = $("tapText");
 
+  // Кнопку подгоняем один раз — под самую длинную надпись полёта («Забрать 10.00x»):
+  // в полёте текст меняется каждый кадр, мерить его каждый кадр дорого.
+  btnLbl.textContent = (T.cashout || "") + " 10.00x";
+  P.fitButton(btn, stage);
   btnLbl.textContent = T.cashout || "";
   if (P.art("plane")) { plane.innerHTML = P.aiImg(P.art("plane")); plane.classList.add("art"); }
 
