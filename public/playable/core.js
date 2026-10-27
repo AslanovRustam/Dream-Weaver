@@ -73,8 +73,11 @@
     W = land ? 1920 : 1080;
     H = land ? 1080 : 1920;
     stage.classList.toggle("land", land);
-    var s = Math.min(vw / W, vh / H);
-    stage.style.transform = "translate(" + (vw - W * s) / 2 + "px," + (vh - H * s) / 2 + "px) scale(" + s + ")";
+    // Встроена в промо-лендинг (лого и заголовок — на странице): сверху у вертикальной
+    // сцены пусто — срезаем эту полосу, игра крупнее и выше.
+    var crop = CFG.embed && !land ? 330 : 0;
+    var s = Math.min(vw / W, vh / (H - crop));
+    stage.style.transform = "translate(" + (vw - W * s) / 2 + "px," + ((vh - (H - crop) * s) / 2 - crop * s) + "px) scale(" + s + ")";
     if (wasLand !== land) {
       Array.prototype.forEach.call(stage.querySelectorAll(".gt:not(#popText)"), fitText);
       onLayout.forEach(function (cb) { cb(land); });

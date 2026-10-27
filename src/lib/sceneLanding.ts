@@ -160,7 +160,7 @@ function promoCss(accent: string): string {
   .pCopy{grid-area:copy;min-width:0}
   .pEye{display:flex;align-items:center;gap:8px;font:800 11px/1 ${body};letter-spacing:.16em;text-transform:uppercase;color:var(--ac)}
   .pEye b{color:var(--gold);font-size:14px}
-  .pHero h1{margin-top:12px;font:900 clamp(30px,8.6vw,72px)/.98 ${head};letter-spacing:-.03em;text-transform:uppercase;overflow-wrap:anywhere}
+  .pHero h1{margin-top:12px;font:900 clamp(30px,8.6vw,72px)/.98 ${head};letter-spacing:-.03em;text-transform:uppercase;overflow-wrap:break-word;hyphens:auto}
   .pHero h1 span{background:linear-gradient(90deg,var(--ac),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
   .pBonusT{margin-top:16px;font:800 11px/1 ${body};letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
   .pBonus{position:relative;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-top:8px;padding-right:clamp(64px,18vw,0px);font:900 clamp(28px,7.4vw,52px)/1.05 ${head};letter-spacing:-.02em}
@@ -186,8 +186,19 @@ function promoCss(accent: string): string {
   @keyframes pBobImg{50%{transform:translateY(calc(-55% - 8px)) rotate(-4deg)}}
   @keyframes pLive{50%{opacity:.35}}
   @media(min-width:640px){.pBadge{display:inline-flex}}
+  /* Телефон: игра без рамки — сразу под текстом, во всю ширину и как можно выше;
+     кнопки — на всю ширину; парящие объекты не лезут на игру. */
+  @media(max-width:959px){
+    .pGame{max-width:none;width:auto;margin:0 -16px;justify-self:stretch}
+    .pCard{padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+    .pTop,.pFl{display:none}
+    .pFrame{height:min(82svh,760px);min-height:460px;border-radius:0}
+    .pAct .pBtn{max-width:none}
+  }
   @media(min-width:960px){
     .pHero{padding:24px 0 64px}
+    /* Колонка текста — половина экрана: заголовок по её ширине, слова не рвутся. */
+    .pHero h1{font-size:clamp(34px,4.4vw,68px)}
     .pWrap{grid-template-columns:1.05fr .95fr;grid-template-areas:"copy game" "act game";column-gap:48px;align-items:center}
     .pAct{align-self:start}
     .pAct .pBtn{width:auto}
