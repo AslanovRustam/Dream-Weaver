@@ -12,6 +12,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { euLang } from "@/lib/euLangs";
 import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
+import { OFFER_RULE } from "@/lib/offerText";
 import { BLOCK_SHAPES as SHAPES, cleanBlockCopy as clean, obj, type Obj } from "@/lib/landingBlocksCopy";
 
 export const runtime = "nodejs";
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     `You write the copy for the content blocks of a ${kind === "sport" ? "sports-betting" : "online casino"} landing page, all in ${euLang(lang).english}.`,
     "Everything must fit the campaign theme the marketer typed: names, wording, examples. Keep proper names from the theme (characters, clubs, events) as they are.",
     "Punchy promo tone, concrete numbers in bonuses. No emoji, no quotes around texts.",
+    OFFER_RULE,
     'Return STRICT JSON {"<block id>": {...}} with exactly these blocks and shapes:',
     ...blocks.map((b) => `- "${b}": ${SHAPES[b]}`),
   ].join("\n");

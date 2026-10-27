@@ -8,6 +8,8 @@
 //
 // Серверный модуль: вызывается из /api/parse-brief для product: "campaign".
 
+import { OFFER_RULE } from "./offerText";
+
 export type CampaignTzMechanic = "scene" | "wheel" | "slot" | "crash" | "match";
 
 export type CampaignTzPlan = {
@@ -86,9 +88,10 @@ const SYSTEM = [
   "- If the brief names or describes a game, use that scene game for the landing (mechanic \"scene\") and for the playable.",
   "- The brand is the casino/bookmaker operator (from the site), never a game title like Plinko or Aviator.",
   "- Texts (headline, bannerText) in the language of the creatives the brief asks for; why/summary/notes in Russian.",
+  `- ${OFFER_RULE}`,
   "- notes: requirements of the brief our product cannot follow exactly as written (e.g. a scripted sequence of outcomes per throw, several different popups, a specific game reference look), in Russian, short. Empty array if none.",
   "Return STRICT JSON:",
-  '{"summary": string, "topic": string (the campaign theme in 1-5 Russian words, e.g. "Plinko", "Хэллоуин", "финал ЛЧ"; only what the brief says, never invent a setting), "visual": string (15-40 English words of art direction), "headline": string (<=32 chars), "bannerText": string (the banner text from the brief VERBATIM if it gives one, else <=60 chars),',
+  '{"summary": string, "topic": string (the campaign theme in 1-5 Russian words, e.g. "Plinko", "Хэллоуин", "финал ЛЧ"; only what the brief says, never invent a setting), "visual": string (15-40 English words of art direction), "headline": string (<=32 chars), "bannerText": string (the banner text from the brief word for word if it gives one (only shorthand expanded per the rule below), else <=60 chars),',
   ' "landing": {"make": boolean, "mechanic": string, "scene": string|null, "why": string},',
   ' "playable": {"make": boolean, "scene": string|null, "why": string},',
   ' "banner": {"make": boolean, "why": string},',

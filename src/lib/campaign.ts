@@ -34,6 +34,10 @@ export type CampaignLanding = "wheel" | "slot" | "crash" | "match" | "scene";
 
 import type { CampaignTzPlan } from "./campaignTz";
 import { applyBlockTexts } from "./landingBlocks";
+import { humanizeOffer } from "./offerText";
+
+/** Оффер как читает игрок: «222fs+50.000rub» → «222 фриспина + 50 000 ₽» (на языке кампании). */
+export const briefOffer = (b: Pick<CampaignBrief, "offer" | "lang">) => humanizeOffer(b.offer.trim(), b.lang);
 
 /**
  * Тексты всей кампании под тему или ТЗ — «Собрать кампанию», шаг 1
@@ -280,7 +284,7 @@ export function briefExtras(b: CampaignBrief): LandingExtras {
   const cb = liveCopy(b)?.blocks;
   if (cb) x = applyBlockTexts(x, cb);
   if (b.offer.trim()) {
-    x.bonuses = { ...x.bonuses, items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title: b.offer.trim().slice(0, 40) } : it)) };
+    x.bonuses = { ...x.bonuses, items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title: briefOffer(b).slice(0, 40) } : it)) };
   }
   // Картинки «Мне повезёт»: бонусы — по карточкам с заголовками, игры — по порядку.
   const bon = b.art?.bonusImgs ?? [];
@@ -405,7 +409,7 @@ export function briefEmail(b: CampaignBrief): EmailDraft {
   const t: CampaignI18n = {};
   for (const [k, v] of Object.entries(tr(b))) if (k.startsWith("email.")) t[k] = v.split("BRAND").join(brandName(b));
   const d = b.lang !== "ru" && Object.keys(t).length ? applyFlat(base, "email", t) : base;
-  const offer = b.offer.trim();
+  const offer = briefOffer(b);
   /** Тексты письма из раскладки темы. */
   const ec = liveCopy(b)?.email ?? {};
   return {
@@ -446,7 +450,7 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
   return {
     preset_id: "preset1",
     prompt: `${what} key visual in the theme: ${theme}`,
-    banner_text: (b.bannerText?.trim() || liveCopy(b)?.bannerText?.trim() || b.offer.trim() || briefHeadline(b)).slice(0, 80),
+    banner_text: (b.bannerText?.trim() || liveCopy(b)?.bannerText?.trim() || briefOffer(b) || briefHeadline(b)).slice(0, 80),
     button_text: (b.cta.trim() || briefDefaults(b.kind, b.lang, tr(b)).cta).slice(0, 24),
     banner_text_enabled: true,
     button_text_enabled: true,

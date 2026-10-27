@@ -37,6 +37,7 @@ import { isSectionEnabled } from "@/lib/mvp";
 import { CAMPAIGN_BRIEF_KEY, forgetProject, saveProject } from "@/lib/projects";
 import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { enabledBlocks } from "@/components/landing/LandingBlocksPicker";
+import { humanizeOffer, humanizeUnit } from "@/lib/offerText";
 import { useAuth } from "@/lib/auth-context";
 import {
   briefAccent,
@@ -232,8 +233,9 @@ export function CampaignApp() {
       };
       if (fields.brand && !looksLikeUrl(fields.brand) && !isGameName(fields.brand)) str("brand", fields.brand, 40);
       else if (fields.brand && isGameName(fields.brand) && !fields.site) next.brand = "";
-      str("offer", fields.offer, 80);
-      str("headline", fields.headline, 60);
+      // Оффер и заголовок — как читает игрок: fs → фриспины, rub → ₽, 50.000 → 50 000.
+      str("offer", fields.offer && humanizeOffer(fields.offer, next.lang), 80);
+      str("headline", fields.headline && humanizeOffer(fields.headline, next.lang), 60);
       str("cta", fields.cta, 24);
       if (fields.link && /^https?:\/\//i.test(fields.link.trim())) str("link", fields.link, 500);
       const amount = Number(String(fields.amount ?? "").replace(/[^\d.]/g, ""));
@@ -241,7 +243,7 @@ export function CampaignApp() {
         next.amount = Math.round(amount);
         filled.push(TZ_LABELS.amount);
       }
-      str("unit", fields.unit, 12);
+      str("unit", fields.unit && humanizeUnit(fields.unit), 12);
       if (fields.parts) {
         const want = fields.parts.toLowerCase();
         const chosen = { landing: want.includes("landing"), playable: want.includes("playable"), email: want.includes("email"), banner: want.includes("banner") };
@@ -271,8 +273,8 @@ export function CampaignApp() {
         if (mech && (mech !== "scene" || sc)) next.landing = mech;
         if (!fields.parts) next.parts = { landing: plan.landing.make, playable: plan.playable.make, email: plan.email.make, banner: plan.banner.make };
         next.emailTemplate = plan.email.template;
-        next.bannerText = plan.bannerText;
-        if (!next.headline.trim() && plan.headline) next.autoHeadline = plan.headline;
+        next.bannerText = humanizeOffer(plan.bannerText, next.lang);
+        if (!next.headline.trim() && plan.headline) next.autoHeadline = humanizeOffer(plan.headline, next.lang);
         filled.push("подбор креативов");
       }
       setB(next);
@@ -311,8 +313,10 @@ export function CampaignApp() {
     try {
       const payload = file ? { product: "campaign", fileBase64: await readFile(file), fileName: file.name } : { product: "campaign", text };
       const res = await apiFetch("/api/parse-brief", { method: "POST", json: payload });
-      const data = (await res.json().catch(() => ({}))) as { fields?: Record<string, string>; plan?: CampaignTzPlan | null; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { fields?: Record<string, string>; plan?: CampaignTzPlan | null; links?: { url: string; ok: boolean }[]; error?: string };
       if (!res.ok || !data.fields) throw new Error(data.error || "Не удалось разобрать ТЗ");
+      // Ссылка в ТЗ одна, а «сайт» модель не заполнила — она и есть сайт бренда: оттуда лого и название.
+      if (!data.fields.site && data.links?.length === 1) data.fields.site = data.links[0].url;
       const filled = await applyTz(data.fields, data.plan ?? null);
       if (filled.length) toast.success(`Из ТЗ: ${filled.join(", ")}`);
       else toast("В ТЗ не нашлось данных для кампании — впишите тематику руками");

@@ -15,6 +15,8 @@ import { join } from "node:path";
 import { briefExtras, briefHeadline, liveCopy, briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
 import { normalizeTzPlan } from "../src/lib/campaignTz";
+import { humanizeOffer, humanizeUnit } from "../src/lib/offerText";
+import { findTzLinks } from "../src/lib/tzLinks";
 import { defaultExtras, kitParts, normalizeExtras, relocalizeExtras, type LandingKind, type LandingLang } from "../src/lib/landingKit";
 import { applyBlockTexts } from "../src/components/landing/LandingBlocksPicker";
 import type { SceneLoader } from "../src/lib/scenes/build";
@@ -196,6 +198,18 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("ТЗ: шаблон письма из плана", briefEmail(b).body !== briefEmail({ ...b, emailTemplate: "" }).body);
   check("ТЗ: текст баннера из плана", luckyBannerPayload(b, "plinko").banner_text === "Бонус 222FS");
   check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
+}
+
+// ---- оффер из ТЗ — как читает игрок; ссылки ТЗ — находятся
+{
+  const nb = (t: string) => t.replace(/ /g, " ");
+  check("оффер: 222fs+50.000rub", nb(humanizeOffer("222fs+50.000rub", "ru")) === "222 фриспина + 50 000 ₽", humanizeOffer("222fs+50.000rub", "ru"));
+  check("оффер: окончания", nb(humanizeOffer("21fs", "ru")) === "21 фриспин" && nb(humanizeOffer("5 фс", "ru")) === "5 фриспинов");
+  check("оффер: украинский и английский", nb(humanizeOffer("100 fs + 1000 uah", "uk")) === "100 фриспінів + 1000 ₴" && nb(humanizeOffer("150fs+200eur", "en")) === "150 free spins + 200 €");
+  check("оффер: проценты и коэффициенты не трогаем", humanizeOffer("до +50% к экспрессу", "ru") === "до +50% к экспрессу" && humanizeOffer("кэф 1.85", "ru") === "кэф 1.85" && humanizeOffer("+200%", "ru") === "+200%");
+  check("единица: fs → FS, rub → ₽", humanizeUnit("fs") === "FS" && humanizeUnit("rub") === "₽" && humanizeUnit("€") === "€");
+  const l = findTzLinks("ленд под https://olymp-csn.com/uz. Игра — www.crazygames.com/game/plinko, сайт pin-up.casino");
+  check("ссылки ТЗ: найдены, без точки в конце", l.length === 3 && l[0] === "https://olymp-csn.com/uz" && l[2] === "https://pin-up.casino", l.join(" | "));
 }
 
 // ---- «Собрать кампанию»: раскладка темы по всем частям; сменили тему — тексты шаблонные

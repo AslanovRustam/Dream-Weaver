@@ -9,8 +9,11 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, rejectLargeBody, sniffDocument } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 import { interpretCampaignTz } from "@/lib/campaignTz";
+import { readTzLinks, tzLinksPrompt } from "@/lib/tzLinks";
 
 export const runtime = "nodejs";
+// Кампания: до разбора открываем ссылки ТЗ (до 8 с), затем две модели параллельно.
+export const maxDuration = 60;
 
 const MAX_BRIEF_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_BRIEF_TEXT_CHARS = 200_000;
@@ -154,8 +157,14 @@ export async function POST(request: Request) {
   if (!apiKey) {
     return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
   }
+  // Кампания: ссылки ТЗ открываем до разбора — модель видит, где сайт оператора (бренд), а где пример игры.
+  const links = product === "campaign" ? await readTzLinks(brief).catch(() => []) : [];
+  const linksCtx = tzLinksPrompt(links);
   // Кампания: параллельно с полями — интерпретация ТЗ (какие креативы подходят и почему).
-  const planP = product === "campaign" ? interpretCampaignTz(brief, apiKey).catch(() => ({ plan: null, usage: null })) : null;
+  const planP =
+    product === "campaign"
+      ? interpretCampaignTz(linksCtx ? `${brief}\n\n${linksCtx}` : brief, apiKey).catch(() => ({ plan: null, usage: null }))
+      : null;
   const providers = [
     { url: "https://api.openai.com/v1/chat/completions", key: apiKey, model: "gpt-4o-mini" },
   ];
@@ -172,7 +181,7 @@ export async function POST(request: Request) {
     "Значения enum выбирай строго из предложенных вариантов. " +
     "generationPrompt — 1–3 ёмких предложения, готовый бриф для генерации продукта из этого ТЗ.";
 
-  const user = `ПОЛЯ ПРОДУКТА:\n${fieldList}\n\nТЗ:\n"""${brief}"""`;
+  const user = `ПОЛЯ ПРОДУКТА:\n${fieldList}\n\nТЗ:\n"""${brief}"""${linksCtx ? `\n\n${linksCtx}` : ""}`;
 
   let content = "";
   let lastDetail = "";
@@ -245,5 +254,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return Response.json({ fields, generationPrompt, briefChars, costUsd, plan });
+  return Response.json({ fields, generationPrompt, briefChars, costUsd, plan, links });
 }

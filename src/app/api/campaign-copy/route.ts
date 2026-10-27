@@ -15,6 +15,7 @@ import { euLang } from "@/lib/euLangs";
 import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 import { BLOCK_SHAPES, cleanBlockCopy, obj, s, arr, type Obj } from "@/lib/landingBlocksCopy";
+import { humanizeOffer, OFFER_RULE } from "@/lib/offerText";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
     `You are the copywriter of a ${kind === "sport" ? "sports-betting" : "online casino"} ad campaign. Write ALL texts in ${euLang(lang).english}.`,
     "One theme runs through every creative: landing page, playable ad, banner and promo email must read as one campaign.",
     "Keep proper names from the theme (characters, clubs, events) as they are. Concrete numbers in bonuses. No emoji.",
+    OFFER_RULE,
     `Brand: ${s(body.brand, 40) || "—"}. Offer: ${s(body.offer, 80) || "—"} (use it as the main bonus everywhere). CTA: ${s(body.cta, 24) || "—"}.`,
     "Return STRICT JSON with exactly these keys:",
     ...want.map((w) => `- ${w}`),
@@ -109,34 +111,39 @@ export async function POST(request: Request) {
     /* ниже — пусто */
   }
 
+  // Сокращения ТЗ в текстах — как прочтёт игрок (модель просили, но страхуемся): fs → фриспины, rub → ₽.
+  const h = (v: string) => humanizeOffer(v, lang);
+  const humanizeDeep = (v: unknown, key = ""): unknown =>
+    typeof v === "string" ? (/^(code|odd|match)$/.test(key) ? v : h(v)) : Array.isArray(v) ? v.map((x) => humanizeDeep(x, key)) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, humanizeDeep(x, k)])) : v;
+
   // Проверка: только ожидаемые поля и разумной длины; пустое — клиент оставит своё.
   const sceneOut: Record<string, string> = {};
   const sj = obj(j.scene);
   for (const f of sceneFields) {
     const v = s(sj[f.key], Math.max(24, Math.min(140, f.value.length * 2 + 12)));
-    if (v) sceneOut[f.key] = v;
+    if (v) sceneOut[f.key] = h(v);
   }
   const ej = obj(j.email);
   const email: Record<string, unknown> = {};
   for (const [k, max] of [["subject", 70], ["preheader", 100], ["heroTitle", 80], ["heroSubtitle", 100], ["body", 420], ["stepsTitle", 44], ["ctaText", 26]] as const) {
     const v = s(ej[k], max);
-    if (v) email[k] = v;
+    if (v) email[k] = h(v);
   }
   const steps = arr(ej.steps, 4).map((t) => s(t, 70)).filter(Boolean);
-  if (steps.length >= 2) email.steps = steps;
+  if (steps.length >= 2) email.steps = steps.map(h);
   const bj = obj(j.blocks);
   const blocksOut: Record<string, Obj> = {};
   for (const b of blocks) {
     const c = cleanBlockCopy(b, obj(bj[b]));
-    if (c) blocksOut[b] = c;
+    if (c) blocksOut[b] = humanizeDeep(c) as Obj;
   }
 
   void recordUsage(user.id, { model: MODEL, feature: "campaign-copy", type: "llm", ...extractUsage(data, MODEL) });
   return Response.json({
     copy: {
       topic,
-      headline: s(j.headline, 40),
-      bannerText: s(j.bannerText, 80),
+      headline: h(s(j.headline, 40)),
+      bannerText: h(s(j.bannerText, 80)),
       sceneId: s(scene.id, 24),
       scene: sceneOut,
       email,
