@@ -141,8 +141,8 @@ function offerHtml(offer: string): string {
     .join('<b class="plus">+</b>');
 }
 
-/** Персонаж в плашке: плашка, над ней — персонаж, обрезанный снизу по её краю. */
-const charBox = (src: string, cls: string) => `<div class="pCharBox ${cls}"><i class="sh"></i><div class="cl"><img src="${src}" alt=""/></div></div>`;
+/** Персонаж на сцене: лучи и ореол позади, световое пятно под ногами. */
+const charStage = (src: string, cls: string) => `<div class="pStage ${cls}"><i class="rays"></i><i class="halo"></i><i class="floor"></i><img src="${src}" alt=""/></div>`;
 
 const PROMO_FONTS =
   '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
@@ -187,23 +187,24 @@ function promoCss(accent: string): string {
   .pTop em{font-style:normal;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.07)}
   .pFrame{height:var(--fhd,min(68svh,620px));min-height:360px;border-radius:18px;overflow:hidden;background:#000}
   .pFrame.clear{background:transparent}
-  /* Персонаж «выходит из плашки»: стоит в скруглённой плашке цвета акцента, снизу обрезан ровно по
-     её краю, голова и руки — за её верх и бока. Не висит в воздухе. Телефон — справа от заголовка
-     и бонуса, десктоп — по бокам рамки с игрой. */
-  .pCharBox{position:absolute;z-index:3;aspect-ratio:1;pointer-events:none}
-  .pCharBox .sh{position:absolute;inset:0;border-radius:28%;background:radial-gradient(120% 90% at 50% 18%,color-mix(in srgb,var(--ac) 85%,#fff 15%),var(--ac) 38%,color-mix(in srgb,var(--ac) 30%,#0b0815) 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.22),inset 0 -30px 50px rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.5),0 0 46px color-mix(in srgb,var(--ac) 40%,transparent)}
-  .pCharBox .sh::after{content:"";position:absolute;inset:10% 10% auto;height:38%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.35),transparent);filter:blur(4px)}
-  .pCharBox .cl{position:absolute;inset:0;clip-path:inset(-80% -45% 0 -45% round 0 0 28% 28%)}
-  .pCharBox img{position:absolute;left:50%;bottom:0;height:155%;max-width:none;transform:translateX(-50%);object-fit:contain;object-position:bottom;filter:drop-shadow(0 10px 18px rgba(0,0,0,.45))}
-  .pCharBox.m{right:0;bottom:30px;width:clamp(128px,37vw,190px)}
-  .pCharBox.d{display:none}
-  /* Плашка справа внизу копии: заголовок и бонус сужаются (слова не рвутся), условия под ней — на всю ширину. */
-  .hasChar .pEye,.hasChar .pCopy h1,.hasChar .pBonusT,.hasChar .pBonus{position:relative;z-index:4;max-width:60%}
-  /* Длинное слово не рвём по слогам — пусть лучше зайдёт на персонажа (текст поверх). */
-  .hasChar .pCopy h1{font-size:clamp(22px,6.2vw,46px);overflow-wrap:normal;hyphens:manual}
-  .hasChar .pBonus{font-size:clamp(21px,5.5vw,52px);text-shadow:0 2px 14px rgba(0,0,0,.65)}
-  .hasChar .pFine{position:relative;z-index:4;margin-top:14px}
-  .hasChar .pCopy{min-height:calc(clamp(128px,37vw,190px) * 1.55 + 40px)}
+  /* Персонаж «на сцене», как на афише: крупно, за текстом, позади — медальон-ореол и медленные
+     лучи акцента, ноги растворяются в световом пятне на полу (низ картинки уходит в прозрачность).
+     Не висит в воздухе и не сидит в коробке. Телефон — справа в первом экране, на краю экрана;
+     десктоп — по бокам рамки с игрой. */
+  .pStage{position:absolute;z-index:1;pointer-events:none}
+  .pStage .rays{position:absolute;left:50%;top:44%;width:170%;aspect-ratio:1;translate:-50% -50%;background:repeating-conic-gradient(color-mix(in srgb,var(--ac) 55%,transparent) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(closest-side,#000 25%,transparent 78%);mask:radial-gradient(closest-side,#000 25%,transparent 78%);opacity:.75;animation:pSpin 60s linear infinite}
+  .pStage .halo{position:absolute;left:50%;top:40%;width:116%;aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--ac) 50%,transparent),color-mix(in srgb,var(--ac) 14%,transparent) 70%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--ac) 65%,#fff 35%),inset 0 0 30px color-mix(in srgb,var(--ac) 55%,transparent),0 0 50px color-mix(in srgb,var(--ac) 35%,transparent);animation:pHalo 4s ease-in-out infinite}
+  .pStage .floor{position:absolute;left:-4%;right:-4%;bottom:0;height:22%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--ac) 60%,#fff 10%),color-mix(in srgb,var(--ac) 22%,transparent) 55%,transparent);filter:blur(5px)}
+  .pStage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:bottom center;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--ac) 35%,transparent));-webkit-mask-image:linear-gradient(180deg,#000 66%,transparent 97%);mask-image:linear-gradient(180deg,#000 66%,transparent 97%);animation:pRise .9s cubic-bezier(.2,.8,.2,1) both}
+  .pStage.m{right:-16px;top:-4px;bottom:-6px;width:min(60vw,330px)}
+  .pStage.d{display:none}
+  /* Текст поверх персонажа: слева — мягкая тень под текстом, заголовок не лезет на лицо. */
+  .hasChar .pCopy{min-height:min(84vw,400px)}
+  .hasChar .pCopy::before{content:"";position:absolute;z-index:2;inset:-20px 0 -10px -16px;background:linear-gradient(90deg,rgba(11,8,21,.8),rgba(11,8,21,.45) 45%,transparent 68%);pointer-events:none}
+  .hasChar .pEye,.hasChar .pCopy h1,.hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{position:relative;z-index:4}
+  .hasChar .pCopy h1{max-width:62%;font-size:clamp(24px,6.6vw,46px);overflow-wrap:normal;hyphens:manual;text-shadow:0 4px 24px rgba(0,0,0,.6)}
+  .hasChar .pBonus{max-width:72%;font-size:clamp(24px,6.4vw,52px);text-shadow:0 2px 16px rgba(0,0,0,.8)}
+  .hasChar .pFine{max-width:62%}
   .pFrame iframe{display:block;width:100%;height:100%;border:0}
   .pFl{position:absolute;z-index:1;width:clamp(56px,14vw,96px);filter:drop-shadow(0 12px 18px rgba(0,0,0,.5));animation:pBob 5s ease-in-out infinite;pointer-events:none}
   .pFl.a{left:-6%;top:12%}.pFl.b{right:-7%;top:46%;animation-delay:-1.6s}.pFl.c{left:-4%;bottom:6%;animation-delay:-3s}
@@ -216,6 +217,9 @@ function promoCss(accent: string): string {
   @keyframes pBob{50%{transform:translateY(-10px) rotate(-3deg)}}
   @keyframes pBobImg{50%{transform:translateY(calc(-55% - 8px)) rotate(-4deg)}}
   @keyframes pLive{50%{opacity:.35}}
+  @keyframes pSpin{to{rotate:360deg}}
+  @keyframes pHalo{50%{scale:1.04;opacity:.85}}
+  @keyframes pRise{from{opacity:0;translate:0 24px}}
   @media(min-width:640px){.pBadge{display:inline-flex}}
   /* Телефон: игра без рамки — сразу под текстом, во всю ширину и как можно выше;
      кнопки — на всю ширину; парящие объекты не лезут на игру. */
@@ -234,17 +238,18 @@ function promoCss(accent: string): string {
     .pAct{align-self:start}
     .pAct .pBtn{width:auto}
     .pFrame{height:var(--fhd,min(76vh,720px))}
-    .pCharBox.m{display:none}
-    .pCharBox.d{display:block;bottom:4%;width:min(34%,220px)}
-    .pCharBox.d.l{left:-22%}.pCharBox.d.r{right:-22%}
+    .pStage.m{display:none}
+    .pStage.d{display:block;bottom:-4%;height:86%;width:52%}
+    .pStage.d.l{left:-38%}.pStage.d.r{right:-38%}
     .hasChar .pCopy{min-height:0}
+    .hasChar .pCopy::before{display:none}
     .hasChar .pBonus{font-size:clamp(28px,7.4vw,52px)}
-    .hasChar .pEye,.hasChar .pCopy h1,.hasChar .pBonusT,.hasChar .pBonus{max-width:none}
+    .hasChar .pCopy h1,.hasChar .pBonus,.hasChar .pFine{max-width:none}
     .hasChar .pCopy h1{font-size:clamp(34px,4.4vw,68px)}
     .pBonus{padding-right:0}
     .pBonus img{position:static;transform:none;margin-left:6px;animation-name:pBob}
   }
-  @media(prefers-reduced-motion:reduce){.pFl,.pBonus img,.pTop i{animation:none}}
+  @media(prefers-reduced-motion:reduce){.pFl,.pBonus img,.pTop i,.pStage *{animation:none}}
   /* Блоки ниже — тем же шрифтом и с номерами секций, как в первом экране. */
   .ex{font-family:${body};counter-reset:psec}
   .ex h2{font-family:${head};letter-spacing:-.02em;text-transform:uppercase}
@@ -295,12 +300,12 @@ ${k.css}
       <div class="pCopy">
         <div class="pEye"><b>✦</b>${esc(s.promoEyebrow)}</div>
         <h1>${headlineHtml(p.headline)}</h1>
-        ${chars[0] ? charBox(chars[0], "m") : ""}
+        ${chars[0] ? charStage(chars[0], "m") : ""}
         ${p.offer.trim() ? `<div class="pBonusT">${esc(s.promoBonus)}</div><div class="pBonus">${offerHtml(p.offer)}${img(p.reward) ? `<img src="${p.reward}" alt=""/>` : ""}</div><p class="pFine">${esc(s.promoFine)}</p>` : ""}
       </div>
       <div class="pGame">
         ${floats.map((u, i) => `<img class="pFl ${"abc"[i]}" src="${u}" alt=""/>`).join("")}
-        ${chars.map((u, i) => charBox(u, `d ${i ? "r" : "l"}`)).join("")}
+        ${chars.map((u, i) => charStage(u, `d ${i ? "r" : "l"}`)).join("")}
         <div class="pCard"><div class="pTop"><span><i></i>${esc(p.game)} LIVE</span><em>${esc(s.promoDemo)}</em></div><div class="pFrame${p.frame ? " clear" : ""}"${frameVars}><iframe title="${esc(p.game)}" srcdoc="${esc(sceneHtml)}" allow="autoplay; fullscreen"></iframe></div></div>
       </div>
       <div class="pAct"><button type="button" class="pBtn${p.ctaOutline ? " ghost" : ""}" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div>${extras.legal.trim() ? `<p class="exLegalLine pLegal">${esc(extras.legal)}</p>` : ""}</div>
