@@ -125,8 +125,11 @@ function offerHtml(offer: string): string {
   if (!parts.length) return "";
   return parts
     .map((p) => {
-      const m = /^([+\-]?[\d  .,%]*\d%?)\s*(.*)$/.exec(p);
-      return m ? `<span>${esc(m[1])}${m[2] ? ` <small>${esc(m[2])}</small>` : ""}</span>` : `<span class="w">${esc(p)}</span>`;
+      // «Бонус 222 фриспина»: слова до числа и после — мелко, число — крупно.
+      const m = /^(\D*?)\s*([+\-]?\d[\d  .,]*%?)\s*(.*)$/.exec(p);
+      if (!m) return `<span class="w">${esc(p)}</span>`;
+      const [, pre, num, post] = m;
+      return `<span>${pre.trim() ? `<small>${esc(pre.trim())}</small> ` : ""}${esc(num.trim())}${post ? ` <small>${esc(post)}</small>` : ""}</span>`;
     })
     .join('<b class="plus">+</b>');
 }

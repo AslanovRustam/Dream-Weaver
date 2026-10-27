@@ -278,6 +278,11 @@ function ProjectsTab() {
       router.push(`/email?draft=${encodeURIComponent(p.id)}`);
       return;
     }
+    // Кампания — на её страницу: все материалы; оттуда — в редактор.
+    if (p.source === "project" && p.type === "campaign") {
+      router.push(`/campaign/view?id=${encodeURIComponent(p.id)}`);
+      return;
+    }
     if (p.source === "project") {
       openSavedProject(p.id)
         .then((route) => router.push(route))

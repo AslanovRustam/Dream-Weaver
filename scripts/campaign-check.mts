@@ -12,9 +12,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { briefExtras, briefHeadline, liveCopy, briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
+import { briefBannerSpecs, briefExtras, briefHeadline, liveCopy, briefAccent, briefBanner, briefEditorDraft, briefEmail, briefLandingHtml, briefPlayableHtml, briefParts, briefScene, briefSource, defaultBrief, LUCKY_SCENES, luckyBannerPayload, luckyRoll, type CampaignArt, type CampaignBrief, type CampaignLanding } from "../src/lib/campaign";
 import { buildEmailHtml } from "../src/lib/emailExport";
-import { normalizeTzPlan } from "../src/lib/campaignTz";
+import { normalizeTzPlan, normAspect } from "../src/lib/campaignTz";
 import { humanizeOffer, humanizeUnit } from "../src/lib/offerText";
 import { findTzLinks } from "../src/lib/tzLinks";
 import { defaultExtras, kitParts, normalizeExtras, relocalizeExtras, type LandingKind, type LandingLang } from "../src/lib/landingKit";
@@ -198,6 +198,19 @@ check("матч → /match, фрибет из брифа", match.route === "/mat
   check("ТЗ: шаблон письма из плана", briefEmail(b).body !== briefEmail({ ...b, emailTemplate: "" }).body);
   check("ТЗ: текст баннера из плана", luckyBannerPayload(b, "plinko").banner_text === "Бонус 222FS");
   check("ТЗ: без плана — оффер", luckyBannerPayload({ ...b, bannerText: "", offer: "+100%" }, "x").banner_text === "+100%");
+}
+
+// ---- несколько баннеров из ТЗ: каждый своим заданием
+{
+  check("баннеры: форматы", normAspect("1200x628") === "1200:628" && normAspect("1200×628") === "1200:628" && normAspect("9/16") === "9:16" && normAspect("что-то") === "16:9" && normAspect("10000:1") === "16:9");
+  const p = normalizeTzPlan({ banners: [{ name: "Статичный", aspect: "1200x628", text: "Бонус 222 фриспина", visual: "plinko board" }, { aspect: "1:1" }] });
+  check("баннеры: план из ТЗ", p?.banners.length === 2 && p.banners[0].aspect === "1200:628" && p.banners[1].name === "Баннер 2");
+  check("баннеры: старый план — пусто", normalizeTzPlan({})?.banners.length === 0);
+  const b: CampaignBrief = { ...defaultBrief("casino", "ru"), banners: [{ name: "A", aspect: "1:1", text: "Текст A", visual: "chest" }, { name: "B", aspect: "9:16", text: "", visual: "" }] };
+  check("баннеры: задания брифа", briefBannerSpecs(b).length === 2 && briefBannerSpecs(defaultBrief("casino", "ru")).length === 1);
+  const pa = luckyBannerPayload(b, "vikings", b.banners![0]);
+  check("баннеры: запрос — формат, текст, что на нём", pa.aspect_ratio === "1:1" && pa.banner_text === "Текст A" && pa.prompt.includes("chest"));
+  check("баннеры: без задания — 16:9", luckyBannerPayload(b, "x").aspect_ratio === "16:9");
 }
 
 // ---- оффер из ТЗ — как читает игрок; ссылки ТЗ — находятся

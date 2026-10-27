@@ -12,6 +12,19 @@ import { OFFER_RULE } from "./offerText";
 
 export type CampaignTzMechanic = "scene" | "wheel" | "slot" | "crash" | "match";
 
+/** Задание на один баннер из ТЗ. */
+export type CampaignTzBanner = {
+  /** Как называем в интерфейсе: «Баннер 1 — статичный», «1200×628». */
+  name: string;
+  /** Пропорции «W:H»: 16:9, 1:1, 9:16, 1200:628… */
+  aspect: string;
+  /** Текст на баннере — из ТЗ дословно (сокращения раскрыты). */
+  text: string;
+  /** Что на баннере (англ., для генерации): атрибутика игры, персонаж, сцена. */
+  visual: string;
+  why: string;
+};
+
 export type CampaignTzPlan = {
   /** Что просят — одной-двумя фразами, по-русски. */
   summary: string;
@@ -24,6 +37,11 @@ export type CampaignTzPlan = {
   landing: { make: boolean; mechanic: CampaignTzMechanic; scene: string | null; why: string };
   playable: { make: boolean; scene: string | null; why: string };
   banner: { make: boolean; why: string };
+  /**
+   * Баннеры, которые просит ТЗ, — каждый своим заданием: формат, текст, что на
+   * нём. Пусто — один баннер 16:9 с текстом bannerText.
+   */
+  banners: CampaignTzBanner[];
   email: { make: boolean; template: string; why: string };
   /** Требования ТЗ, которые кампания не выполнит как написано. */
   notes: string[];
@@ -89,18 +107,44 @@ const SYSTEM = [
   "- The brand is the casino/bookmaker operator (from the site), never a game title like Plinko or Aviator.",
   "- Texts (headline, bannerText) in the language of the creatives the brief asks for; why/summary/notes in Russian.",
   `- ${OFFER_RULE}`,
+  "- banners: EVERY banner the brief asks for, one entry each — different sizes, formats (static / game-like), texts or variants (\"1x\", \"2x\", \"баннер 1\", sizes like 1200×628) are separate banners. If the brief gives one banner or none — one entry (16:9). Max 6.",
   "- notes: requirements of the brief our product cannot follow exactly as written (e.g. a scripted sequence of outcomes per throw, several different popups, a specific game reference look), in Russian, short. Empty array if none.",
   "Return STRICT JSON:",
   '{"summary": string, "topic": string (the campaign theme in 1-5 Russian words, e.g. "Plinko", "Хэллоуин", "финал ЛЧ"; only what the brief says, never invent a setting), "visual": string (15-40 English words of art direction), "headline": string (<=32 chars), "bannerText": string (the banner text from the brief word for word if it gives one (only shorthand expanded per the rule below), else <=60 chars),',
   ' "landing": {"make": boolean, "mechanic": string, "scene": string|null, "why": string},',
   ' "playable": {"make": boolean, "scene": string|null, "why": string},',
   ' "banner": {"make": boolean, "why": string},',
+  ' "banners": [{"name": string (short, Russian), "aspect": string ("W:H", e.g. "16:9", "1:1", "9:16", "1200:628"), "text": string (text on this banner, word for word from the brief with shorthand expanded), "visual": string (10-30 English words: what this banner shows), "why": string (Russian)}],',
   ' "email": {"make": boolean, "template": string, "why": string},',
   ' "notes": string[]}',
 ].join("\n");
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const scene = (v: unknown) => (typeof v === "string" && v in SCENES ? v : null);
+
+/** «1200x628», «1200×628», «16/9» → «1200:628», «16:9»; непонятное — 16:9. */
+export function normAspect(v: unknown): string {
+  const m = typeof v === "string" ? /(\d{1,4})\s*[:x×х/*]\s*(\d{1,4})/i.exec(v) : null;
+  if (!m) return "16:9";
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!w || !h || w / h > 4 || h / w > 4) return "16:9";
+  return `${w}:${h}`;
+}
+
+function normalizeBanners(raw: unknown): CampaignTzBanner[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, 6)
+    .map((b) => (b && typeof b === "object" ? (b as Record<string, unknown>) : {}))
+    .map((b, i) => ({
+      name: str(b.name, 60) || `Баннер ${i + 1}`,
+      aspect: normAspect(b.aspect),
+      text: str(b.text, 120),
+      visual: str(b.visual, 300),
+      why: str(b.why, 200),
+    }));
+}
 
 /** Проверить и привести ответ модели к плану; мусор — к безопасным значениям. */
 export function normalizeTzPlan(raw: unknown): CampaignTzPlan | null {
@@ -119,6 +163,7 @@ export function normalizeTzPlan(raw: unknown): CampaignTzPlan | null {
     playable: { make: p.make !== false, scene: scene(p.scene), why: str(p.why, 240) },
     banner: { make: bn.make !== false, why: str(bn.why, 240) },
     email: { make: e.make !== false, template: typeof e.template === "string" && e.template in EMAIL_TEMPLATES ? e.template : "welcome", why: str(e.why, 240) },
+    banners: normalizeBanners(j.banners),
     notes: Array.isArray(j.notes) ? (j.notes as unknown[]).map((n) => str(n, 200)).filter(Boolean).slice(0, 6) : [],
   };
   // Сцена-механика без сцены — берём сцену плейбла; не из чего — колесо.

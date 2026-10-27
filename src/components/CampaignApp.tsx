@@ -6,6 +6,7 @@
 // с готовыми файлами, «Открыть в редакторе» — черновик нужного редактора
 // с брифом внутри, чтобы довести руками и ИИ-графикой в стиле рефа.
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Dices, Download, ExternalLink, ImageIcon, Loader2, Mail, Megaphone, MonitorSmartphone, Gamepad2, Pipette, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ import { isSectionEnabled } from "@/lib/mvp";
 import { CAMPAIGN_BRIEF_KEY, forgetProject, saveProject } from "@/lib/projects";
 import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { enabledBlocks } from "@/components/landing/LandingBlocksPicker";
+import { buildCampaignZip, campaignSlug, saveBlob } from "@/lib/campaignBundle";
 import { humanizeOffer, humanizeUnit } from "@/lib/offerText";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -49,6 +51,8 @@ import {
   briefHeadline,
   briefLandingHtml,
   briefScene,
+  briefBannerSpecs,
+  type BannerSpec,
   type CampaignCopy,
   briefPlayableHtml,
   briefSource,
@@ -255,6 +259,7 @@ export function CampaignApp() {
       next.tzPlan = plan;
       next.emailTemplate = "";
       next.bannerText = "";
+      next.banners = [];
       if (plan) {
         // Тематика плана главнее поля: поле модель иногда додумывает из примеров подсказки.
         if (plan.topic) {
@@ -274,6 +279,8 @@ export function CampaignApp() {
         if (!fields.parts) next.parts = { landing: plan.landing.make, playable: plan.playable.make, email: plan.email.make, banner: plan.banner.make };
         next.emailTemplate = plan.email.template;
         next.bannerText = humanizeOffer(plan.bannerText, next.lang);
+        // Несколько баннеров в ТЗ — у каждого своё задание: формат, текст, что на нём.
+        next.banners = (plan.banners ?? []).map((bn) => ({ name: bn.name, aspect: bn.aspect, text: humanizeOffer(bn.text, next.lang), visual: bn.visual }));
         if (!next.headline.trim() && plan.headline) next.autoHeadline = humanizeOffer(plan.headline, next.lang);
         filled.push("подбор креативов");
       }
@@ -405,9 +412,17 @@ export function CampaignApp() {
     theme: roll?.theme ?? "",
   });
   const applyLucky = async (key: string, dataUrl: string) => {
-    if (key === "banner") {
-      setArt((a) => a && { ...a, banner: dataUrl });
-      if (briefParts(latestB.current).email) void makeEmailHero(dataUrl);
+    const bm = key === "banner" ? 0 : /^banner-(\d+)$/.exec(key) ? Number(key.slice(7)) : -1;
+    if (bm >= 0) {
+      const spec = briefBannerSpecs(latestB.current)[bm] ?? { name: bm ? `Баннер ${bm + 1}` : "Баннер", aspect: "16:9" };
+      setArt((a) => {
+        if (!a) return a;
+        const banners = [...(a.banners ?? [])];
+        banners[bm] = { name: spec.name, aspect: spec.aspect, image: dataUrl };
+        return { ...a, banners, ...(bm === 0 ? { banner: dataUrl } : {}) };
+      });
+      // Шапка письма — из первого баннера.
+      if (bm === 0 && briefParts(latestB.current).email) void makeEmailHero(dataUrl);
       return;
     }
     if (key.startsWith("x-")) {
@@ -491,19 +506,20 @@ export function CampaignApp() {
       // Картинки блоков — только у лендинга.
       ...(parts.landing ? extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })) : []),
       // Баннер — сам по себе или как основа шапки письма.
-      ...(parts.banner || parts.email ? [bannerStep(roll.theme)] : []),
+      ...(parts.banner ? briefBannerSpecs(b) : parts.email ? briefBannerSpecs(b).slice(0, 1) : []).map((spec, i) => bannerStep(roll.theme, spec, i)),
     ];
   };
   /** Баннер в той же теме — генератором баннеров; попадает и в «Мои проекты» как обычный баннер. */
-  const bannerStep = (theme: string): AssetStep => {
-    const payload = luckyBannerPayload(full, theme) as GeneratePayload;
+  const bannerStep = (theme: string, spec: BannerSpec, i: number): AssetStep => {
+    const payload = luckyBannerPayload(full, theme, spec) as GeneratePayload;
+    const key = i === 0 ? "banner" : `banner-${i}`;
     return {
-      id: "banner",
-      label: parts.banner ? "Баннер 16:9" : "Баннер — основа для шапки письма",
+      id: key,
+      label: parts.banner ? `${spec.name} · ${spec.aspect}` : "Баннер — основа для шапки письма",
       credits: BANNER_PRICE_CREDITS,
       run: async () => {
         const r = await generateImage(payload);
-        await applyLucky("banner", r.image);
+        await applyLucky(key, r.image);
         return true;
       },
       server: { route: "/api/generate-image", body: bannerRequestBody(payload) },
@@ -780,42 +796,7 @@ export function CampaignApp() {
   const downloadAll = async () => {
     setZipping(true);
     try {
-      const { default: JSZip } = await import("jszip");
-      const zip = new JSZip();
-      const slug = (b.brand.trim() || "campaign").toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "") || "campaign";
-      if (parts.landing) zip.file("landing/index.html", await briefLandingHtml(full, browserLoader));
-      if (doPlayable) {
-        zip.file("playable/web.html", await briefPlayableHtml(full, browserLoader, "web"));
-        zip.file("playable/mraid.html", await briefPlayableHtml(full, browserLoader, "mraid"));
-      }
-      if (parts.email) zip.file("email/email.html", emailHtml);
-      // Баннер «Мне повезёт» — как есть, в его формате.
-      const banner = art?.banner?.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (banner && parts.banner) zip.file(`banner/banner-16x9.${banner[1] === "jpeg" ? "jpg" : banner[1]}`, banner[2], { base64: true });
-      zip.file(
-        "README.txt",
-        [
-          `Кампания ${b.brand || ""}`.trim(),
-          "",
-          parts.landing ? "landing/index.html — лендинг, один файл: загрузите на хостинг или в трекер." : "",
-          doPlayable ? "playable/mraid.html — плейбл для MRAID-сетей (AppLovin, Unity, Liftoff); web.html — для сайта." : "",
-          art?.banner && parts.banner ? "banner/ — баннер 16:9; другие размеры — в генераторе баннеров (раздел «Мои проекты»)." : "",
-          parts.email ? "email/email.html — письмо: шапка — баннер кампании без текстов; картинки перед рассылкой разместите на хостинге (генератор писем делает это при выгрузке)." : "",
-          "",
-          `Ссылка по кнопкам: ${b.link || "не задана — добавьте в редакторах"}`,
-        ]
-          .filter((l) => l !== "")
-          .join("\n"),
-      );
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${slug}-campaign.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      saveBlob(await buildCampaignZip(full, browserLoader, { playable: doPlayable }), `${campaignSlug(b)}-campaign.zip`);
       toast.success("Кампания скачана — лендинг, плейбл и письмо в одном архиве");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось собрать архив");
@@ -1005,7 +986,10 @@ export function CampaignApp() {
               {art.scene !== b.scene ? " (детали — для другой сцены; фон и блоки — на месте)" : ""}.{" "}
               <button type="button" onClick={() => setArt(null)} disabled={lucky.running} className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
                 Убрать графику
-              </button>
+              </button>{" "}·{" "}
+              <Link href="/campaign/view" className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+                Страница кампании — все материалы
+              </Link>
             </p>
           ) : null}
         </div>
@@ -1238,11 +1222,18 @@ export function CampaignApp() {
               <iframe title="Письмо кампании" srcDoc={emailHtml} sandbox="" className="mx-auto block h-[720px] w-[640px] rounded-xl border border-border bg-white" />
             </div>
           ) : (
-            art?.banner ? (
-              <div className="flex w-full flex-col items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={art.banner} alt="Баннер кампании" className="w-full max-w-2xl rounded-xl border border-border" />
-                <p className="ds-caption">Баннер 16:9 из «Собрать кампанию». Другие размеры — в генераторе баннеров (кнопка ниже).</p>
+            art?.banner || art?.banners?.some(Boolean) ? (
+              <div className="flex w-full flex-col items-center gap-4">
+                {(art.banners?.length ? art.banners : [{ name: "Баннер", aspect: "16:9", image: art.banner ?? "" }]).map((bn, i) =>
+                  bn?.image ? (
+                    <figure key={i} className="flex w-full max-w-2xl flex-col items-center gap-1.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={bn.image} alt={bn.name} className="max-h-[70vh] w-auto max-w-full rounded-xl border border-border" />
+                      <figcaption className="ds-caption">{bn.name} · {bn.aspect}</figcaption>
+                    </figure>
+                  ) : null,
+                )}
+                <p className="ds-caption">Баннеры из «Собрать кампанию» — по заданиям из ТЗ. Другие размеры — в генераторе баннеров (кнопка ниже).</p>
               </div>
             ) : (
             <div className="flex w-full max-w-xl flex-col items-center gap-3 py-10 text-center">
@@ -1287,7 +1278,12 @@ function TzPlanCard({ plan, kind }: { plan: CampaignTzPlan; kind: LandingKind })
   const rows: { on: boolean; title: string; what: string; why: string }[] = [
     { on: plan.landing.make, title: "Лендинг", what: plan.landing.mechanic === "scene" ? `игра «${sceneLabel(plan.landing.scene)}»` : mech, why: plan.landing.why },
     { on: plan.playable.make, title: "Плейбл", what: plan.playable.scene ? `«${sceneLabel(plan.playable.scene)}»` : "", why: plan.playable.why },
-    { on: plan.banner.make, title: "Баннер", what: plan.bannerText ? `«${plan.bannerText}»` : "", why: plan.banner.why },
+    {
+      on: plan.banner.make,
+      title: (plan.banners ?? []).length > 1 ? `Баннеры (${plan.banners.length})` : "Баннер",
+      what: (plan.banners ?? []).length > 1 ? plan.banners.map((bn) => `${bn.name} ${bn.aspect}`).join("; ") : plan.bannerText ? `«${plan.bannerText}»` : "",
+      why: plan.banner.why,
+    },
     { on: plan.email.make, title: "Письмо", what: EMAIL_TEMPLATES.find((t) => t.id === plan.email.template)?.name ?? plan.email.template, why: plan.email.why },
   ];
   return (

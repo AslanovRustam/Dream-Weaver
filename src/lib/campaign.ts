@@ -44,6 +44,9 @@ export const briefOffer = (b: Pick<CampaignBrief, "offer" | "lang">) => humanize
  * (/api/campaign-copy), на языке кампании. Подставляются поверх шаблонных
  * в каждую часть; свой заголовок (headline) и текст баннера из ТЗ главнее.
  */
+/** Задание на баннер кампании (из разбора ТЗ). */
+export type BannerSpec = { name: string; aspect: string; text: string; visual: string };
+
 export type CampaignCopy = {
   /** Тема, под которую написано: сменили тему — тексты прежние, пока не соберёте заново. */
   topic: string;
@@ -78,6 +81,8 @@ export type CampaignBrief = {
   tzPlan?: CampaignTzPlan | null;
   /** Тексты всех частей под тему/ТЗ — см. CampaignCopy. */
   copy?: CampaignCopy | null;
+  /** Баннеры из ТЗ — каждый своим заданием (формат, текст, что на нём); пусто — один 16:9. */
+  banners?: BannerSpec[];
   brand: string;
   /** Лого (data URL) — необязательно. */
   logo: string;
@@ -141,8 +146,10 @@ export type CampaignArt = {
   gameImgs?: string[];
   /** Палитра сгенерированного фона — гамма, если нет рефа и пипетки. */
   palette?: ImagePalette | null;
-  /** Баннер 16:9 в той же теме (генератор баннеров). */
+  /** Баннер 16:9 в той же теме (генератор баннеров); при нескольких — первый (с него шапка письма). */
   banner?: string;
+  /** Все баннеры кампании — по заданиям брифа (banners), в том же порядке. */
+  banners?: { name: string; aspect: string; image: string }[];
   /** Шапка письма — тот же баннер без текстов (generate-email-hero, textlessOf). */
   emailHero?: string;
 };
@@ -243,7 +250,9 @@ const translated = (b: CampaignBrief) => !isBuiltInLang(b.lang) && Object.keys(t
 export const liveCopy = (b: Pick<CampaignBrief, "copy" | "topic">): CampaignCopy | null =>
   b.copy && b.copy.topic.trim() === b.topic.trim() ? b.copy : null;
 
-export const briefHeadline = (b: CampaignBrief) => b.headline.trim() || liveCopy(b)?.headline?.trim() || b.autoHeadline?.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline;
+export const briefHeadline = (b: CampaignBrief) =>
+  // Сокращения ТЗ и в заголовке — как прочтёт игрок (222FS → 222 фриспина).
+  humanizeOffer(b.headline.trim() || liveCopy(b)?.headline?.trim() || b.autoHeadline?.trim() || briefDefaults(b.kind, b.lang, tr(b)).headline, b.lang);
 /** Название бренда; есть только лого — без названия (не печатаем заглушку «BRAND» рядом с лого). */
 const brandName = (b: CampaignBrief) => b.brand.trim() || (b.logo ? "" : "BRAND");
 
@@ -460,12 +469,17 @@ export function briefSource(b: CampaignBrief): CampaignI18n {
  * Баннер для «Мне повезёт»: универсальный пресет, тема кампании, оффер
  * заголовком и кнопка — на языке кампании. 16:9; ресайзы — в генераторе баннеров.
  */
-export function luckyBannerPayload(b: CampaignBrief, theme: string) {
+/** Баннеры кампании: задания из ТЗ или один 16:9 по умолчанию. */
+export function briefBannerSpecs(b: CampaignBrief): BannerSpec[] {
+  return b.banners?.length ? b.banners : [{ name: "Баннер", aspect: "16:9", text: "", visual: "" }];
+}
+
+export function luckyBannerPayload(b: CampaignBrief, theme: string, spec?: BannerSpec) {
   const what = b.kind === "sport" ? "sports-betting promo" : "online casino promo";
   return {
     preset_id: "preset1",
-    prompt: `${what} key visual in the theme: ${theme}`,
-    banner_text: (b.bannerText?.trim() || liveCopy(b)?.bannerText?.trim() || briefOffer(b) || briefHeadline(b)).slice(0, 80),
+    prompt: `${what} key visual in the theme: ${theme}${spec?.visual ? `. This banner shows: ${spec.visual}` : ""}`,
+    banner_text: (spec?.text.trim() || b.bannerText?.trim() || liveCopy(b)?.bannerText?.trim() || briefOffer(b) || briefHeadline(b)).slice(0, 80),
     button_text: (b.cta.trim() || briefDefaults(b.kind, b.lang, tr(b)).cta).slice(0, 24),
     banner_text_enabled: true,
     button_text_enabled: true,
@@ -477,7 +491,7 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string) {
     brand_logo: b.logo,
     brand_logo_decor: !!b.logo,
     language: b.lang,
-    aspect_ratio: "16:9",
+    aspect_ratio: spec?.aspect || "16:9",
     model: "openai/gpt-5.4-image-2",
     quality: "high" as const,
     template_options: "",
