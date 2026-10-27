@@ -40,7 +40,8 @@ import { packageFor } from "@/lib/scenes/export";
 import { browserLoader, buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "@/lib/scenes/build";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { defaultExtras, normalizeExtras, stripExtrasImages, type LandingExtras, type LandingLang } from "@/lib/landingKit";
-import { sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
+import { promoFromScene, sceneLandingKind, wrapSceneLanding } from "@/lib/sceneLanding";
+import { humanizeOffer } from "@/lib/offerText";
 import { useExtrasAssets } from "@/components/landing/useExtrasAssets";
 import { paletteFromHex, paletteFromImage, uiFromPalette, wheelFromPalette } from "@/lib/imagePalette";
 import type { UiPalette, WheelPalette } from "@/lib/scenes/presets";
@@ -340,6 +341,17 @@ export function SceneStudio({
     };
   };
 
+  /** Лендинг в промо-раскладке: сцена в рамке — без своего лого, заголовка и юр. строки. */
+  const landingCfg = (cfg: SceneConfig): SceneConfig => ({ ...cfg, embed: extras.look.sceneHero !== "full" });
+  /** Первый экран промо: заголовок — заголовок сцены, оффер — первая карточка бонусов (или выигрыш сцены). */
+  const landingPromo = (cfg: SceneConfig) =>
+    promoFromScene(cfg, {
+      headline: (cfg.text.title ?? "").replace(/\n/g, " ") || meta.label,
+      offer: humanizeOffer(extras.bonuses.on && extras.bonuses.items[0]?.title.trim() ? extras.bonuses.items[0].title : `${cfg.amount} ${cfg.unit}`.trim(), d.lang),
+      cta: cfg.text.cta ?? "",
+      game: meta.label,
+    });
+
   // Превью и вес выгрузки пересобираются после паузы в наборе.
   useEffect(() => {
     if (!restored) return;
@@ -347,10 +359,10 @@ export function SceneStudio({
     const id = window.setTimeout(async () => {
       try {
         const cfg = config();
-        const preview = await buildScenePlayable(cfg, { network: "web", preview: true, load: cachedLoader });
+        const preview = await buildScenePlayable(landing ? landingCfg(cfg) : cfg, { network: "web", preview: true, load: cachedLoader });
         if (landing) {
           // Для сети «web» сборка превью и выгрузки совпадает (сетевых скриптов нет) — одна на правку.
-          const page = wrapSceneLanding(preview, { extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label });
+          const page = wrapSceneLanding(preview, { extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label, promo: landingPromo(cfg) });
           if (!alive) return;
           setHtml(preview);
           setPageHtml(page);
@@ -543,8 +555,8 @@ export function SceneStudio({
     setDownloading(true);
     try {
       const cfg = config();
-      const page = wrapSceneLanding(await buildScenePlayable(cfg, { network: "web", preview: false, load: cachedLoader }), {
-        extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label,
+      const page = wrapSceneLanding(await buildScenePlayable(landingCfg(cfg), { network: "web", preview: false, load: cachedLoader }), {
+        extras, accent, ctaUrl: cfg.clickUrl, kind, title: d.brandName || meta.label, promo: landingPromo(cfg),
       });
       const url = URL.createObjectURL(new Blob([page], { type: "text/html" }));
       const a = document.createElement("a");

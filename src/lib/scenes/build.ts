@@ -36,6 +36,11 @@ export type SceneConfig = {
   /** Язык документа (lang у <html>). */
   lang: string;
   /**
+   * Сцена внутри промо-лендинга (рамка в первом экране): лого, заголовок и
+   * юр. строку показывает страница — в сцене они скрыты.
+   */
+  embed?: boolean;
+  /**
    * Детали от ИИ (или загруженные): спрайты по ключам из SCENE_PARTS —
    * door, chest, plane, ball, pot… Рама колеса — объект с внутренним радиусом.
    */
@@ -194,6 +199,7 @@ export async function buildScenePlayable(
     symbols: (cfg.symbols ?? []).filter(isImg).slice(0, 8),
     palette: cfg.palette ?? null,
     ui: cfg.ui && Object.values(cfg.ui).every((c) => /^#[0-9a-fA-F]{3,8}$/.test(c)) ? cfg.ui : null,
+    embed: !!cfg.embed,
   };
 
   const lang = /^[a-z]{2}(-[A-Za-z]{2})?$/.test(cfg.lang) ? cfg.lang : "ru";

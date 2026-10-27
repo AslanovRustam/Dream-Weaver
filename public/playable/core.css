@@ -80,6 +80,8 @@ body::before {
 #logo .gt { position: relative; font-size: 76px; }
 
 #title { top: 196px; font-size: 92px; }
+/* Внутри промо-лендинга — без своего лого, заголовка и юр. строки (их показывает страница). */
+.embed #logo, .embed #title, .embed #legal { display: none !important; }
 #tapText { top: 1600px; font-size: 86px; }
 
 #legal {

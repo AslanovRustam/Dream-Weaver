@@ -23,10 +23,10 @@ import { defaultExtras, type LandingExtras, type LandingKind, type LandingLang }
 import { newDraft, type EmailDraft } from "./mailing";
 import { buildMatchHtml } from "./matchExport";
 import { sceneDraftKey } from "./projects";
-import { wrapSceneLanding } from "./sceneLanding";
+import { promoFromScene, wrapSceneLanding } from "./sceneLanding";
 import { buildScenePlayable, type SceneConfig, type SceneId, type SceneLoader } from "./scenes/build";
 import type { FrameArt } from "./scenes/art";
-import { DEFAULT_WIN_INDEX, scenePreset } from "./scenes/presets";
+import { DEFAULT_WIN_INDEX, SCENES, scenePreset } from "./scenes/presets";
 import { buildSlotHtml } from "./slotExport";
 import { buildWheelHtml } from "./wheelExport";
 
@@ -385,8 +385,23 @@ export async function briefLandingHtml(b: CampaignBrief, load: SceneLoader): Pro
   if (b.landing === "slot") return buildSlotHtml({ ...c, symbols: ["🍒", "⭐", "7", "💎", "🔔", "🍋"].map((symbol) => ({ symbol })), attempts: [b.offer || `${b.amount} ${b.unit}`] });
   if (b.landing === "crash") return buildCrashHtml({ ...c, maxAttempts: 2 });
   if (b.landing === "match") return buildMatchHtml({ ...c, ...matchFields(b) });
-  const scene = await buildScenePlayable(briefScene(b), { network: "web", preview: false, load });
-  return wrapSceneLanding(scene, { extras: c.extras, accent: c.accent, ctaUrl: b.link, kind: b.kind, title: c.brand || briefHeadline(b) });
+  // Промо-раскладка: сцена — в рамке первого экрана, без своего лого и заголовка (их показывает страница).
+  const promo = c.extras.look.sceneHero !== "full";
+  const cfg = { ...briefScene(b), embed: promo };
+  const scene = await buildScenePlayable(cfg, { network: "web", preview: false, load });
+  return wrapSceneLanding(scene, {
+    extras: c.extras,
+    accent: c.accent,
+    ctaUrl: b.link,
+    kind: b.kind,
+    title: c.brand || briefHeadline(b),
+    promo: promoFromScene(cfg, {
+      headline: briefHeadline(b),
+      offer: briefOffer(b) || `${b.amount} ${b.unit}`.trim(),
+      cta: b.cta,
+      game: SCENES.find((s) => s.id === b.scene)?.label ?? b.scene,
+    }),
+  });
 }
 
 export async function briefPlayableHtml(b: CampaignBrief, load: SceneLoader, network: "web" | "mraid" = "web"): Promise<string> {

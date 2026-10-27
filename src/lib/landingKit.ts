@@ -56,6 +56,8 @@ export type LandingExtras = {
     floatImgs?: string[];
     /** Набор объектов готовой темы (landingThemes): тыквы, снежинки, кактусы… */
     floatTheme?: string;
+    /** Лендинг на сцене: promo — текст и оффер + игра в рамке (по умолчанию), full — игра на весь экран. */
+    sceneHero?: "promo" | "full";
   };
   /** Юр. текст: строка внизу первого экрана и подвал. */
   legal: string;
@@ -90,6 +92,8 @@ export type LandingStrings = {
   /** Полоса под сценой на лендинге-сцене: листать к блокам. */
   more: string;
   responsible: string; stepWord: string;
+  // промо-лендинг на сцене: шапка и первый экран
+  promoBadge: string; promoEyebrow: string; promoBonus: string; promoFine: string; promoTrust1: string; promoTrust2: string; promoDemo: string;
   // матч-прогноз
   home: string; away: string; p1: string; draw: string; p2: string; pickHint: string; offerDefault: string;
 };
@@ -105,6 +109,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     untilMatch: "До матча: ", live: "Матч идёт · LIVE", days: "д",
     rating: "рейтинг игроков", players: "игроков", payout: "вывод выигрыша", winnersTitle: "Сейчас выигрывают",
     won: "выиграл", claimNow: "Забрать бонус", more: "Бонусы и условия", responsible: "Играйте ответственно", stepWord: "Шаг",
+    promoBadge: "Эксклюзивный бонус", promoEyebrow: "Играй. Лови. Забирай.", promoBonus: "Твой приветственный бонус", promoFine: "Только для новых игроков · бонус на первый депозит", promoTrust1: "Попробуй бесплатно", promoTrust2: "Бонус сразу на счёт", promoDemo: "Демо-игра",
   },
   uk: {
     home: "Господарі", away: "Гості", p1: "П1", draw: "Нічия", p2: "П2", pickHint: "Оберіть результат — і переходьте до ставки", offerDefault: "за першу ставку на цей матч",
@@ -116,6 +121,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     untilMatch: "До матчу: ", live: "Матч триває · LIVE", days: "д",
     rating: "рейтинг гравців", players: "гравців", payout: "виведення виграшу", winnersTitle: "Зараз виграють",
     won: "виграв", claimNow: "Забрати бонус", more: "Бонуси та умови", responsible: "Грайте відповідально", stepWord: "Крок",
+    promoBadge: "Ексклюзивний бонус", promoEyebrow: "Грай. Лови. Забирай.", promoBonus: "Твій вітальний бонус", promoFine: "Тільки для нових гравців · бонус на перший депозит", promoTrust1: "Спробуй безкоштовно", promoTrust2: "Бонус одразу на рахунок", promoDemo: "Демо-гра",
   },
   en: {
     home: "Home", away: "Away", p1: "1", draw: "Draw", p2: "2", pickHint: "Pick an outcome and go to your bet", offerDefault: "for your first bet on this match",
@@ -127,6 +133,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     untilMatch: "Kick-off in: ", live: "Match is live · LIVE", days: "d",
     rating: "player rating", players: "players", payout: "payouts", winnersTitle: "Winning right now",
     won: "won", claimNow: "Claim bonus", more: "Bonuses & terms", responsible: "Play responsibly", stepWord: "Step",
+    promoBadge: "Exclusive bonus", promoEyebrow: "Play. Catch. Claim.", promoBonus: "Your welcome bonus", promoFine: "New players only · first deposit bonus", promoTrust1: "Try it free", promoTrust2: "Bonus straight to your account", promoDemo: "Demo game",
   },
   es: {
     home: "Local", away: "Visitante", p1: "1", draw: "Empate", p2: "2", pickHint: "Elige un resultado y ve a apostar", offerDefault: "por tu primera apuesta en este partido",
@@ -138,6 +145,7 @@ const STRINGS: Record<LandingLang, LandingStrings> = {
     untilMatch: "Faltan: ", live: "Partido en vivo · LIVE", days: "d",
     rating: "valoración", players: "jugadores", payout: "retiros", winnersTitle: "Ganando ahora",
     won: "ganó", claimNow: "Reclamar bono", more: "Bonos y condiciones", responsible: "Juega con responsabilidad", stepWord: "Paso",
+    promoBadge: "Bono exclusivo", promoEyebrow: "Juega. Atrapa. Gana.", promoBonus: "Tu bono de bienvenida", promoFine: "Solo nuevos jugadores · bono del primer depósito", promoTrust1: "Pruébalo gratis", promoTrust2: "Bono directo a tu cuenta", promoDemo: "Juego demo",
   },
 };
 

@@ -114,7 +114,23 @@ export function LandingExtrasPanel({
 
   return (
     <>
-      {hideFirstScreen ? null : (
+      {hideFirstScreen ? (
+        <CollapsibleSection title="Первый экран" hint="Текст и оффер с игрой в рамке или игра на весь экран">
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ["promo", "Текст и игра", "Шапка, заголовок и оффер крупно, игра в рамке рядом (на телефоне — под ними)"],
+              ["full", "Игра на весь экран", "Сцена занимает весь первый экран, блоки — ниже"],
+            ] as const).map(([id, label, hint]) => {
+              const on = (x.look.sceneHero ?? "promo") === id;
+              return (
+                <button key={id} type="button" title={hint} aria-pressed={on} onClick={() => patch("look", { sceneHero: id })} className={`rounded-lg border px-2 py-2 text-sm transition ${on ? CHIP_ON : CHIP_OFF}`}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+      ) : (
       <CollapsibleSection title="Первый экран" hint="Анимация появления, парящие объекты, линии">
         <label className="flex items-start gap-2 text-sm">
           <input
