@@ -73,6 +73,7 @@ export function buildSlotHtml(cfg: SlotExportConfig): string {
         bg: cfg.bgImage,
         chars: [cfg.charLeft, cfg.charRight].filter((c): c is string => !!c),
         floats: x.look.floatImgs,
+        ctaOutline: true,
         frame: { mobile: "min(122vw,600px)", desktop: "min(76vh,680px)" },
       },
     });

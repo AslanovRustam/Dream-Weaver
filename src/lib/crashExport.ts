@@ -59,6 +59,7 @@ export function buildCrashHtml(cfg: CrashExportConfig): string {
         bg: cfg.bgImage,
         chars: [cfg.charLeft, cfg.charRight].filter((c): c is string => !!c),
         floats: x.look.floatImgs,
+        ctaOutline: true,
         frame: { mobile: "min(132vw,640px)", desktop: "min(76vh,700px)" },
       },
     });
@@ -197,7 +198,8 @@ ${embed ? EMBED_GAME_CSS : ""}
   cta.addEventListener('click', start);
   modal.addEventListener('click', function(e){ if(e.target===modal) hide(); });
   updateAttemptsUi();
-  start();
+  // Без автозапуска: на телефоне сразу «Разбилось на ×…» читалось как проигрыш — ждём «СТАРТ».
+  btn.disabled=true; btn.className='cash dead';
 })();
 </script>
 </body>

@@ -98,6 +98,8 @@ export type ScenePromo = {
   floats?: string[];
   /** Персонажи от ИИ (механики): на телефоне первый — справа от заголовка, на десктопе — по бокам рамки с игрой. */
   chars?: string[];
+  /** У игры своя большая кнопка (Крутить, Старт) — кнопка оффера под ней обводкой, чтобы не было двух одинаковых. */
+  ctaOutline?: boolean;
   /** Высота области игры: у колеса и слота — почти квадрат, у сцены — вся высота. CSS-значения. */
   frame?: { mobile: string; desktop: string };
 };
@@ -125,7 +127,8 @@ function split(t: string): [string, string] {
 
 /** Оффер крупно: числа большими, слова к ним — мелко («222 фриспина + 50 000 ₽»). */
 function offerHtml(offer: string): string {
-  const parts = offer.split(/\s\+\s/).map((p) => p.trim()).filter(Boolean);
+  // «+200% и 500 фриспинов» — две части, как «+200% + 500 фриспинов»: союз между частями — плюсом.
+  const parts = offer.split(/\s(?:\+|и|і|та|and|y|e|und|et|ve)\s(?=[+\d])/i).map((p) => p.trim()).filter(Boolean);
   if (!parts.length) return "";
   return parts
     .map((p) => {
@@ -157,6 +160,7 @@ function promoCss(accent: string): string {
   .pBtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:16px 22px;cursor:pointer;font:800 14px/1 ${body};letter-spacing:.06em;text-transform:uppercase;color:#0b0815;background:var(--ac);box-shadow:0 10px 30px color-mix(in srgb,var(--ac) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.4)}
   .pBtn:active{transform:translateY(1px)}
   .pBtnSm{padding:11px 16px;font-size:12px;border-radius:12px}
+  .pBtn.ghost{background:transparent;color:var(--ac);box-shadow:inset 0 0 0 2px var(--ac),0 8px 24px color-mix(in srgb,var(--ac) 18%,transparent)}
   .pHero{position:relative;overflow:hidden;padding:8px 0 34px}
   .pBg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.32;filter:saturate(1.1);-webkit-mask-image:linear-gradient(180deg,#000 30%,transparent);mask-image:linear-gradient(180deg,#000 30%,transparent)}
   .pHero::before{content:"";position:absolute;inset:-20% -10% auto -10%;height:80%;background:radial-gradient(50% 60% at 20% 30%,color-mix(in srgb,var(--ac) 30%,transparent),transparent 70%),radial-gradient(40% 50% at 85% 40%,rgba(124,58,237,.35),transparent 70%);pointer-events:none}
@@ -182,11 +186,14 @@ function promoCss(accent: string): string {
   .pFrame.clear{background:transparent}
   /* Персонаж: телефон — справа от заголовка и бонуса (текст уже уходит левее), десктоп — по бокам рамки. */
   .pChar{position:absolute;z-index:3;object-fit:contain;object-position:bottom;filter:drop-shadow(0 14px 24px rgba(0,0,0,.55));pointer-events:none}
-  .pChar.m{right:-18px;bottom:-56px;height:clamp(220px,64vw,330px);max-width:52%}
+  .pChar.m{right:-14px;top:-6px;height:clamp(170px,48vw,240px);max-width:42%}
   .pChar.d{display:none}
-  /* Заголовок — на всю ширину поверх персонажа; сужаются только бонус и условия под ним. */
-  .hasChar .pCopy h1,.hasChar .pEye{position:relative;z-index:4}
-  .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{position:relative;z-index:4;max-width:60%}
+  /* Персонаж справа от заголовка: заголовок сужается и мельчает (слова не рвутся), бонус под ним — на всю ширину, поверх ног персонажа. */
+  .hasChar .pEye,.hasChar .pCopy h1{position:relative;z-index:4;max-width:62%}
+  /* Длинное слово не рвём по слогам — пусть лучше зайдёт на персонажа (текст поверх). */
+  .hasChar .pCopy h1{font-size:clamp(22px,6.2vw,46px);overflow-wrap:normal;hyphens:manual}
+  .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{position:relative;z-index:4}
+  .hasChar .pBonus{text-shadow:0 2px 14px rgba(0,0,0,.65)}
   .pFrame iframe{display:block;width:100%;height:100%;border:0}
   .pFl{position:absolute;z-index:1;width:clamp(56px,14vw,96px);filter:drop-shadow(0 12px 18px rgba(0,0,0,.5));animation:pBob 5s ease-in-out infinite;pointer-events:none}
   .pFl.a{left:-6%;top:12%}.pFl.b{right:-7%;top:46%;animation-delay:-1.6s}.pFl.c{left:-4%;bottom:6%;animation-delay:-3s}
@@ -220,7 +227,8 @@ function promoCss(accent: string): string {
     .pChar.m{display:none}
     .pChar.d{display:block;bottom:-2%;height:88%;max-width:46%}
     .pChar.d.l{left:-34%}.pChar.d.r{right:-34%}
-    .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{max-width:none}
+    .hasChar .pEye,.hasChar .pCopy h1{max-width:none}
+    .hasChar .pCopy h1{font-size:clamp(34px,4.4vw,68px)}
     .pBonus{padding-right:0}
     .pBonus img{position:static;transform:none;margin-left:6px;animation-name:pBob}
   }
@@ -283,7 +291,7 @@ ${k.css}
         ${chars.map((u, i) => `<img class="pChar d ${i ? "r" : "l"}" src="${u}" alt=""/>`).join("")}
         <div class="pCard"><div class="pTop"><span><i></i>${esc(p.game)} LIVE</span><em>${esc(s.promoDemo)}</em></div><div class="pFrame${p.frame ? " clear" : ""}"${frameVars}><iframe title="${esc(p.game)}" srcdoc="${esc(sceneHtml)}" allow="autoplay; fullscreen"></iframe></div></div>
       </div>
-      <div class="pAct"><button type="button" class="pBtn" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div>${extras.legal.trim() ? `<p class="exLegalLine pLegal">${esc(extras.legal)}</p>` : ""}</div>
+      <div class="pAct"><button type="button" class="pBtn${p.ctaOutline ? " ghost" : ""}" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div>${extras.legal.trim() ? `<p class="exLegalLine pLegal">${esc(extras.legal)}</p>` : ""}</div>
     </div>
   </section>
   ${k.after}
