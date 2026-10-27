@@ -209,6 +209,9 @@ export function ImageGenApp() {
   const [slotName, setSlotName] = useState("");
   const [slotScreenshot, setSlotScreenshot] = useState("");
   const [slotLogo, setSlotLogo] = useState("");
+  /** Референс — картинка слота/игры: её персонажи и символы — главный визуал, оформление — по шаблону. У всех шаблонов, только мастер. */
+  const [referenceImage, setReferenceImage] = useState("");
+  const referenceInputRef = useRef<HTMLInputElement>(null);
   const [eventText, setEventText] = useState("");
   const [subheadline, setSubheadline] = useState("");
   const [subheadlineEnabled, setSubheadlineEnabled] = useState(false);
@@ -348,6 +351,7 @@ export function ImageGenApp() {
     slotName,
     slotScreenshot,
     slotLogo,
+    referenceImage,
     eventText,
     subheadline,
     subheadlineEnabled,
@@ -385,6 +389,7 @@ export function ImageGenApp() {
     setSlotName(s.slotName as string);
     setSlotScreenshot(s.slotScreenshot as string);
     setSlotLogo(s.slotLogo as string);
+    setReferenceImage(typeof s.referenceImage === "string" ? s.referenceImage : "");
     setEventText(s.eventText as string);
     setSubheadline(s.subheadline as string);
     setSubheadlineEnabled(s.subheadlineEnabled as boolean);
@@ -973,8 +978,7 @@ export function ImageGenApp() {
     // menu item calls this directly — without this check it would wipe a
     // finished banner and start a new one from almost nothing.
     const requiredEmpty =
-      (!isSlotPreset && prompt.trim().length === 0) ||
-      (isSlotPreset && slotName.trim().length === 0);
+      !isSlotPreset && prompt.trim().length === 0;
     if (requiredEmpty) {
       toast.error(
         `Заполните «${
@@ -1026,6 +1030,7 @@ export function ImageGenApp() {
       slot_name: isSlotPreset ? slotName : "",
       slot_screenshot: isSlotPreset ? slotScreenshot : "",
       slot_logo: isSlotPreset ? slotLogo : "",
+      reference_image: referenceImage,
       event_text: isEventLikePreset ? eventText : "",
       subheadline_text:
         (isEventLikePreset || isSportPreset) && subheadlineEnabled ? subheadline : "",
@@ -1215,13 +1220,13 @@ export function ImageGenApp() {
               {isSlotPreset && (
                 <div className="rounded-xl border border-border bg-background/40 p-3">
                   <p className="mb-2 ds-h4">
-                    Слот <span className="text-[color:var(--status-error)]">*</span>
+                    Слот <span className="text-muted-foreground">(опционально)</span>
                   </p>
                   <input
                     type="text"
                     value={slotName}
                     onChange={(e) => setSlotName(e.target.value)}
-                    placeholder="Название слота (например, Sweet Bonanza)"
+                    placeholder="Название слота, если есть (например, Sweet Bonanza)"
                     className="mb-3 w-full h-12 rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green"
                   />
                   <div className="flex gap-3">
@@ -1253,6 +1258,26 @@ export function ImageGenApp() {
                   </p>
                 </div>
               )}
+
+              <div className="rounded-xl border border-border bg-background/40 p-3">
+                <p className="mb-2 ds-h4">
+                  Референс <span className="text-muted-foreground">(опционально)</span>
+                </p>
+                <div className="max-w-[220px]">
+                  <SlotUpload
+                    label="Слот / игра"
+                    value={referenceImage}
+                    onClear={() => setReferenceImage("")}
+                    onPick={() => referenceInputRef.current?.click()}
+                    inputRef={referenceInputRef}
+                    onFile={(f) => compressImageFile(f, setReferenceImage, 1024)}
+                    aspect="fixed"
+                  />
+                </div>
+                <p className="mt-2 ds-caption">
+                  Картинка слота или игры: персонажи, символы и цвета с неё станут главным визуалом. Оформление — по выбранному шаблону.
+                </p>
+              </div>
 
               {/* Advanced settings are a collapsible section right under the
                   required field instead of a separate "Простой / Расширенный"
@@ -1713,8 +1738,7 @@ export function ImageGenApp() {
                 !isGuest &&
                 (status === "loading" ||
                   gen.isBusy ||
-                  (!isSlotPreset && prompt.trim().length === 0) ||
-                  (isSlotPreset && slotName.trim().length === 0))
+                  (!isSlotPreset && prompt.trim().length === 0))
               }
               className="min-h-12 w-full rounded-lg bg-accent-green px-8 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1722,8 +1746,7 @@ export function ImageGenApp() {
                 ? "Генерация…"
                 : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${estCredits}`}
             </button>
-            {((!isSlotPreset && prompt.trim().length === 0) ||
-              (isSlotPreset && slotName.trim().length === 0)) &&
+            {!isSlotPreset && prompt.trim().length === 0 &&
             status !== "loading" &&
             !gen.isBusy ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">
@@ -1827,8 +1850,7 @@ export function ImageGenApp() {
               !isGuest &&
               (status === "loading" ||
                 gen.isBusy ||
-                (!isSlotPreset && prompt.trim().length === 0) ||
-                (isSlotPreset && slotName.trim().length === 0))
+                (!isSlotPreset && prompt.trim().length === 0))
             }
             className="w-full rounded-lg bg-accent-green px-8 py-3 text-base font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden lg:text-sm"
           >
@@ -1836,8 +1858,7 @@ export function ImageGenApp() {
               ? "Генерация…"
               : `${imageUrl ? "Сгенерировать заново" : "Сгенерировать"} · ${estCredits}`}
           </button>
-          {((!isSlotPreset && prompt.trim().length === 0) ||
-            (isSlotPreset && slotName.trim().length === 0)) &&
+          {!isSlotPreset && prompt.trim().length === 0 &&
           status !== "loading" &&
           !gen.isBusy ? (
             <p className="-mt-1 text-center text-xs text-muted-foreground max-lg:hidden">

@@ -24,6 +24,8 @@ export type GeneratePayload = {
   slot_name?: string;
   slot_screenshot?: string;
   slot_logo?: string;
+  /** Референс — картинка слота/игры (data URL): главный визуал, оформление — по шаблону. Только мастер-баннер. */
+  reference_image?: string;
   event_text?: string;
   subheadline_text?: string;
   banner_text_enabled?: boolean;
@@ -204,6 +206,7 @@ export function bannerRequestBody(payload: GeneratePayload): Record<string, unkn
     slot_name: payload.slot_name || "",
     slot_screenshot: payload.slot_screenshot || "",
     slot_logo: payload.slot_logo || "",
+    reference_image: payload.reference_image || "",
     event_text: payload.event_text || "",
     subheadline_text: payload.subheadline_text || "",
     banner_text_enabled: !!payload.banner_text_enabled,

@@ -490,6 +490,8 @@ export function luckyBannerPayload(b: CampaignBrief, theme: string, spec?: Banne
     // Лого — референсом (image-to-image): как есть в углу, а его символ — в декоре сцены.
     brand_logo: b.logo,
     brand_logo_decor: !!b.logo,
+    // Референс кампании — и в баннеры: что на нём (игра, персонажи) — главный визуал, оформление — по шаблону.
+    reference_image: b.ref.startsWith("data:image/") ? b.ref : "",
     language: b.lang,
     aspect_ratio: spec?.aspect || "16:9",
     model: "openai/gpt-5.4-image-2",

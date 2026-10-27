@@ -138,6 +138,8 @@ type Body = {
   slot_name?: string;
   slot_screenshot?: string;
   slot_logo?: string;
+  /** Референс — картинка слота/игры (data URL): главный визуал; оформление — по шаблону. Только мастер-баннер. */
+  reference_image?: string;
   event_text?: string;
   subheadline_text?: string;
   banner_text_enabled?: boolean;
@@ -200,7 +202,10 @@ function slotPrompt(
       : `${label} must appear verbatim: "${txt}".`;
 
   return [
-    `Create a premium modern gaming advertisement banner for the slot${slotName ? ` "${slotName}"` : ""}.`,
+    slotName
+      ? `Create a premium modern gaming advertisement banner for the slot "${slotName}".`
+      : // Без названия модель подставляла реальный слот (Book of Ra) — чужую торговую марку.
+        "Create a premium modern gaming advertisement banner for an ORIGINAL, invented slot game. Do NOT depict or name any real slot title, provider or logo (no Book of Ra, Sweet Bonanza, Gates of Olympus, etc.).",
     `Aspect ratio: ${aspectRatio}. ${layout}`,
     "Style: vibrant cinematic gaming advertising, glossy high contrast, rich dark atmospheric background, dimensional depth, rim light, neon accents, particles, smoke, reflections, professional contrast and clean hierarchy.",
     hasScreenshot
@@ -208,7 +213,9 @@ function slotPrompt(
       : "Create a strong slot-inspired key visual based on the slot name and premium casino-game aesthetics.",
     hasLogo
       ? "Use the attached logo as the primary logo/wordmark; preserve its shape, proportions and colors, do not redesign it."
-      : "If no logo is provided, create a clean readable slot-style wordmark from the slot name.",
+      : slotName
+        ? "If no logo is provided, create a clean readable slot-style wordmark from the slot name."
+        : "No slot logo or wordmark — keep the headline and offer as the main text.",
     `All readable in-image text MUST be written in ${langLabel}.${isSpecificLang ? " Any provided text in a different language must be translated into " + langLabel + " before being rendered." : ""} IMPORTANT EXCEPTION: brand/slot/team logos, wordmarks and emblems (whether uploaded as references or shown inside the slot screenshot) must be reproduced exactly as-is in their original language and lettering — NEVER translate, transliterate, relocalize or restyle any text that is part of a logo.`,
     bannerText
       ? renderInstr("Main headline text", bannerText)
@@ -871,8 +878,8 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           );
         }
         slot.release = release;
-        // Six image fields × MAX_DATAURL_BYTES is the legitimate ceiling.
-        const big = rejectLargeBody(request, 6 * MAX_DATAURL_BYTES + 2 * 1024 * 1024);
+        // Seven image fields (+ референс) × MAX_DATAURL_BYTES is the legitimate ceiling.
+        const big = rejectLargeBody(request, 7 * MAX_DATAURL_BYTES + 2 * 1024 * 1024);
         if (big) return big;
 
         const supa = getAdminClient();
@@ -914,6 +921,7 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           "side_a_logo",
           "side_b_logo",
           "source_image",
+          "reference_image",
         ] as const) {
           // Size cap + magic bytes. source_image may legitimately be an FTP
           // URL here (history-loaded masters) — non-data: values pass through
@@ -1084,7 +1092,7 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
               subheadlineText,
               styleVariant: isMartialPreset ? "martial_arts" : "gambling",
             });
-          } else if (hasSlotScreenshot || hasSlotLogo || slotName) {
+          } else if (hasSlotScreenshot || hasSlotLogo || slotName || presetId === "preset2") {
             finalPrompt = slotPrompt(
               slotName,
               bannerText,
@@ -1189,7 +1197,7 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
         // Preset-specific text fields:
         // Slot preset is detected by presence of slot-related inputs
         // (mirrors the if-chain that picked slotPrompt above).
-        const isSlotPresetEffective = hasSlotScreenshot || hasSlotLogo || Boolean(slotName);
+        const isSlotPresetEffective = hasSlotScreenshot || hasSlotLogo || Boolean(slotName) || presetId === "preset2";
         if (isSlotPresetEffective) {
           pushFidelity("SLOT NAME", slotName);
         }
@@ -1600,7 +1608,8 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
               | "slot_logo"
               | "side_a_logo"
               | "side_b_logo"
-              | "source_image";
+              | "source_image"
+              | "reference_image";
           }[] = [];
           // source_image must come FIRST in the refs list so providers that
           // pay extra attention to the first attachment (OpenAI edits, Gemini
@@ -1608,6 +1617,11 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           if (hasSourceImage && body.source_image) {
             const r = dataUrlToBlob(body.source_image);
             if (r) refs.push({ ...r, dataUrl: body.source_image, role: "source_image" });
+          }
+          // Референс пользователя — только у мастера: у ресайза образец — сам мастер.
+          if (!hasSourceImage && body.reference_image && body.reference_image.startsWith("data:image/")) {
+            const r = dataUrlToBlob(body.reference_image);
+            if (r) refs.push({ ...r, dataUrl: body.reference_image, role: "reference_image" });
           }
           if (hasSlotScreenshot && body.slot_screenshot) {
             const r = dataUrlToBlob(body.slot_screenshot);
@@ -1635,6 +1649,11 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
             if (r.role === "source_image") {
               refLines.push(
                 `The FIRST attached image is the MASTER REFERENCE banner. CRITICAL: whatever central object the person holds or shows in the master (a card, a trophy, a chip, a product, etc.) MUST be reproduced as that EXACT same object — same type, same shape, same artwork on it. Do not swap a card for a trophy or vice versa. The master is the only source of truth for the visual subject. Use the master ALSO as the source of: brand identity, color palette, lighting, person's face/hair/clothing, text CONTENT (verbatim). Treat its ELEMENT POSITIONS as obsolete — they were planned for a different aspect ratio. Re-plan layout positions ONLY for ${body.aspect_ratio || "1:1"}, but never re-plan WHAT objects appear.`,
+              );
+            } else if (r.role === "reference_image") {
+              refLines.push(
+                // Референс — сам слот (игра): его персонажи и символы — главный визуал; оформление — по шаблону.
+                "One attached image is a REFERENCE OF THE GAME / SLOT being promoted. Use what it shows — its characters, symbols, key objects and the colours of the game art — as the hero key visual, rebuilt in premium quality. The banner layout, style, typography, decor and composition follow the template described above, not the reference. Do not copy tiny UI text from it.",
               );
             } else if (r.role === "slot_screenshot") {
               refLines.push(
