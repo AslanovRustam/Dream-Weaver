@@ -141,6 +141,9 @@ function offerHtml(offer: string): string {
     .join('<b class="plus">+</b>');
 }
 
+/** Персонаж в плашке: плашка, над ней — персонаж, обрезанный снизу по её краю. */
+const charBox = (src: string, cls: string) => `<div class="pCharBox ${cls}"><i class="sh"></i><div class="cl"><img src="${src}" alt=""/></div></div>`;
+
 const PROMO_FONTS =
   '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Unbounded:wght@600;700;800;900&display=swap">';
@@ -184,16 +187,23 @@ function promoCss(accent: string): string {
   .pTop em{font-style:normal;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.07)}
   .pFrame{height:var(--fhd,min(68svh,620px));min-height:360px;border-radius:18px;overflow:hidden;background:#000}
   .pFrame.clear{background:transparent}
-  /* Персонаж: телефон — справа от заголовка и бонуса (текст уже уходит левее), десктоп — по бокам рамки. */
-  .pChar{position:absolute;z-index:3;object-fit:contain;object-position:bottom;filter:drop-shadow(0 14px 24px rgba(0,0,0,.55));pointer-events:none}
-  .pChar.m{right:-14px;top:-6px;height:clamp(170px,48vw,240px);max-width:42%}
-  .pChar.d{display:none}
-  /* Персонаж справа от заголовка: заголовок сужается и мельчает (слова не рвутся), бонус под ним — на всю ширину, поверх ног персонажа. */
-  .hasChar .pEye,.hasChar .pCopy h1{position:relative;z-index:4;max-width:62%}
+  /* Персонаж «выходит из плашки»: стоит в скруглённой плашке цвета акцента, снизу обрезан ровно по
+     её краю, голова и руки — за её верх и бока. Не висит в воздухе. Телефон — справа от заголовка
+     и бонуса, десктоп — по бокам рамки с игрой. */
+  .pCharBox{position:absolute;z-index:3;aspect-ratio:1;pointer-events:none}
+  .pCharBox .sh{position:absolute;inset:0;border-radius:28%;background:radial-gradient(120% 90% at 50% 18%,color-mix(in srgb,var(--ac) 85%,#fff 15%),var(--ac) 38%,color-mix(in srgb,var(--ac) 30%,#0b0815) 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.22),inset 0 -30px 50px rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.5),0 0 46px color-mix(in srgb,var(--ac) 40%,transparent)}
+  .pCharBox .sh::after{content:"";position:absolute;inset:10% 10% auto;height:38%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.35),transparent);filter:blur(4px)}
+  .pCharBox .cl{position:absolute;inset:0;clip-path:inset(-80% -45% 0 -45% round 0 0 28% 28%)}
+  .pCharBox img{position:absolute;left:50%;bottom:0;height:155%;max-width:none;transform:translateX(-50%);object-fit:contain;object-position:bottom;filter:drop-shadow(0 10px 18px rgba(0,0,0,.45))}
+  .pCharBox.m{right:0;bottom:30px;width:clamp(128px,37vw,190px)}
+  .pCharBox.d{display:none}
+  /* Плашка справа внизу копии: заголовок и бонус сужаются (слова не рвутся), условия под ней — на всю ширину. */
+  .hasChar .pEye,.hasChar .pCopy h1,.hasChar .pBonusT,.hasChar .pBonus{position:relative;z-index:4;max-width:60%}
   /* Длинное слово не рвём по слогам — пусть лучше зайдёт на персонажа (текст поверх). */
   .hasChar .pCopy h1{font-size:clamp(22px,6.2vw,46px);overflow-wrap:normal;hyphens:manual}
-  .hasChar .pBonusT,.hasChar .pBonus,.hasChar .pFine{position:relative;z-index:4}
-  .hasChar .pBonus{text-shadow:0 2px 14px rgba(0,0,0,.65)}
+  .hasChar .pBonus{font-size:clamp(21px,5.5vw,52px);text-shadow:0 2px 14px rgba(0,0,0,.65)}
+  .hasChar .pFine{position:relative;z-index:4;margin-top:14px}
+  .hasChar .pCopy{min-height:calc(clamp(128px,37vw,190px) * 1.55 + 40px)}
   .pFrame iframe{display:block;width:100%;height:100%;border:0}
   .pFl{position:absolute;z-index:1;width:clamp(56px,14vw,96px);filter:drop-shadow(0 12px 18px rgba(0,0,0,.5));animation:pBob 5s ease-in-out infinite;pointer-events:none}
   .pFl.a{left:-6%;top:12%}.pFl.b{right:-7%;top:46%;animation-delay:-1.6s}.pFl.c{left:-4%;bottom:6%;animation-delay:-3s}
@@ -224,10 +234,12 @@ function promoCss(accent: string): string {
     .pAct{align-self:start}
     .pAct .pBtn{width:auto}
     .pFrame{height:var(--fhd,min(76vh,720px))}
-    .pChar.m{display:none}
-    .pChar.d{display:block;bottom:-2%;height:88%;max-width:46%}
-    .pChar.d.l{left:-34%}.pChar.d.r{right:-34%}
-    .hasChar .pEye,.hasChar .pCopy h1{max-width:none}
+    .pCharBox.m{display:none}
+    .pCharBox.d{display:block;bottom:4%;width:min(34%,220px)}
+    .pCharBox.d.l{left:-22%}.pCharBox.d.r{right:-22%}
+    .hasChar .pCopy{min-height:0}
+    .hasChar .pBonus{font-size:clamp(28px,7.4vw,52px)}
+    .hasChar .pEye,.hasChar .pCopy h1,.hasChar .pBonusT,.hasChar .pBonus{max-width:none}
     .hasChar .pCopy h1{font-size:clamp(34px,4.4vw,68px)}
     .pBonus{padding-right:0}
     .pBonus img{position:static;transform:none;margin-left:6px;animation-name:pBob}
@@ -283,12 +295,12 @@ ${k.css}
       <div class="pCopy">
         <div class="pEye"><b>✦</b>${esc(s.promoEyebrow)}</div>
         <h1>${headlineHtml(p.headline)}</h1>
-        ${chars[0] ? `<img class="pChar m" src="${chars[0]}" alt=""/>` : ""}
+        ${chars[0] ? charBox(chars[0], "m") : ""}
         ${p.offer.trim() ? `<div class="pBonusT">${esc(s.promoBonus)}</div><div class="pBonus">${offerHtml(p.offer)}${img(p.reward) ? `<img src="${p.reward}" alt=""/>` : ""}</div><p class="pFine">${esc(s.promoFine)}</p>` : ""}
       </div>
       <div class="pGame">
         ${floats.map((u, i) => `<img class="pFl ${"abc"[i]}" src="${u}" alt=""/>`).join("")}
-        ${chars.map((u, i) => `<img class="pChar d ${i ? "r" : "l"}" src="${u}" alt=""/>`).join("")}
+        ${chars.map((u, i) => charBox(u, `d ${i ? "r" : "l"}`)).join("")}
         <div class="pCard"><div class="pTop"><span><i></i>${esc(p.game)} LIVE</span><em>${esc(s.promoDemo)}</em></div><div class="pFrame${p.frame ? " clear" : ""}"${frameVars}><iframe title="${esc(p.game)}" srcdoc="${esc(sceneHtml)}" allow="autoplay; fullscreen"></iframe></div></div>
       </div>
       <div class="pAct"><button type="button" class="pBtn${p.ctaOutline ? " ghost" : ""}" data-excta>${cta} ↗</button><div class="pTrust"><span>${esc(s.promoTrust1)}</span><span>${esc(s.promoTrust2)}</span></div>${extras.legal.trim() ? `<p class="exLegalLine pLegal">${esc(extras.legal)}</p>` : ""}</div>
