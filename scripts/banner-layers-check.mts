@@ -8,7 +8,7 @@
 // оффер виден. Сама отрисовка на canvas — в браузере, тут не нужна.
 
 import { BANNER_SIZE_GROUPS } from "../src/lib/bannerSizes";
-import { layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
+import { compactOffer, layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
 
 // Оценка ширины: Unbounded 900 широкий (~0.78 em на знак в верхнем регистре), Manrope 800 — ~0.6 em.
 const measure: Measure = (t, f) => {
@@ -69,6 +69,10 @@ for (const s of sizes) {
     }
   }
 }
+
+// Сжатие оффера: кириллические окончания не остаются хвостом.
+ok(compactOffer("+200% до 50 000 ₽ и 500 фриспинов") === "+200% до 50K ₽ + 500 FS", `compactOffer: ${compactOffer("+200% до 50 000 ₽ и 500 фриспинов")}`);
+ok(compactOffer("Фрибет 5 000 ₽") === "FB 5K ₽", `compactOffer фрибет: ${compactOffer("Фрибет 5 000 ₽")}`);
 
 if (fails.length) {
   console.log(fails.map((f) => "✗ " + f).join("\n"));

@@ -33,7 +33,17 @@ export type LayerOpts = {
 export type Measure = (text: string, font: string) => number;
 
 export type Box = { x: number; y: number; w: number; h: number };
-export type TextOp = { kind: "text"; text: string; x: number; y: number; size: number; font: string; color: string; align: CanvasTextAlign; maxW: number };
+export type TextOp = {
+  kind: "text";
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  font: string;
+  color: string;
+  align: CanvasTextAlign;
+  maxW: number;
+};
 export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
   | { kind: "shade"; dir: "right" | "top"; box: Box }
@@ -41,19 +51,35 @@ export type Op =
   | { kind: "button"; box: Box; color: string }
   | TextOp;
 
+/** Подложка tall, как её рисует generate-image (plate: tall). */
+const PLATE_TALL = { w: 512, h: 1536 };
+
 export const HEAD_FONT = `"Unbounded","Arial Black",Arial,sans-serif`;
 export const BODY_FONT = `"Manrope","Segoe UI",Roboto,Arial,sans-serif`;
-const font = (weight: number, size: number, family: string) => `${weight} ${Math.round(size * 10) / 10}px ${family}`;
+const font = (weight: number, size: number, family: string) =>
+  `${weight} ${Math.round(size * 10) / 10}px ${family}`;
 
 /** Самый крупный кегль от max вниз до min, при котором строка влезает в ширину; null — не влезает. */
-function fitSize(m: Measure, text: string, weight: number, family: string, maxW: number, max: number, min: number): number | null {
+function fitSize(
+  m: Measure,
+  text: string,
+  weight: number,
+  family: string,
+  maxW: number,
+  max: number,
+  min: number,
+): number | null {
   for (let s = max; s >= min; s -= 0.5) if (m(text, font(weight, s, family)) <= maxW) return s;
   return null;
 }
 
 /** Перенос по словам в не более чем lines строк заданной ширины. */
 function wrap(m: Measure, text: string, f: string, maxW: number, lines: number): string[] | null {
-  const words = text.split(/\s+/).filter(Boolean);
+  // «50 000», «1 000 000» — одно слово: разряды не разносим по строкам.
+  const words = text
+    .replace(/(\d)\s(?=\d{3}\b)/g, "$1\u00a0")
+    .split(/[ \t\n]+/)
+    .filter(Boolean);
   const out: string[] = [];
   let cur = "";
   for (const w of words) {
@@ -78,7 +104,13 @@ export function inkOn(hex: string): string {
   return l > 0.6 ? "#0b0815" : "#ffffff";
 }
 
-export function layoutBanner(w: number, h: number, kind: LayerKind, o: LayerOpts, m: Measure): Op[] {
+export function layoutBanner(
+  w: number,
+  h: number,
+  kind: LayerKind,
+  o: LayerOpts,
+  m: Measure,
+): Op[] {
   return kind === "strip" ? layoutStrip(w, h, o, m) : layoutTower(w, h, o, m);
 }
 
@@ -89,7 +121,11 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   // Подложка 3:1 по высоте баннера — герой слева целиком; правее — она же, размытая.
   const heroW = Math.min(Math.round(h * 3), Math.round(w * 0.42));
   ops.push({ kind: "plate", mode: "strip-left", box: { x: 0, y: 0, w: heroW, h } });
-  ops.push({ kind: "shade", dir: "right", box: { x: Math.round(heroW * 0.3), y: 0, w: w - Math.round(heroW * 0.3), h } });
+  ops.push({
+    kind: "shade",
+    dir: "right",
+    box: { x: Math.round(heroW * 0.3), y: 0, w: w - Math.round(heroW * 0.3), h },
+  });
 
   // Кнопка справа.
   const cta = o.texts.cta.trim().toUpperCase();
@@ -101,7 +137,17 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     const bw = Math.min(maxBw, Math.round(m(cta, font(800, size, BODY_FONT)) + bh * 0.8));
     const box = { x: right - bw, y: Math.round((h - bh) / 2), w: bw, h: bh };
     ops.push({ kind: "button", box, color: o.accent });
-    ops.push({ kind: "text", text: cta, x: box.x + bw / 2, y: box.y + bh / 2, size, font: font(800, size, BODY_FONT), color: inkOn(o.accent), align: "center", maxW: bw - 6 });
+    ops.push({
+      kind: "text",
+      text: cta,
+      x: box.x + bw / 2,
+      y: box.y + bh / 2,
+      size,
+      font: font(800, size, BODY_FONT),
+      color: inkOn(o.accent),
+      align: "center",
+      maxW: bw - 6,
+    });
     right = box.x - pad;
   }
 
@@ -127,8 +173,28 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     if (hs && os) {
       const total = hs * 1.15 + os * 1.1;
       const y0 = (h - total) / 2;
-      ops.push({ kind: "text", text: headline, x: left, y: y0 + (hs * 1.15) / 2, size: hs, font: font(800, hs, BODY_FONT), color: "#ffffff", align: "left", maxW: colW });
-      ops.push({ kind: "text", text: offer, x: left, y: y0 + hs * 1.15 + (os * 1.1) / 2, size: os, font: font(900, os, HEAD_FONT), color: o.accent, align: "left", maxW: colW });
+      ops.push({
+        kind: "text",
+        text: headline,
+        x: left,
+        y: y0 + (hs * 1.15) / 2,
+        size: hs,
+        font: font(800, hs, BODY_FONT),
+        color: "#ffffff",
+        align: "left",
+        maxW: colW,
+      });
+      ops.push({
+        kind: "text",
+        text: offer,
+        x: left,
+        y: y0 + hs * 1.15 + (os * 1.1) / 2,
+        size: os,
+        font: font(900, os, HEAD_FONT),
+        color: o.accent,
+        align: "left",
+        maxW: colW,
+      });
       return ops;
     }
   }
@@ -139,7 +205,11 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   if (!line) return ops;
   let best: { lines: string[]; size: number; score: number } | null = null;
   const seen = new Set<string>();
-  for (const [t, k] of [[line, 1], [compactOffer(line), 0.85], [mainPart(line), 0.55]] as const) {
+  for (const [t, k] of [
+    [line, 1],
+    [compactOffer(line), 0.85],
+    [mainPart(line), 0.55],
+  ] as const) {
     if (seen.has(t)) continue;
     seen.add(t);
     const s1 = fitSize(m, t, 900, HEAD_FONT, colW, h * 0.42, 8);
@@ -155,7 +225,19 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   if (best) {
     const s = best.size;
     const y0 = (h - best.lines.length * s * 1.08) / 2;
-    best.lines.forEach((l, i) => ops.push({ kind: "text", text: l, x: left, y: y0 + s * 1.08 * (i + 0.5), size: s, font: font(900, s, HEAD_FONT), color: "#ffffff", align: "left", maxW: colW }));
+    best.lines.forEach((l, i) =>
+      ops.push({
+        kind: "text",
+        text: l,
+        x: left,
+        y: y0 + s * 1.08 * (i + 0.5),
+        size: s,
+        font: font(900, s, HEAD_FONT),
+        color: "#ffffff",
+        align: "left",
+        maxW: colW,
+      }),
+    );
   }
   return ops;
 }
@@ -166,10 +248,33 @@ export function compactOffer(t: string): string {
     .replace(/(\d)[\s  .,]?000[\s  .,]?000\b/g, "$1M")
     .replace(/(\d+)[\s  .,]000\b/g, "$1K")
     .replace(/\s(и|і|та|and)\s/gi, " + ")
-    .replace(/фри\s?спин\w*|free\s?spins?|фриспін\w*/gi, "FS")
-    .replace(/фрибет\w*/gi, "FB")
+    // \w в JS — только латиница: окончания кириллицей ловим явно («фриспинов» целиком).
+    .replace(/фри\s?спин[а-яёії]*|free\s?spins?|фриспін[а-яёії]*/gi, "FS")
+    .replace(/фрибет[а-яёії]*/gi, "FB")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Оффер → строки афиши: число крупно (акцентом), слова к нему — строкой мельче. */
+export function offerRows(offer: string): { text: string; rel: number; accent: boolean }[] {
+  const parts = offer
+    .split(/\s(?:\+|и|і|та|and|y|e|und|et|ve)\s(?=[+\d])/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const rows: { text: string; rel: number; accent: boolean }[] = [];
+  parts.forEach((p, i) => {
+    if (i) rows.push({ text: "+", rel: 0.45, accent: true });
+    const mm = /^(\D*?)\s*([+\-]?\d[\d\s.,]*%?|x\d+)\s*(.*)$/i.exec(p);
+    if (!mm) {
+      rows.push({ text: p.toUpperCase(), rel: 0.5, accent: false });
+      return;
+    }
+    const [, pre, num, post] = mm;
+    if (pre.trim()) rows.push({ text: pre.trim().toUpperCase(), rel: 0.36, accent: false });
+    rows.push({ text: num.trim(), rel: 1, accent: true });
+    if (post.trim()) rows.push({ text: post.trim().toUpperCase(), rel: 0.38, accent: false });
+  });
+  return rows;
 }
 
 /** Главная часть оффера — до первого «+ / и»: «+200% до 50K ₽». */
@@ -180,7 +285,10 @@ function mainPart(t: string): string {
 
 // Подложка 1:3 на всю высоту: сверху лого, заголовок, оффер; внизу кнопка; герой — между.
 function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
-  const ops: Op[] = [{ kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } }, { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.55) } }];
+  const ops: Op[] = [
+    { kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } },
+    { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.55) } },
+  ];
   const pad = Math.round(w * 0.09);
   const colW = w - pad * 2;
   let y = pad;
@@ -190,31 +298,81 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     ops.push({ kind: "logo", box: { x: Math.round((w - lw) / 2), y, w: lw, h: lh } });
     y += lh + pad * 0.8;
   }
-  const headline = o.texts.headline.trim();
-  if (headline) {
-    for (let s = Math.min(w * 0.13, 30); s >= 9; s -= 0.5) {
-      const f = font(900, s, HEAD_FONT);
-      const lines = wrap(m, headline.toUpperCase(), f, colW, 4);
-      if (!lines) continue;
-      for (const l of lines) {
-        ops.push({ kind: "text", text: l, x: w / 2, y: y + s * 0.55, size: s, font: f, color: "#ffffff", align: "center", maxW: colW });
-        y += s * 1.08;
-      }
-      y += s * 0.4;
+  // Текст — крупно и по центру свободной зоны над героем (в подложке tall он в нижней
+  // половине, от ~45% высоты), а не прижат к верху: без «дыры» посередине.
+  const plateScale = Math.max(w / PLATE_TALL.w, h / PLATE_TALL.h);
+  const heroTop = (h - PLATE_TALL.h * plateScale) / 2 + PLATE_TALL.h * plateScale * 0.45;
+  const top = y;
+  const bottom = Math.max(top + h * 0.2, heroTop - pad * 0.5);
+  const headline = o.texts.headline.trim().toUpperCase();
+  const offer = o.texts.offer.trim();
+  // Оффер афишей, как в промо-лендинге: числа огромные, слова к ним — строкой мельче
+  // («+200%» / «ДО 50 000 ₽» / «+» / «500» / «ФРИСПИНОВ»). Заголовок — над ним.
+  // Не влезает — сжимаем оффер, потом убираем заголовок, потом оставляем главное.
+  const variants: [string, string][] = [
+    [headline, offer],
+    [headline, compactOffer(offer)],
+    ["", compactOffer(offer)],
+    ["", mainPart(offer)],
+  ];
+  type Row = { text: string; size: number; color: string; gapBefore: number };
+  let rows: Row[] | null = null;
+  let blockH = 0;
+  for (const [vh, vo] of variants) {
+    if (rows) break;
+    const spec = offerRows(vo);
+    // Самая мелкая строка афиши — не мельче 8 px; иначе — следующий, более сжатый вариант.
+    const minRel = Math.min(vh ? 0.42 : 1, ...spec.map((r) => r.rel));
+    for (let k = Math.min(w * 0.3, 140); k * minRel >= 8; k -= 0.5) {
+      const out: Row[] = [];
+      let okFit = true;
+      const hs = k * 0.42;
+      const hl = vh ? wrap(m, vh, font(900, hs, HEAD_FONT), colW, 3) : [];
+      if (!hl) continue;
+      hl.forEach((l, i) =>
+        out.push({ text: l, size: hs, color: "#ffffff", gapBefore: i ? hs * 0.08 : 0 }),
+      );
+      spec.forEach((r, i) => {
+        if (!okFit) return;
+        const size = k * r.rel;
+        const ls = wrap(m, r.text, font(900, size, HEAD_FONT), colW, r.rel < 0.6 ? 2 : 1);
+        if (!ls) {
+          okFit = false;
+          return;
+        }
+        ls.forEach((l, j) =>
+          out.push({
+            text: l,
+            size,
+            color: r.accent ? o.accent : "#ffffff",
+            gapBefore: j ? size * 0.08 : i === 0 && hl.length ? hs * 0.7 : size * 0.12,
+          }),
+        );
+      });
+      if (!okFit) continue;
+      const hgt = out.reduce((sum, r) => sum + r.gapBefore + r.size * 1.02, 0);
+      if (hgt > (bottom - top) * 0.94) continue;
+      rows = out;
+      blockH = hgt;
       break;
     }
   }
-  const offer = o.texts.offer.trim();
-  if (offer) {
-    for (let s = Math.min(w * 0.16, 40); s >= 10; s -= 0.5) {
-      const f = font(900, s, HEAD_FONT);
-      const lines = wrap(m, offer, f, colW, 3);
-      if (!lines) continue;
-      for (const l of lines) {
-        ops.push({ kind: "text", text: l, x: w / 2, y: y + s * 0.55, size: s, font: f, color: o.accent, align: "center", maxW: colW });
-        y += s * 1.08;
-      }
-      break;
+  if (rows) {
+    let yy = top + (bottom - top - blockH) / 2;
+    for (const r of rows) {
+      yy += r.gapBefore;
+      ops.push({
+        kind: "text",
+        text: r.text,
+        x: w / 2,
+        y: yy + r.size * 0.52,
+        size: r.size,
+        font: font(900, r.size, HEAD_FONT),
+        color: r.color,
+        align: "center",
+        maxW: colW,
+      });
+      yy += r.size * 1.02;
     }
   }
   const cta = o.texts.cta.trim().toUpperCase();
@@ -224,7 +382,17 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, Math.min(bh * 0.4, 18), 7) ?? 7;
     const box = { x: pad, y: h - pad - bh, w: bw, h: bh };
     ops.push({ kind: "button", box, color: o.accent });
-    ops.push({ kind: "text", text: cta, x: w / 2, y: box.y + bh / 2, size, font: font(800, size, BODY_FONT), color: inkOn(o.accent), align: "center", maxW: bw - 6 });
+    ops.push({
+      kind: "text",
+      text: cta,
+      x: w / 2,
+      y: box.y + bh / 2,
+      size,
+      font: font(800, size, BODY_FONT),
+      color: inkOn(o.accent),
+      align: "center",
+      maxW: bw - 6,
+    });
   }
   return ops;
 }
@@ -248,7 +416,8 @@ function ensureFonts(): Promise<void> {
     if (!document.querySelector("link[data-banner-fonts]")) {
       const l = document.createElement("link");
       l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&family=Unbounded:wght@800;900&display=swap";
+      l.href =
+        "https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&family=Unbounded:wght@800;900&display=swap";
       l.dataset.bannerFonts = "1";
       document.head.appendChild(l);
       await new Promise((r) => {
@@ -256,15 +425,28 @@ function ensureFonts(): Promise<void> {
         l.onerror = r;
       });
     }
-    await Promise.all(["900 20px Unbounded", "800 20px Manrope"].map((f) => document.fonts.load(f, "АБВ abc 123").catch(() => [])));
+    await Promise.all(
+      ["900 20px Unbounded", "800 20px Manrope"].map((f) =>
+        document.fonts.load(f, "АБВ abc 123").catch(() => []),
+      ),
+    );
   })();
   return fontsReady;
 }
 
 /** Собирает баннер w×h из подложки и текстов. Возвращает JPEG data URL. */
-export async function renderBanner(w: number, h: number, kind: LayerKind, plateSrc: string, o: LayerOpts & { logoSrc?: string }): Promise<string> {
+export async function renderBanner(
+  w: number,
+  h: number,
+  kind: LayerKind,
+  plateSrc: string,
+  o: LayerOpts & { logoSrc?: string },
+): Promise<string> {
   await ensureFonts();
-  const [plate, logo] = await Promise.all([loadImg(plateSrc), o.logoSrc ? loadImg(o.logoSrc).catch(() => null) : Promise.resolve(null)]);
+  const [plate, logo] = await Promise.all([
+    loadImg(plateSrc),
+    o.logoSrc ? loadImg(o.logoSrc).catch(() => null) : Promise.resolve(null),
+  ]);
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -273,7 +455,13 @@ export async function renderBanner(w: number, h: number, kind: LayerKind, plateS
     g.font = f;
     return g.measureText(t).width;
   };
-  const ops = layoutBanner(w, h, kind, { ...o, logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null }, measure);
+  const ops = layoutBanner(
+    w,
+    h,
+    kind,
+    { ...o, logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null },
+    measure,
+  );
   g.fillStyle = "#0b0815";
   g.fillRect(0, 0, w, h);
   for (const op of ops) {
@@ -301,7 +489,10 @@ export async function renderBanner(w: number, h: number, kind: LayerKind, plateS
       } else drawCover(g, plate, op.box, 0.5);
     } else if (op.kind === "shade") {
       const b = op.box;
-      const gr = op.dir === "right" ? g.createLinearGradient(b.x, 0, b.x + Math.min(b.w, h * 2.2), 0) : g.createLinearGradient(0, b.y, 0, b.y + b.h);
+      const gr =
+        op.dir === "right"
+          ? g.createLinearGradient(b.x, 0, b.x + Math.min(b.w, h * 2.2), 0)
+          : g.createLinearGradient(0, b.y, 0, b.y + b.h);
       if (op.dir === "right") {
         gr.addColorStop(0, "rgba(11,8,21,0)");
         gr.addColorStop(1, "rgba(11,8,21,.72)");
@@ -314,7 +505,8 @@ export async function renderBanner(w: number, h: number, kind: LayerKind, plateS
     } else if (op.kind === "logo" && logo) {
       const b = op.box;
       const s = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);
-      const lw = logo.naturalWidth * s, lh = logo.naturalHeight * s;
+      const lw = logo.naturalWidth * s,
+        lh = logo.naturalHeight * s;
       g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh);
     } else if (op.kind === "button") {
       const b = op.box;
@@ -338,7 +530,8 @@ export async function renderBanner(w: number, h: number, kind: LayerKind, plateS
       g.textBaseline = "middle";
       g.save();
       g.shadowColor = "rgba(0,0,0,.6)";
-      g.shadowBlur = op.color === "#ffffff" || op.color === "#0b0815" ? Math.round(op.size * 0.35) : 0;
+      g.shadowBlur =
+        op.color === "#ffffff" || op.color === "#0b0815" ? Math.round(op.size * 0.35) : 0;
       g.fillStyle = op.color;
       g.fillText(op.text, op.x, op.y, op.maxW);
       g.restore();
@@ -350,7 +543,8 @@ export async function renderBanner(w: number, h: number, kind: LayerKind, plateS
 /** Картинка «cover» в рамку; fx — куда смещён кадр по горизонтали (0 — левый край, 0.5 — центр). */
 function drawCover(g: CanvasRenderingContext2D, img: HTMLImageElement, b: Box, fx: number) {
   const s = Math.max(b.w / img.naturalWidth, b.h / img.naturalHeight);
-  const sw = b.w / s, sh = b.h / s;
+  const sw = b.w / s,
+    sh = b.h / s;
   const sx = Math.max(0, Math.min(img.naturalWidth - sw, img.naturalWidth * fx - sw / 2));
   const sy = (img.naturalHeight - sh) / 2;
   g.drawImage(img, sx, sy, sw, sh, b.x, b.y, b.w, b.h);
