@@ -4,6 +4,9 @@ import { refreshMe } from "@/components/AppHeader";
 import { CONTENT_FILTER_PREFIX, describeProviderError } from "@/lib/generation-errors";
 import { centerCrop } from "@/lib/resizePlan";
 
+/** Подложка без текста под слоёную сборку (bannerLayers): форма кадра. */
+export type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait";
+
 export type GeneratePayload = {
   /** Символ из лого (без надписи) можно повторить в декоре сцены — для кампании. */
   brand_logo_decor?: boolean;
@@ -79,7 +82,7 @@ export type GeneratePayload = {
    *  the history card. */
   skip_history_attach?: boolean;
   /** «Чистая подложка» без текста для тонких форматов (bannerLayers). */
-  plate?: "wide" | "tall";
+  plate?: PlateKind;
 };
 
 export type BannerTextItem = { text: string; position: string };

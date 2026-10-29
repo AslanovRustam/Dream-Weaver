@@ -71,15 +71,20 @@ export function bandsFromAlpha(rows: number[], n: number, minInk = 2): [number, 
     let cut = -1;
     let at = -1;
     let ratio = 1;
+    // Глубокий провал (≤ 12% пика) — режем где угодно; мельче (≤ 30%) — только в полосе,
+    // которая явно выше остальных (две строки слиплись), а не внутри одного слова.
+    const hs = real.map(([a, b]) => b - a).sort((x, y) => x - y);
+    const med = hs[Math.floor(hs.length / 2)] || 1;
     real.forEach(([a, b], i) => {
       let peak = 0;
       for (let y = a; y < b; y++) peak = Math.max(peak, rows[y]);
+      const limit = b - a >= med * 1.6 ? 0.3 : 0.12;
       for (let y = a + 20; y < b - 20; y++) {
         const r = rows[y] / Math.max(1, peak);
-        if (r < ratio && rows[y] <= rows[y - 1] && rows[y] <= rows[y + 1]) [ratio, cut, at] = [r, i, y];
+        if (r <= limit && r < ratio && rows[y] <= rows[y - 1] && rows[y] <= rows[y + 1]) [ratio, cut, at] = [r, i, y];
       }
     });
-    if (cut < 0 || ratio > 0.12) return null;
+    if (cut < 0) return null;
     const [a, b] = real[cut];
     real.splice(cut, 1, [a, at], [at, b]);
   }

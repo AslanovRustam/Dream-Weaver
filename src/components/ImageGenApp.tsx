@@ -2096,6 +2096,7 @@ export function ImageGenApp() {
                       tiles={gen.tiles}
                       batchStatus={gen.status}
                       onRegenerateTile={gen.regenerateTile}
+                      gifLayers={gen.gifLayers}
                       onRemoveTile={gen.removeTile}
                       onCancel={gen.cancel}
                       leadingButton={
@@ -2173,7 +2174,7 @@ export function ImageGenApp() {
         </div>
       </div>
 
-      {imageUrl ? <GifDialog open={gifOpen} onOpenChange={setGifOpen} src={imageUrl} /> : null}
+      {imageUrl ? <GifDialog open={gifOpen} onOpenChange={setGifOpen} src={imageUrl} buildLayers={gen.gifLayers} /> : null}
 
       {zoomOpen && zoomSrc && (
         <FullscreenImageModal src={zoomSrc} onClose={() => setZoomOpen(false)} />

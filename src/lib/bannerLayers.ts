@@ -12,7 +12,11 @@
 
 import { artWords, type ArtPiece } from "./textArt";
 
-export type LayerKind = "strip" | "tower";
+/**
+ * strip / tower — тонкие форматы (статика и GIF); square / landscape / portrait —
+ * остальные пропорции: статика у них от модели, а GIF собирается слоями.
+ */
+export type LayerKind = "strip" | "tower" | "square" | "landscape" | "portrait";
 
 /** Какие размеры собираем слоями: очень вытянутые. Остальные — как раньше (i2i + кроп). */
 export function layerKind(w: number, h: number): LayerKind | null {
@@ -22,6 +26,23 @@ export function layerKind(w: number, h: number): LayerKind | null {
 }
 
 /** sub — доп-текст (подзаголовок): в статике не помещается, в GIF — отдельным кадром. */
+/** Форма для GIF: тонкие — как в статике, остальные — квадрат / горизонталь / портрет. */
+export function gifKind(w: number, h: number): LayerKind {
+  const k = layerKind(w, h);
+  if (k) return k;
+  const r = w / h;
+  return r >= 1.3 ? "landscape" : r <= 0.77 ? "portrait" : "square";
+}
+
+/** Подложка каждой формы — как её рисует generate-image (plate). */
+export const PLATES: Record<LayerKind, { w: number; h: number; ratio: string }> = {
+  strip: { w: 1536, h: 512, ratio: "3:1" },
+  tower: { w: 512, h: 1536, ratio: "1:3" },
+  square: { w: 1024, h: 1024, ratio: "1:1" },
+  landscape: { w: 1536, h: 1024, ratio: "3:2" },
+  portrait: { w: 1024, h: 1536, ratio: "2:3" },
+};
+
 export type BannerTexts = { headline: string; offer: string; cta: string; sub?: string };
 
 export type LayerOpts = {
@@ -57,13 +78,11 @@ export type TextOp = {
 };
 export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
-  | { kind: "shade"; dir: "right" | "top"; box: Box }
+  | { kind: "shade"; dir: "right" | "top" | "left"; box: Box }
   | { kind: "logo"; box: Box }
   | { kind: "button"; box: Box; color: string; art?: boolean }
   | TextOp;
 
-/** Подложка tall, как её рисует generate-image (plate: tall). */
-const PLATE_TALL = { w: 512, h: 1536 };
 
 export const HEAD_FONT = `"Unbounded","Arial Black",Arial,sans-serif`;
 export const BODY_FONT = `"Manrope","Segoe UI",Roboto,Arial,sans-serif`;
@@ -151,7 +170,7 @@ export function layoutBanner(
   o: LayerOpts,
   m: Measure,
 ): Op[] {
-  return kind === "strip" ? layoutStrip(w, h, o, m) : layoutTower(w, h, o, m);
+  return kind === "strip" ? layoutStrip(w, h, o, m) : layoutColumn(w, h, kind, o, m);
 }
 
 // [герой из подложки | лого | заголовок + оффер | кнопка] в одну линию.
@@ -356,27 +375,71 @@ function mainPart(t: string): string {
   return c.split(/\s\+\s/)[0].trim();
 }
 
-// Подложка 1:3 на всю высоту: сверху лого, заголовок, оффер; внизу кнопка; герой — между.
-function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
+// Колонка: сверху лого, заголовок, оффер афишей, внизу кнопка; герой — под текстом
+// (башня, квадрат, портрет) или справа от колонки (горизонталь).
+function layoutColumn(w: number, h: number, kind: LayerKind, o: LayerOpts, m: Measure): Op[] {
+  // Горизонталь: колонка текста слева, герой справа. Остальные: колонка во всю ширину
+  // над героем (в подложке он в нижней половине, от ~45% высоты).
+  const land = kind === "landscape";
   const ops: Op[] = [
     { kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } },
-    { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.55) } },
+    land
+      ? { kind: "shade", dir: "left", box: { x: 0, y: 0, w: Math.round(w * 0.72), h } }
+      : { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.55) } },
   ];
-  const pad = Math.round(w * 0.09);
-  const colW = w - pad * 2;
+  const pad = kind === "tower" ? Math.round(w * 0.09) : Math.round(Math.min(w, h) * 0.07);
+  const colW = land ? Math.round(w * 0.54) - pad : w - pad * 2;
+  const cx = pad + colW / 2;
   let y = pad;
   if (o.logo && !o.logoHero) {
-    const lh = Math.round(Math.min(w * 0.22, h * 0.06));
+    const lh = Math.round(Math.min(colW * 0.22, h * (kind === "tower" ? 0.06 : 0.11)));
     const lw = Math.min(colW, Math.round((lh * o.logo.w) / Math.max(1, o.logo.h)));
-    ops.push({ kind: "logo", box: { x: Math.round((w - lw) / 2), y, w: lw, h: lh } });
+    ops.push({ kind: "logo", box: { x: Math.round(cx - lw / 2), y, w: lw, h: lh } });
     y += lh + pad * 0.8;
   }
-  // Текст — крупно и по центру свободной зоны над героем (в подложке tall он в нижней
-  // половине, от ~45% высоты), а не прижат к верху: без «дыры» посередине.
-  const plateScale = Math.max(w / PLATE_TALL.w, h / PLATE_TALL.h);
-  const heroTop = (h - PLATE_TALL.h * plateScale) / 2 + PLATE_TALL.h * plateScale * 0.45;
+  let btnTop = h;
+  const cta = o.texts.cta.trim().toUpperCase();
+  if (cta && o.ctaArt) {
+    const a = o.ctaArt.w / o.ctaArt.h;
+    let bw = Math.min(w - pad, colW * (land ? 0.9 : 1.08));
+    let bh = bw / a;
+    const maxBh = Math.min(colW * 0.4, 80, kind === "tower" ? Infinity : h * 0.2);
+    if (bh > maxBh) [bh, bw] = [maxBh, maxBh * a];
+    const box = {
+      x: Math.round(cx - bw / 2),
+      y: Math.round(h - pad * 0.7 - bh),
+      w: Math.round(bw),
+      h: Math.round(bh),
+    };
+    ops.push({ kind: "button", box, color: o.accent, art: true });
+    btnTop = box.y;
+  } else if (cta) {
+    const bh = Math.round(Math.min(colW * 0.24, 54, kind === "tower" ? Infinity : h * 0.16));
+    const bw = Math.round(land ? colW * 0.85 : colW);
+    const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, Math.min(bh * 0.4, 18), 7) ?? 7;
+    const box = { x: Math.round(cx - bw / 2), y: h - pad - bh, w: bw, h: bh };
+    btnTop = box.y;
+    ops.push({ kind: "button", box, color: o.accent });
+    ops.push({
+      kind: "text",
+      text: cta,
+      x: cx,
+      y: box.y + bh / 2,
+      size,
+      font: font(800, size, BODY_FONT),
+      color: inkOn(o.accent),
+      noArt: true,
+      align: "center",
+      maxW: bw - 6,
+    });
+  }
+  // Текст — крупно и по центру свободной зоны: над героем (в подложке он в нижней
+  // половине, от ~45% высоты) или, у горизонтали, над кнопкой — без «дыры» посередине.
+  const plate = PLATES[kind];
+  const plateScale = Math.max(w / plate.w, h / plate.h);
+  const heroTop = (h - plate.h * plateScale) / 2 + plate.h * plateScale * 0.45;
   const top = y;
-  const bottom = Math.max(top + h * 0.2, heroTop - pad * 0.5);
+  const bottom = land ? btnTop - pad * 0.6 : Math.max(top + h * (kind === "tower" ? 0.2 : 0.3), Math.min(heroTop, btnTop) - pad * 0.5);
   if (o.logoHero && o.logo) {
     const zone = bottom - top;
     let lw = colW;
@@ -385,7 +448,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     ops.push({
       kind: "logo",
       box: {
-        x: Math.round((w - lw) / 2),
+        x: Math.round(cx - lw / 2),
         y: Math.round(top + (zone - lh) / 2),
         w: Math.round(lw),
         h: Math.round(lh),
@@ -411,7 +474,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     const spec = offerRows(vo);
     // Самая мелкая строка афиши — не мельче 8 px; иначе — следующий, более сжатый вариант.
     const minRel = Math.min(vh ? 0.42 : 1, ...spec.map((r) => r.rel));
-    for (let k = Math.min(w * 0.3, 140); k * minRel >= 8; k -= 0.5) {
+    for (let k = Math.min(colW * 0.36, 140, (bottom - top) * 0.7); k * minRel >= 8; k -= 0.5) {
       const out: Row[] = [];
       let okFit = true;
       const hs = k * 0.42;
@@ -452,7 +515,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
       ops.push({
         kind: "text",
         text: r.text,
-        x: w / 2,
+        x: cx,
         y: yy + r.size * 0.52,
         size: r.size,
         font: font(900, r.size, HEAD_FONT),
@@ -463,39 +526,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
       yy += r.size * 1.02;
     }
   }
-  const cta = o.texts.cta.trim().toUpperCase();
-  if (cta && o.ctaArt) {
-    const a = o.ctaArt.w / o.ctaArt.h;
-    let bw = Math.min(w - pad, colW * 1.08);
-    let bh = bw / a;
-    const maxBh = Math.min(w * 0.36, 80);
-    if (bh > maxBh) [bh, bw] = [maxBh, maxBh * a];
-    const box = {
-      x: Math.round((w - bw) / 2),
-      y: Math.round(h - pad * 0.7 - bh),
-      w: Math.round(bw),
-      h: Math.round(bh),
-    };
-    ops.push({ kind: "button", box, color: o.accent, art: true });
-  } else if (cta) {
-    const bh = Math.round(Math.min(w * 0.24, 54));
-    const bw = colW;
-    const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, Math.min(bh * 0.4, 18), 7) ?? 7;
-    const box = { x: pad, y: h - pad - bh, w: bw, h: bh };
-    ops.push({ kind: "button", box, color: o.accent });
-    ops.push({
-      kind: "text",
-      text: cta,
-      x: w / 2,
-      y: box.y + bh / 2,
-      size,
-      font: font(800, size, BODY_FONT),
-      color: inkOn(o.accent),
-      noArt: true,
-      align: "center",
-      maxW: bw - 6,
-    });
-  }
+
   return ops;
 }
 
@@ -881,8 +912,15 @@ export async function prepareBanner(
         const gr =
           op.dir === "right"
             ? g.createLinearGradient(b.x, 0, b.x + Math.min(b.w, h * 2.2), 0)
-            : g.createLinearGradient(0, b.y, 0, b.y + b.h);
-        if (op.dir === "right") {
+            : op.dir === "left"
+              ? g.createLinearGradient(b.x, 0, b.x + b.w, 0)
+              : g.createLinearGradient(0, b.y, 0, b.y + b.h);
+        if (op.dir === "left") {
+          // Тёмно под колонкой текста, к герою справа — прозрачно.
+          gr.addColorStop(0, "rgba(11,8,21,.82)");
+          gr.addColorStop(0.6, "rgba(11,8,21,.55)");
+          gr.addColorStop(1, "rgba(11,8,21,0)");
+        } else if (op.dir === "right") {
           gr.addColorStop(0, "rgba(11,8,21,0)");
           gr.addColorStop(1, "rgba(11,8,21,.72)");
         } else {

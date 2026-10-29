@@ -159,7 +159,9 @@ export async function POST(request: Request) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (data[(y * W + x) * 4 + 3] > 40) rowsInk[y]++;
   const bands = bandsFromAlpha(rowsInk, tokens.length);
   if (!bands) {
-    return Response.json({ pieces: [], error: "Лист не разрезался на слова", costUsd: iu.costUsd, costCredits: PLAYABLE_ASSET_PRICE_CREDITS, balance: charge.balance });
+    // Ни одного слова не отдали — кредиты возвращаем (сама генерация у провайдера оплачена нами).
+    await refund();
+    return Response.json({ pieces: [], error: "Лист не разрезался на слова", costUsd: iu.costUsd, costCredits: 0, balance: charge.balance + PLAYABLE_ASSET_PRICE_CREDITS });
   }
   const read = await readSheet(png, tokens.length, apiKey);
   const pieces = await Promise.all(

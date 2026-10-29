@@ -1,16 +1,18 @@
 "use client";
-// GIF из готового баннера (мастер или ресайз): эффекты кодом, без генераций —
-// подробности в src/lib/bannerGif.ts. Превью — сам итоговый GIF, вес — как скачается.
+// GIF баннера собирается композицией слоёв (src/lib/bannerLayers.ts): подложка без
+// текста под форму GIF + надписи и кнопка, нарисованные моделью в стиле мастера, —
+// их и анимирует код. Слоёв ещё нет — «Собрать из слоёв» (подложка формы и лист
+// надписей; оба кэшируются на мастер). «Блик поверх» — запасной вариант по готовой
+// картинке. Превью — сам итоговый GIF, вес — как скачается.
 // Сеть (src/lib/gifNetworks.ts) решает, как собирать: сценарий, частота кадров,
 // повторы и лимит веса; под превью — чек-лист техтребований сети.
 import { useEffect, useMemo, useState } from "react";
-import { Check, Download, Loader2, X } from "lucide-react";
+import { Check, Download, Layers, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-client";
 import {
-  imageSize,
   makeGifFromFrames,
   makeGifFromPixels,
   pixelsFromImage,
@@ -41,11 +43,25 @@ type Props = {
   src: string;
   /** Точный размер (ресайз). Нет — мастер: уменьшаем с его пропорциями. */
   size?: { w: number; h: number };
-  /** Тонкий формат, собранный слоями: можно анимировать сами элементы. */
+  /** Слои уже есть (тонкий формат из пакета) — анимируем сразу. */
   layers?: LayerSource;
+  /** Собрать слои под размер GIF (подложка формы + надписи мастера; стоит генерации). */
+  buildLayers?: (size: { w: number; h: number }) => Promise<LayerSource>;
 };
 
-const SIDES = [320, 480, 640];
+/** Размеры GIF из мастера: дисплейные Google + 1200×628 (нативные и прямые размещения). */
+const GIF_SIZES = [
+  "300x250",
+  "336x280",
+  "300x600",
+  "160x600",
+  "580x400",
+  "728x90",
+  "970x250",
+  "320x50",
+  "320x100",
+  "1200x628",
+];
 const SLIDE_LABEL: Record<SlideName, string> = {
   headline: "заголовок",
   offer: "оффер",
@@ -96,7 +112,35 @@ function savedNetwork(): GifNetworkId {
 const chip = (on: boolean) =>
   `rounded-full border px-3 py-1.5 text-sm transition ${on ? "border-accent-green bg-accent-green/15 text-foreground" : "border-border text-muted-foreground hover:bg-white/5"}`;
 
-export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
+export function GifDialog({ open, onOpenChange, src, size, layers: given, buildLayers }: Props) {
+  // Размер: у ресайза — его; у мастера — из ходовых дисплейных.
+  const [pick, setPick] = useState("300x250");
+  const dims = useMemo(() => {
+    if (size) return { w: size.w, h: size.h };
+    const [w, h] = pick.split("x").map(Number);
+    return { w, h };
+    // size приходит новым объектом на каждый рендер родителя — сравниваем числа,
+    // иначе GIF пересобирается на любой рендер пакета.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size?.w, size?.h, pick]);
+  // Слои под этот размер, собранные в окне (подложка формы — своя для каждого размера).
+  const [built, setBuilt] = useState<{ key: string; layers: LayerSource } | null>(null);
+  const [building, setBuilding] = useState(false);
+  const dimsKey = `${dims.w}x${dims.h}`;
+  const layers = given ?? (built?.key === dimsKey ? built.layers : undefined);
+  const build = async () => {
+    if (!buildLayers) return;
+    setBuilding(true);
+    try {
+      setBuilt({ key: dimsKey, layers: await buildLayers(dims) });
+    } catch (e) {
+      toast.error("Не удалось собрать слои", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setBuilding(false);
+    }
+  };
   // Кадры по очереди — если есть что чередовать (заголовок, оффер, доп-текст, лого).
   const slideNames = useMemo(
     () =>
@@ -110,17 +154,9 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
   const canSlides = slideNames.length > 1;
   const [netId, setNetId] = useState<GifNetworkId>(savedNetwork);
   const net = GIF_NETWORK_BY_ID.get(netId)!;
-  const [side, setSide] = useState(480);
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(size ?? null);
   const plan = useMemo(
-    () =>
-      planGif(net, {
-        w: dims?.w ?? size?.w ?? 300,
-        h: dims?.h ?? size?.h ?? 250,
-        layered: !!layers,
-        slides: slideNames.length,
-      }),
-    [net, dims, size?.w, size?.h, layers, slideNames.length],
+    () => planGif(net, { w: dims.w, h: dims.h, layered: !!layers, slides: slideNames.length }),
+    [net, dims, layers, slideNames.length],
   );
   // Сценарий — по плану сети; пользователь может сменить, смена сети возвращает план.
   const [mode, setMode] = useState<GifMode>(plan.mode);
@@ -149,28 +185,8 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
     }
   };
 
-  // Размер: у ресайза — его; у мастера — длинная сторона = side.
   useEffect(() => {
     if (!open) return;
-    // size приходит новым объектом на каждый рендер родителя — сравниваем числа,
-    // иначе GIF пересобирается на любой рендер пакета.
-    if (size)
-      return setDims((d) => (d && d.w === size.w && d.h === size.h ? d : { w: size.w, h: size.h }));
-    let off = false;
-    imageSize(src)
-      .then(({ w, h }) => {
-        const k = side / Math.max(w, h);
-        if (!off) setDims({ w: Math.round(w * k), h: Math.round(h * k) });
-      })
-      .catch(() => !off && toast.error("Не удалось открыть баннер"));
-    return () => {
-      off = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, src, size?.w, size?.h, side]);
-
-  useEffect(() => {
-    if (!open || !dims) return;
     let off = false;
     setBusy(true);
     // Даём кадру отрисовать спиннер — кодирование идёт в основном потоке.
@@ -259,7 +275,7 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
       <DialogContent className="max-h-[92svh] max-w-3xl overflow-y-auto border-border bg-popover p-0 text-foreground">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle className="ds-h4 text-left">
-            GIF-баннер{dims ? ` · ${dims.w}×${dims.h}` : ""}
+            GIF-баннер · {dims.w}×{dims.h}
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-5 p-5 md:grid-cols-[1fr_260px]">
@@ -272,13 +288,36 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
                   alt="GIF"
                   // Явная ширина: иначе во flex-контейнере полоса 728×90 ужимается до пары десятков px.
                   className="h-auto max-h-[60svh] max-w-full shrink-0 object-contain"
-                  style={{ width: dims?.w, opacity: busy ? 0.5 : 1 }}
+                  style={{ width: dims.w, opacity: busy ? 0.5 : 1 }}
                 />
               ) : null}
               {busy ? (
                 <Loader2 className="absolute h-8 w-8 animate-spin text-accent-green" />
               ) : null}
             </div>
+            {!layers && buildLayers ? (
+              <div className="rounded-lg border border-accent-green/40 bg-accent-green/5 px-3 py-2.5 text-sm">
+                <div className="mb-1 font-semibold">GIF лучше собрать из слоёв</div>
+                <p className="ds-caption mb-2 text-muted-foreground">
+                  Подложка без текста под {dims.w}×{dims.h} + надписи и кнопка в стиле баннера — их
+                  анимирует код, как в тонких форматах. Подложка — одна генерация на форму; лист
+                  надписей — один раз на баннер. Сейчас в превью — блик поверх картинки.
+                </p>
+                <button
+                  type="button"
+                  onClick={build}
+                  disabled={building}
+                  className="ds-btn ds-btn-primary flex items-center gap-2 px-4 py-2"
+                >
+                  {building ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Layers className="h-4 w-4" />
+                  )}
+                  {building ? "Собираем слои…" : "Собрать из слоёв"}
+                </button>
+              </div>
+            ) : null}
             {gif ? (
               <div
                 className={`rounded-lg px-3 py-2 text-sm ${allOk ? "bg-accent-green/10" : "bg-[color:var(--status-warning,#f59e0b)]/15"}`}
@@ -400,18 +439,16 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
             ) : null}
             {!size ? (
               <div>
-                <div className="ds-caption mb-2 text-muted-foreground">
-                  Размер (длинная сторона)
-                </div>
+                <div className="ds-caption mb-2 text-muted-foreground">Размер GIF</div>
                 <div className="flex flex-wrap gap-2">
-                  {SIDES.map((s) => (
+                  {GIF_SIZES.map((k) => (
                     <button
-                      key={s}
+                      key={k}
                       type="button"
-                      className={chip(side === s)}
-                      onClick={() => setSide(s)}
+                      className={chip(pick === k)}
+                      onClick={() => setPick(k)}
                     >
-                      {s}px
+                      {k.replace("x", "×")}
                     </button>
                   ))}
                 </div>
@@ -419,7 +456,7 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
             ) : null}
             <a
               href={gif && !none ? gif.url : undefined}
-              download={dims ? `banner-${dims.w}x${dims.h}-${netId}.gif` : "banner.gif"}
+              download={`banner-${dims.w}x${dims.h}-${netId}.gif`}
               onClick={() => gif && toast.success("GIF скачан")}
               aria-disabled={!gif || busy || none}
               className={`ds-btn ds-btn-primary flex items-center justify-center gap-2 px-5 py-2.5 ${!gif || busy || none ? "pointer-events-none opacity-50" : ""}`}

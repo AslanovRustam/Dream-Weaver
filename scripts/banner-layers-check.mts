@@ -9,7 +9,7 @@
 
 import { BANNER_SIZE_GROUPS } from "../src/lib/bannerSizes";
 import { bandsFromAlpha, sameWord, sheetTokens } from "../src/lib/textArt";
-import { wrapUnits, compactOffer, layerKind, layoutBanner, bannerSlides, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
+import { wrapUnits, compactOffer, gifKind, layerKind, layoutBanner, bannerSlides, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
 
 // Оценка ширины: Unbounded 900 широкий (~0.78 em на знак в верхнем регистре), Manrope 800 — ~0.6 em.
 const measure: Measure = (t, f) => {
@@ -40,8 +40,10 @@ const textBox = (op: Extract<Op, { kind: "text" }>): Box => {
 };
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-for (const s of sizes) {
-  const kind = layerKind(s.w, s.h)!;
+// GIF собирается слоями для любого размера: квадрат, горизонталь, портрет — те же проверки.
+const gifSizes = [[300, 250], [336, 280], [250, 250], [200, 200], [300, 600], [240, 400], [580, 400], [970, 250], [1200, 628], [1080, 1080], [1080, 1350], [1080, 1920], [320, 100], [320, 480]].map(([w, h]) => ({ w, h }));
+for (const s of [...sizes, ...gifSizes]) {
+  const kind = gifKind(s.w, s.h);
   for (const [ti, texts] of TEXTS.entries()) {
     for (const [logo, ctaArt] of [[null, null], [{ w: 300, h: 100 }, null], [null, { w: 460, h: 130 }]] as const) {
       const name = `${s.w}×${s.h} (${kind}) тексты#${ti}${logo ? " +лого" : ""}${ctaArt ? " +кнопка-ассет" : ""}`;
@@ -78,8 +80,8 @@ for (const s of sizes) {
   ok(names({ texts: full, accent: "#f5b324", logo: { w: 300, h: 100 } }) === "headline>offer>sub>brand", "кадры: порядок с лого и доп-текстом");
   ok(names({ texts: { ...full, sub: "" }, accent: "#f5b324" }) === "headline>offer", "кадры: без лого и доп-текста");
   ok(bannerSlides({ texts: { headline: "", offer: "+200%", cta: "Играть" }, accent: "#f5b324" }).length === 1, "кадры: одна надпись — чередовать нечего");
-  for (const s of sizes) {
-    const kind = layerKind(s.w, s.h)!;
+  for (const s of [...sizes, ...gifSizes]) {
+    const kind = gifKind(s.w, s.h);
     for (const ctaArt of [null, { w: 460, h: 130 }]) {
       for (const sl of bannerSlides({ texts: full, accent: "#f5b324", logo: { w: 300, h: 100 }, ctaArt })) {
         const name = `${s.w}×${s.h} кадр «${sl.name}»${ctaArt ? " +кнопка-ассет" : ""}`;
@@ -140,4 +142,4 @@ if (fails.length) {
   console.log(`\n${fails.length} проблем, ${pass} проверок прошли`);
   process.exit(1);
 }
-console.log(`✓ все ${pass} проверок прошли (${sizes.length} размеров слоями)`);
+console.log(`✓ все ${pass} проверок прошли (${sizes.length} тонких размеров + ${gifSizes.length} для GIF)`);

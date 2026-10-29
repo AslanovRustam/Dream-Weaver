@@ -39,7 +39,7 @@ import {
 } from "./imageGen";
 import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
-import { isLayered, runLayered } from "./bannerLayersRun";
+import { isLayered, layersFor, runLayered } from "./bannerLayersRun";
 import type { LayerSource } from "./bannerLayers";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
@@ -132,6 +132,9 @@ interface GenerationContextValue extends GenerationStateSnapshot {
    *  batch_running, so the result list stays visible and the other tiles are
    *  untouched — only this tile shows a local "running" spinner. */
   regenerateTile: (id: string) => Promise<void>;
+  /** Слои для GIF любого размера от текущего мастера: подложка формы + надписи
+   *  (одна генерация подложки на форму и одна — листа надписей на мастер). */
+  gifLayers: (size: { w: number; h: number }) => Promise<LayerSource>;
   /** Drop a single tile from the current batch (user deleted that format).
    *  A later "Download ZIP" naturally excludes it. */
   removeTile: (id: string) => void;
@@ -725,6 +728,23 @@ export function GenerationProvider({ children }: ProviderProps) {
     setState((prev) => ({ ...prev, tiles: prev.tiles.filter((t) => t.id !== id) }));
   }, []);
 
+  const gifLayers = useCallback<GenerationContextValue["gifLayers"]>(async (size) => {
+    const snap = stateRef.current;
+    const master = snap.imageUrl;
+    if (!master) throw new Error("Нет баннера");
+    let masterDataUrl = master;
+    if (master.startsWith("http://") || master.startsWith("https://")) {
+      const r = await apiJson<{ dataUrl: string }>("/api/fetch-master", { method: "POST", body: JSON.stringify({ url: master }) });
+      masterDataUrl = r.dataUrl;
+    }
+    return layersFor(size, {
+      master: masterDataUrl,
+      base: snap.lastPayload ?? ({} as GeneratePayload),
+      plates: sourceCacheRef.current,
+      epoch: masterEpochRef.current,
+    });
+  }, []);
+
   const regenerateTile = useCallback<GenerationContextValue["regenerateTile"]>(
     async (id) => {
       const snap = stateRef.current;
@@ -868,6 +888,7 @@ export function GenerationProvider({ children }: ProviderProps) {
       runBatch,
       cancel,
       regenerateTile,
+      gifLayers,
       removeTile,
       clear,
       setMasterImage,
@@ -885,6 +906,7 @@ export function GenerationProvider({ children }: ProviderProps) {
       runBatch,
       cancel,
       regenerateTile,
+      gifLayers,
       removeTile,
       clear,
       setMasterImage,

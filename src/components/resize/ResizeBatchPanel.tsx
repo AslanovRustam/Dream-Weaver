@@ -37,7 +37,7 @@ import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { PLAYABLE_ASSET_PRICE_CREDITS, resizeCredits } from "@/lib/credit-estimate";
-import { layerKind } from "@/lib/bannerLayers";
+import { layerKind, type LayerSource } from "@/lib/bannerLayers";
 import { GifDialog } from "./GifDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -77,6 +77,8 @@ type Props = {
   batchStatus: GenerationStatus;
   /** Re-run generation for a single tile in place. */
   onRegenerateTile?: (id: string) => void | Promise<void>;
+  /** Слои для GIF под размер (подложка формы + надписи мастера). */
+  gifLayers?: (size: { w: number; h: number }) => Promise<LayerSource>;
   /** Remove a single tile from the batch. */
   onRemoveTile?: (id: string) => void;
   /** Abort the running batch (stops queued/in-flight tiles). */
@@ -102,6 +104,7 @@ export function ResizeBatchPanel({
   tiles,
   batchStatus,
   onRegenerateTile,
+  gifLayers,
   onRemoveTile,
   onCancel,
   leadingButton,
@@ -1013,7 +1016,7 @@ export function ResizeBatchPanel({
       ) : null}
 
       {gifTile?.dataUrl ? (
-        <GifDialog open onOpenChange={(v) => !v && setGifTile(null)} src={gifTile.dataUrl} size={{ w: gifTile.size.w, h: gifTile.size.h }} layers={gifTile.layers} />
+        <GifDialog open onOpenChange={(v) => !v && setGifTile(null)} src={gifTile.dataUrl} size={{ w: gifTile.size.w, h: gifTile.size.h }} layers={gifTile.layers} buildLayers={gifLayers} />
       ) : null}
     </div>
   );

@@ -4,8 +4,10 @@
 import { accentFromPalette, paletteFromImage } from "./imagePalette";
 import {
   compactOffer,
+  gifKind,
   layerKind,
   offerRows,
+  PLATES,
   renderBanner,
   type BannerTexts,
   type LayerKind,
@@ -15,10 +17,13 @@ import { sheetTokens, type ArtPiece, type ArtRole } from "./textArt";
 import { apiFetch } from "./api-client";
 import { extractMasterDetails, generateImage, type GeneratePayload } from "./imageGen";
 
-/** Размер подложки: 3:1 / 1:3, рёбра кратны 16 — модель рисует его как есть. */
-const PLATE_SIZE: Record<LayerKind, { w: number; h: number; ratio: string }> = {
-  strip: { w: 1536, h: 512, ratio: "3:1" },
-  tower: { w: 512, h: 1536, ratio: "1:3" },
+/** Как generate-image называет подложку каждой формы (plate). */
+const PLATE_PARAM: Record<LayerKind, NonNullable<GeneratePayload["plate"]>> = {
+  strip: "wide",
+  tower: "tall",
+  square: "square",
+  landscape: "landscape",
+  portrait: "portrait",
 };
 
 /** Тексты баннера — из брифа мастера; если там пусто — прочитанные с самой картинки. */
@@ -60,9 +65,10 @@ async function textArt(texts: BannerTexts, master: string): Promise<ArtPiece[]> 
   lines.push({ text: texts.offer }, { text: compactOffer(texts.offer) });
   // Доп-текст — последним: лист ограничен, недостающие слова кадр нарисует шрифтом.
   if (texts.sub) lines.push({ text: texts.sub, role: "light" });
+  // 10 слов + кнопка: на 1536 px строки со свечением ещё не слипаются (14 — уже да).
   const tokens = sheetTokens(
     lines.filter((l) => l.text.trim()),
-    13,
+    10,
   );
   // Кнопка — последней строкой листа, целиком (плашка с надписью).
   if (texts.cta.trim()) tokens.push({ text: texts.cta.trim().toUpperCase(), role: "button" });
@@ -94,6 +100,87 @@ export type LayeredCtx = {
 /** Есть ли среди размеров собираемые слоями. */
 export const isLayered = (s: { w: number; h: number }) => layerKind(s.w, s.h) !== null;
 
+const textsCache = new Map<string, Promise<{ texts: BannerTexts; accent: string; art: ArtPiece[] }>>();
+
+/** Тексты, акцент и надписи-ассеты мастера — один раз на мастер (лист — генерация). */
+function masterArt(ctx: LayeredCtx) {
+  const key = `${ctx.epoch}|${ctx.master.length}|${ctx.master.slice(-48)}`;
+  let p = textsCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const [texts, accent] = await Promise.all([
+        bannerTexts(ctx.base, ctx.master),
+        paletteFromImage(ctx.master)
+          .then(accentFromPalette)
+          .catch(() => "#f5b324"),
+      ]);
+      let art = artCache.get(key);
+      if (!art) {
+        art = await textArt(texts, ctx.master);
+        // Пустой лист (не разрезался, сбой) не запоминаем — следующая сборка попробует снова.
+        if (art.length) artCache.set(key, art);
+        else textsCache.delete(key);
+      }
+      return { texts, accent, art };
+    })();
+    p.catch(() => textsCache.delete(key));
+    textsCache.set(key, p);
+  }
+  return p;
+}
+
+/** Подложка формы — одна генерация на форму и мастер (кэш в ctx.plates). */
+async function plateFor(kind: LayerKind, ctx: LayeredCtx): Promise<string> {
+  const key = `${ctx.epoch}|plate|${kind}`;
+  const cached = ctx.plates.get(key);
+  if (cached) return cached;
+  const p = PLATES[kind];
+  const res = await generateImage({
+    ...ctx.base,
+    aspect_ratio: p.ratio,
+    source_image: ctx.master,
+    target_w: p.w,
+    target_h: p.h,
+    plate: PLATE_PARAM[kind],
+    // Подложка — без текста и чужих картинок: только мастер.
+    ad_texts_enabled: false,
+    banner_text_enabled: false,
+    button_text_enabled: false,
+    bonus_enabled: false,
+    brand_logo: "",
+    slot_logo: "",
+    slot_screenshot: "",
+    side_a_logo: "",
+    side_b_logo: "",
+    reference_image: "",
+    master_details: undefined,
+    group_id: undefined,
+    skip_history_attach: true,
+  });
+  ctx.plates.set(key, res.image);
+  return res.image;
+}
+
+/**
+ * Слои баннера размера w×h: подложка его формы + тексты и надписи мастера.
+ * GIF любого размера собирается из них (статика — только у тонких форматов).
+ */
+export async function layersFor(size: { w: number; h: number }, ctx: LayeredCtx): Promise<LayerSource> {
+  const kind = gifKind(size.w, size.h);
+  const [{ texts, accent, art }, plate] = await Promise.all([masterArt(ctx), plateFor(kind, ctx)]);
+  return {
+    kind,
+    plate,
+    opts: {
+      texts,
+      accent,
+      logoSrc: ctx.base.brand_logo || undefined,
+      art: art.filter((p) => p.role !== "button"),
+      cta: art.find((p) => p.role === "button") ?? null,
+    },
+  };
+}
+
 /** Собирает все тонкие размеры; onTile — по готовности каждого. */
 export async function runLayered(
   sizes: { w: number; h: number }[],
@@ -104,77 +191,31 @@ export async function runLayered(
   ) => void,
   cancelled: () => boolean,
 ): Promise<void> {
-  if (!sizes.length) return;
-  const [texts, accent] = await Promise.all([
-    bannerTexts(ctx.base, ctx.master),
-    paletteFromImage(ctx.master)
-      .then(accentFromPalette)
-      .catch(() => "#f5b324"),
-  ]);
-  // Надписи — одна генерация на мастер (повтор тайла и вторая пачка их не тратят).
-  const artKey = `${ctx.epoch}|${ctx.master.length}|${ctx.master.slice(-48)}`;
-  let art = artCache.get(artKey);
-  if (!art) {
-    art = await textArt(texts, ctx.master);
-    artCache.set(artKey, art);
-  }
-  for (const kind of ["strip", "tower"] as const) {
-    const group = sizes.filter((s) => layerKind(s.w, s.h) === kind);
-    if (!group.length || cancelled()) continue;
-    const key = `${ctx.epoch}|plate|${kind}`;
-    let plate = ctx.plates.get(key);
-    if (!plate) {
-      const p = PLATE_SIZE[kind];
-      try {
-        const res = await generateImage({
-          ...ctx.base,
-          aspect_ratio: p.ratio,
-          source_image: ctx.master,
-          target_w: p.w,
-          target_h: p.h,
-          plate: kind === "strip" ? "wide" : "tall",
-          // Подложка — без текста и чужих картинок: только мастер.
-          ad_texts_enabled: false,
-          banner_text_enabled: false,
-          button_text_enabled: false,
-          bonus_enabled: false,
-          brand_logo: "",
-          slot_logo: "",
-          slot_screenshot: "",
-          side_a_logo: "",
-          side_b_logo: "",
-          reference_image: "",
-          master_details: undefined,
-          group_id: undefined,
-          skip_history_attach: true,
-        });
-        plate = res.image;
-        ctx.plates.set(key, plate);
-      } catch (e) {
-        const error = e instanceof Error ? e.message : "Не удалось сгенерировать подложку";
-        for (const s of group) onTile(s, { error });
-        continue;
-      }
+  // Подложка формы кэшируется: первая плитка формы её генерирует, остальные берут готовую.
+  // Ошибка подложки — у всех плиток этой формы (повторно не пробуем в этом прогоне).
+  const failed = new Map<LayerKind, string>();
+  for (const s of sizes) {
+    if (cancelled()) return;
+    const kind = gifKind(s.w, s.h);
+    const fail = failed.get(kind);
+    if (fail) {
+      onTile(s, { error: fail });
+      continue;
     }
-    for (const s of group) {
-      if (cancelled()) return;
-      try {
-        // Слои остаются у тайла — из них GIF собирает анимацию по элементам.
-        const layers: LayerSource = {
-          kind,
-          plate,
-          opts: {
-            texts,
-            accent,
-            logoSrc: ctx.base.brand_logo || undefined,
-            art: art.filter((p) => p.role !== "button"),
-            cta: art.find((p) => p.role === "button") ?? null,
-          },
-        };
-        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, layers.opts), layers });
-      } catch (e) {
-        onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });
-      }
+    let layers: LayerSource;
+    try {
+      layers = await layersFor(s, ctx);
+    } catch (e) {
+      const error = e instanceof Error ? e.message : "Не удалось сгенерировать подложку";
+      failed.set(kind, error);
+      onTile(s, { error });
+      continue;
+    }
+    try {
+      // Слои остаются у тайла — из них GIF собирает анимацию по элементам.
+      onTile(s, { dataUrl: await renderBanner(s.w, s.h, layers.kind, layers.plate, layers.opts), layers });
+    } catch (e) {
+      onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });
     }
   }
 }
