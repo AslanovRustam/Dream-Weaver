@@ -9,7 +9,7 @@
 
 import { BANNER_SIZE_GROUPS } from "../src/lib/bannerSizes";
 import { bandsFromAlpha, sameWord, sheetTokens } from "../src/lib/textArt";
-import { wrapUnits, compactOffer, layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
+import { wrapUnits, compactOffer, layerKind, layoutBanner, bannerSlides, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
 
 // Оценка ширины: Unbounded 900 широкий (~0.78 em на знак в верхнем регистре), Manrope 800 — ~0.6 em.
 const measure: Measure = (t, f) => {
@@ -67,6 +67,43 @@ for (const s of sizes) {
       // Текстовые строки не наезжают друг на друга.
       const nonBtn = txt.filter((t) => !btn || Math.abs(t.y - (btn.box.y + btn.box.h / 2)) >= 0.5);
       for (let i = 0; i < nonBtn.length; i++) for (let j = i + 1; j < nonBtn.length; j++) ok(!overlap(textBox(nonBtn[i]), textBox(nonBtn[j])), `${name}: строки «${nonBtn[i].text}» и «${nonBtn[j].text}» наезжают`);
+    }
+  }
+}
+
+// Кадры GIF «по очереди»: порядок; каждый кадр — своя раскладка в баннере, без наездов на кнопку.
+{
+  const full = { headline: "Крути колесо викингов", offer: "+200% + 500 фриспинов", cta: "Забрать бонус", sub: "Только для новых игроков" };
+  const names = (o: Parameters<typeof bannerSlides>[0]) => bannerSlides(o).map((x) => x.name).join(">");
+  ok(names({ texts: full, accent: "#f5b324", logo: { w: 300, h: 100 } }) === "headline>offer>sub>brand", "кадры: порядок с лого и доп-текстом");
+  ok(names({ texts: { ...full, sub: "" }, accent: "#f5b324" }) === "headline>offer", "кадры: без лого и доп-текста");
+  ok(bannerSlides({ texts: { headline: "", offer: "+200%", cta: "Играть" }, accent: "#f5b324" }).length === 1, "кадры: одна надпись — чередовать нечего");
+  for (const s of sizes) {
+    const kind = layerKind(s.w, s.h)!;
+    for (const ctaArt of [null, { w: 460, h: 130 }]) {
+      for (const sl of bannerSlides({ texts: full, accent: "#f5b324", logo: { w: 300, h: 100 }, ctaArt })) {
+        const name = `${s.w}×${s.h} кадр «${sl.name}»${ctaArt ? " +кнопка-ассет" : ""}`;
+        const ops = layoutBanner(s.w, s.h, kind, sl.opts, measure);
+        const btn = ops.find((o) => o.kind === "button") as Extract<Op, { kind: "button" }> | undefined;
+        const txt = ops.filter((o): o is Extract<Op, { kind: "text" }> => o.kind === "text" && !o.noArt);
+        const logo = ops.find((o) => o.kind === "logo") as Extract<Op, { kind: "logo" }> | undefined;
+        ok(!!btn, `${name}: нет кнопки`);
+        if (sl.name === "brand") {
+          ok(!!logo && inside(logo.box, s.w, s.h), `${name}: нет лого или за краем`);
+          ok(!!logo && (!btn || !overlap(logo.box, btn.box)), `${name}: лого на кнопке`);
+          ok(!!logo && logo.box.h >= Math.min(s.h * 0.5, 24), `${name}: лого мелкое (${logo?.box.h}px)`);
+          ok(txt.length === 0, `${name}: на кадре лого есть текст`);
+        } else {
+          ok(txt.length > 0, `${name}: пустой кадр`);
+          ok(!logo, `${name}: лого на текстовом кадре`);
+          for (const t of txt) {
+            ok(inside(textBox(t), s.w, s.h), `${name}: «${t.text}» за краем`);
+            ok(t.size >= 7, `${name}: «${t.text}» ${t.size}px`);
+            if (btn) ok(!overlap(textBox(t), btn.box), `${name}: «${t.text}» на кнопке`);
+          }
+          if (sl.name === "offer" && kind === "strip") ok(txt.every((t) => t.color === "#f5b324"), `${name}: оффер не акцентом`);
+        }
+      }
     }
   }
 }

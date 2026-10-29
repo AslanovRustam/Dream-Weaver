@@ -21,7 +21,8 @@ export function layerKind(w: number, h: number): LayerKind | null {
   return null;
 }
 
-export type BannerTexts = { headline: string; offer: string; cta: string };
+/** sub — доп-текст (подзаголовок): в статике не помещается, в GIF — отдельным кадром. */
+export type BannerTexts = { headline: string; offer: string; cta: string; sub?: string };
 
 export type LayerOpts = {
   texts: BannerTexts;
@@ -31,6 +32,10 @@ export type LayerOpts = {
   logo?: { w: number; h: number } | null;
   /** Кнопка-ассет (нарисована моделью вместе с надписью) — её пропорции; нет — кнопка кодом. */
   ctaArt?: { w: number; h: number } | null;
+  /** Кадр GIF «лого»: лого крупно в зоне текста, без надписей. */
+  logoHero?: boolean;
+  /** Строка одиночным кадром — акцентным цветом (кадр оффера). */
+  lineAccent?: boolean;
 };
 
 /** Ширина строки текста данным шрифтом (canvas.measureText или оценка в проверке). */
@@ -205,6 +210,21 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   // Лого — после героя, если место есть.
   // Герой в подложке — в левой трети (до ~36% её ширины); текст сразу за ним.
   let left = Math.round(heroW * 0.4);
+  if (o.logoHero && o.logo) {
+    const colW0 = right - left;
+    let lh = Math.round(h * 0.7);
+    let lw = Math.round((lh * o.logo.w) / Math.max(1, o.logo.h));
+    if (lw > colW0 * 0.9)
+      [lw, lh] = [
+        Math.round(colW0 * 0.9),
+        Math.round((colW0 * 0.9 * o.logo.h) / Math.max(1, o.logo.w)),
+      ];
+    ops.push({
+      kind: "logo",
+      box: { x: Math.round(left + (colW0 - lw) / 2), y: Math.round((h - lh) / 2), w: lw, h: lh },
+    });
+    return ops;
+  }
   if (o.logo && w >= 400) {
     const lh = Math.round(h * 0.42);
     const lw = Math.min(Math.round((lh * o.logo.w) / Math.max(1, o.logo.h)), Math.round(w * 0.14));
@@ -284,7 +304,7 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
         y: y0 + s * 1.08 * (i + 0.5),
         size: s,
         font: font(900, s, HEAD_FONT),
-        color: "#ffffff",
+        color: o.lineAccent ? o.accent : "#ffffff",
         align: "left",
         maxW: colW,
       }),
@@ -345,7 +365,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   const pad = Math.round(w * 0.09);
   const colW = w - pad * 2;
   let y = pad;
-  if (o.logo) {
+  if (o.logo && !o.logoHero) {
     const lh = Math.round(Math.min(w * 0.22, h * 0.06));
     const lw = Math.min(colW, Math.round((lh * o.logo.w) / Math.max(1, o.logo.h)));
     ops.push({ kind: "logo", box: { x: Math.round((w - lw) / 2), y, w: lw, h: lh } });
@@ -357,6 +377,21 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   const heroTop = (h - PLATE_TALL.h * plateScale) / 2 + PLATE_TALL.h * plateScale * 0.45;
   const top = y;
   const bottom = Math.max(top + h * 0.2, heroTop - pad * 0.5);
+  if (o.logoHero && o.logo) {
+    const zone = bottom - top;
+    let lw = colW;
+    let lh = (lw * o.logo.h) / Math.max(1, o.logo.w);
+    if (lh > zone * 0.5) [lh, lw] = [zone * 0.5, (zone * 0.5 * o.logo.w) / Math.max(1, o.logo.h)];
+    ops.push({
+      kind: "logo",
+      box: {
+        x: Math.round((w - lw) / 2),
+        y: Math.round(top + (zone - lh) / 2),
+        w: Math.round(lw),
+        h: Math.round(lh),
+      },
+    });
+  }
   const headline = o.texts.headline.trim().toUpperCase();
   const offer = o.texts.offer.trim();
   // Оффер афишей, как в промо-лендинге: числа огромные, слова к ним — строкой мельче
@@ -507,16 +542,46 @@ export type LayerSource = {
   opts: LayerOpts & { logoSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null };
 };
 
+/**
+ * Кадры GIF «по очереди» для мелких размеров: всё сразу не помещается (лого, заголовок,
+ * оффер, доп-текст), поэтому показываем по одному — заголовок → оффер → доп-текст →
+ * лого крупно. Фон, герой и кнопка общие для всех кадров.
+ */
+export type SlideName = "headline" | "offer" | "sub" | "brand";
+export function bannerSlides(o: LayerOpts): { name: SlideName; opts: LayerOpts }[] {
+  const t = o.texts;
+  const base: LayerOpts = { ...o, logo: null, logoHero: false, lineAccent: false };
+  const headline = t.headline.trim();
+  const offer = t.offer.trim();
+  const sub = (t.sub ?? "").trim();
+  const one = (text: string) => ({ ...t, headline: "", offer: text, sub: "" });
+  const out: { name: SlideName; opts: LayerOpts }[] = [];
+  if (headline) out.push({ name: "headline", opts: { ...base, texts: one(headline) } });
+  if (offer) out.push({ name: "offer", opts: { ...base, lineAccent: true, texts: one(offer) } });
+  if (sub) out.push({ name: "sub", opts: { ...base, texts: one(sub) } });
+  if (o.logo)
+    out.push({ name: "brand", opts: { ...base, logo: o.logo, logoHero: true, texts: one("") } });
+  return out;
+}
+
+/** Длина одного кадра «по очереди», с. */
+export const SLIDE_S = 1.8;
+
 /** Собранный баннер: раскладка готова, картинки загружены; draw рисует кадр. */
 export type PreparedBanner = {
   w: number;
   h: number;
   /** t — секунда цикла анимации (BANNER_LOOP_S); без t — статичный баннер. */
   draw: (g: CanvasRenderingContext2D, t?: number, style?: BannerMotion) => void;
+  /** Кадры «по очереди» (пусто, если показывать нечего — одна надпись без лого). */
+  slides: SlideName[];
+  /** Цикл GIF и с какой секунды его начинать (всё уже на месте). */
+  timing: (style: BannerMotion) => { loop: number; start: number };
 };
 
 /** full — надписи влетают по словам; light — надписи стоят, двигаются кнопка, оффер, блик, искры (лёгкий GIF). */
-export type BannerMotion = "full" | "light";
+/** slides — кадры по очереди (мелкие размеры: лого, заголовок, оффер, доп-текст). */
+export type BannerMotion = "full" | "light" | "slides";
 
 /** Длина цикла анимации баннера, с. */
 export const BANNER_LOOP_S = 4;
@@ -588,16 +653,19 @@ export async function prepareBanner(
     mc.font = f;
     return mc.measureText(t).width;
   };
-  const ops = layoutBanner(
-    w,
-    h,
-    kind,
-    {
-      ...o,
-      logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null,
-      ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null,
-    },
-    measure,
+  const full: LayerOpts = {
+    ...o,
+    logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null,
+    ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null,
+  };
+  const ops = layoutBanner(w, h, kind, full, measure);
+  const slideList = bannerSlides(full);
+  const slides = slideList.length > 1 ? slideList : [];
+  // Из кадра берём только его надписи и лого; фон, герой и кнопка — общие.
+  const slideOps = slides.map((sl) =>
+    layoutBanner(w, h, kind, sl.opts, measure).filter(
+      (op) => op.kind === "logo" || (op.kind === "text" && !op.noArt),
+    ),
   );
 
   // Статичные слои — один раз: размытый фон полосы и резкий герой с мягким краем.
@@ -641,6 +709,39 @@ export async function prepareBanner(
   const beats = [Math.min(L - 1.2, btnIn + 0.75)];
   // Второй блик кончается до начала цикла GIF (BANNER_GIF_START) — кадры на стыке чистые.
   const shines = [btnIn + 0.4, Math.min(L - 1.1, btnIn + 1.9)];
+
+  // Кадры: слова влетают по одному, в конце кадра уходят вверх; кнопка толкается.
+  // Переход кадра — строками целиком и коротко: на мелких размерах вес GIF —
+  // это кадры, где что-то движется (по словам с пружинкой — вдвое тяжелее).
+  const slideWordAt = slideOps.map((list) => {
+    const m = new Map<TextOp, number>();
+    let n = 0;
+    for (const op of list) if (op.kind === "text") m.set(op, 0.06 + n++ * 0.06);
+    return { m, ready: 0.06 + Math.max(0, n - 1) * 0.06 + 0.3 };
+  });
+  const slideExit = (lt: number) => clamp01((lt - (SLIDE_S - 0.24)) / 0.2);
+  const slideWord = (si: number, op: TextOp, _i: number, lt: number): Motion => {
+    const p = clamp01((lt - (slideWordAt[si].m.get(op) ?? 0)) / 0.28);
+    const q = slideExit(lt);
+    return {
+      alpha: Math.min(1, p * 2.5) * (1 - q),
+      scale: 0.82 + 0.18 * easeOutBack(p),
+      dy: (1 - easeOutCubic(p)) * op.size * 0.8 - q * op.size * 0.6,
+    };
+  };
+  const slideLogo = (lt: number): Motion => {
+    const p = clamp01((lt - 0.08) / 0.4);
+    return {
+      alpha: Math.min(1, p * 3) * (1 - slideExit(lt)),
+      scale: 0.5 + 0.5 * easeOutBack(p),
+      dy: 0,
+    };
+  };
+  const slideButton = (lt: number): Motion => ({
+    alpha: 1,
+    scale: 1 + beat(lt, 0.6, 0.11) * 0.08,
+    dy: 0,
+  });
 
   /** Появление слова i строки op в момент t. */
   const wordMotion = (op: TextOp, i: number, t: number | undefined): Motion => {
@@ -693,9 +794,14 @@ export async function prepareBanner(
     g.restore();
   };
   /** Блик по кнопке: светлая косая полоса только по самой кнопке. */
-  const btnShine = (g: CanvasRenderingContext2D, b: Box, t: number | undefined) => {
+  const btnShine = (
+    g: CanvasRenderingContext2D,
+    b: Box,
+    t: number | undefined,
+    at: number[] = shines,
+  ) => {
     if (t === undefined) return;
-    for (const c of shines) {
+    for (const c of at) {
       const p = (t - c) / 0.5;
       if (p <= 0 || p >= 1) continue;
       const off = document.createElement("canvas");
@@ -747,10 +853,23 @@ export async function prepareBanner(
   const draw = (g: CanvasRenderingContext2D, t?: number, style: BannerMotion = "full") => {
     // Лёгкий вариант: надписи стоят (без вылета, удара и затухания) — двигаются кнопка, блик, искры.
     const wordT = style === "light" ? undefined : t;
+    // Кадры по очереди: общие слои из основной раскладки + надписи/лого текущего кадра.
+    const sl = style === "slides" && t !== undefined && slides.length > 1;
+    const si = sl ? Math.floor(t / SLIDE_S) % slides.length : 0;
+    const lt = sl ? t - Math.floor(t / SLIDE_S) * SLIDE_S : 0;
+    const layer = sl
+      ? [
+          ...ops.filter((op) => op.kind !== "logo" && !(op.kind === "text" && !op.noArt)),
+          ...slideOps[si],
+        ]
+      : ops;
+    const wm = (op: TextOp, i: number) =>
+      sl ? slideWord(si, op, i, lt) : wordMotion(op, i, wordT);
+    const lm = (op: TextOp) => (sl ? STILL : lineMotion(op, wordT));
     g.fillStyle = "#0b0815";
     g.fillRect(0, 0, w, h);
     const sparkAt: { x: number; y: number }[] = [];
-    for (const op of ops) {
+    for (const op of layer) {
       if (op.kind === "plate") {
         if (op.mode === "strip-left" && bgBlur && hero) {
           // Фон и герой стоят: в GIF вес — это пиксели, которые меняются; движутся надписи и кнопка.
@@ -777,12 +896,18 @@ export async function prepareBanner(
         const sc = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);
         const lw = logo.naturalWidth * sc,
           lh = logo.naturalHeight * sc;
-        g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh);
+        moved(g, sl ? slideLogo(lt) : STILL, b.x + b.w / 2, b.y + b.h / 2, () =>
+          g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh),
+        );
       } else if (op.kind === "button") {
         const b = op.box;
         moved(
           g,
-          style === "light" && t !== undefined ? buttonLight(t) : buttonMotion(t),
+          sl
+            ? slideButton(lt)
+            : style === "light" && t !== undefined
+              ? buttonLight(t)
+              : buttonMotion(t),
           b.x + b.w / 2,
           b.y + b.h / 2,
           () => {
@@ -805,7 +930,9 @@ export async function prepareBanner(
             }
             // Подпись кодовой кнопки — вместе с кнопкой.
             for (const lb of ops) if (lb.kind === "text" && lb.noArt) drawText(g, lb);
-            btnShine(g, b, t);
+            // В кадрах — блик на первом и последнем (лого/CTA), не на каждом: вес.
+            if (sl) btnShine(g, b, si === 0 || si === slides.length - 1 ? lt : undefined, [0.85]);
+            else btnShine(g, b, t);
           },
         );
         sparkAt.push({ x: b.x + b.w * 0.92, y: b.y + b.h * 0.12 });
@@ -822,12 +949,12 @@ export async function prepareBanner(
               ? op.x - a.width * fit
               : op.x;
         const x0 = x;
-        moved(g, lineMotion(op, wordT), x0 + (a.width * fit) / 2, op.y, () =>
+        moved(g, lm(op), x0 + (a.width * fit) / 2, op.y, () =>
           a.words.forEach((p, i) => {
             const pw = p.w * a.k * fit;
             const ph = p.h * a.k * fit;
             const px = x;
-            moved(g, wordMotion(op, i, wordT), px + pw / 2, op.y, () =>
+            moved(g, wm(op, i), px + pw / 2, op.y, () =>
               g.drawImage(p.img, px, op.y - ph / 2, pw, ph),
             );
             x += pw + a.gap * fit;
@@ -843,13 +970,11 @@ export async function prepareBanner(
         const tw = Math.min(op.maxW, g.measureText(op.text).width);
         const cx =
           op.align === "center" ? op.x : op.align === "right" ? op.x - tw / 2 : op.x + tw / 2;
-        moved(g, lineMotion(op, wordT), cx, op.y, () =>
-          moved(g, wordMotion(op, 0, wordT), cx, op.y, () => drawText(g, op)),
-        );
+        moved(g, lm(op), cx, op.y, () => moved(g, wm(op, 0), cx, op.y, () => drawText(g, op)));
       }
     }
-    // Искры: у оффера и кнопки, по очереди после появления.
-    if (t !== undefined) {
+    // Искры: у оффера и кнопки, по очереди после появления (в кадрах — нет: вес).
+    if (t !== undefined && !sl) {
       const r = Math.max(6, Math.min(w, h) * 0.2);
       sparkAt.slice(0, 4).forEach((p, i) => {
         const c = btnIn + 0.6 + i * 0.55;
@@ -859,7 +984,11 @@ export async function prepareBanner(
       });
     }
   };
-  return { w, h, draw };
+  const timing = (style: BannerMotion) =>
+    style === "slides" && slides.length > 1
+      ? { loop: slides.length * SLIDE_S, start: slideWordAt[0].ready }
+      : { loop: BANNER_LOOP_S, start: BANNER_GIF_START };
+  return { w, h, draw, slides: slides.map((s) => s.name), timing };
 }
 
 function drawText(g: CanvasRenderingContext2D, op: TextOp) {
@@ -906,12 +1035,13 @@ export function bannerFrames(
   c.width = b.w;
   c.height = b.h;
   const g = c.getContext("2d", { willReadFrequently: true })!;
-  const n = Math.round(BANNER_LOOP_S * fps);
+  const { loop, start } = b.timing(style);
+  const n = Math.round(loop * fps);
   return Array.from({ length: n }, (_, i) => {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
-    b.draw(g, (BANNER_GIF_START + (i / n) * BANNER_LOOP_S) % BANNER_LOOP_S, style);
+    b.draw(g, (start + (i / n) * loop) % loop, style);
     return g.getImageData(0, 0, b.w, b.h).data;
   });
 }

@@ -2,7 +2,15 @@
 // (одна генерация на «полосы» и одна на «башни») + текст и кнопка кодом.
 
 import { accentFromPalette, paletteFromImage } from "./imagePalette";
-import { compactOffer, layerKind, offerRows, renderBanner, type BannerTexts, type LayerKind, type LayerSource } from "./bannerLayers";
+import {
+  compactOffer,
+  layerKind,
+  offerRows,
+  renderBanner,
+  type BannerTexts,
+  type LayerKind,
+  type LayerSource,
+} from "./bannerLayers";
 import { sheetTokens, type ArtPiece, type ArtRole } from "./textArt";
 import { apiFetch } from "./api-client";
 import { extractMasterDetails, generateImage, type GeneratePayload } from "./imageGen";
@@ -19,16 +27,25 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
     headline: (base.banner_text || base.event_text || "").trim(),
     offer: (base.bonus_text || base.subheadline_text || "").trim(),
     cta: (base.button_text || "").trim(),
+    // Доп-текст — подзаголовок, если оффер уже взят из bonus_text.
+    sub: base.bonus_text ? (base.subheadline_text || "").trim() : "",
   };
   if (t.headline || t.offer) return { ...t, cta: t.cta || "Play" };
   const md = await extractMasterDetails(master).catch(() => null);
-  const items = (md?.banner_texts ?? []).map((b) => (typeof b === "string" ? { text: b, position: "" } : b));
+  const items = (md?.banner_texts ?? []).map((b) =>
+    typeof b === "string" ? { text: b, position: "" } : b,
+  );
   const btn = items.find((b) => b.position.startsWith("button"));
-  const rest = items.filter((b) => b !== btn).map((b) => b.text.trim()).filter(Boolean);
+  const rest = items
+    .filter((b) => b !== btn)
+    .map((b) => b.text.trim())
+    .filter(Boolean);
   // Оффер — строка с числом, заголовок — первая другая.
   const offer = rest.find((x) => /\d/.test(x)) ?? rest[1] ?? "";
   const headline = rest.find((x) => x !== offer) ?? "";
-  return { headline, offer, cta: btn?.text.trim() || t.cta || "Play" };
+  // Доп-текст — следующая надпись мастера (условия, «только для новых» и т.п.).
+  const sub = rest.find((x) => x !== offer && x !== headline) ?? "";
+  return { headline, offer, sub, cta: btn?.text.trim() || t.cta || "Play" };
 }
 
 /**
@@ -38,9 +55,15 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
  */
 async function textArt(texts: BannerTexts, master: string): Promise<ArtPiece[]> {
   const lines: { text: string; role?: ArtRole }[] = [{ text: texts.headline, role: "light" }];
-  for (const r of offerRows(texts.offer)) lines.push({ text: r.text, role: r.accent ? "accent" : "light" });
+  for (const r of offerRows(texts.offer))
+    lines.push({ text: r.text, role: r.accent ? "accent" : "light" });
   lines.push({ text: texts.offer }, { text: compactOffer(texts.offer) });
-  const tokens = sheetTokens(lines.filter((l) => l.text.trim()), 13);
+  // Доп-текст — последним: лист ограничен, недостающие слова кадр нарисует шрифтом.
+  if (texts.sub) lines.push({ text: texts.sub, role: "light" });
+  const tokens = sheetTokens(
+    lines.filter((l) => l.text.trim()),
+    13,
+  );
   // Кнопка — последней строкой листа, целиком (плашка с надписью).
   if (texts.cta.trim()) tokens.push({ text: texts.cta.trim().toUpperCase(), role: "button" });
   if (!tokens.length) return [];
@@ -75,13 +98,18 @@ export const isLayered = (s: { w: number; h: number }) => layerKind(s.w, s.h) !=
 export async function runLayered(
   sizes: { w: number; h: number }[],
   ctx: LayeredCtx,
-  onTile: (s: { w: number; h: number }, r: { dataUrl: string; layers: LayerSource } | { error: string }) => void,
+  onTile: (
+    s: { w: number; h: number },
+    r: { dataUrl: string; layers: LayerSource } | { error: string },
+  ) => void,
   cancelled: () => boolean,
 ): Promise<void> {
   if (!sizes.length) return;
   const [texts, accent] = await Promise.all([
     bannerTexts(ctx.base, ctx.master),
-    paletteFromImage(ctx.master).then(accentFromPalette).catch(() => "#f5b324"),
+    paletteFromImage(ctx.master)
+      .then(accentFromPalette)
+      .catch(() => "#f5b324"),
   ]);
   // Надписи — одна генерация на мастер (повтор тайла и вторая пачка их не тратят).
   const artKey = `${ctx.epoch}|${ctx.master.length}|${ctx.master.slice(-48)}`;
@@ -132,7 +160,17 @@ export async function runLayered(
       if (cancelled()) return;
       try {
         // Слои остаются у тайла — из них GIF собирает анимацию по элементам.
-        const layers: LayerSource = { kind, plate, opts: { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art: art.filter((p) => p.role !== "button"), cta: art.find((p) => p.role === "button") ?? null } };
+        const layers: LayerSource = {
+          kind,
+          plate,
+          opts: {
+            texts,
+            accent,
+            logoSrc: ctx.base.brand_logo || undefined,
+            art: art.filter((p) => p.role !== "button"),
+            cta: art.find((p) => p.role === "button") ?? null,
+          },
+        };
         onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, layers.opts), layers });
       } catch (e) {
         onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });

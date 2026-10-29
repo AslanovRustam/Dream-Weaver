@@ -15,7 +15,13 @@ import {
   pixelsFromImage,
   type GifEffects,
 } from "@/lib/bannerGif";
-import { bannerFrames, prepareBanner, type LayerSource } from "@/lib/bannerLayers";
+import {
+  bannerFrames,
+  bannerSlides,
+  prepareBanner,
+  type LayerSource,
+  type SlideName,
+} from "@/lib/bannerLayers";
 
 type Props = {
   open: boolean;
@@ -28,6 +34,12 @@ type Props = {
 };
 
 const SIDES = [320, 480, 640];
+const SLIDE_LABEL: Record<SlideName, string> = {
+  headline: "заголовок",
+  offer: "оффер",
+  sub: "доп-текст",
+  brand: "лого",
+};
 
 /** Хранилище не отдаёт CORS — для канваса удалённую картинку берём через свой сервер. */
 const fetched = new Map<string, Promise<string>>();
@@ -53,7 +65,18 @@ const chip = (on: boolean) =>
 
 export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
   // «Сцена» — надписи и кнопка двигаются (есть слои); «Блик» — эффекты поверх картинки.
-  const [mode, setMode] = useState<"scene" | "light" | "flat">(layers ? "scene" : "flat");
+  // Кадры по очереди — если есть что чередовать (заголовок, оффер, доп-текст, лого);
+  // на мелких размерах всё сразу не помещается — там они по умолчанию.
+  const slideNames = layers
+    ? bannerSlides({ ...layers.opts, logo: layers.opts.logoSrc ? { w: 1, h: 1 } : null }).map(
+        (x) => x.name,
+      )
+    : [];
+  const canSlides = slideNames.length > 1;
+  const small = !!size && (size.w / size.h >= 3.2 ? size.h <= 60 : size.w <= 160);
+  const [mode, setMode] = useState<"scene" | "light" | "slides" | "flat">(
+    !layers ? "flat" : canSlides && small ? "slides" : "scene",
+  );
   const [limit, setLimit] = useState(true);
   const [fx, setFx] = useState<GifEffects>({ shine: true, sparkles: true, zoom: false });
   const [plays, setPlays] = useState(3);
@@ -111,7 +134,12 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
           );
           if (off) return;
           r = makeGifFromFrames(
-            (fps) => bannerFrames(b, fps, mode === "light" ? "light" : "full"),
+            (fps) =>
+              bannerFrames(
+                b,
+                fps,
+                mode === "light" ? "light" : mode === "slides" ? "slides" : "full",
+              ),
             dims.w,
             dims.h,
             { plays, maxBytes },
@@ -175,6 +203,15 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
                   >
                     Элементы
                   </button>
+                  {canSlides ? (
+                    <button
+                      type="button"
+                      className={chip(mode === "slides")}
+                      onClick={() => setMode("slides")}
+                    >
+                      Кадры
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className={chip(mode === "light")}
@@ -194,6 +231,12 @@ export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
                   <p className="ds-caption mt-2 text-muted-foreground">
                     Надписи влетают по словам, оффер «бьётся», кнопка выскакивает, по ней бежит
                     блик. Тяжелее 150 КБ — как у дизайнеров (230–420 КБ).
+                  </p>
+                ) : null}
+                {mode === "slides" ? (
+                  <p className="ds-caption mt-2 text-muted-foreground">
+                    По очереди: {slideNames.map((n) => SLIDE_LABEL[n]).join(" → ")}. Фон и кнопка
+                    стоят, меняется текст.
                   </p>
                 ) : null}
                 {mode === "light" ? (
