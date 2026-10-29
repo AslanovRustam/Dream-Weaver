@@ -35,7 +35,8 @@ import JSZip from "jszip";
 import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
-import { resizeCredits } from "@/lib/credit-estimate";
+import { PLAYABLE_ASSET_PRICE_CREDITS, resizeCredits } from "@/lib/credit-estimate";
+import { layerKind } from "@/lib/bannerLayers";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -135,7 +136,12 @@ export function ResizeBatchPanel({
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
-  const packageCredits = useMemo(() => resizeCredits(selected.size), [selected]);
+  // Тонкие форматы (728×90, 300×1050…) собираются слоями: плюс один лист надписей,
+  // нарисованных моделью (плоская цена). Оценка не должна занижать списание.
+  const packageCredits = useMemo(() => {
+    const layered = [...selected.values()].some((s) => layerKind(s.w, s.h) !== null);
+    return resizeCredits(selected.size) + (layered ? PLAYABLE_ASSET_PRICE_CREDITS : 0);
+  }, [selected]);
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;
