@@ -9,7 +9,7 @@
 
 import { BANNER_SIZE_GROUPS } from "../src/lib/bannerSizes";
 import { bandsFromAlpha, sameWord, sheetTokens } from "../src/lib/textArt";
-import { compactOffer, layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
+import { wrapUnits, compactOffer, layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
 
 // Оценка ширины: Unbounded 900 широкий (~0.78 em на знак в верхнем регистре), Manrope 800 — ~0.6 em.
 const measure: Measure = (t, f) => {
@@ -84,6 +84,14 @@ ok(compactOffer("Фрибет 5 000 ₽") === "FB 5K ₽", `compactOffer фри�
   ok(sameWord("КРУТИ", "KPYTИ") && !sameWord("500", "5OO"), "sameWord");
   const tk = sheetTokens([{ text: "Крути колесо", role: "light" }, { text: "+200% до 50 000 ₽" }, { text: "Крути" }]);
   ok(tk.map((t) => t.text).join("|") === "КРУТИ|КОЛЕСО|+200%|ДО|50 000|₽" && tk[2].role === "accent", `sheetTokens: ${JSON.stringify(tk)}`);
+}
+
+// Перенос по смыслу: «+» и «и» — со следующим, предлог — с числом, число — со словом.
+{
+  const u = (t: string) => wrapUnits(t).map((x) => x.join(" ")).join(" | ");
+  ok(u("+200% + 500 ФРИСПИНОВ") === "+200% | + 500 ФРИСПИНОВ", `wrapUnits: ${u("+200% + 500 ФРИСПИНОВ")}`);
+  ok(u("+200% до 50 000 ₽ и 500 фриспинов") === "+200% | до 50 000 ₽ | и 500 фриспинов", `wrapUnits: ${u("+200% до 50 000 ₽ и 500 фриспинов")}`);
+  ok(u("Крути колесо викингов") === "Крути | колесо | викингов", "wrapUnits: заголовок по словам");
 }
 
 if (fails.length) {

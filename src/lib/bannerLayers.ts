@@ -78,21 +78,48 @@ function fitSize(
 }
 
 /** Перенос по словам в не более чем lines строк заданной ширины. */
-function wrap(m: Measure, text: string, f: string, maxW: number, lines: number): string[] | null {
+/**
+ * Смысловые куски строки — переносим только между ними, чтобы не рвать логику оффера:
+ * «+» / «и» идут вместе со следующим («+ 500 фриспинов» целиком на новую строку),
+ * предлог — со своим числом («до 50 000 ₽»), число — со своим словом («500 фриспинов»).
+ */
+export function wrapUnits(text: string): string[][] {
   // «50 000», «1 000 000» — одно слово: разряды не разносим по строкам.
   const words = text
     .replace(/(\d)\s(?=\d{3}\b)/g, "$1\u00a0")
     .split(/[ \t\n]+/)
     .filter(Boolean);
+  const isSep = (w: string) => /^(\+|&|и|і|та|and|y|e|und|et|ve)$/i.test(w);
+  const isPrep = (w: string) => /^(до|от|на|за|по|из|up|to|of|bis|до\.)$/i.test(w);
+  const isNum = (w: string) => /\d/.test(w);
+  const units: string[][] = [];
+  let cur: string[] = [];
+  words.forEach((w, i) => {
+    cur.push(w);
+    const next = words[i + 1];
+    const glue = next !== undefined && (isSep(w) || isPrep(w) || (isNum(w) && !isNum(next) && !isSep(next) && !isPrep(next)));
+    if (!glue) {
+      units.push(cur);
+      cur = [];
+    }
+  });
+  if (cur.length) units.push(cur);
+  return units;
+}
+
+function wrap(m: Measure, text: string, f: string, maxW: number, lines: number): string[] | null {
+  // Кусок шире строки — смысл не рвём: не влезает (вызывающий возьмёт сжатый оффер или
+  // кегль мельче). Делим на слова только одно слово-кусок не делится — тогда тоже нет.
+  const units = wrapUnits(text).map((u) => u.join(" "));
   const out: string[] = [];
   let cur = "";
-  for (const w of words) {
-    const t = cur ? `${cur} ${w}` : w;
+  for (const u of units) {
+    const t = cur ? `${cur} ${u}` : u;
     if (m(t, f) <= maxW) cur = t;
     else {
       if (!cur) return null; // одно слово шире строки
       out.push(cur);
-      cur = w;
+      cur = u;
     }
   }
   if (cur) out.push(cur);
