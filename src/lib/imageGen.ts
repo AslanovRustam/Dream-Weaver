@@ -192,7 +192,8 @@ export type GenerateResult = {
 /** Тело запроса /api/generate-image — то же для вкладки и для серверной очереди генераций. */
 export function bannerRequestBody(payload: GeneratePayload): Record<string, unknown> {
   const preset = PRESETS.find((p) => p.id === payload.preset_id);
-  const subject = payload.prompt.trim();
+  // Своя картинка (GIF-генератор) приходит без формы — полей может не быть вовсе.
+  const subject = (payload.prompt || "").trim();
   return {
     preset_id: payload.preset_id,
     subject,

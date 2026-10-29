@@ -320,12 +320,12 @@ export async function gifLayersFor(
   ctx: LayeredCtx,
 ): Promise<LayerSource> {
   const kind = gifKind(size.w, size.h);
+  // Сначала дешёвое (фон ≈ 1.6 кр.), потом дорогое (персонаж и надписи — по 23):
+  // упадёт фон — дорогие генерации не запускаются и не списываются.
+  const bg = await bgFor(size.w >= size.h ? "wide" : "tall", ctx);
   const hero = await heroFor(ctx).catch(() => null);
   if (!hero) return layersFor(size, ctx);
-  const [{ texts, accent, art }, bg] = await Promise.all([
-    masterArt(ctx),
-    bgFor(size.w >= size.h ? "wide" : "tall", ctx),
-  ]);
+  const { texts, accent, art } = await masterArt(ctx);
   return {
     kind,
     plate: bg,
