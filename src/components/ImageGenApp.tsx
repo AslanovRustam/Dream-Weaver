@@ -52,6 +52,7 @@ import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAuthGate } from "@/components/AuthGate";
 import { useEditorHistory, type Snapshot } from "@/lib/editor-history";
+import { GifDialog } from "@/components/resize/GifDialog";
 
 const RATIOS_GPT = ["1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "4:5", "5:4"];
 const RATIOS_NANO = [
@@ -185,6 +186,7 @@ export function ImageGenApp() {
   const [ratio, setRatio] = useState("1:1");
   const [quality, setQuality] = useState<Quality>("medium");
   const [status, setStatus] = useState<Status>("idle");
+  const [gifOpen, setGifOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   // Live elapsed-seconds counter for the master loader. The static "10–30 сек"
   // copy alone reads as frozen on longer runs; a ticking counter proves the
@@ -2050,6 +2052,13 @@ export function ImageGenApp() {
                             <Download className="h-4 w-4 text-muted-foreground" />
                             Скачать
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setGifOpen(true)}
+                            className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                          >
+                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                            Сделать GIF
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-border" />
                           <DropdownMenuItem
                             onClick={async () => {
@@ -2163,6 +2172,8 @@ export function ImageGenApp() {
           })()}
         </div>
       </div>
+
+      {imageUrl ? <GifDialog open={gifOpen} onOpenChange={setGifOpen} src={imageUrl} /> : null}
 
       {zoomOpen && zoomSrc && (
         <FullscreenImageModal src={zoomSrc} onClose={() => setZoomOpen(false)} />

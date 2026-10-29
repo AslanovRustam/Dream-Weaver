@@ -19,6 +19,7 @@ const CHECKS = [
   { name: "Мои проекты", cmd: tsx("scripts/projects-check.mts") },
   { name: "Кампания", cmd: tsx("scripts/campaign-check.mts") },
   { name: "Баннеры: тонкие форматы слоями", cmd: tsx("scripts/banner-layers-check.mts") },
+  { name: "Баннеры: GIF из готового баннера", cmd: tsx("scripts/banner-gif-check.mts") },
   { name: "Палитра по картинке", cmd: tsx("scripts/palette-check.mts") },
   { name: "Запасная генерация (Grok)", cmd: tsx("scripts/grok-check.mts") },
   { name: "Плейблы: сцены × сети × языки", cmd: tsx("scripts/scene-export-check.mts") },

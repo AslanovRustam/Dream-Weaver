@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Download,
   Eye,
+  Sparkles,
   FileArchive,
   Info,
   Loader2,
@@ -37,6 +38,7 @@ import { toast } from "sonner";
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { PLAYABLE_ASSET_PRICE_CREDITS, resizeCredits } from "@/lib/credit-estimate";
 import { layerKind } from "@/lib/bannerLayers";
+import { GifDialog } from "./GifDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -133,6 +135,7 @@ export function ResizeBatchPanel({
   // separate from the modal so opening it never resets the batch/scroll.
   const [viewTile, setViewTile] = useState<BatchTile | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<BatchTile | null>(null);
+  const [gifTile, setGifTile] = useState<BatchTile | null>(null);
 
   const selectedCount = selected.size;
   const totalAcross = useMemo(() => BANNER_SIZE_GROUPS.reduce((s, g) => s + g.sizes.length, 0), []);
@@ -491,7 +494,7 @@ export function ResizeBatchPanel({
           // Never close the batch modal while the fullscreen viewer or a delete
           // confirmation is open (Escape/click there must only dismiss that
           // layer), or mid-generation.
-          if (!v && (viewTile || confirmDelete || !closable)) return;
+          if (!v && (viewTile || confirmDelete || gifTile || !closable)) return;
           setOpen(v);
         }}
       >
@@ -501,13 +504,13 @@ export function ResizeBatchPanel({
           // Generating step already hides it (not closable).
           hideClose={!closable || effectivePhase === "select" || effectivePhase === "result"}
           onEscapeKeyDown={(e) => {
-            if (viewTile || confirmDelete || !closable) {
+            if (viewTile || confirmDelete || gifTile || !closable) {
               e.preventDefault();
               if (confirmDelete) setConfirmDelete(null);
             }
           }}
           onInteractOutside={(e) => {
-            if (viewTile || confirmDelete || !closable) e.preventDefault();
+            if (viewTile || confirmDelete || gifTile || !closable) e.preventDefault();
           }}
           className={`flex ${contentSize} ${mobileFullscreen} flex-col gap-0 rounded-2xl border border-border bg-panel p-0`}
         >
@@ -889,6 +892,15 @@ export function ResizeBatchPanel({
                                     Скачать
                                   </DropdownMenuItem>
                                 ) : null}
+                                {t.status === "done" && t.dataUrl ? (
+                                  <DropdownMenuItem
+                                    onClick={() => setGifTile(t)}
+                                    className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground max-sm:py-3 max-sm:text-base"
+                                  >
+                                    <Sparkles className="h-4 w-4 text-muted-foreground max-sm:h-5 max-sm:w-5" />
+                                    Сделать GIF
+                                  </DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuItem
                                   onClick={() => {
                                     toast(`Перегенерируем формат ${t.size.w}×${t.size.h}…`);
@@ -998,6 +1010,10 @@ export function ResizeBatchPanel({
 
       {viewTile ? (
         <ResizeLightbox tile={viewTile} onClose={() => setViewTile(null)} />
+      ) : null}
+
+      {gifTile?.dataUrl ? (
+        <GifDialog open onOpenChange={(v) => !v && setGifTile(null)} src={gifTile.dataUrl} size={{ w: gifTile.size.w, h: gifTile.size.h }} />
       ) : null}
     </div>
   );
