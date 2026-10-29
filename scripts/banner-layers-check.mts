@@ -8,6 +8,7 @@
 // оффер виден. Сама отрисовка на canvas — в браузере, тут не нужна.
 
 import { BANNER_SIZE_GROUPS } from "../src/lib/bannerSizes";
+import { bandsFromAlpha, sameWord, sheetTokens } from "../src/lib/textArt";
 import { compactOffer, layerKind, layoutBanner, type Box, type Measure, type Op } from "../src/lib/bannerLayers";
 
 // Оценка ширины: Unbounded 900 широкий (~0.78 em на знак в верхнем регистре), Manrope 800 — ~0.6 em.
@@ -73,6 +74,17 @@ for (const s of sizes) {
 // Сжатие оффера: кириллические окончания не остаются хвостом.
 ok(compactOffer("+200% до 50 000 ₽ и 500 фриспинов") === "+200% до 50K ₽ + 500 FS", `compactOffer: ${compactOffer("+200% до 50 000 ₽ и 500 фриспинов")}`);
 ok(compactOffer("Фрибет 5 000 ₽") === "FB 5K ₽", `compactOffer фрибет: ${compactOffer("Фрибет 5 000 ₽")}`);
+
+// Надписи-ассеты: лист режется ровно на слова, тень не даёт лишней полосы.
+{
+  const rows = [...Array(10).fill(0), ...Array(30).fill(50), ...Array(3).fill(0), ...Array(4).fill(9), ...Array(20).fill(0), ...Array(30).fill(60), ...Array(10).fill(0)];
+  const b = bandsFromAlpha(rows, 2);
+  ok(!!b && b.length === 2 && b[0][0] === 10 && b[0][1] === 47 && b[1][0] === 67 && b[1][1] === 97, `bandsFromAlpha: ${JSON.stringify(b)}`);
+  ok(bandsFromAlpha(rows, 3) === null, "bandsFromAlpha: 3 полосы из 2");
+  ok(sameWord("КРУТИ", "KPYTИ") && !sameWord("500", "5OO"), "sameWord");
+  const tk = sheetTokens([{ text: "Крути колесо", role: "light" }, { text: "+200% до 50 000 ₽" }, { text: "Крути" }]);
+  ok(tk.map((t) => t.text).join("|") === "КРУТИ|КОЛЕСО|+200%|ДО|50 000|₽" && tk[2].role === "accent", `sheetTokens: ${JSON.stringify(tk)}`);
+}
 
 if (fails.length) {
   console.log(fails.map((f) => "✗ " + f).join("\n"));

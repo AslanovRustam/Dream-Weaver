@@ -2,7 +2,9 @@
 // (одна генерация на «полосы» и одна на «башни») + текст и кнопка кодом.
 
 import { accentFromPalette, paletteFromImage } from "./imagePalette";
-import { layerKind, renderBanner, type BannerTexts, type LayerKind } from "./bannerLayers";
+import { compactOffer, layerKind, offerRows, renderBanner, type BannerTexts, type LayerKind } from "./bannerLayers";
+import { sheetTokens, type ArtPiece, type ArtRole } from "./textArt";
+import { apiFetch } from "./api-client";
 import { extractMasterDetails, generateImage, type GeneratePayload } from "./imageGen";
 
 /** Размер подложки: 3:1 / 1:3, рёбра кратны 16 — модель рисует его как есть. */
@@ -29,6 +31,33 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
   return { headline, offer, cta: btn?.text.trim() || t.cta || "Play" };
 }
 
+/**
+ * Надписи-ассеты: модель рисует слова баннера одним листом в стиле мастера.
+ * Порядок важен (лист — до 14 слов): заголовок, строки афиши оффера, сам оффер
+ * и его сжатый вид — их берут узкие полосы. Пусто/ошибка — рисуем шрифтом.
+ */
+async function textArt(texts: BannerTexts, master: string): Promise<ArtPiece[]> {
+  const lines: { text: string; role?: ArtRole }[] = [{ text: texts.headline, role: "light" }];
+  for (const r of offerRows(texts.offer)) lines.push({ text: r.text, role: r.accent ? "accent" : "light" });
+  lines.push({ text: texts.offer }, { text: compactOffer(texts.offer) });
+  const tokens = sheetTokens(lines.filter((l) => l.text.trim()));
+  if (!tokens.length) return [];
+  try {
+    const res = await apiFetch("/api/generate-text-art", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokens, style_image: master }),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { pieces?: (ArtPiece & { ok: boolean })[] };
+    return (data.pieces ?? []).filter((p) => p.ok);
+  } catch {
+    return [];
+  }
+}
+
+const artCache = new Map<string, ArtPiece[]>();
+
 export type LayeredCtx = {
   master: string;
   base: GeneratePayload;
@@ -52,6 +81,13 @@ export async function runLayered(
     bannerTexts(ctx.base, ctx.master),
     paletteFromImage(ctx.master).then(accentFromPalette).catch(() => "#f5b324"),
   ]);
+  // Надписи — одна генерация на мастер (повтор тайла и вторая пачка их не тратят).
+  const artKey = `${ctx.epoch}|${ctx.master.length}|${ctx.master.slice(-48)}`;
+  let art = artCache.get(artKey);
+  if (!art) {
+    art = await textArt(texts, ctx.master);
+    artCache.set(artKey, art);
+  }
   for (const kind of ["strip", "tower"] as const) {
     const group = sizes.filter((s) => layerKind(s.w, s.h) === kind);
     if (!group.length || cancelled()) continue;
@@ -93,7 +129,7 @@ export async function runLayered(
     for (const s of group) {
       if (cancelled()) return;
       try {
-        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, { texts, accent, logoSrc: ctx.base.brand_logo || undefined }) });
+        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art }) });
       } catch (e) {
         onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });
       }

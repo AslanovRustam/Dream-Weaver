@@ -10,6 +10,8 @@
 // layoutBanner — чистая раскладка (без DOM, проверяется в scripts/banner-layers-check.mts),
 // renderBanner — отрисовка раскладки на canvas в браузере.
 
+import { artWords, type ArtPiece } from "./textArt";
+
 export type LayerKind = "strip" | "tower";
 
 /** Какие размеры собираем слоями: очень вытянутые. Остальные — как раньше (i2i + кроп). */
@@ -43,6 +45,8 @@ export type TextOp = {
   color: string;
   align: CanvasTextAlign;
   maxW: number;
+  /** Текст кнопки — всегда шрифтом, не надписями-ассетами. */
+  noArt?: boolean;
 };
 export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
@@ -145,6 +149,7 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
       size,
       font: font(800, size, BODY_FONT),
       color: inkOn(o.accent),
+      noArt: true,
       align: "center",
       maxW: bw - 6,
     });
@@ -390,6 +395,7 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
       size,
       font: font(800, size, BODY_FONT),
       color: inkOn(o.accent),
+      noArt: true,
       align: "center",
       maxW: bw - 6,
     });
@@ -440,18 +446,38 @@ export async function renderBanner(
   h: number,
   kind: LayerKind,
   plateSrc: string,
-  o: LayerOpts & { logoSrc?: string },
+  o: LayerOpts & { logoSrc?: string; art?: ArtPiece[] },
 ): Promise<string> {
   await ensureFonts();
-  const [plate, logo] = await Promise.all([
+  const [plate, logo, artImgs] = await Promise.all([
     loadImg(plateSrc),
     o.logoSrc ? loadImg(o.logoSrc).catch(() => null) : Promise.resolve(null),
+    Promise.all((o.art ?? []).map((p) => loadImg(p.src).then((img) => ({ ...p, img })).catch(() => null))),
   ]);
+  // Надписи-ассеты: слово → картинка. Все слова листа одной высоты букв, поэтому
+  // масштаб общий — по медиане высот (у «+» и коротких слов рамка ниже, но буквы те же).
+  const art = new Map(artImgs.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.text, p]));
+  const hs = [...art.values()].map((p) => p.h).sort((a, b) => a - b);
+  const artRefH = hs.length ? hs[Math.floor(hs.length / 2)] : 1;
+  /** Строка целиком из ассетов → слова с масштабом; иначе null (рисуем шрифтом). */
+  const artLine = (op: { text: string; size: number; noArt?: boolean }) => {
+    if (op.noArt || !art.size) return null;
+    const words = artWords(op.text).map((w) => art.get(w));
+    if (!words.length || words.some((p) => !p)) return null;
+    const k = (op.size * 1.12) / artRefH;
+    const gap = op.size * 0.18;
+    const width = words.reduce((sum, p) => sum + p!.w * k, 0) + gap * (words.length - 1);
+    return { words: words as NonNullable<(typeof words)[number]>[], k, gap, width };
+  };
+  const sizeOf = (f: string) => parseFloat(/(\d+(?:\.\d+)?)px/.exec(f)?.[1] ?? "16");
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
   const g = c.getContext("2d")!;
   const measure: Measure = (t, f) => {
+    // Шрифт кнопки (Manrope 800, по центру) ассетов не получает — меряем как есть.
+    const a = artLine({ text: t, size: sizeOf(f) });
+    if (a) return a.width;
     g.font = f;
     return g.measureText(t).width;
   };
@@ -524,6 +550,17 @@ export async function renderBanner(
       g.fillStyle = hi;
       roundRect(g, b, Math.round(b.h * 0.32));
       g.fill();
+    } else if (op.kind === "text" && artLine(op)) {
+      const a = artLine(op)!;
+      // Шире колонки (крайний случай) — ужимаем строку целиком.
+      const fit = Math.min(1, op.maxW / a.width);
+      let x = op.align === "center" ? op.x - (a.width * fit) / 2 : op.align === "right" ? op.x - a.width * fit : op.x;
+      for (const p of a.words) {
+        const pw = p.w * a.k * fit;
+        const ph = p.h * a.k * fit;
+        g.drawImage(p.img, x, op.y - ph / 2, pw, ph);
+        x += pw + a.gap * fit;
+      }
     } else if (op.kind === "text") {
       g.font = op.font;
       g.textAlign = op.align;
