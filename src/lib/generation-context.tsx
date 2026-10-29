@@ -39,6 +39,7 @@ import {
 } from "./imageGen";
 import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
+import { isLayered, runLayered } from "./bannerLayersRun";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
 export type GenerationStatus = "idle" | "master_running" | "batch_running" | "done" | "error";
@@ -540,7 +541,9 @@ export function GenerationProvider({ children }: ProviderProps) {
       // aspect flare can actually render (≤3:1), and size each source so a
       // pure client crop covers every member (resizePlan.ts).
       const sizeByKey = new Map(sizes.map((s) => [`${s.w}x${s.h}`, s]));
-      const plans = planResizes(sizes.map((s) => ({ w: s.w, h: s.h })));
+      // Тонкие форматы (728×90, 160×600…) — слоями: подложка без текста + текст кодом.
+      const layered = sizes.filter(isLayered);
+      const plans = planResizes(sizes.filter((s) => !isLayered(s)).map((s) => ({ w: s.w, h: s.h })));
       const planByKey = new Map<string, SourcePlan>();
       for (const p of plans) for (const t of p.targets) planByKey.set(`${t.w}x${t.h}`, p);
 
@@ -694,6 +697,22 @@ export function GenerationProvider({ children }: ProviderProps) {
         }
       }
 
+      if (layered.length && !cancelRef.current) {
+        for (const s of layered) updateTile(`${s.w}x${s.h}`, { status: "running" });
+        await runLayered(
+          layered,
+          { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch },
+          (t, r) => {
+            const s = sizeByKey.get(`${t.w}x${t.h}`)!;
+            if ("dataUrl" in r) {
+              updateTile(`${t.w}x${t.h}`, { status: "done", dataUrl: r.dataUrl });
+              void persistResizeTile(basePayload.card_id, s, r.dataUrl);
+            } else updateTile(`${t.w}x${t.h}`, { status: "error", error: formatGenerationError(r.error) });
+          },
+          () => cancelRef.current,
+        );
+      }
+
       patch({ status: "done" });
     },
     [patch, updateTile],
@@ -746,6 +765,19 @@ export function GenerationProvider({ children }: ProviderProps) {
           }
         }
 
+        if (isLayered(tile.size)) {
+          // Тонкий формат: новая подложка (кэш этой формы сбрасываем) + текст кодом.
+          const epoch = masterEpochRef.current;
+          for (const k of [...sourceCacheRef.current.keys()]) if (k.startsWith(`${epoch}|plate|`)) sourceCacheRef.current.delete(k);
+          const got: { dataUrl?: string; error?: string } = {};
+          await runLayered([tile.size], { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch }, (_, r) => Object.assign(got, r), () => false);
+          await minVisible;
+          if (got.dataUrl) {
+            updateTile(id, { status: "done", dataUrl: got.dataUrl });
+            void persistResizeTile(basePayload.card_id, tile.size, got.dataUrl);
+          } else updateTile(id, { status: "error", error: formatGenerationError(got.error || "Ошибка") });
+          return;
+        }
         const plan = planResizes([{ w: tile.size.w, h: tile.size.h }])[0];
         let sourceForCrop = masterDataUrl;
         const isMicro = !!plan && plan.detail !== "full";

@@ -169,11 +169,18 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Display — горизонтальные",
     subtitle: "Лидерборды и вытянутые баннеры",
     sizes: [
-      // NOTE: very thin leaderboard/mobile-banner formats (728×90, 970×90,
-      // 468×60, 930×180, 980×120, 750×100, 1000×90, 1000×120, 960×90,
-      // 950×90, 800×90, 640×100, 320×50, 300×50) and the near-square micro
-      // tile 120×60 are TEMPORARILY REMOVED — the strip/micro crop currently
-      // loses important content on them. Revisit once that's fixed.
+      // Очень вытянутые (шире 3.2:1) собираются слоями — подложка без текста +
+      // текст и кнопка кодом (bannerLayers.ts), а не кропом из мастера.
+      { w: 728, h: 90, ratio: "728:90", label: "Leaderboard" },
+      { w: 970, h: 90, ratio: "97:9", label: "Large Leaderboard" },
+      { w: 468, h: 60, ratio: "39:5", label: "Banner" },
+      { w: 320, h: 50, ratio: "32:5", label: "Mobile Leaderboard" },
+      { w: 300, h: 50, ratio: "6:1" },
+      { w: 930, h: 180, ratio: "31:6" },
+      { w: 980, h: 120, ratio: "49:6" },
+      { w: 750, h: 100, ratio: "15:2" },
+      { w: 1000, h: 90, ratio: "100:9" },
+      { w: 640, h: 100, ratio: "32:5" },
       { w: 970, h: 250, ratio: "97:25", label: "Billboard" },
       { w: 234, h: 60, ratio: "39:10", label: "Half Banner" },
       { w: 750, h: 200, ratio: "15:4" },
@@ -191,8 +198,10 @@ export const BANNER_SIZE_GROUPS: SizeGroup[] = [
     title: "Display — вертикальные",
     subtitle: "Небоскрёбы и портретные тайлы",
     sizes: [
-      // NOTE: 160×600 / 120×600 / 300×1050 TEMPORARILY REMOVED — same strip-
-      // crop content-loss issue as the horizontal group above.
+      // Выше 2.2:1 — слоями (bannerLayers.ts), как и лидерборды.
+      { w: 160, h: 600, ratio: "4:15", label: "Wide Skyscraper" },
+      { w: 120, h: 600, ratio: "1:5", label: "Skyscraper" },
+      { w: 300, h: 1050, ratio: "2:7", label: "Portrait" },
       { w: 300, h: 600, ratio: "1:2", label: "Half-Page" },
       { w: 120, h: 240, ratio: "1:2", label: "Vertical Banner" },
       { w: 240, h: 600, ratio: "2:5" },

@@ -78,6 +78,8 @@ export type GeneratePayload = {
    *  call would upload an off-spec image to FTP and double-count in
    *  the history card. */
   skip_history_attach?: boolean;
+  /** «Чистая подложка» без текста для тонких форматов (bannerLayers). */
+  plate?: "wide" | "tall";
 };
 
 export type BannerTextItem = { text: string; position: string };
@@ -236,6 +238,7 @@ export function bannerRequestBody(payload: GeneratePayload): Record<string, unkn
     group_id: payload.group_id,
     card_id: payload.card_id,
     skip_history_attach: payload.skip_history_attach,
+    plate: payload.plate,
   };
 }
 

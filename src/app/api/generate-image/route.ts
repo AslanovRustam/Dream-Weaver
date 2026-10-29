@@ -61,6 +61,20 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
 //     if given); forbid every OTHER real brand.
 //   • hasLogo=false → no logo at all: brand name may appear as plain text if
 //     given, otherwise no brand identity whatsoever.
+// «Чистая подложка» для тонких форматов: текст, лого и кнопку потом кладёт код,
+// поэтому на картинке их быть не должно вовсе — иначе наложится дважды.
+function platePrompt(kind: "wide" | "tall", ratio: string): string {
+  return [
+    `TASK: re-compose the attached approved advertising banner into a TEXT-FREE BACKGROUND PLATE, aspect ratio ${ratio} (${kind === "wide" ? "very wide horizontal strip" : "very tall vertical strip"}).`,
+    "Keep the SAME scene, the SAME character / key object (identical appearance, outfit, colours), the same lighting, palette and rendering style as the source.",
+    "ABSOLUTELY NO TEXT of any kind: no letters, no words, no numbers, no percent signs, no logos, no wordmarks, no buttons, no badges, no price tags, no UI. Remove every text and button that the source has and paint the background through where they were.",
+    kind === "wide"
+      ? "LAYOUT: the character / key object sits in the LEFT THIRD (x 3%–33%), large, vertically centred, its head and the important part fully inside the frame from 10% to 90% of the height. The RIGHT TWO THIRDS are calm, darker, low-detail background (soft bokeh, gradient, light glow) — text will be placed there later, so keep it uncluttered."
+      : "LAYOUT: the character / key object sits in the LOWER HALF (y 45%–95%), large, horizontally centred, fully inside the frame from 10% to 90% of the width. The UPPER HALF is calm, darker, low-detail background (soft glow, gradient) — text will be placed there later, so keep it uncluttered.",
+    "Extend the scene naturally to fill the new aspect — no borders, no frames, no letterboxing, no collage.",
+  ].join("\n");
+}
+
 function noRealBrandLine(brandName: string, hasLogo: boolean): string {
   const name = brandName.trim();
   let allowed: string;
@@ -100,6 +114,10 @@ type Body = {
    *  for and to compose with a crop-safe margin. */
   target_w?: number;
   target_h?: number;
+  /** «Чистая подложка» для тонких форматов (728×90, 160×600…): та же сцена и персонаж
+   *  из мастера, но без единого текста, лого и кнопок — их кладёт код (bannerLayers).
+   *  wide — герой слева, справа спокойный фон под текст; tall — герой внизу, сверху фон. */
+  plate?: "wide" | "tall";
   /** Output of the vision pre-pass (/api/extract-master). When present
    *  the prompt gets a MASTER VISUAL FACTS block with the exact texts
    *  to render and the named central object — fixes drift in fine
@@ -1307,7 +1325,9 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
         // is smaller, edges are sacrificable. This is the production
         // technique used by Bannerbear / Adobe Express for adaptive
         // banner pipelines.
-        if (hasSourceImage) {
+        if (hasSourceImage && (body.plate === "wide" || body.plate === "tall")) {
+          finalPrompt = platePrompt(body.plate, body.aspect_ratio || (body.plate === "wide" ? "3:1" : "1:3"));
+        } else if (hasSourceImage) {
           const targetRatio = body.aspect_ratio || "1:1";
           // Compute the ACTUAL canvas size the model will draw on (same
           // value we'll later send as `size=` to OpenAI). It's the
@@ -1652,7 +1672,11 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
 
           const refLines: string[] = [];
           refs.forEach((r) => {
-            if (r.role === "source_image") {
+            if (r.role === "source_image" && body.plate) {
+              refLines.push(
+                "The FIRST attached image is the approved banner. Take from it ONLY the scene, the character / key object, palette, lighting and style. IGNORE and REMOVE all of its texts, numbers, logos and buttons.",
+              );
+            } else if (r.role === "source_image") {
               refLines.push(
                 `The FIRST attached image is the MASTER REFERENCE banner. CRITICAL: whatever central object the person holds or shows in the master (a card, a trophy, a chip, a product, etc.) MUST be reproduced as that EXACT same object — same type, same shape, same artwork on it. Do not swap a card for a trophy or vice versa. The master is the only source of truth for the visual subject. Use the master ALSO as the source of: brand identity, color palette, lighting, person's face/hair/clothing, text CONTENT (verbatim). Treat its ELEMENT POSITIONS as obsolete — they were planned for a different aspect ratio. Re-plan layout positions ONLY for ${body.aspect_ratio || "1:1"}, but never re-plan WHAT objects appear.`,
               );
