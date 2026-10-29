@@ -66,8 +66,18 @@
   function rich(s) { return esc(s).replace(/\r?\n/g, "<br>"); }
 
   var onLayout = []; // сцены подписываются, если что-то ставят кодом
+  // Вырез и полоска «домой» (viewport-fit=cover): сцену вписываем в безопасную зону,
+  // чтобы лого, кнопка и 18+ не уходили под чёлку.
+  var safeProbe = document.createElement("div");
+  safeProbe.style.cssText = "position:fixed;visibility:hidden;pointer-events:none;top:0;left:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+  document.body.appendChild(safeProbe);
+  function safe() {
+    var c = getComputedStyle(safeProbe);
+    return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 };
+  }
   function fit() {
-    var vw = w.innerWidth, vh = w.innerHeight;
+    var sa = safe();
+    var vw = w.innerWidth - sa.l - sa.r, vh = w.innerHeight - sa.t - sa.b;
     var wasLand = land;
     land = vw > vh * 1.05;
     W = land ? 1920 : 1080;
@@ -77,7 +87,7 @@
     // сцены пусто — срезаем эту полосу, игра крупнее и выше.
     var crop = CFG.embed && !land ? 330 : 0;
     var s = Math.min(vw / W, vh / (H - crop));
-    stage.style.transform = "translate(" + (vw - W * s) / 2 + "px," + ((vh - (H - crop) * s) / 2 - crop * s) + "px) scale(" + s + ")";
+    stage.style.transform = "translate(" + (sa.l + (vw - W * s) / 2) + "px," + (sa.t + (vh - (H - crop) * s) / 2 - crop * s) + "px) scale(" + s + ")";
     if (wasLand !== land) {
       Array.prototype.forEach.call(stage.querySelectorAll(".gt:not(#popText)"), fitText);
       onLayout.forEach(function (cb) { cb(land); });

@@ -154,7 +154,7 @@ function promoCss(accent: string): string {
   return `
   :root{--ac:${accent};--gold:#ffd34d}
   body{font-family:${body};color:#fff}
-  .pHead{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1180px;margin:0 auto;padding:14px 16px}
+  .pHead{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1180px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left))}
   .pLogo{display:flex;align-items:center;min-width:0;height:36px;font:900 20px/1 ${head};letter-spacing:-.01em;text-transform:uppercase;color:#fff}
   .pLogo img{max-height:36px;max-width:160px;object-fit:contain}
   .pHR{display:flex;align-items:center;gap:10px}
@@ -167,7 +167,7 @@ function promoCss(accent: string): string {
   .pHero{position:relative;overflow:hidden;padding:8px 0 34px}
   .pBg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.32;filter:saturate(1.1);-webkit-mask-image:linear-gradient(180deg,#000 30%,transparent);mask-image:linear-gradient(180deg,#000 30%,transparent)}
   .pHero::before{content:"";position:absolute;inset:-20% -10% auto -10%;height:80%;background:radial-gradient(50% 60% at 20% 30%,color-mix(in srgb,var(--ac) 30%,transparent),transparent 70%),radial-gradient(40% 50% at 85% 40%,rgba(124,58,237,.35),transparent 70%);pointer-events:none}
-  .pWrap{position:relative;z-index:2;display:grid;grid-template-areas:"copy" "game" "act";gap:18px;max-width:1180px;margin:0 auto;padding:0 16px}
+  .pWrap{position:relative;z-index:2;display:grid;grid-template-areas:"copy" "game" "act";gap:18px;max-width:1180px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px,env(safe-area-inset-left))}
   .pCopy{grid-area:copy;min-width:0;position:relative}
   .pEye{display:flex;align-items:center;gap:8px;font:800 11px/1 ${body};letter-spacing:.16em;text-transform:uppercase;color:var(--ac)}
   .pEye b{color:var(--gold);font-size:14px}

@@ -23,6 +23,7 @@ const CHECKS = [
   { name: "Плейблы: сцены × сети × языки", cmd: tsx("scripts/scene-export-check.mts") },
   { name: "Лендинги-механики", cmd: tsx("scripts/landing-export-check.mts"), browser: true },
   { name: "Лендинги на сценах", cmd: tsx("scripts/scene-landing-check.mts"), browser: true },
+  { name: "Лендинги: первый экран на телефонах", cmd: tsx("scripts/landing-mobile-check.mts"), browser: true },
 ];
 
 const results = [];
