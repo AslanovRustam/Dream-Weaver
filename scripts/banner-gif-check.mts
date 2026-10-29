@@ -7,7 +7,8 @@
 // в лимит Google Ads (150 КБ), блик и искры не трогают тёмный фон, цикл замкнут
 // (первый и последний кадр почти совпадают), повторы записаны как просили.
 
-import { GDN_GIF_LIMIT, makeGifFromFrames, makeGifFromPixels, renderFrame, shineMask, sparkPoints } from "../src/lib/bannerGif";
+import { GDN_GIF_LIMIT, makeGifFromFrames, makeGifFromPixels, mergeStill, renderFrame, shineMask, sparkPoints } from "../src/lib/bannerGif";
+import { GIF_NETWORK_BY_ID, checkGif, ladderFor, planGif, playsFor } from "../src/lib/gifNetworks";
 
 let pass = 0;
 const fails: string[] = [];
@@ -65,7 +66,8 @@ for (const [w, h] of [
   ok(isGif(r.bytes), `${w}×${h}: не GIF`);
   ok(!r.overLimit && r.bytes.length <= GDN_GIF_LIMIT, `${w}×${h}: ${(r.bytes.length / 1024).toFixed(0)} КБ > лимита`);
   const { frames, loops } = inspect(r.bytes);
-  ok(frames === r.frames && frames >= 19, `${w}×${h}: кадров ${frames}, ожидали ${r.frames}`);
+  // Стоп-кадры склеены в один длинный: кадров в файле меньше, чем отрендерено, но не 1.
+  ok(frames === r.frames && frames >= 8, `${w}×${h}: кадров ${frames}, ожидали ${r.frames}`);
   ok(loops === 2, `${w}×${h}: повторов ${loops}, для «3 раза» нужно 2`);
 }
 
@@ -134,9 +136,44 @@ for (const [w, h] of [
     { plays: 3 },
   );
   ok(isGif(r.bytes), "кадры: не GIF");
-  ok(inspect(r.bytes).frames === Math.round(4 * r.fps), `кадры: ${inspect(r.bytes).frames} при ${r.fps} кадр/с`);
+  ok(inspect(r.bytes).frames === r.frames && r.frames <= Math.round(4 * r.fps), `кадры: ${inspect(r.bytes).frames} при ${r.fps} кадр/с`);
+  // Задержка в GIF кратна 10 мс: 15 кадр/с — это 70 мс, цикл 4 с идёт 4.2 с.
+  ok(Math.abs(r.seconds - Math.round(4 * r.fps) * (Math.round(100 / r.fps) / 100)) < 0.01, `кадры: цикл ${r.seconds} с`);
   ok(asked.every((f) => f >= 10), "кадры: fps ниже 10 — движение рвётся");
   ok(new Set(asked).size === asked.length, "кадры: один fps рендерится дважды");
+}
+
+// Склейка стоп-кадров: одинаковые подряд — один длинный, шов цикла тоже.
+{
+  const a = new Uint8ClampedArray(16).fill(10);
+  const b = new Uint8ClampedArray(16).fill(200);
+  const m = mergeStill([a, a, b, b, b, a], 100);
+  ok(m.frames.length === 2 && m.delays.join(",") === "300,300", `mergeStill: ${m.delays.join(",")}`);
+}
+
+// Сети: план под сеть и формат, готовый GIF проходит требования своей сети.
+{
+  const google = GIF_NETWORK_BY_ID.get("google")!;
+  const net150 = GIF_NETWORK_BY_ID.get("net150")!;
+  const free = GIF_NETWORK_BY_ID.get("free")!;
+  const p = (n: typeof google, w: number, h: number, layered: boolean, slides: number) => planGif(n, { w, h, layered, slides }).mode;
+  ok(p(google, 728, 90, true, 3) === "slides" && p(google, 728, 90, true, 1) === "light" && p(google, 300, 250, false, 0) === "flat", "план Google");
+  ok(p(net150, 320, 50, true, 3) === "slides" && p(net150, 728, 90, true, 3) === "light", "план сети 150 КБ");
+  ok(p(free, 728, 90, true, 3) === "scene" && p(free, 468, 60, true, 3) === "slides" && p(free, 468, 60, true, 1) === "scene", "план свободный вес");
+  ok(ladderFor(google, "scene").every((s) => 1000 / s.fps > google.minFrameMs), "Google: все ступени медленнее 5 кадр/с");
+  ok(playsFor(google, 7.2, 0) === 4 && playsFor(google, 4, 0) === 7 && playsFor(google, 40, 0) === 1, "Google: повторы в 30 с");
+  ok(playsFor(free, 4, 0) === 0 && playsFor(net150, 4, 3) === 3, "повторы без ограничения — как выбрал пользователь");
+  // Блик поверх под Google: шаги 4 кадр/с, ≤150 КБ, ≤30 с.
+  for (const [w, h] of [[300, 250], [728, 90], [160, 600]]) {
+    const plays = playsFor(google, 2.4, 0);
+    const r = makeGifFromPixels(banner(w, h), w, h, { ...FX, seconds: 2.4, plays, maxBytes: google.maxBytes, ladder: ladderFor(google, "flat") });
+    const c = checkGif(google, { bytes: r.bytes.length, seconds: r.seconds, plays, minFrameMs: r.minFrameMs });
+    ok(c.every((x) => x.ok), `Google ${w}×${h}: ${c.filter((x) => !x.ok).map((x) => x.label).join("; ")}`);
+    ok(inspect(r.bytes).loops === plays - 1, `Google ${w}×${h}: повторов в файле ${inspect(r.bytes).loops}`);
+  }
+  // Бесконечные повторы под Google не проходят.
+  ok(!checkGif(google, { bytes: 1000, seconds: 3, plays: 0, minFrameMs: 250 }).every((x) => x.ok), "Google: бесконечный цикл не проходит");
+  ok(!checkGif(google, { bytes: 1000, seconds: 3, plays: 2, minFrameMs: 100 }).every((x) => x.ok), "Google: 10 кадр/с не проходит");
 }
 
 if (fails.length) {

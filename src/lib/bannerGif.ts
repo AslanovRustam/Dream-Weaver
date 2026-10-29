@@ -23,13 +23,22 @@ export type GifOptions = GifEffects & {
   plays?: number;
   /** Лимит веса, байт. */
   maxBytes?: number;
+  /** Свои ступени частоты и цветов (сеть с ограничением fps). */
+  ladder?: GifLadder;
 };
+/** Ступени подгонки веса: частота кадров и число цветов, по порядку. */
+export type GifLadder = { fps: number; colors: number }[];
+
 export type GifResult = {
   bytes: Uint8Array;
   fps: number;
   colors: number;
   frames: number;
   overLimit: boolean;
+  /** Длина одного цикла, с. */
+  seconds: number;
+  /** Самый короткий кадр, мс (Google: кадр дольше 200 мс). */
+  minFrameMs: number;
 };
 
 export const GDN_GIF_LIMIT = 150 * 1024;
@@ -204,7 +213,7 @@ export function encodeGif(
   frames: Uint8ClampedArray[],
   w: number,
   h: number,
-  opts: { fps: number; colors: number; plays: number },
+  opts: { fps?: number; delays?: number[]; colors: number; plays: number },
 ): Uint8Array {
   // Один индекс резервируем под «прозрачно» (пиксель не изменился).
   const pal = rollPalette(frames, opts.colors - 1);
@@ -214,11 +223,13 @@ export function encodeGif(
   const palette: Palette = [...pal];
   while (palette.length < size) palette.push([0, 0, 0]);
   const gif = GIFEncoder();
-  const delay = Math.round(1000 / opts.fps / 10) * 10;
+  const uniform = Math.round(1000 / (opts.fps ?? 10) / 10) * 10;
+  const delayOf = (i: number) => Math.max(20, Math.round((opts.delays?.[i] ?? uniform) / 10) * 10);
   // repeat: 0 — бесконечно, n — ещё n повторов после первого показа.
   const repeat = opts.plays <= 0 ? 0 : opts.plays === 1 ? -1 : opts.plays - 1;
   let prev: Uint8Array | null = null;
-  for (const f of frames) {
+  for (const [i, f] of frames.entries()) {
+    const delay = delayOf(i);
     const idx = applyPalette(f, pal);
     if (!prev) {
       gif.writeFrame(idx, w, h, {
@@ -240,6 +251,61 @@ export function encodeGif(
   return gif.bytes();
 }
 
+/**
+ * Одинаковые кадры подряд — один кадр подольше. Вес почти тот же, но реальная частота
+ * кадров честная: Google требует «медленнее 5 кадр/с», стоп-кадр между движениями
+ * должен быть одним длинным кадром, а не десятком одинаковых.
+ */
+export function mergeStill(
+  frames: Uint8ClampedArray[],
+  delayMs: number,
+): { frames: Uint8ClampedArray[]; delays: number[] } {
+  const out: Uint8ClampedArray[] = [];
+  const delays: number[] = [];
+  const same = (a: Uint8ClampedArray, b: Uint8ClampedArray) => {
+    for (let i = 0; i < a.length; i += 4)
+      if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) return false;
+    return true;
+  };
+  for (const f of frames) {
+    if (out.length && same(out[out.length - 1], f)) delays[delays.length - 1] += delayMs;
+    else {
+      out.push(f);
+      delays.push(delayMs);
+    }
+  }
+  // Последний кадр совпал с первым — склеиваем через шов цикла.
+  if (out.length > 1 && same(out[out.length - 1], out[0])) {
+    delays[0] += delays.pop()!;
+    out.pop();
+  }
+  return { frames: out, delays };
+}
+
+/** Кодирует цикл кадров одной частоты (со склейкой стоп-кадров) и меряет его. */
+function encodeLoop(
+  frames: Uint8ClampedArray[],
+  w: number,
+  h: number,
+  fps: number,
+  colors: number,
+  plays: number,
+  maxBytes: number,
+): GifResult {
+  const step = Math.round(1000 / fps / 10) * 10;
+  const m = mergeStill(frames, step);
+  const bytes = encodeGif(m.frames, w, h, { delays: m.delays, colors, plays });
+  return {
+    bytes,
+    fps,
+    colors,
+    frames: m.frames.length,
+    overLimit: bytes.length > maxBytes,
+    seconds: (frames.length * step) / 1000,
+    minFrameMs: Math.min(...m.delays.map((d) => Math.round(d / 10) * 10)),
+  };
+}
+
 /** Вся цепочка над готовой RGBA-базой; вес подгоняем под лимит. */
 export function makeGifFromPixels(
   base: Uint8ClampedArray,
@@ -254,7 +320,7 @@ export function makeGifFromPixels(
   const sparks = o.sparkles
     ? sparkPoints(mask, w, h, Math.max(3, Math.min(7, Math.round((w * h) / 26000) + 2)))
     : [];
-  const tries = [
+  const tries: GifLadder = o.ladder ?? [
     { fps: 12.5, colors: 256 },
     { fps: 12.5, colors: 128 },
     { fps: 10, colors: 128 },
@@ -272,18 +338,20 @@ export function makeGifFromPixels(
       frames = Array.from({ length: n }, (_, i) => renderFrame(base, mask, sparks, w, h, i / n, o));
       cache.set(tr.fps, frames);
     }
-    const bytes = encodeGif(frames, w, h, { fps: tr.fps, colors: tr.colors, plays });
-    const r = {
-      bytes,
-      fps: tr.fps,
-      colors: tr.colors,
-      frames: frames.length,
-      overLimit: bytes.length > maxBytes,
-    };
-    if (tr.colors === 128 && !fallback) fallback = r;
+    const r = encodeLoop(frames, w, h, tr.fps, tr.colors, plays, maxBytes);
+    if ((tr.colors === 128 && !fallback) || tries.length === 1) fallback ??= r;
     if (!r.overLimit) return r;
   }
-  return fallback as GifResult;
+  return (fallback ??
+    encodeLoop(
+      cache.get(tries[0].fps)!,
+      w,
+      h,
+      tries[0].fps,
+      tries[0].colors,
+      plays,
+      maxBytes,
+    )) as GifResult;
 }
 
 /**
@@ -294,11 +362,11 @@ export function makeGifFromFrames(
   render: (fps: number) => Uint8ClampedArray[],
   w: number,
   h: number,
-  o: { plays?: number; maxBytes?: number },
+  o: { plays?: number; maxBytes?: number; ladder?: GifLadder },
 ): GifResult {
   const plays = o.plays ?? 3;
   const maxBytes = o.maxBytes ?? GDN_GIF_LIMIT;
-  const tries = [
+  const tries: GifLadder = o.ladder ?? [
     { fps: 15, colors: 256 },
     { fps: 15, colors: 128 },
     { fps: 12.5, colors: 128 },
@@ -310,18 +378,15 @@ export function makeGifFromFrames(
   for (const tr of tries) {
     let frames = cache.get(tr.fps);
     if (!frames) cache.set(tr.fps, (frames = render(tr.fps)));
-    const bytes = encodeGif(frames, w, h, { fps: tr.fps, colors: tr.colors, plays });
-    const r = {
-      bytes,
-      fps: tr.fps,
-      colors: tr.colors,
-      frames: frames.length,
-      overLimit: bytes.length > maxBytes,
-    };
-    if (tr.fps === 15 && tr.colors === 128) fallback = r;
+    const r = encodeLoop(frames, w, h, tr.fps, tr.colors, plays, maxBytes);
+    // Лимит недостижим — отдаём 128 цветов на самой частой ступени (или первую, если 128 нет).
+    if (tr.colors === 128 && tr.fps === tries[0].fps) fallback ??= r;
     if (!r.overLimit) return r;
   }
-  return fallback as GifResult;
+  return (
+    fallback ??
+    encodeLoop(cache.get(tries[0].fps)!, w, h, tries[0].fps, tries[0].colors, plays, maxBytes)
+  );
 }
 
 /** Браузер: картинка → RGBA ровно w×h (cover, по центру). */
