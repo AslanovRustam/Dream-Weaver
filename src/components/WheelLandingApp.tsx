@@ -13,10 +13,9 @@ import {
   Smartphone,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 
-import { FortuneWheel, type WheelSegment } from "@/components/FortuneWheel";
+import type { WheelSegment } from "@/components/FortuneWheel";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { forgetProject, saveProject } from "@/lib/projects";
@@ -32,6 +31,7 @@ import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
 import { CollapsibleSection } from "@/components/landing/CollapsibleSection";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
@@ -107,13 +107,7 @@ export function WheelLandingApp() {
   });
   const [charGenning, setCharGenning] = useState<"left" | "right" | null>(null);
   const [prizes, setPrizes] = useState<WheelSegment[]>(DEFAULT_PRIZES);
-  const [won, setWon] = useState<number | null>(null);
-  const [spinSignal, setSpinSignal] = useState(0);
-  // Which segment the NEXT spin must land on — computed fresh right before
-  // every spin, restricted to the checked ("Может выпасть") segments only.
-  // Passed straight through to FortuneWheel's own forceIndex prop.
-  const [forceIndex, setForceIndex] = useState<number | undefined>(undefined);
-  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
+  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("portrait");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
@@ -328,39 +322,6 @@ export function WheelLandingApp() {
   const removePrize = (i: number) =>
     setPrizes((p) => (p.length > 2 ? p.filter((_, idx) => idx !== i) : p));
 
-  // Pick which segment the wheel is ALLOWED to land on (checkbox-enabled
-  // ones only — `enabled` defaults to true when the field is absent, so
-  // existing/legacy prize lists without the flag still work as "all on"),
-  // then trigger the spin. Falls back to the full list if every segment
-  // happens to be unchecked (never render a dead SPIN button).
-  const spinWheel = () => {
-    const pool = prizes
-      .map((_, i) => i)
-      .filter((i) => prizes[i].enabled !== false);
-    const from = pool.length > 0 ? pool : prizes.map((_, i) => i);
-    setForceIndex(from[Math.floor(Math.random() * from.length)]);
-    setSpinSignal((s) => s + 1);
-  };
-
-  // "Забрать бонус" — navigate the visitor to the configured offer. A macro
-  // placeholder (e.g. {clickurl}) is meant to be substituted by the traffic
-  // source at serve time — it can't be resolved here in the builder preview,
-  // so we explain that instead of trying (and failing) to navigate to it.
-  const claimBonus = () => {
-    setWon(null);
-    const url = ctaUrl.trim();
-    if (!url) return;
-    if (/[{}]/.test(url)) {
-      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
-      return;
-    }
-    try {
-      const abs = new URL(url, window.location.origin).toString();
-      window.open(abs, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Некорректная ссылка в поле CTA");
-    }
-  };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
@@ -970,154 +931,22 @@ export function WheelLandingApp() {
             ))}
           </div>
         </div>
-        <div
-          className={`relative w-full overflow-hidden rounded-2xl border border-border ${
-            viewport === "portrait"
-              ? "mx-auto aspect-[9/16] max-w-[300px]"
-              : viewport === "landscape"
-                ? "aspect-[16/9]"
-                : "aspect-[16/11]"
-          }`}
-          style={{ background: dark ? "#1a1030" : "#fde8b0" }}
-        >
-          {assetRun.running || seedAnalyzing ? (
-            <BuildingOverlay
-              steps={
-                assetRun.steps.length > 0
-                  ? assetRun.steps
-                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
-              }
-            />
-          ) : null}
-          {bgImage ? (
-            <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${dark ? "#160d29" : "#ffe9a8"}` }}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
-
-          {/* Characters — anchored to the VIEWPORT bottom so the crop bleeds off the
-              edge (no floating, no visible cut line). Behind the wheel/SPIN column. */}
-          {(["left", "right"] as const).map((side) =>
-            chars[side] ? (
-              <img
-                key={side}
-                src={chars[side]}
-                alt=""
-                className={`pointer-events-none absolute z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
-                  viewport === "portrait" ? "h-[84%] max-w-[56%]" : "h-full max-w-[46%]"
-                }`}
-                style={{
-                  [side]: viewport === "portrait" ? "-1%" : "-4%",
-                  bottom: viewport === "portrait" ? "-7%" : "-9%",
-                }}
-              />
-            ) : null,
-          )}
-
-          <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
-            <div className="flex w-full items-center justify-between">
-              {brandLogo ? (
-                <img src={brandLogo} alt="" className="h-6 w-auto max-w-[45%] object-contain drop-shadow" />
-              ) : (
-                <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
-              )}
-            </div>
-
-            <h2
-              className="mt-1 text-center text-2xl font-extrabold uppercase leading-none tracking-tight sm:text-3xl"
-              style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
-            >
-              {headline || "TRY YOUR LUCK!"}
-            </h2>
-
-            <div
-              className={`relative mt-3 flex w-full flex-1 justify-center ${
-                viewport === "portrait" ? "items-start pt-1" : "items-center"
-              }`}
-            >
-              <div className="relative z-10 mx-auto aspect-square h-full max-h-[520px] max-w-full">
-                <FortuneWheel
-                  segments={prizes}
-                  accent={accent}
-                  forceIndex={forceIndex}
-                  spinSignal={spinSignal}
-                  onResult={setWon}
+        <LivePreview
+          viewport={viewport}
+          build={() => buildWheelHtml({  extras,  brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, prizes, charLeft: chars.left, charRight: chars.right  })}
+          deps={[extras, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, prizes, chars.left, chars.right]}
+          overlay={
+            assetRun.running || seedAnalyzing ? (
+                <BuildingOverlay
+                  steps={
+                    assetRun.steps.length > 0
+                      ? assetRun.steps
+                      : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+                  }
                 />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={spinWheel}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
-              style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
-            >
-              {ctaText || "SPIN"}
-            </button>
-          </div>
-
-          {won !== null
-            ? (() => {
-                const seg = prizes[won];
-                const lose = !seg || /try\s*again|снова|ещё раз|заново|again|empty|пусто/i.test(seg.label);
-                return (
-                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6">
-                    <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                      {lose ? (
-                        <>
-                          <p className="text-lg font-extrabold text-[#0f172a]">😅 Почти!</p>
-                          <p className="mt-1 text-sm text-[#475569]">
-                            В этот раз не повезло — крутите ещё раз, приз ждёт!
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setWon(null);
-                              spinWheel();
-                            }}
-                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                            style={{ backgroundColor: accent }}
-                          >
-                            Крутить ещё раз
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-lg font-extrabold text-[#0f172a]">🎉 Поздравляем!</p>
-                          <p className="mt-1 text-sm text-[#475569]">
-                            Вы выиграли{" "}
-                            <span className="font-bold" style={{ color: accent }}>
-                              {seg.label} {seg.sub}
-                            </span>
-                          </p>
-                          <button
-                            type="button"
-                            onClick={claimBonus}
-                            className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                            style={{ backgroundColor: accent }}
-                          >
-                            Забрать бонус
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setWon(null)}
-                        aria-label="Закрыть"
-                        className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()
-            : null}
-        </div>
+              ) : null
+          }
+        />
       </div>
     </div>
   );

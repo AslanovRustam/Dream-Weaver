@@ -112,6 +112,27 @@ export function LandingExtrasPanel({
 
   const idBad = (v: string, re: RegExp) => !!v.trim() && !re.test(v.trim());
 
+  // Телефон, раскладка «Текст и игра»: что первым — оффер или игра.
+  const orderRow =
+    (x.look.sceneHero ?? "promo") === "promo" ? (
+      <div className="mb-3 mt-2">
+        <p className="mb-1.5 ds-caption">На телефоне первым</p>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            ["offer", "Оффер", "Заголовок, бонус и персонаж сверху, игра под ними"],
+            ["game", "Игра", "Игра сразу под шапкой, заголовок и оффер — под ней"],
+          ] as const).map(([id, label, hint]) => {
+            const on = (x.look.mobileOrder ?? "offer") === id;
+            return (
+              <button key={id} type="button" title={hint} aria-pressed={on} onClick={() => patch("look", { mobileOrder: id })} className={`rounded-lg border px-2 py-2 text-sm transition ${on ? CHIP_ON : CHIP_OFF}`}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
+
   return (
     <>
       {hideFirstScreen ? (
@@ -129,6 +150,7 @@ export function LandingExtrasPanel({
               );
             })}
           </div>
+          {orderRow}
         </CollapsibleSection>
       ) : (
       <CollapsibleSection title="Первый экран" hint="Анимация появления, парящие объекты, линии">
@@ -145,6 +167,7 @@ export function LandingExtrasPanel({
             );
           })}
         </div>
+        {orderRow}
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"

@@ -82,7 +82,7 @@ export function LandingEditor({ id }: { id: string }) {
   const [stylesByField, setStylesByField] = useState<LandingTextStyles>({});
   const [styleField, setStyleField] = useState<LandingTextField | null>(null);
 
-  const [device, setDevice] = useState<Device>("desktop");
+  const [device, setDevice] = useState<Device>("mobile");
   const [orientation, setOrientation] = useState<Orientation>("portrait");
   const [editOpen, setEditOpen] = useState(false);
   const [desktopFull, setDesktopFull] = useState(false);
@@ -261,7 +261,7 @@ export function LandingEditor({ id }: { id: string }) {
       ? { className: "h-full w-full max-w-[1200px]", style: undefined as CSSProperties | undefined }
       : orientation === "landscape"
         ? { className: "", style: { width: 740, height: 380 } }
-        : { className: "", style: { width: 390, height: 720 } };
+        : { className: "", style: { width: 390, height: 844 } };
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background text-foreground">

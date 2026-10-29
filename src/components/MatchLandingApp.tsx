@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, Check, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { MatchCard } from "@/components/MatchCard";
 import { SuggestButton } from "@/components/landing/SuggestButton";
 import { BrandLookup } from "@/components/BrandLookup";
 import { useAuthGate } from "@/components/AuthGate";
@@ -16,6 +15,7 @@ import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
@@ -30,10 +30,8 @@ import { useAuth } from "@/lib/auth-context";
 import { buildMatchHtml } from "@/lib/matchExport";
 import {
   clampInt,
-  PRIZE_LABEL,
   SPORTS,
   type CountdownMode,
-  type MatchPick,
   type MatchSport,
   type OddsFormat,
   type PrizeType,
@@ -119,7 +117,7 @@ export function MatchLandingApp() {
   const [countdownMinutes, setCountdownMinutes] = useState(15);
   const [countdownDate, setCountdownDate] = useState("");
 
-  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
+  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("portrait");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [bannerRef, setBannerRef] = useState("");
@@ -306,28 +304,6 @@ export function MatchLandingApp() {
     sport, eventName, teams, crests, crestTheme, odds, oddsFormat, highlightFavourite, showOffer,
     prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate,
   ]);
-
-  // Same ctaUrl / {macro} handling as the other builders: a tracker macro
-  // shows an info toast, a real URL opens in a new tab (never navigating the
-  // builder away). The chosen outcome is appended as ?pick=… like the export.
-  const goToOffer = (pick?: MatchPick) => {
-    const url = ctaUrl.trim();
-    if (!url) {
-      toast.info("Укажите ссылку перехода (CTA) — на лендинге все кнопки ведут туда");
-      return;
-    }
-    if (/[{}]/.test(url)) {
-      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
-      return;
-    }
-    try {
-      const u = new URL(url, window.location.origin);
-      if (pick) u.searchParams.set("pick", pick);
-      window.open(u.toString(), "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Некорректная ссылка в поле CTA");
-    }
-  };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
@@ -572,7 +548,6 @@ export function MatchLandingApp() {
 
   const inputCls = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
   const sportMeta = SPORTS.find((s) => s.id === sport) ?? SPORTS[0];
-  const prizeTitle = `${PRIZE_LABEL[prizeType]} ${prizeAmount} ${prizeCurrency}`.trim();
 
   const renderCharSlot = (side: "left" | "right", title: string) => (
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
@@ -1019,98 +994,22 @@ export function MatchLandingApp() {
             ))}
           </div>
         </div>
-        <div
-          className={`relative w-full overflow-hidden rounded-2xl border border-border ${
-            viewport === "portrait" ? "mx-auto aspect-[9/16] max-w-[300px]" : viewport === "landscape" ? "aspect-[16/9]" : "aspect-[16/11]"
-          }`}
-          style={{ background: "#071022" }}
-        >
-          {assetRun.running || seedAnalyzing ? (
-            <BuildingOverlay
-              steps={
-                assetRun.steps.length > 0
-                  ? assetRun.steps
-                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
-              }
-            />
-          ) : null}
-          {bgImage ? (
-            <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0" style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), #071022` }} />
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/50" />
-
-          {(["left", "right"] as const).map((side) =>
-            chars[side] ? (
-              <img
-                key={side}
-                src={chars[side]}
-                alt=""
-                className={`pointer-events-none absolute z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${viewport === "portrait" ? "h-[84%] max-w-[56%]" : "h-full max-w-[46%]"}`}
-                style={{ [side]: viewport === "portrait" ? "-1%" : "-4%", bottom: viewport === "portrait" ? "-7%" : "-9%" }}
-              />
-            ) : null,
-          )}
-
-          <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
-            <div className="flex w-full items-center justify-between">
-              {brandLogo ? (
-                <img src={brandLogo} alt="" className="h-6 w-auto max-w-[45%] object-contain drop-shadow" />
-              ) : (
-                <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
-              )}
-            </div>
-            <h2
-              className="mt-1 text-center text-xl font-extrabold uppercase leading-none tracking-tight sm:text-2xl"
-              style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
-            >
-              {headline || "СТАВЬ НА МАТЧ ДНЯ"}
-            </h2>
-            {countdownMode !== "off" ? (
-              <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
-                <span className="h-2 w-2 rounded-full" style={{ background: accent, boxShadow: `0 0 10px ${accent}` }} />
-                {countdownMode === "minutes" ? `До матча: 00:${String(countdownMinutes).padStart(2, "0")}:00` : "До матча: 02д 14:30:00"}
-              </span>
-            ) : null}
-
-            <div className={`relative mt-3 flex w-full flex-1 flex-col items-center justify-center gap-3 ${viewport === "portrait" ? "justify-start pt-1" : ""}`}>
-              <MatchCard
-                accent={accent}
-                sport={sport}
-                eventName={eventName}
-                teamHome={teams.home}
-                teamAway={teams.away}
-                crestHome={crests.home || undefined}
-                crestAway={crests.away || undefined}
-                odds={oddsNum}
-                oddsFormat={oddsFormat}
-                highlightFavourite={highlightFavourite}
-                onPick={goToOffer}
-              />
-              {showOffer ? (
-                <div
-                  className="flex w-full max-w-[420px] items-center gap-2.5 rounded-xl border px-3.5 py-2.5"
-                  style={{ borderColor: `${accent}66`, background: `linear-gradient(90deg, ${accent}33, rgba(255,255,255,.06))` }}
-                >
-                  <span className="whitespace-nowrap text-lg font-black" style={{ color: accent, textShadow: `0 0 10px ${accent}66` }}>
-                    {prizeTitle}
-                  </span>
-                  <span className="text-xs leading-tight text-white/85">{offerText || "за первую ставку на этот матч"}</span>
-                </div>
-              ) : null}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => goToOffer()}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-base font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95"
-              style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
-            >
-              {ctaText || "СДЕЛАТЬ СТАВКУ"}
-            </button>
-          </div>
-        </div>
+        <LivePreview
+          viewport={viewport}
+          build={() => buildMatchHtml({  extras,  brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage, charLeft: chars.left, charRight: chars.right, sport, eventName, teamHome: teams.home, teamAway: teams.away, crestHome: crests.home, crestAway: crests.away, odds: oddsNum, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate  })}
+          deps={[extras, brand, brandLogo, headline, accent, ctaText, ctaUrl, bgImage, chars.left, chars.right, sport, eventName, teams.home, teams.away, crests.home, crests.away, oddsNum, oddsFormat, highlightFavourite, showOffer, prizeType, prizeAmount, prizeCurrency, offerText, countdownMode, countdownMinutes, countdownDate]}
+          overlay={
+            assetRun.running || seedAnalyzing ? (
+                <BuildingOverlay
+                  steps={
+                    assetRun.steps.length > 0
+                      ? assetRun.steps
+                      : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+                  }
+                />
+              ) : null
+          }
+        />
       </div>
     </div>
   );

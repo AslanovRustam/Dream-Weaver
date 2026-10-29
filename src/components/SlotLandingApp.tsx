@@ -13,10 +13,8 @@ import {
   Smartphone,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 
-import { SlotMachine } from "@/components/SlotMachine";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { sliceIconGrid } from "@/lib/spriteSlice";
 import { downloadText, slugify } from "@/lib/download";
@@ -38,6 +36,7 @@ import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
@@ -154,30 +153,7 @@ export function SlotLandingApp() {
     r.readAsDataURL(f);
   };
   const [attempts, setAttempts] = useState<string[]>(DEFAULT_ATTEMPTS);
-  // Mirrors SlotMachine's own internal spin counter (via onSpinsChange) so
-  // the external CTA button below the reel can disable/relabel itself once
-  // every configured attempt has been played — SlotMachine is the single
-  // source of truth since it also gates its own internal lever.
-  const [attemptIndex, setAttemptIndex] = useState(0);
-  const attemptIndexRef = useRef(0);
-  const wonBonusesRef = useRef<string[]>([]);
-  const [won, setWon] = useState<{
-    symbol: string;
-    imageUrl?: string;
-    bonus: string;
-    isLast: boolean;
-    allBonuses?: string[];
-  } | null>(null);
-  // Editing the attempt count mid-session (add/remove a step) starts the
-  // sequence over — remount SlotMachine (key below) to reset its own
-  // internal spin counter too.
-  useEffect(() => {
-    attemptIndexRef.current = 0;
-    wonBonusesRef.current = [];
-    setAttemptIndex(0);
-  }, [attempts.length]);
-  const [spinSignal, setSpinSignal] = useState(0);
-  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
+  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("portrait");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
@@ -411,26 +387,6 @@ export function SlotLandingApp() {
     setAttempts((a) => a.map((v, idx) => (idx === i ? bonus : v)));
   const addAttempt = () => setAttempts((a) => (a.length < 20 ? [...a, ""] : a));
   const removeAttempt = (i: number) => setAttempts((a) => (a.length > 1 ? a.filter((_, idx) => idx !== i) : a));
-
-  // "Забрать бонус" — navigate the visitor to the configured offer. A macro
-  // placeholder (e.g. {clickurl}) is meant to be substituted by the traffic
-  // source at serve time — it can't be resolved here in the builder preview,
-  // so we explain that instead of trying (and failing) to navigate to it.
-  const claimBonus = () => {
-    setWon(null);
-    const url = ctaUrl.trim();
-    if (!url) return;
-    if (/[{}]/.test(url)) {
-      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
-      return;
-    }
-    try {
-      const abs = new URL(url, window.location.origin).toString();
-      window.open(abs, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Некорректная ссылка в поле CTA");
-    }
-  };
 
   // Generate `symbolCount` unique icons in ONE call (a single grid image),
   // then slice it into individual symbol PNGs — replaces the current symbol
@@ -1224,190 +1180,22 @@ export function SlotLandingApp() {
             ))}
           </div>
         </div>
-        <div
-          className={`relative w-full overflow-hidden rounded-2xl border border-border ${
-            viewport === "portrait"
-              ? "mx-auto aspect-[9/16] max-w-[300px]"
-              : viewport === "landscape"
-                ? "aspect-[16/9]"
-                : "aspect-[16/11]"
-          }`}
-          style={{ background: dark ? "#1a1030" : "#fde8b0" }}
-        >
-          {assetRun.running || seedAnalyzing ? (
-            <BuildingOverlay
-              steps={
-                assetRun.steps.length > 0
-                  ? assetRun.steps
-                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
-              }
-            />
-          ) : null}
-          {bgImage ? (
-            <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${dark ? "#160d29" : "#ffe9a8"}` }}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
-
-          {/* Characters — anchored to the VIEWPORT bottom (crop bleeds off the edge). */}
-          {(["left", "right"] as const).map((side) =>
-            chars[side] ? (
-              <img
-                key={side}
-                src={chars[side]}
-                alt=""
-                className={`pointer-events-none absolute z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
-                  viewport === "portrait" ? "h-[84%] max-w-[56%]" : "h-full max-w-[46%]"
-                }`}
-                style={{
-                  [side]: viewport === "portrait" ? "-1%" : "-4%",
-                  bottom: viewport === "portrait" ? "-7%" : "-9%",
-                }}
-              />
-            ) : null,
-          )}
-
-          <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
-            <div className="flex w-full items-center justify-between">
-              {brandLogo ? (
-                <img src={brandLogo} alt="" className="h-6 w-auto max-w-[45%] object-contain drop-shadow" />
-              ) : (
-                <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
-              )}
-            </div>
-
-            <h2
-              className="mt-1 text-center text-2xl font-extrabold uppercase leading-none tracking-tight sm:text-3xl"
-              style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
-            >
-              {headline || "SPIN TO WIN!"}
-            </h2>
-
-            <div
-              className={`relative mt-3 flex w-full flex-1 justify-center ${
-                viewport === "portrait" ? "items-start pt-2" : "items-center"
-              }`}
-            >
-              <div className="relative z-10 mx-auto flex h-full w-full max-w-[440px] items-center justify-center">
-                <SlotMachine
-                  key={attempts.length}
-                  symbols={symbols.map((s) => s.symbol)}
-                  symbolImages={symbols.map((s) => s.imageUrl)}
-                  forceWin
-                  maxSpins={attempts.length}
-                  accent={accent}
-                  spinSignal={spinSignal}
-                  onSpinsChange={(used) => {
-                    attemptIndexRef.current = used;
-                    setAttemptIndex(used);
-                  }}
-                  onResult={(_win, symbol, index) => {
-                    // The round that JUST settled is attemptIndexRef.current - 1
-                    // (onSpinsChange already incremented it when this spin
-                    // STARTED, well before this onResult fires).
-                    const idx = attemptIndexRef.current - 1;
-                    const isLast = idx >= attempts.length - 1;
-                    const bonus = attempts[idx] || "";
-                    if (bonus) wonBonusesRef.current = [...wonBonusesRef.current, bonus];
-                    setWon({
-                      symbol,
-                      imageUrl: index >= 0 ? symbols[index]?.imageUrl : undefined,
-                      bonus,
-                      isLast,
-                      allBonuses: isLast ? wonBonusesRef.current : undefined,
-                    });
-                  }}
+        <LivePreview
+          viewport={viewport}
+          build={() => buildSlotHtml({  extras,  brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, symbols, attempts, charLeft: chars.left, charRight: chars.right  })}
+          deps={[extras, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, symbols, attempts, chars.left, chars.right]}
+          overlay={
+            assetRun.running || seedAnalyzing ? (
+                <BuildingOverlay
+                  steps={
+                    assetRun.steps.length > 0
+                      ? assetRun.steps
+                      : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+                  }
                 />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSpinSignal((s) => s + 1)}
-              disabled={attemptIndex >= attempts.length}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
-            >
-              {ctaText || "SPIN"}
-            </button>
-            {attempts.length > 1 && attemptIndex > 0 && attemptIndex < attempts.length ? (
-              <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">
-                Осталось попыток: {attempts.length - attemptIndex}
-              </p>
-            ) : null}
-          </div>
-
-          {won !== null ? (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
-              <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                <p className="text-lg font-extrabold text-[#0f172a]">🎉 Джекпот!</p>
-                {won.imageUrl ? (
-                  <div className="mt-1 flex items-center justify-center gap-2">
-                    {[0, 1, 2].map((k) => (
-                      <img key={k} src={won.imageUrl} alt="" className="h-11 w-11 object-contain" />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-3xl">
-                    {won.symbol} {won.symbol} {won.symbol}
-                  </p>
-                )}
-                {won.isLast && won.allBonuses && won.allBonuses.length > 0 ? (
-                  <div className="mt-1 text-sm text-[#475569]">
-                    <p>Вы выиграли:</p>
-                    <ul className="mt-1 flex flex-col gap-0.5">
-                      {won.allBonuses.map((b, i) => (
-                        <li key={i} className="font-bold" style={{ color: accent }}>
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm text-[#475569]">
-                    {won.bonus ? (
-                      <>
-                        Вы выиграли{" "}
-                        <span className="font-bold" style={{ color: accent }}>
-                          {won.bonus}
-                        </span>
-                      </>
-                    ) : (
-                      "Три в ряд — забирайте бонус!"
-                    )}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (won.isLast) {
-                      claimBonus();
-                    } else {
-                      setWon(null);
-                      setSpinSignal((s) => s + 1);
-                    }
-                  }}
-                  className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                  style={{ backgroundColor: accent }}
-                >
-                  {won.isLast ? "Получить бонус" : "Крутить ещё"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWon(null)}
-                  aria-label="Закрыть"
-                  className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
+              ) : null
+          }
+        />
       </div>
     </div>
   );

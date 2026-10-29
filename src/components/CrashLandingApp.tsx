@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Check, Download, Loader2, Monitor, Pipette, Smartphone, Sparkles } from "lucide-react";
 
-import { CrashGame } from "@/components/CrashGame";
 import { bgPreset, characterPreset, removeBackground, trimTransparent } from "@/lib/landingCreative";
 import { downloadText, slugify } from "@/lib/download";
 import { forgetProject, saveProject } from "@/lib/projects";
@@ -25,6 +24,7 @@ import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
+import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
 import { ApplyTopicButton, topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { LandingBlocksPicker } from "@/components/landing/LandingBlocksPicker";
@@ -98,22 +98,8 @@ export function CrashLandingApp() {
     r.onload = () => setRocketRef(String(r.result));
     r.readAsDataURL(f);
   };
-  const [won, setWon] = useState<{ win: boolean; mult: string } | null>(null);
-  const [spinSignal, setSpinSignal] = useState(0);
-  // Attempts: how many rounds the player may start. 0 = unlimited. CrashGame
-  // owns the actual counting (it also fires internally, not only via
-  // spinSignal); onAttemptsChange mirrors that count up here so the
-  // landing's own external "СТАРТ"/"Ещё раз" button can be disabled too.
   const [maxAttempts, setMaxAttempts] = useState(0);
-  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
-  const outOfAttempts = attemptsLeft !== null && attemptsLeft <= 0;
-  // Editing the limit remounts CrashGame (via the key below) — reset the
-  // mirrored counter here so the external button doesn't stay disabled from
-  // a previous, now-discarded round.
-  useEffect(() => {
-    setAttemptsLeft(null);
-  }, [maxAttempts]);
-  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("desktop");
+  const [viewport, setViewport] = useState<"desktop" | "portrait" | "landscape">("portrait");
   const [genning, setGenning] = useState(false);
   const [genError, setGenError] = useState("");
   const [costUsd, setCostUsd] = useState(0);
@@ -323,26 +309,6 @@ export function CrashLandingApp() {
     chars,
     charPrompts,
   ]);
-
-  // Same ctaUrl / {macro} handling as the wheel and slot builders: an
-  // unresolved ad-tracking macro shows an info toast instead of a failed
-  // navigation, and a real URL opens in a NEW tab so the builder page itself
-  // (with the user's in-progress edits) is never navigated away.
-  const claimBonus = () => {
-    setWon(null);
-    const url = ctaUrl.trim();
-    if (!url) return;
-    if (/[{}]/.test(url)) {
-      toast.info("Это переменная-макрос — трафик-система подставит ссылку на реальном лендинге");
-      return;
-    }
-    try {
-      const abs = new URL(url, window.location.origin).toString();
-      window.open(abs, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Некорректная ссылка в поле CTA");
-    }
-  };
 
   const genImage = async (payload: Record<string, unknown>): Promise<string> => {
     const res = await apiFetch("/api/generate-email-hero", { method: "POST", json: payload });
@@ -1061,155 +1027,22 @@ export function CrashLandingApp() {
             ))}
           </div>
         </div>
-        <div
-          className={`relative w-full overflow-hidden rounded-2xl border border-border ${
-            viewport === "portrait"
-              ? "mx-auto aspect-[9/16] max-w-[300px]"
-              : viewport === "landscape"
-                ? "aspect-[16/9]"
-                : "aspect-[16/11]"
-          }`}
-          style={{ background: dark ? "#1a1030" : "#fde8b0" }}
-        >
-          {assetRun.running || seedAnalyzing ? (
-            <BuildingOverlay
-              steps={
-                assetRun.steps.length > 0
-                  ? assetRun.steps
-                  : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
-              }
-            />
-          ) : null}
-          {bgImage ? (
-            <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{ background: `radial-gradient(80% 70% at 50% 30%, ${accent}55, transparent), ${dark ? "#160d29" : "#ffe9a8"}` }}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40" />
-
-          {(["left", "right"] as const).map((side) =>
-            chars[side] ? (
-              <img
-                key={side}
-                src={chars[side]}
-                alt=""
-                className={`pointer-events-none absolute z-20 object-contain object-bottom drop-shadow-[0_10px_22px_rgba(0,0,0,0.55)] ${
-                  viewport === "portrait" ? "h-[84%] max-w-[56%]" : "h-full max-w-[46%]"
-                }`}
-                style={{
-                  [side]: viewport === "portrait" ? "-1%" : "-4%",
-                  bottom: viewport === "portrait" ? "-7%" : "-9%",
-                }}
-              />
-            ) : null,
-          )}
-
-          <div className="relative z-30 flex h-full flex-col items-center px-4 py-4">
-            <div className="flex w-full items-center justify-between">
-              {brandLogo ? (
-                <img src={brandLogo} alt="" className="h-6 w-auto max-w-[45%] object-contain drop-shadow" />
-              ) : (
-                <span className="text-sm font-extrabold text-white drop-shadow">{brand || "LOGO"}</span>
-              )}
-            </div>
-
-            <h2
-              className="mt-1 text-center text-2xl font-extrabold uppercase leading-none tracking-tight sm:text-3xl"
-              style={{ color: "#fff", textShadow: `0 2px 0 ${accent}, 0 4px 10px rgba(0,0,0,.5)` }}
-            >
-              {headline || "УСПЕЙ ЗАБРАТЬ!"}
-            </h2>
-
-            <div
-              className={`relative mt-3 flex w-full flex-1 justify-center ${
-                viewport === "portrait" ? "items-start pt-2" : "items-center"
-              }`}
-            >
-              <div className="relative z-10 mx-auto flex h-full w-full max-w-[420px] items-center justify-center">
-                <CrashGame
-                  key={maxAttempts}
-                  accent={accent}
-                  spinSignal={spinSignal}
-                  startLabel={ctaText || "СТАРТ"}
-                  maxAttempts={maxAttempts || undefined}
-                  rocketImage={rocketIcon || undefined}
-                  onResult={(win, mult) => setWon({ win, mult })}
-                  onAttemptsChange={(_used, left) => setAttemptsLeft(left)}
+        <LivePreview
+          viewport={viewport}
+          build={() => buildCrashHtml({  extras,  brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, maxAttempts, rocketImage: rocketIcon, bgImage, charLeft: chars.left, charRight: chars.right  })}
+          deps={[extras, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, maxAttempts, rocketIcon, bgImage, chars.left, chars.right]}
+          overlay={
+            assetRun.running || seedAnalyzing ? (
+                <BuildingOverlay
+                  steps={
+                    assetRun.steps.length > 0
+                      ? assetRun.steps
+                      : [{ id: "seed", label: "Разбираем баннер", status: "running" as const }]
+                  }
                 />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSpinSignal((s) => s + 1)}
-              disabled={outOfAttempts}
-              className="relative z-30 mb-1 mt-2 w-[82%] max-w-[380px] rounded-full py-3 text-center text-lg font-extrabold uppercase tracking-wide text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: `linear-gradient(180deg, ${accent}, ${accent}cc)` }}
-            >
-              {outOfAttempts ? "Попытки закончились" : ctaText || "СТАРТ"}
-            </button>
-            {maxAttempts > 0 && attemptsLeft !== null ? (
-              <p className="relative z-30 -mt-0.5 text-center text-xs text-white/70 drop-shadow">
-                Осталось попыток: {attemptsLeft}
-              </p>
-            ) : null}
-          </div>
-
-          {/* Win / crash modal */}
-          {won !== null ? (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
-              <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
-                {won.win ? (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">🚀 Забрал вовремя!</p>
-                    <p className="mt-1 text-3xl font-extrabold" style={{ color: accent }}>
-                      ×{won.mult}
-                    </p>
-                    <p className="mt-1 text-sm text-[#475569]">Отличный кэшаут — забирайте бонус!</p>
-                    <button
-                      type="button"
-                      onClick={claimBonus}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white"
-                      style={{ backgroundColor: accent }}
-                    >
-                      Забрать бонус
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-lg font-extrabold text-[#0f172a]">💥 Разбилось на ×{won.mult}</p>
-                    <p className="mt-1 text-sm text-[#475569]">
-                      Чуть не успел — попробуйте ещё раз и заберите вовремя!
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWon(null);
-                        if (!outOfAttempts) setSpinSignal((n) => n + 1);
-                      }}
-                      disabled={outOfAttempts}
-                      className="mt-4 w-full rounded-lg py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      style={{ backgroundColor: accent }}
-                    >
-                      {outOfAttempts ? "Попытки закончились" : "Ещё раз"}
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setWon(null)}
-                  aria-label="Закрыть"
-                  className="absolute right-3 top-3 text-[#94a3b8] hover:text-[#0f172a]"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
+              ) : null
+          }
+        />
       </div>
     </div>
   );

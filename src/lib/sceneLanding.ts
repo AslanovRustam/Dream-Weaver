@@ -229,6 +229,11 @@ function promoCss(accent: string): string {
     .pTop,.pFl{display:none}
     .pFrame{height:var(--fhm,min(82svh,760px));min-height:360px;border-radius:0}
     .pAct .pBtn{max-width:none}
+    /* «Сначала игра»: игра сразу под шапкой и ниже ростом, чтобы заголовок и оффер
+       выглядывали в первом экране; персонаж и текст — под игрой. */
+    .gameFirst.pHero{padding-top:0}
+    .gameFirst .pWrap{grid-template-areas:"game" "copy" "act"}
+    .gameFirst .pFrame{height:min(var(--fhm,82svh),62svh)}
   }
   @media(min-width:960px){
     .pHero{padding:24px 0 64px}
@@ -294,7 +299,7 @@ ${k.css}
 </head>
 <body>
   <header class="pHead"><span class="pLogo">${logo}</span><div class="pHR"><span class="pBadge"><i></i>${esc(s.promoBadge)}</span><button type="button" class="pBtn pBtnSm" data-excta>${cta} ↗</button></div></header>
-  <section class="pHero${chars.length ? " hasChar" : ""}">
+  <section class="pHero${chars.length ? " hasChar" : ""}${extras.look.mobileOrder === "game" ? " gameFirst" : ""}">
     ${img(p.bg) ? `<div class="pBg" style="background-image:url('${p.bg}')"></div>` : ""}
     <div class="pWrap">
       <div class="pCopy">
