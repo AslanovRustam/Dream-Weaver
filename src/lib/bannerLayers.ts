@@ -133,22 +133,29 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     }
   }
   // Одна строка → две строки → сжатый оффер («фриспинов» → FS, «и» → +) → только главное число.
+  // Варианты: полный оффер, сжатый, главная часть — в одну или две строки. Берём самый
+  // крупный кегль; сжатие и обрезка — со штрафом, чтобы без нужды не терять слова.
   const line = offer || headline;
   if (!line) return ops;
-  for (const t of [line, compactOffer(line), mainPart(line)]) {
-    const s = fitSize(m, t, 900, HEAD_FONT, colW, h * 0.42, 8);
-    if (s) {
-      ops.push({ kind: "text", text: t, x: left, y: h / 2, size: s, font: font(900, s, HEAD_FONT), color: "#ffffff", align: "left", maxW: colW });
-      return ops;
-    }
-    for (let s2 = h * 0.3; s2 >= 8; s2 -= 0.5) {
-      const f = font(900, s2, HEAD_FONT);
-      const lines = s2 * 2.15 <= h - 4 ? wrap(m, t, f, colW, 2) : null;
+  let best: { lines: string[]; size: number; score: number } | null = null;
+  const seen = new Set<string>();
+  for (const [t, k] of [[line, 1], [compactOffer(line), 0.85], [mainPart(line), 0.55]] as const) {
+    if (seen.has(t)) continue;
+    seen.add(t);
+    const s1 = fitSize(m, t, 900, HEAD_FONT, colW, h * 0.42, 8);
+    if (s1 && (!best || s1 * k > best.score)) best = { lines: [t], size: s1, score: s1 * k };
+    for (let s2 = Math.min(h * 0.34, (h - 4) / 2.2); s2 >= 8; s2 -= 0.5) {
+      const lines = wrap(m, t, font(900, s2, HEAD_FONT), colW, 2);
       if (!lines) continue;
-      const y0 = (h - lines.length * s2 * 1.08) / 2;
-      lines.forEach((l, i) => ops.push({ kind: "text", text: l, x: left, y: y0 + s2 * 1.08 * (i + 0.5), size: s2, font: f, color: "#ffffff", align: "left", maxW: colW }));
-      return ops;
+      // Две строки чуть хуже одной того же кегля.
+      if (!best || s2 * k * 0.95 > best.score) best = { lines, size: s2, score: s2 * k * 0.95 };
+      break;
     }
+  }
+  if (best) {
+    const s = best.size;
+    const y0 = (h - best.lines.length * s * 1.08) / 2;
+    best.lines.forEach((l, i) => ops.push({ kind: "text", text: l, x: left, y: y0 + s * 1.08 * (i + 0.5), size: s, font: font(900, s, HEAD_FONT), color: "#ffffff", align: "left", maxW: colW }));
   }
   return ops;
 }
