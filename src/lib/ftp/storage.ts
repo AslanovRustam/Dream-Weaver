@@ -94,6 +94,18 @@ export async function uploadImage(buffer: Buffer, args: BuildPathArgs): Promise<
 }
 
 /**
+ * Слой баннера (подложка, фон, персонаж, слово-надпись): путь — хеш содержимого.
+ * Ссылки лежат в манифесте карточки (form_snapshot.banner_layers); повторная
+ * загрузка того же слоя не плодит копий.
+ */
+export async function uploadLayerAsset(buffer: Buffer, format: ImageFormat): Promise<{ url: string }> {
+  const hash = createHash("sha256").update(buffer).digest("hex").slice(0, 40);
+  const file = `${hash}.${format}`;
+  await uploadFile(buffer, `${getBasePath()}/layers/${file}`);
+  return { url: `${getBaseUrl()}/layers/${file}` };
+}
+
+/**
  * Картинка для письма: путь — хеш содержимого.
  *
  * Письмо уходит на почтовый сервис и живёт в ящиках годами, поэтому картинки

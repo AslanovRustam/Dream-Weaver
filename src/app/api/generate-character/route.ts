@@ -23,7 +23,8 @@ export const maxDuration = 300;
 
 const CHARACTER_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 
-type Body = { prompt?: string; reference_image?: string };
+/** keep_pose — вырезать героя баннера как есть (поза, ракурс, кадрирование): слой GIF. */
+type Body = { prompt?: string; reference_image?: string; keep_pose?: boolean };
 
 export async function POST(request: Request) {
   // Paid call on the company's OpenAI key: sign-in + a per-user rate limit are
@@ -62,7 +63,13 @@ export async function POST(request: Request) {
   // Portrait for a wheel/slot flanking character. Force a fully transparent
   // background (no scene/floor/shadow) + a people-safety clause so OpenAI's
   // filter doesn't false-flag it.
-  const referenceClause = hasReference
+  const keepPose = !!body.keep_pose && hasReference;
+  const referenceClause = keepPose
+    ? "\n\nSOURCE: the attached image is an approved ad banner. Re-draw ONLY its main character / key object — " +
+      "the SAME one, with the SAME pose, camera angle, framing and crop as on the banner (if the banner shows it " +
+      "half-body, draw it half-body; keep what it holds in its hands). Identical face, hair, outfit, colours, " +
+      "lighting and rendering style. Discard EVERYTHING else: background scene, other props, text, logos, buttons, badges."
+    : hasReference
     ? "\n\nIDENTITY REFERENCE: the attached image is the approved ad banner this landing page is built " +
       "from. If it shows a person/character, this is the SAME character — reproduce them with matching " +
       "identity: same hair colour/style, same face shape and features, same outfit and colours, same " +
@@ -74,7 +81,7 @@ export async function POST(request: Request) {
     : "";
   const full =
     `${prompt}${referenceClause}\n\nOUTPUT: isolate the character on a FULLY TRANSPARENT background — no scene, no floor, ` +
-    `no shadow, no backdrop, no props behind. Full body, centered, crisp clean edges. ` +
+    `no shadow, no backdrop, no props behind. ${keepPose ? "Same framing as on the banner, filling the canvas" : "Full body, centered"}, crisp clean edges. ` +
     `PEOPLE: any person is an adult, FULLY CLOTHED in tasteful attire, natural non-sexual pose.`;
 
   // Flat price is known up front, so: charge → call the provider → refund

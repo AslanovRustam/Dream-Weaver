@@ -57,6 +57,8 @@ export type LayerOpts = {
   logoHero?: boolean;
   /** Строка одиночным кадром — акцентным цветом (кадр оффера). */
   lineAccent?: boolean;
+  /** Персонаж отдельным слоем (фон без него) — пропорции вырезки; код ставит его с учётом текста. */
+  hero?: { w: number; h: number } | null;
 };
 
 /** Ширина строки текста данным шрифтом (canvas.measureText или оценка в проверке). */
@@ -80,9 +82,9 @@ export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
   | { kind: "shade"; dir: "right" | "top" | "left"; box: Box }
   | { kind: "logo"; box: Box }
+  | { kind: "hero"; box: Box }
   | { kind: "button"; box: Box; color: string; art?: boolean }
   | TextOp;
-
 
 export const HEAD_FONT = `"Unbounded","Arial Black",Arial,sans-serif`;
 export const BODY_FONT = `"Manrope","Segoe UI",Roboto,Arial,sans-serif`;
@@ -178,13 +180,37 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   const ops: Op[] = [];
   const pad = Math.max(4, Math.round(h * 0.12));
   // Подложка 3:1 по высоте баннера — герой слева целиком; правее — она же, размытая.
-  const heroW = Math.min(Math.round(h * 3), Math.round(w * 0.42));
-  ops.push({ kind: "plate", mode: "strip-left", box: { x: 0, y: 0, w: heroW, h } });
-  ops.push({
-    kind: "shade",
-    dir: "right",
-    box: { x: Math.round(heroW * 0.3), y: 0, w: w - Math.round(heroW * 0.3), h },
-  });
+  // Персонаж отдельным слоем: фон — подложка целиком, персонаж слева по высоте полосы.
+  let heroW = Math.min(Math.round(h * 3), Math.round(w * 0.42));
+  let heroRight = Math.round(heroW * 0.4);
+  if (o.hero) {
+    const a = o.hero.w / Math.max(1, o.hero.h);
+    let hh = h;
+    let hw = hh * a;
+    if (hw > w * 0.3) [hw, hh] = [w * 0.3, (w * 0.3) / a];
+    const box = {
+      x: Math.round(pad * 0.4),
+      y: h - Math.round(hh),
+      w: Math.round(hw),
+      h: Math.round(hh),
+    };
+    heroW = Math.round(box.x + box.w);
+    heroRight = heroW;
+    ops.push({ kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } });
+    ops.push({
+      kind: "shade",
+      dir: "right",
+      box: { x: Math.round(heroW * 0.5), y: 0, w: w - Math.round(heroW * 0.5), h },
+    });
+    ops.push({ kind: "hero", box });
+  } else {
+    ops.push({ kind: "plate", mode: "strip-left", box: { x: 0, y: 0, w: heroW, h } });
+    ops.push({
+      kind: "shade",
+      dir: "right",
+      box: { x: Math.round(heroW * 0.3), y: 0, w: w - Math.round(heroW * 0.3), h },
+    });
+  }
 
   // Кнопка справа.
   const cta = o.texts.cta.trim().toUpperCase();
@@ -228,7 +254,7 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
 
   // Лого — после героя, если место есть.
   // Герой в подложке — в левой трети (до ~36% её ширины); текст сразу за ним.
-  let left = Math.round(heroW * 0.4);
+  let left = o.hero ? heroRight + Math.round(pad * 0.5) : heroRight;
   if (o.logoHero && o.logo) {
     const colW0 = right - left;
     let lh = Math.round(h * 0.7);
@@ -380,7 +406,9 @@ function mainPart(t: string): string {
 function layoutColumn(w: number, h: number, kind: LayerKind, o: LayerOpts, m: Measure): Op[] {
   // Горизонталь: колонка текста слева, герой справа. Остальные: колонка во всю ширину
   // над героем (в подложке он в нижней половине, от ~45% высоты).
-  const land = kind === "landscape";
+  // Квадрат с персонажем слоем — тоже колонка слева и персонаж справа во всю высоту:
+  // под текстом в квадрате ему остаётся полоска, и ту закрывает кнопка.
+  const land = kind === "landscape" || (kind === "square" && !!o.hero);
   const ops: Op[] = [
     { kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } },
     land
@@ -439,7 +467,45 @@ function layoutColumn(w: number, h: number, kind: LayerKind, o: LayerOpts, m: Me
   const plateScale = Math.max(w / plate.w, h / plate.h);
   const heroTop = (h - plate.h * plateScale) / 2 + plate.h * plateScale * 0.45;
   const top = y;
-  const bottom = land ? btnTop - pad * 0.6 : Math.max(top + h * (kind === "tower" ? 0.2 : 0.3), Math.min(heroTop, btnTop) - pad * 0.5);
+  // Персонаж слоем: текст — в верхней части (у горизонтали — слева), персонаж — под ней
+  // (справа), без привязки к подложке.
+  const bottom = land
+    ? btnTop - pad * 0.6
+    : o.hero
+      ? Math.min(
+          btnTop - pad * 0.5,
+          top + Math.max(h * 0.3, (h - top) * (kind === "tower" ? 0.42 : 0.48)),
+        )
+      : Math.max(top + h * (kind === "tower" ? 0.2 : 0.3), Math.min(heroTop, btnTop) - pad * 0.5);
+  if (o.hero) {
+    const a = o.hero.w / Math.max(1, o.hero.h);
+    // Зона персонажа: под текстом (перекрывая край зоны — текст рисуется поверх) до низа;
+    // у горизонтали — правая половина во всю высоту. Кнопка ложится поверх персонажа.
+    const zone = land
+      ? {
+          x: pad + colW + pad * 0.3,
+          y: pad * 0.3,
+          w: w - (pad + colW + pad * 0.3) - pad * 0.3,
+          h: h - pad * 0.3,
+        }
+      : {
+          x: (w - Math.min(w, colW * 1.3)) / 2,
+          y: bottom - pad * 0.3,
+          w: Math.min(w, colW * 1.3),
+          h: h - bottom + pad * 0.3,
+        };
+    const sc = Math.min(zone.w / a, zone.h);
+    const hh = sc;
+    const hw = sc * a;
+    const box = {
+      x: Math.round(zone.x + (zone.w - hw) / 2),
+      y: h - Math.round(hh),
+      w: Math.round(hw),
+      h: Math.round(hh),
+    };
+    // Под текст и кнопку: сразу после подложки и затемнения.
+    ops.splice(2, 0, { kind: "hero", box });
+  }
   if (o.logoHero && o.logo) {
     const zone = bottom - top;
     let lw = colW;
@@ -570,7 +636,7 @@ function ensureFonts(): Promise<void> {
 export type LayerSource = {
   kind: LayerKind;
   plate: string;
-  opts: LayerOpts & { logoSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null };
+  opts: LayerOpts & { logoSrc?: string; heroSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null };
 };
 
 /**
@@ -658,6 +724,7 @@ export async function prepareBanner(
     ),
   ]);
   const ctaImg = o.cta ? await loadImg(o.cta.src).catch(() => null) : null;
+  const heroImg = o.heroSrc ? await loadImg(o.heroSrc).catch(() => null) : null;
   // Надписи-ассеты: слово → картинка. Все слова листа одной высоты букв, поэтому
   // масштаб общий — по медиане высот (у «+» и коротких слов рамка ниже, но буквы те же).
   const art = new Map(
@@ -688,6 +755,7 @@ export async function prepareBanner(
     ...o,
     logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null,
     ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null,
+    hero: heroImg ? { w: heroImg.naturalWidth, h: heroImg.naturalHeight } : null,
   };
   const ops = layoutBanner(w, h, kind, full, measure);
   const slideList = bannerSlides(full);
@@ -766,6 +834,17 @@ export async function prepareBanner(
       alpha: Math.min(1, p * 3) * (1 - slideExit(lt)),
       scale: 0.5 + 0.5 * easeOutBack(p),
       dy: 0,
+    };
+  };
+  /** Персонаж в «Элементах»: выезжает снизу в начале цикла и уходит вместе с надписями. */
+  const heroMotion = (t: number | undefined, style: BannerMotion, hh: number): Motion => {
+    if (t === undefined || style !== "full") return STILL;
+    const p = clamp01((t - 0.05) / 0.45);
+    const out = 1 - clamp01((t - (L - 0.3)) / 0.25);
+    return {
+      alpha: Math.min(1, p * 2) * out,
+      scale: 0.92 + 0.08 * easeOutBack(p),
+      dy: (1 - easeOutCubic(p)) * hh * 0.25,
     };
   };
   const slideButton = (lt: number): Motion => ({
@@ -929,6 +1008,12 @@ export async function prepareBanner(
         }
         g.fillStyle = gr;
         g.fillRect(b.x, b.y, b.w, b.h);
+      } else if (op.kind === "hero") {
+        const b = op.box;
+        if (heroImg)
+          moved(g, heroMotion(t, style, b.h), b.x + b.w / 2, b.y + b.h, () =>
+            g.drawImage(heroImg, b.x, b.y, b.w, b.h),
+          );
       } else if (op.kind === "logo" && logo) {
         const b = op.box;
         const sc = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);

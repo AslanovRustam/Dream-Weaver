@@ -39,6 +39,8 @@ import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes"
 import { PLAYABLE_ASSET_PRICE_CREDITS, resizeCredits } from "@/lib/credit-estimate";
 import { layerKind, type LayerSource } from "@/lib/bannerLayers";
 import { GifDialog } from "./GifDialog";
+import { buildGif } from "@/lib/gifRender";
+import { GIF_NETWORKS, GIF_NETWORK_BY_ID, type GifNetworkId } from "@/lib/gifNetworks";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -451,6 +453,57 @@ export function ResizeBatchPanel({
       toast.success(`Скачали ZIP · ${ready.length} ${plural(ready.length, "формат", "формата", "форматов")}`);
     } catch {
       toast.error("Не удалось собрать ZIP. Попробуйте ещё раз.");
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  // Все GIF пакета под одну сеть — ZIP. Слои (персонаж, фон, надписи) общие на пакет:
+  // генерируются один раз на баннер и сохраняются в карточку; сценарий — по плану сети;
+  // в архиве ТТ.txt — проверка каждого GIF на требования сети.
+  const downloadGifZip = async (netId: GifNetworkId) => {
+    const net = GIF_NETWORK_BY_ID.get(netId)!;
+    const ready = tiles.filter((t) => t.status === "done" && t.dataUrl);
+    if (ready.length === 0) return;
+    setZipping(true);
+    const tid = toast.loading(`GIF под «${net.label}»: 0 из ${ready.length}`);
+    try {
+      const zip = new JSZip();
+      const report: string[] = [`GIF под «${net.label}» — ${net.rules}`, ""];
+      let fails = 0;
+      for (const [i, t] of ready.entries()) {
+        const { w, h } = t.size;
+        const layers = gifLayers ? await gifLayers({ w, h }).catch(() => t.layers) : t.layers;
+        const g = await buildGif({ net, w, h, layers, src: t.dataUrl });
+        const name = `banner-${w}x${h}.gif`;
+        zip.file(name, g.bytes);
+        const ok = g.checks.every((c) => c.ok);
+        if (!ok) fails++;
+        report.push(`${ok ? "✓" : "✗"} ${name} — ${g.checks.map((c) => (c.ok ? "" : "НЕ: ") + c.label).join("; ")}`);
+        toast.loading(`GIF под «${net.label}»: ${i + 1} из ${ready.length}`, { id: tid });
+        // Кодирование — в основном потоке: даём интерфейсу перерисоваться между файлами.
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      zip.file("ТТ.txt", report.join("\n"));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gif-${netId}-${ready.length}sz-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 5000);
+      toast.success(
+        fails
+          ? `GIF скачаны · ${fails} из ${ready.length} не проходят требования «${net.label}» — см. ТТ.txt`
+          : `GIF скачаны · все ${ready.length} подходят для «${net.label}»`,
+        { id: tid },
+      );
+    } catch (e) {
+      toast.error("Не удалось собрать GIF", { id: tid, description: e instanceof Error ? e.message : String(e) });
     } finally {
       setZipping(false);
     }
@@ -953,6 +1006,33 @@ export function ResizeBatchPanel({
                 >
                   Сгенерировать заново
                 </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={!canZip}
+                      className="ds-btn ds-btn-secondary px-5 py-2.5 max-sm:min-h-12 max-sm:flex-1"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      GIF под сеть
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={8} className="w-72 rounded-xl border-border bg-popover p-1.5 text-foreground">
+                    <div className="px-2.5 pb-1 pt-1 ds-caption text-muted-foreground">
+                      Все форматы — GIF одним ZIP. Персонаж, фон и надписи собираются один раз на баннер и сохраняются в Историю.
+                    </div>
+                    {GIF_NETWORKS.map((n) => (
+                      <DropdownMenuItem
+                        key={n.id}
+                        onClick={() => void downloadGifZip(n.id)}
+                        className="flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                      >
+                        <span className="font-medium">{n.label}</span>
+                        <span className="ds-caption text-muted-foreground">{n.hint}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <button
                   type="button"
                   onClick={downloadZip}

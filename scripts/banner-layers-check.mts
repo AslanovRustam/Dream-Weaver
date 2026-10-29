@@ -73,6 +73,30 @@ for (const s of [...sizes, ...gifSizes]) {
   }
 }
 
+// Персонаж отдельным слоем (GIF): внутри баннера, крупный, текст его не закрывает.
+for (const s of [...sizes, ...gifSizes]) {
+  const kind = gifKind(s.w, s.h);
+  for (const [ti, texts] of TEXTS.entries())
+    for (const hero of [{ w: 700, h: 1000 }, { w: 1000, h: 700 }]) {
+      const name = `${s.w}×${s.h} (${kind}) тексты#${ti} персонаж ${hero.w}×${hero.h}`;
+      const ops = layoutBanner(s.w, s.h, kind, { texts, accent: "#f5b324", hero, ctaArt: { w: 460, h: 130 } }, measure);
+      const hb = (ops.find((o) => o.kind === "hero") as Extract<Op, { kind: "hero" }> | undefined)?.box;
+      ok(!!hb, `${name}: нет персонажа`);
+      if (!hb) continue;
+      ok(inside(hb, s.w, s.h), `${name}: персонаж за краем`);
+      ok(hb.h >= s.h * (kind === "strip" ? 0.55 : 0.28) || hb.w >= s.w * 0.28, `${name}: персонаж мелкий ${hb.w}×${hb.h}`);
+      const txt = ops.filter((o): o is Extract<Op, { kind: "text" }> => o.kind === "text" && !o.noArt);
+      ok(txt.length > 0, `${name}: нет текста`);
+      for (const t of txt) {
+        const tb = textBox(t);
+        ok(inside(tb, s.w, s.h), `${name}: «${t.text}» за краем`);
+        if (kind === "strip") ok(tb.x >= hb.x + hb.w - 1, `${name}: «${t.text}» на персонаже`);
+        // В колонке текст может лишь коснуться макушки (верхние 25% рамки персонажа — обычно пустые).
+        else ok(!overlap(tb, { x: hb.x, y: hb.y + hb.h * 0.25, w: hb.w, h: hb.h * 0.75 }), `${name}: «${t.text}» закрывает персонажа`);
+      }
+    }
+}
+
 // Кадры GIF «по очереди»: порядок; каждый кадр — своя раскладка в баннере, без наездов на кнопку.
 {
   const full = { headline: "Крути колесо викингов", offer: "+200% + 500 фриспинов", cta: "Забрать бонус", sub: "Только для новых игроков" };

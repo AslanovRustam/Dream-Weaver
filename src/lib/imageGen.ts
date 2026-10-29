@@ -5,7 +5,7 @@ import { CONTENT_FILTER_PREFIX, describeProviderError } from "@/lib/generation-e
 import { centerCrop } from "@/lib/resizePlan";
 
 /** Подложка без текста под слоёную сборку (bannerLayers): форма кадра. */
-export type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait";
+export type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait" | "bgwide" | "bgtall";
 
 export type GeneratePayload = {
   /** Символ из лого (без надписи) можно повторить в декоре сцены — для кампании. */

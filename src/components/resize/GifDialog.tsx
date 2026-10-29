@@ -1,9 +1,9 @@
 "use client";
-// GIF баннера собирается композицией слоёв (src/lib/bannerLayers.ts): подложка без
-// текста под форму GIF + надписи и кнопка, нарисованные моделью в стиле мастера, —
-// их и анимирует код. Слоёв ещё нет — «Собрать из слоёв» (подложка формы и лист
-// надписей; оба кэшируются на мастер). «Блик поверх» — запасной вариант по готовой
-// картинке. Превью — сам итоговый GIF, вес — как скачается.
+// GIF баннера собирается композицией слоёв (src/lib/bannerLayers.ts): фон без текста и
+// без персонажа, персонаж отдельным слоем (код ставит его с учётом текста), надписи и
+// кнопка, нарисованные моделью в стиле мастера, — всё это анимирует код. Слоёв ещё нет —
+// «Собрать из слоёв» (части кэшируются на мастер и сохраняются в карточку Истории).
+// «Блик поверх» — запасной вариант по готовой картинке. Превью — сам итоговый GIF.
 // Сеть (src/lib/gifNetworks.ts) решает, как собирать: сценарий, частота кадров,
 // повторы и лимит веса; под превью — чек-лист техтребований сети.
 import { useEffect, useMemo, useState } from "react";
@@ -11,27 +11,13 @@ import { Check, Download, Layers, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiFetch } from "@/lib/api-client";
-import {
-  makeGifFromFrames,
-  makeGifFromPixels,
-  pixelsFromImage,
-  type GifEffects,
-} from "@/lib/bannerGif";
-import {
-  bannerFrames,
-  bannerSlides,
-  prepareBanner,
-  type LayerSource,
-  type SlideName,
-} from "@/lib/bannerLayers";
+import { type GifEffects } from "@/lib/bannerGif";
+import { type LayerSource, type SlideName } from "@/lib/bannerLayers";
+import { buildGif, slidesOf } from "@/lib/gifRender";
 import {
   GIF_NETWORKS,
   GIF_NETWORK_BY_ID,
-  checkGif,
-  ladderFor,
   planGif,
-  playsFor,
   type GifCheck,
   type GifMode,
   type GifNetworkId,
@@ -68,8 +54,6 @@ const SLIDE_LABEL: Record<SlideName, string> = {
   sub: "доп-текст",
   brand: "лого",
 };
-/** Длина цикла «Блика поверх», с (как в makeGifFromPixels). */
-const FLAT_LOOP_S = 2.4;
 const NET_KEY = "gengo.gif.network";
 /** 1 показ, 3 показа, 7 показов. */
 const showsWord = (n: number) =>
@@ -78,25 +62,6 @@ const showsWord = (n: number) =>
     : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
       ? "показа"
       : "показов";
-
-/** Хранилище не отдаёт CORS — для канваса удалённую картинку берём через свой сервер. */
-const fetched = new Map<string, Promise<string>>();
-function toDataUrl(url: string): Promise<string> {
-  if (url.startsWith("data:") || url.startsWith("blob:")) return Promise.resolve(url);
-  let p = fetched.get(url);
-  if (!p) {
-    p = fetchDataUrl(url);
-    p.catch(() => fetched.delete(url));
-    fetched.set(url, p);
-  }
-  return p;
-}
-async function fetchDataUrl(url: string): Promise<string> {
-  const res = await apiFetch("/api/fetch-master", { method: "POST", json: { url } });
-  const data = (await res.json()) as { dataUrl?: string };
-  if (!res.ok || !data.dataUrl) throw new Error("Не удалось забрать картинку");
-  return data.dataUrl;
-}
 
 /** Последняя выбранная сеть — удобство на этом устройстве; без хранилища — Google. */
 function savedNetwork(): GifNetworkId {
@@ -127,7 +92,9 @@ export function GifDialog({ open, onOpenChange, src, size, layers: given, buildL
   const [built, setBuilt] = useState<{ key: string; layers: LayerSource } | null>(null);
   const [building, setBuilding] = useState(false);
   const dimsKey = `${dims.w}x${dims.h}`;
-  const layers = given ?? (built?.key === dimsKey ? built.layers : undefined);
+  // Собранные в окне слои (персонаж отдельно) главнее слоёв тайла (персонаж в подложке).
+  const fresh = built?.key === dimsKey ? built.layers : undefined;
+  const layers = fresh ?? given;
   const build = async () => {
     if (!buildLayers) return;
     setBuilding(true);
@@ -142,15 +109,7 @@ export function GifDialog({ open, onOpenChange, src, size, layers: given, buildL
     }
   };
   // Кадры по очереди — если есть что чередовать (заголовок, оффер, доп-текст, лого).
-  const slideNames = useMemo(
-    () =>
-      layers
-        ? bannerSlides({ ...layers.opts, logo: layers.opts.logoSrc ? { w: 1, h: 1 } : null }).map(
-            (x) => x.name,
-          )
-        : [],
-    [layers],
-  );
+  const slideNames = useMemo(() => slidesOf(layers), [layers]);
   const canSlides = slideNames.length > 1;
   const [netId, setNetId] = useState<GifNetworkId>(savedNetwork);
   const net = GIF_NETWORK_BY_ID.get(netId)!;
@@ -192,37 +151,8 @@ export function GifDialog({ open, onOpenChange, src, size, layers: given, buildL
     // Даём кадру отрисовать спиннер — кодирование идёт в основном потоке.
     const t = setTimeout(async () => {
       try {
-        const ladder = ladderFor(net, mode);
-        let r;
-        let plays;
-        if (mode !== "flat" && layers) {
-          const b = await prepareBanner(
-            dims.w,
-            dims.h,
-            layers.kind,
-            await toDataUrl(layers.plate),
-            layers.opts,
-          );
-          if (off) return;
-          const style = mode === "light" ? "light" : mode === "slides" ? "slides" : "full";
-          plays = playsFor(net, b.timing(style).loop, wantPlays);
-          r = makeGifFromFrames((fps) => bannerFrames(b, fps, style), dims.w, dims.h, {
-            plays,
-            maxBytes: net.maxBytes,
-            ladder,
-          });
-        } else {
-          const px = await pixelsFromImage(await toDataUrl(src), dims.w, dims.h);
-          if (off) return;
-          plays = playsFor(net, FLAT_LOOP_S, wantPlays);
-          r = makeGifFromPixels(px, dims.w, dims.h, {
-            ...fx,
-            seconds: FLAT_LOOP_S,
-            plays,
-            maxBytes: net.maxBytes,
-            ladder,
-          });
-        }
+        const r = await buildGif({ net, w: dims.w, h: dims.h, layers, src, mode, fx, wantPlays });
+        if (off) return;
         const url = URL.createObjectURL(new Blob([r.bytes as BlobPart], { type: "image/gif" }));
         if (off) return URL.revokeObjectURL(url);
         setGif({
@@ -230,15 +160,8 @@ export function GifDialog({ open, onOpenChange, src, size, layers: given, buildL
           kb: r.bytes.length / 1024,
           fps: r.fps,
           colors: r.colors,
-          plays,
-          checks: checkGif(net, {
-            bytes: r.bytes.length,
-            seconds: r.seconds,
-            plays,
-            minFrameMs: r.minFrameMs,
-            w: dims.w,
-            h: dims.h,
-          }),
+          plays: r.plays,
+          checks: r.checks,
         });
       } catch (e) {
         if (!off)
@@ -295,13 +218,19 @@ export function GifDialog({ open, onOpenChange, src, size, layers: given, buildL
                 <Loader2 className="absolute h-8 w-8 animate-spin text-accent-green" />
               ) : null}
             </div>
-            {!layers && buildLayers ? (
+            {!fresh && buildLayers ? (
               <div className="rounded-lg border border-accent-green/40 bg-accent-green/5 px-3 py-2.5 text-sm">
-                <div className="mb-1 font-semibold">GIF лучше собрать из слоёв</div>
+                <div className="mb-1 font-semibold">
+                  {given ? "Персонаж отдельно от фона" : "GIF лучше собрать из слоёв"}
+                </div>
                 <p className="ds-caption mb-2 text-muted-foreground">
-                  Подложка без текста под {dims.w}×{dims.h} + надписи и кнопка в стиле баннера — их
-                  анимирует код, как в тонких форматах. Подложка — одна генерация на форму; лист
-                  надписей — один раз на баннер. Сейчас в превью — блик поверх картинки.
+                  Фон без текста и без персонажа, персонаж отдельным слоем — код ставит его с учётом
+                  надписей, — надписи и кнопка в стиле баннера. Персонаж и надписи — по генерации
+                  один раз на баннер, фон — один на ориентацию; всё сохраняется в карточку Истории и
+                  потом берётся оттуда без генераций.{" "}
+                  {given
+                    ? "Сейчас персонаж нарисован в подложке."
+                    : "Сейчас в превью — блик поверх картинки."}
                 </p>
                 <button
                   type="button"

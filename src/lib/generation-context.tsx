@@ -39,7 +39,7 @@ import {
 } from "./imageGen";
 import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
-import { isLayered, layersFor, runLayered } from "./bannerLayersRun";
+import { gifLayersFor, isLayered, runLayered, type SavedLayers } from "./bannerLayersRun";
 import type { LayerSource } from "./bannerLayers";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
@@ -305,6 +305,21 @@ export function GenerationProvider({ children }: ProviderProps) {
   // the original run. masterEpoch bumps (invalidating the cache) whenever a
   // genuinely new master image becomes active.
   const masterEpochRef = useRef(0);
+  // Слои, сохранённые в карточке Истории: грузим лениво, один раз на карточку.
+  const savedLayersRef = useRef(new Map<string, Promise<SavedLayers | null>>());
+  const savedFor = useCallback((cardId?: string) => {
+    if (!cardId) return undefined;
+    return () => {
+      let p = savedLayersRef.current.get(cardId);
+      if (!p) {
+        p = apiJson<{ layers: SavedLayers | null }>(`/api/history/${cardId}/layers`)
+          .then((r) => r.layers)
+          .catch(() => null);
+        savedLayersRef.current.set(cardId, p);
+      }
+      return p;
+    };
+  }, []);
   const sourceCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -707,7 +722,7 @@ export function GenerationProvider({ children }: ProviderProps) {
         for (const s of layered) updateTile(`${s.w}x${s.h}`, { status: "running" });
         await runLayered(
           layered,
-          { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch },
+          { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch, cardId: basePayload.card_id, saved: savedFor(basePayload.card_id) },
           (t, r) => {
             const s = sizeByKey.get(`${t.w}x${t.h}`)!;
             if ("dataUrl" in r) {
@@ -737,13 +752,16 @@ export function GenerationProvider({ children }: ProviderProps) {
       const r = await apiJson<{ dataUrl: string }>("/api/fetch-master", { method: "POST", body: JSON.stringify({ url: master }) });
       masterDataUrl = r.dataUrl;
     }
-    return layersFor(size, {
+    const base = snap.lastPayload ?? ({} as GeneratePayload);
+    return gifLayersFor(size, {
       master: masterDataUrl,
-      base: snap.lastPayload ?? ({} as GeneratePayload),
+      base,
       plates: sourceCacheRef.current,
       epoch: masterEpochRef.current,
+      cardId: base.card_id,
+      saved: savedFor(base.card_id),
     });
-  }, []);
+  }, [savedFor]);
 
   const regenerateTile = useCallback<GenerationContextValue["regenerateTile"]>(
     async (id) => {
@@ -793,7 +811,8 @@ export function GenerationProvider({ children }: ProviderProps) {
           const epoch = masterEpochRef.current;
           for (const k of [...sourceCacheRef.current.keys()]) if (k.startsWith(`${epoch}|plate|`)) sourceCacheRef.current.delete(k);
           const got: { dataUrl?: string; layers?: LayerSource; error?: string } = {};
-          await runLayered([tile.size], { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch }, (_, r) => Object.assign(got, r), () => false);
+          // Перегенерация — новая подложка (сохранённую не берём, новая её заменит); надписи — из карточки.
+          await runLayered([tile.size], { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch, cardId: basePayload.card_id, saved: savedFor(basePayload.card_id), freshPlates: true }, (_, r) => Object.assign(got, r), () => false);
           await minVisible;
           if (got.dataUrl) {
             updateTile(id, { status: "done", dataUrl: got.dataUrl, layers: got.layers });

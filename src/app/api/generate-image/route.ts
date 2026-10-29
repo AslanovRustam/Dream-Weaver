@@ -63,18 +63,21 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
 //     given, otherwise no brand identity whatsoever.
 // «Чистая подложка» для тонких форматов: текст, лого и кнопку потом кладёт код,
 // поэтому на картинке их быть не должно вовсе — иначе наложится дважды.
-type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait";
-const PLATE_KINDS: PlateKind[] = ["wide", "tall", "square", "landscape", "portrait"];
-const PLATE_RATIO: Record<PlateKind, string> = { wide: "3:1", tall: "1:3", square: "1:1", landscape: "3:2", portrait: "2:3" };
+/** bgwide / bgtall — фон без персонажа: персонаж для GIF — отдельным слоем. */
+type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait" | "bgwide" | "bgtall";
+const PLATE_KINDS: PlateKind[] = ["wide", "tall", "square", "landscape", "portrait", "bgwide", "bgtall"];
+const PLATE_RATIO: Record<PlateKind, string> = { wide: "3:1", tall: "1:3", square: "1:1", landscape: "3:2", portrait: "2:3", bgwide: "3:2", bgtall: "2:3" };
 const PLATE_SHAPE: Record<PlateKind, string> = {
   wide: "very wide horizontal strip",
   tall: "very tall vertical strip",
   square: "square",
   landscape: "horizontal",
   portrait: "vertical",
+  bgwide: "horizontal",
+  bgtall: "vertical",
 };
 /** Где герой и где пусто под текст — как раскладывает bannerLayers (полоса / колонка). */
-const PLATE_LAYOUT: Record<PlateKind, string> = {
+const PLATE_LAYOUT: Record<Exclude<PlateKind, "bgwide" | "bgtall">, string> = {
   wide: "LAYOUT: the character / key object sits in the LEFT THIRD (x 3%–33%), large, vertically centred, its head and the important part fully inside the frame from 10% to 90% of the height. The RIGHT TWO THIRDS are calm, darker, low-detail background (soft bokeh, gradient, light glow) — text will be placed there later, so keep it uncluttered.",
   tall: "LAYOUT: the character / key object sits in the LOWER HALF (y 45%–95%), large, horizontally centred, fully inside the frame from 10% to 90% of the width. The UPPER HALF is calm, darker, low-detail background (soft glow, gradient) — text will be placed there later, so keep it uncluttered.",
   portrait: "LAYOUT: the character / key object sits in the LOWER HALF (y 45%–97%), large, horizontally centred, fully inside the frame from 8% to 92% of the width. The UPPER 45% is calm, darker, low-detail background (soft glow, gradient) — text will be placed there later, so keep it uncluttered.",
@@ -83,6 +86,15 @@ const PLATE_LAYOUT: Record<PlateKind, string> = {
 };
 
 function platePrompt(kind: PlateKind, ratio: string): string {
+  if (kind === "bgwide" || kind === "bgtall")
+    return [
+      `TASK: from the attached approved advertising banner make an EMPTY BACKGROUND SCENE, aspect ratio ${ratio} (${PLATE_SHAPE[kind]}).`,
+      "REMOVE the main character / person / mascot and the key object completely and paint the environment through where they were — no people, no figures, no silhouettes, no hands.",
+      "Keep the SAME environment, props in the far background, lighting, palette, atmosphere and rendering style as the source.",
+      "ABSOLUTELY NO TEXT of any kind: no letters, no numbers, no logos, no buttons, no badges, no UI.",
+      "Composition: rich but calm — the centre and the edges must work when the image is later cropped to a very wide strip, a square or a tall strip. Slightly darker towards the top, no hard focal object.",
+      "Extend the scene naturally to fill the frame — no borders, no frames, no collage.",
+    ].join("\n");
   return [
     `TASK: re-compose the attached approved advertising banner into a TEXT-FREE BACKGROUND PLATE, aspect ratio ${ratio} (${PLATE_SHAPE[kind]}).`,
     "Keep the SAME scene, the SAME character / key object (identical appearance, outfit, colours), the same lighting, palette and rendering style as the source.",
