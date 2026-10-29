@@ -40,7 +40,9 @@ async function textArt(texts: BannerTexts, master: string): Promise<ArtPiece[]> 
   const lines: { text: string; role?: ArtRole }[] = [{ text: texts.headline, role: "light" }];
   for (const r of offerRows(texts.offer)) lines.push({ text: r.text, role: r.accent ? "accent" : "light" });
   lines.push({ text: texts.offer }, { text: compactOffer(texts.offer) });
-  const tokens = sheetTokens(lines.filter((l) => l.text.trim()));
+  const tokens = sheetTokens(lines.filter((l) => l.text.trim()), 13);
+  // Кнопка — последней строкой листа, целиком (плашка с надписью).
+  if (texts.cta.trim()) tokens.push({ text: texts.cta.trim().toUpperCase(), role: "button" });
   if (!tokens.length) return [];
   try {
     const res = await apiFetch("/api/generate-text-art", {
@@ -129,7 +131,7 @@ export async function runLayered(
     for (const s of group) {
       if (cancelled()) return;
       try {
-        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art }) });
+        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art: art.filter((p) => p.role !== "button"), cta: art.find((p) => p.role === "button") ?? null }) });
       } catch (e) {
         onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });
       }

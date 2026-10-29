@@ -7,9 +7,10 @@
 // из слов строки любой длины и переносит их как обычный текст. Слово, которое не
 // прошло сверку, рисуется шрифтом — вся его строка, чтобы не смешивать стили.
 
-export type ArtRole = "light" | "accent";
+/** button — кнопка целиком (плашка с надписью), рисуется последней строкой листа. */
+export type ArtRole = "light" | "accent" | "button";
 export type ArtToken = { text: string; role: ArtRole };
-export type ArtPiece = { text: string; src: string; w: number; h: number };
+export type ArtPiece = { text: string; src: string; w: number; h: number; role?: ArtRole };
 
 /** Ключ слова: верхний регистр, разряды через неразрывный пробел («50 000» — одно слово). */
 export const artKey = (t: string) =>
@@ -64,7 +65,24 @@ export function bandsFromAlpha(rows: number[], n: number, minInk = 2): [number, 
     });
     if (near >= 0) real[near] = [Math.min(real[near][0], a), Math.max(real[near][1], b)];
   }
-  if (real.length < n) return null;
+  // Свечение склеило соседние строки — режем по самым глубоким провалам плотности внутри
+  // полосы (между словами там единицы–десятки пикселей против сотен в буквах).
+  while (real.length < n) {
+    let cut = -1;
+    let at = -1;
+    let ratio = 1;
+    real.forEach(([a, b], i) => {
+      let peak = 0;
+      for (let y = a; y < b; y++) peak = Math.max(peak, rows[y]);
+      for (let y = a + 20; y < b - 20; y++) {
+        const r = rows[y] / Math.max(1, peak);
+        if (r < ratio && rows[y] <= rows[y - 1] && rows[y] <= rows[y + 1]) [ratio, cut, at] = [r, i, y];
+      }
+    });
+    if (cut < 0 || ratio > 0.12) return null;
+    const [a, b] = real[cut];
+    real.splice(cut, 1, [a, at], [at, b]);
+  }
   // Лишние разрывы (тень отделилась от слова) — склеиваем самые узкие промежутки.
   while (real.length > n) {
     let best = 0;

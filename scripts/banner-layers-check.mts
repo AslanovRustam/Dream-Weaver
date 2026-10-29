@@ -43,9 +43,9 @@ const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < 
 for (const s of sizes) {
   const kind = layerKind(s.w, s.h)!;
   for (const [ti, texts] of TEXTS.entries()) {
-    for (const logo of [null, { w: 300, h: 100 }]) {
-      const name = `${s.w}×${s.h} (${kind}) тексты#${ti}${logo ? " +лого" : ""}`;
-      const ops = layoutBanner(s.w, s.h, kind, { texts, accent: "#f5b324", logo }, measure);
+    for (const [logo, ctaArt] of [[null, null], [{ w: 300, h: 100 }, null], [null, { w: 460, h: 130 }]] as const) {
+      const name = `${s.w}×${s.h} (${kind}) тексты#${ti}${logo ? " +лого" : ""}${ctaArt ? " +кнопка-ассет" : ""}`;
+      const ops = layoutBanner(s.w, s.h, kind, { texts, accent: "#f5b324", logo, ctaArt }, measure);
       const btn = ops.find((o) => o.kind === "button") as Extract<Op, { kind: "button" }> | undefined;
       const txt = ops.filter((o): o is Extract<Op, { kind: "text" }> => o.kind === "text");
       ok(!!btn, `${name}: нет кнопки`);
@@ -81,6 +81,10 @@ ok(compactOffer("Фрибет 5 000 ₽") === "FB 5K ₽", `compactOffer фри�
   const b = bandsFromAlpha(rows, 2);
   ok(!!b && b.length === 2 && b[0][0] === 10 && b[0][1] === 47 && b[1][0] === 67 && b[1][1] === 97, `bandsFromAlpha: ${JSON.stringify(b)}`);
   ok(bandsFromAlpha(rows, 3) === null, "bandsFromAlpha: 3 полосы из 2");
+  // Свечение склеило две строки: режем по провалу плотности.
+  const glued = [...Array(5).fill(0), ...Array(40).fill(300), ...Array(10).fill(12), ...Array(40).fill(280), ...Array(5).fill(0)];
+  const g2 = bandsFromAlpha(glued, 2);
+  ok(!!g2 && g2.length === 2 && g2[0][1] >= 45 && g2[0][1] <= 55, `bandsFromAlpha склейка: ${JSON.stringify(g2)}`);
   ok(sameWord("КРУТИ", "KPYTИ") && !sameWord("500", "5OO"), "sameWord");
   const tk = sheetTokens([{ text: "Крути колесо", role: "light" }, { text: "+200% до 50 000 ₽" }, { text: "Крути" }]);
   ok(tk.map((t) => t.text).join("|") === "КРУТИ|КОЛЕСО|+200%|ДО|50 000|₽" && tk[2].role === "accent", `sheetTokens: ${JSON.stringify(tk)}`);

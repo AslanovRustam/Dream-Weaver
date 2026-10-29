@@ -3,7 +3,7 @@
 // Сервер режет лист на слова (по альфе) и сверяет написание по картинке (gpt-4o-mini);
 // слова, которые не сошлись, клиент рисует шрифтом. Подробности — src/lib/textArt.ts.
 //
-// Body: { tokens: {text, role: "light"|"accent"}[], style_image: data:image/… (мастер) }
+// Body: { tokens: {text, role: "light"|"accent"|"button"}[], style_image: data:image/… (мастер) }
 // Response: { pieces: {text, src, w, h, ok}[], costUsd, costCredits, balance }
 import sharp from "sharp";
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
@@ -29,7 +29,8 @@ function sheetPrompt(tokens: ArtToken[]): string {
     "STYLE: take the lettering style, materials, colours and mood from the attached banner (premium casino / game key-art lettering): bold heavy display letters with real 3D volume — bevel, extrusion depth, glossy specular highlights, rim light, a crisp dark outline and a soft drop shadow, like the title lettering of a premium slot game. All items must share ONE consistent style.",
     "Role colours: LIGHT items — bright white-to-pale-gold metal face; ACCENT items — rich glowing face in the banner's main accent colour (gold if unsure). Same extrusion and outline for both.",
     `LAYOUT: exactly ${tokens.length} rows, ONE item per row, top to bottom in this exact order, each row horizontally centred, all rows the same letter height, generous EMPTY space between rows so that no two rows touch or overlap (shadows included). Do not add, merge, split, translate or reorder anything.`,
-    ...tokens.map((t, i) => `  Row ${i + 1}: "${t.text}" (${t.role === "accent" ? "ACCENT" : "LIGHT"})`),
+    "BUTTON rows: draw a complete call-to-action BUTTON — a glossy 3D rounded pill in the banner's main accent colour (bevel, top highlight, soft outer glow and drop shadow, like a premium game UI button), about 4 times wider than tall, with the given label centred on it in bold heavy letters (dark on light buttons, white on dark ones). The label must fit inside the pill with comfortable padding.",
+    ...tokens.map((t, i) => `  Row ${i + 1}: "${t.text}" (${t.role === "accent" ? "ACCENT" : t.role === "button" ? "BUTTON" : "LIGHT"})`),
     "Spell every item EXACTLY character-for-character (Cyrillic stays Cyrillic, digits stay digits). No other text, no logos, no frames, no decorations, no background scene.",
     "BACKGROUND: fully transparent.",
   ].join("\n");
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
   const tokens = (body.tokens ?? [])
     .filter((t) => t && typeof t.text === "string" && t.text.trim())
     .slice(0, MAX_TOKENS)
-    .map((t) => ({ text: t.text.trim().slice(0, 40), role: t.role === "accent" ? "accent" : "light" }) as ArtToken);
+    .map((t) => ({ text: t.text.trim().slice(0, 40), role: t.role === "accent" || t.role === "button" ? t.role : "light" }) as ArtToken);
   if (!tokens.length) return Response.json({ error: "Нет слов" }, { status: 400 });
   const style = body.style_image ?? "";
   const m = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(style);
@@ -179,6 +180,7 @@ export async function POST(request: Request) {
       const buf = await sharp(png).extract({ left, top, width, height }).png().toBuffer();
       return {
         text: tokens[i].text,
+        role: tokens[i].role,
         src: `data:image/png;base64,${buf.toString("base64")}`,
         w: width,
         h: height,

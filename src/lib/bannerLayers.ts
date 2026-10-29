@@ -29,6 +29,8 @@ export type LayerOpts = {
   accent: string;
   /** Есть ли лого (сама картинка — у renderBanner). */
   logo?: { w: number; h: number } | null;
+  /** Кнопка-ассет (нарисована моделью вместе с надписью) — её пропорции; нет — кнопка кодом. */
+  ctaArt?: { w: number; h: number } | null;
 };
 
 /** Ширина строки текста данным шрифтом (canvas.measureText или оценка в проверке). */
@@ -52,7 +54,7 @@ export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
   | { kind: "shade"; dir: "right" | "top"; box: Box }
   | { kind: "logo"; box: Box }
-  | { kind: "button"; box: Box; color: string }
+  | { kind: "button"; box: Box; color: string; art?: boolean }
   | TextOp;
 
 /** Подложка tall, как её рисует generate-image (plate: tall). */
@@ -161,7 +163,17 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
   // Кнопка справа.
   const cta = o.texts.cta.trim().toUpperCase();
   let right = w - pad;
-  if (cta) {
+  if (cta && o.ctaArt) {
+    // Кнопка-картинка: держим её пропорции; в ней свечение и тень, поэтому чуть выше кнопки кодом.
+    const a = o.ctaArt.w / o.ctaArt.h;
+    const maxBw = Math.round(w * (h < 70 ? 0.4 : 0.32));
+    let bh = Math.min(h * 0.86, 64);
+    let bw = bh * a;
+    if (bw > maxBw) [bw, bh] = [maxBw, maxBw / a];
+    const box = { x: Math.round(right - bw), y: Math.round((h - bh) / 2), w: Math.round(bw), h: Math.round(bh) };
+    ops.push({ kind: "button", box, color: o.accent, art: true });
+    right = box.x - pad;
+  } else if (cta) {
     const bh = Math.round(Math.min(h * 0.62, 48));
     const maxBw = Math.round(w * (h < 70 ? 0.36 : 0.28));
     const size = fitSize(m, cta, 800, BODY_FONT, maxBw - bh * 0.7, Math.min(bh * 0.42, 18), 7) ?? 7;
@@ -408,7 +420,15 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     }
   }
   const cta = o.texts.cta.trim().toUpperCase();
-  if (cta) {
+  if (cta && o.ctaArt) {
+    const a = o.ctaArt.w / o.ctaArt.h;
+    let bw = Math.min(w - pad, colW * 1.08);
+    let bh = bw / a;
+    const maxBh = Math.min(w * 0.36, 80);
+    if (bh > maxBh) [bh, bw] = [maxBh, maxBh * a];
+    const box = { x: Math.round((w - bw) / 2), y: Math.round(h - pad * 0.7 - bh), w: Math.round(bw), h: Math.round(bh) };
+    ops.push({ kind: "button", box, color: o.accent, art: true });
+  } else if (cta) {
     const bh = Math.round(Math.min(w * 0.24, 54));
     const bw = colW;
     const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, Math.min(bh * 0.4, 18), 7) ?? 7;
@@ -473,7 +493,7 @@ export async function renderBanner(
   h: number,
   kind: LayerKind,
   plateSrc: string,
-  o: LayerOpts & { logoSrc?: string; art?: ArtPiece[] },
+  o: LayerOpts & { logoSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null },
 ): Promise<string> {
   await ensureFonts();
   const [plate, logo, artImgs] = await Promise.all([
@@ -481,6 +501,7 @@ export async function renderBanner(
     o.logoSrc ? loadImg(o.logoSrc).catch(() => null) : Promise.resolve(null),
     Promise.all((o.art ?? []).map((p) => loadImg(p.src).then((img) => ({ ...p, img })).catch(() => null))),
   ]);
+  const ctaImg = o.cta ? await loadImg(o.cta.src).catch(() => null) : null;
   // Надписи-ассеты: слово → картинка. Все слова листа одной высоты букв, поэтому
   // масштаб общий — по медиане высот (у «+» и коротких слов рамка ниже, но буквы те же).
   const art = new Map(artImgs.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.text, p]));
@@ -512,7 +533,7 @@ export async function renderBanner(
     w,
     h,
     kind,
-    { ...o, logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null },
+    { ...o, logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null, ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null },
     measure,
   );
   g.fillStyle = "#0b0815";
@@ -561,6 +582,8 @@ export async function renderBanner(
       const lw = logo.naturalWidth * s,
         lh = logo.naturalHeight * s;
       g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh);
+    } else if (op.kind === "button" && op.art && ctaImg) {
+      g.drawImage(ctaImg, op.box.x, op.box.y, op.box.w, op.box.h);
     } else if (op.kind === "button") {
       const b = op.box;
       g.save();
