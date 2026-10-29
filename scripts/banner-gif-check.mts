@@ -7,7 +7,7 @@
 // в лимит Google Ads (150 КБ), блик и искры не трогают тёмный фон, цикл замкнут
 // (первый и последний кадр почти совпадают), повторы записаны как просили.
 
-import { GDN_GIF_LIMIT, makeGifFromPixels, renderFrame, shineMask, sparkPoints } from "../src/lib/bannerGif";
+import { GDN_GIF_LIMIT, makeGifFromFrames, makeGifFromPixels, renderFrame, shineMask, sparkPoints } from "../src/lib/bannerGif";
 
 let pass = 0;
 const fails: string[] = [];
@@ -115,6 +115,28 @@ for (const [w, h] of [
   const r = makeGifFromPixels(banner(300, 250), 300, 250, { shine: true, sparkles: true, zoom: true, plays: 3 });
   ok(isGif(r.bytes), "наезд: не GIF");
   ok(r.overLimit === r.bytes.length > GDN_GIF_LIMIT, "наезд: флаг лимита не совпадает с весом");
+}
+
+// Готовые кадры (анимация баннера по слоям): fps из списка подгонки, кадров = 4 с × fps.
+{
+  const base = banner(728, 90);
+  const mask = shineMask(base, 728, 90);
+  const sp = sparkPoints(mask, 728, 90, 4);
+  const asked: number[] = [];
+  const r = makeGifFromFrames(
+    (fps) => {
+      asked.push(fps);
+      const n = Math.round(4 * fps);
+      return Array.from({ length: n }, (_, i) => renderFrame(base, mask, sp, 728, 90, i / n, FX));
+    },
+    728,
+    90,
+    { plays: 3 },
+  );
+  ok(isGif(r.bytes), "кадры: не GIF");
+  ok(inspect(r.bytes).frames === Math.round(4 * r.fps), `кадры: ${inspect(r.bytes).frames} при ${r.fps} кадр/с`);
+  ok(asked.every((f) => f >= 10), "кадры: fps ниже 10 — движение рвётся");
+  ok(new Set(asked).size === asked.length, "кадры: один fps рендерится дважды");
 }
 
 if (fails.length) {

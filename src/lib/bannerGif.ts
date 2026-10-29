@@ -24,12 +24,22 @@ export type GifOptions = GifEffects & {
   /** Лимит веса, байт. */
   maxBytes?: number;
 };
-export type GifResult = { bytes: Uint8Array; fps: number; colors: number; frames: number; overLimit: boolean };
+export type GifResult = {
+  bytes: Uint8Array;
+  fps: number;
+  colors: number;
+  frames: number;
+  overLimit: boolean;
+};
 
 export const GDN_GIF_LIMIT = 150 * 1024;
 
 /** Яркие насыщенные места — туда идут блик и искры. 0…1 на пиксель. */
-export function shineMask(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number): Float32Array {
+export function shineMask(
+  rgba: Uint8ClampedArray | Uint8Array,
+  w: number,
+  h: number,
+): Float32Array {
   const m = new Float32Array(w * h);
   for (let i = 0, p = 0; p < w * h; p++, i += 4) {
     const r = rgba[i] / 255;
@@ -46,7 +56,12 @@ export function shineMask(rgba: Uint8ClampedArray | Uint8Array, w: number, h: nu
 }
 
 /** Точки для искр: самые яркие места маски, не ближе minDist друг к другу. */
-export function sparkPoints(mask: Float32Array, w: number, h: number, n: number): { x: number; y: number }[] {
+export function sparkPoints(
+  mask: Float32Array,
+  w: number,
+  h: number,
+  n: number,
+): { x: number; y: number }[] {
   const cell = Math.max(4, Math.round(Math.min(w, h) / 10));
   const cand: { x: number; y: number; v: number }[] = [];
   for (let cy = 0; cy < h; cy += cell)
@@ -124,7 +139,11 @@ export function renderFrame(
           const d = (u - p) / bw;
           if (d < -3 || d > 3) continue;
           // Мягкий ореол + яркая сердцевина полосы.
-          const v = Math.min(1, Math.sqrt(m[y * w + x]) * (Math.exp(-d * d) * 0.55 + Math.exp(-((d * 3.2) ** 2)) * 0.75));
+          const v = Math.min(
+            1,
+            Math.sqrt(m[y * w + x]) *
+              (Math.exp(-d * d) * 0.55 + Math.exp(-((d * 3.2) ** 2)) * 0.75),
+          );
           if (v < 0.01) continue;
           const o = (y * w + x) * 4;
           out[o] += (255 - out[o]) * v;
@@ -139,7 +158,8 @@ export function renderFrame(
     sparks.forEach((s, i) => {
       // Каждая искра вспыхивает раз за цикл в своей фазе.
       const ph = (t + i * 0.37) % 1;
-      const a = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, ph / 0.35))), 2) * (ph < 0.35 ? 1 : 0);
+      const a =
+        Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, ph / 0.35))), 2) * (ph < 0.35 ? 1 : 0);
       if (a < 0.02) return;
       const r = R * (0.6 + 0.4 * a);
       const x0 = Math.max(0, Math.floor(s.x - r));
@@ -151,7 +171,9 @@ export function renderFrame(
           const dx = Math.abs(x - s.x) / r;
           const dy = Math.abs(y - s.y) / r;
           const core = Math.exp(-(dx * dx + dy * dy) / 0.03);
-          const rays = Math.exp(-((dy * 6) ** 2)) * Math.max(0, 1 - dx) ** 1.5 + Math.exp(-((dx * 6) ** 2)) * Math.max(0, 1 - dy) ** 1.5;
+          const rays =
+            Math.exp(-((dy * 6) ** 2)) * Math.max(0, 1 - dx) ** 1.5 +
+            Math.exp(-((dx * 6) ** 2)) * Math.max(0, 1 - dy) ** 1.5;
           const v = Math.min(1, a * (core + 0.9 * rays));
           if (v < 0.01) continue;
           const o = (y * w + x) * 4;
@@ -167,7 +189,7 @@ export function renderFrame(
 /** Палитра на весь ролик: выборка пикселей из нескольких кадров. */
 function rollPalette(frames: Uint8ClampedArray[], colors: number): Palette {
   const pick = [0, Math.floor(frames.length * 0.2), Math.floor(frames.length * 0.45)];
-  const step = Math.max(1, Math.floor((frames[0].length / 4) * pick.length / 120_000));
+  const step = Math.max(1, Math.floor(((frames[0].length / 4) * pick.length) / 120_000));
   const sample: number[] = [];
   for (const fi of pick)
     for (let p = 0; p < frames[fi].length / 4; p += step) {
@@ -178,7 +200,12 @@ function rollPalette(frames: Uint8ClampedArray[], colors: number): Palette {
 }
 
 /** Кодирует кадры в GIF: общая палитра, в кадрах после первого — только изменения. */
-export function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, opts: { fps: number; colors: number; plays: number }): Uint8Array {
+export function encodeGif(
+  frames: Uint8ClampedArray[],
+  w: number,
+  h: number,
+  opts: { fps: number; colors: number; plays: number },
+): Uint8Array {
   // Один индекс резервируем под «прозрачно» (пиксель не изменился).
   const pal = rollPalette(frames, opts.colors - 1);
   const T = pal.length;
@@ -194,7 +221,14 @@ export function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, opt
   for (const f of frames) {
     const idx = applyPalette(f, pal);
     if (!prev) {
-      gif.writeFrame(idx, w, h, { palette, delay, repeat, transparent: true, transparentIndex: T, dispose: 1 });
+      gif.writeFrame(idx, w, h, {
+        palette,
+        delay,
+        repeat,
+        transparent: true,
+        transparentIndex: T,
+        dispose: 1,
+      });
     } else {
       const d = new Uint8Array(idx.length);
       for (let p = 0; p < idx.length; p++) d[p] = idx[p] === prev[p] ? T : idx[p];
@@ -207,12 +241,19 @@ export function encodeGif(frames: Uint8ClampedArray[], w: number, h: number, opt
 }
 
 /** Вся цепочка над готовой RGBA-базой; вес подгоняем под лимит. */
-export function makeGifFromPixels(base: Uint8ClampedArray, w: number, h: number, o: GifOptions): GifResult {
+export function makeGifFromPixels(
+  base: Uint8ClampedArray,
+  w: number,
+  h: number,
+  o: GifOptions,
+): GifResult {
   const seconds = o.seconds ?? 2.4;
   const plays = o.plays ?? 3;
   const maxBytes = o.maxBytes ?? GDN_GIF_LIMIT;
   const mask = shineMask(base, w, h);
-  const sparks = o.sparkles ? sparkPoints(mask, w, h, Math.max(3, Math.min(7, Math.round((w * h) / 26000) + 2))) : [];
+  const sparks = o.sparkles
+    ? sparkPoints(mask, w, h, Math.max(3, Math.min(7, Math.round((w * h) / 26000) + 2)))
+    : [];
   const tries = [
     { fps: 12.5, colors: 256 },
     { fps: 12.5, colors: 128 },
@@ -232,15 +273,63 @@ export function makeGifFromPixels(base: Uint8ClampedArray, w: number, h: number,
       cache.set(tr.fps, frames);
     }
     const bytes = encodeGif(frames, w, h, { fps: tr.fps, colors: tr.colors, plays });
-    const r = { bytes, fps: tr.fps, colors: tr.colors, frames: frames.length, overLimit: bytes.length > maxBytes };
+    const r = {
+      bytes,
+      fps: tr.fps,
+      colors: tr.colors,
+      frames: frames.length,
+      overLimit: bytes.length > maxBytes,
+    };
     if (tr.colors === 128 && !fallback) fallback = r;
     if (!r.overLimit) return r;
   }
   return fallback as GifResult;
 }
 
+/**
+ * GIF из готовых кадров (анимация баннера по слоям): render(fps) даёт кадры цикла.
+ * Подгонка веса — сначала цвета, потом fps; ниже 10 кадр/с движение рвётся, не идём.
+ */
+export function makeGifFromFrames(
+  render: (fps: number) => Uint8ClampedArray[],
+  w: number,
+  h: number,
+  o: { plays?: number; maxBytes?: number },
+): GifResult {
+  const plays = o.plays ?? 3;
+  const maxBytes = o.maxBytes ?? GDN_GIF_LIMIT;
+  const tries = [
+    { fps: 15, colors: 256 },
+    { fps: 15, colors: 128 },
+    { fps: 12.5, colors: 128 },
+    { fps: 10, colors: 128 },
+    { fps: 10, colors: 64 },
+  ];
+  const cache = new Map<number, Uint8ClampedArray[]>();
+  let fallback: GifResult | null = null;
+  for (const tr of tries) {
+    let frames = cache.get(tr.fps);
+    if (!frames) cache.set(tr.fps, (frames = render(tr.fps)));
+    const bytes = encodeGif(frames, w, h, { fps: tr.fps, colors: tr.colors, plays });
+    const r = {
+      bytes,
+      fps: tr.fps,
+      colors: tr.colors,
+      frames: frames.length,
+      overLimit: bytes.length > maxBytes,
+    };
+    if (tr.fps === 15 && tr.colors === 128) fallback = r;
+    if (!r.overLimit) return r;
+  }
+  return fallback as GifResult;
+}
+
 /** Браузер: картинка → RGBA ровно w×h (cover, по центру). */
-export async function pixelsFromImage(src: string, w: number, h: number): Promise<Uint8ClampedArray> {
+export async function pixelsFromImage(
+  src: string,
+  w: number,
+  h: number,
+): Promise<Uint8ClampedArray> {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = src;

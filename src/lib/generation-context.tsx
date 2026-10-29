@@ -40,6 +40,7 @@ import {
 import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
 import { isLayered, runLayered } from "./bannerLayersRun";
+import type { LayerSource } from "./bannerLayers";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
 export type GenerationStatus = "idle" | "master_running" | "batch_running" | "done" | "error";
@@ -55,6 +56,8 @@ export type BatchTile = {
   kind: "scale_from_master" | "scale_from_bucket";
   /** Final image data URL, scaled to exact w×h. */
   dataUrl?: string;
+  /** Тонкие форматы: слои, из которых собран баннер (для анимации GIF). */
+  layers?: LayerSource;
   error?: string;
 };
 
@@ -705,7 +708,7 @@ export function GenerationProvider({ children }: ProviderProps) {
           (t, r) => {
             const s = sizeByKey.get(`${t.w}x${t.h}`)!;
             if ("dataUrl" in r) {
-              updateTile(`${t.w}x${t.h}`, { status: "done", dataUrl: r.dataUrl });
+              updateTile(`${t.w}x${t.h}`, { status: "done", dataUrl: r.dataUrl, layers: r.layers });
               void persistResizeTile(basePayload.card_id, s, r.dataUrl);
             } else updateTile(`${t.w}x${t.h}`, { status: "error", error: formatGenerationError(r.error) });
           },
@@ -769,11 +772,11 @@ export function GenerationProvider({ children }: ProviderProps) {
           // Тонкий формат: новая подложка (кэш этой формы сбрасываем) + текст кодом.
           const epoch = masterEpochRef.current;
           for (const k of [...sourceCacheRef.current.keys()]) if (k.startsWith(`${epoch}|plate|`)) sourceCacheRef.current.delete(k);
-          const got: { dataUrl?: string; error?: string } = {};
+          const got: { dataUrl?: string; layers?: LayerSource; error?: string } = {};
           await runLayered([tile.size], { master: masterDataUrl, base: basePayload, plates: sourceCacheRef.current, epoch }, (_, r) => Object.assign(got, r), () => false);
           await minVisible;
           if (got.dataUrl) {
-            updateTile(id, { status: "done", dataUrl: got.dataUrl });
+            updateTile(id, { status: "done", dataUrl: got.dataUrl, layers: got.layers });
             void persistResizeTile(basePayload.card_id, tile.size, got.dataUrl);
           } else updateTile(id, { status: "error", error: formatGenerationError(got.error || "Ошибка") });
           return;

@@ -1013,7 +1013,7 @@ export function ResizeBatchPanel({
       ) : null}
 
       {gifTile?.dataUrl ? (
-        <GifDialog open onOpenChange={(v) => !v && setGifTile(null)} src={gifTile.dataUrl} size={{ w: gifTile.size.w, h: gifTile.size.h }} />
+        <GifDialog open onOpenChange={(v) => !v && setGifTile(null)} src={gifTile.dataUrl} size={{ w: gifTile.size.w, h: gifTile.size.h }} layers={gifTile.layers} />
       ) : null}
     </div>
   );

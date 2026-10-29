@@ -2,7 +2,7 @@
 // (одна генерация на «полосы» и одна на «башни») + текст и кнопка кодом.
 
 import { accentFromPalette, paletteFromImage } from "./imagePalette";
-import { compactOffer, layerKind, offerRows, renderBanner, type BannerTexts, type LayerKind } from "./bannerLayers";
+import { compactOffer, layerKind, offerRows, renderBanner, type BannerTexts, type LayerKind, type LayerSource } from "./bannerLayers";
 import { sheetTokens, type ArtPiece, type ArtRole } from "./textArt";
 import { apiFetch } from "./api-client";
 import { extractMasterDetails, generateImage, type GeneratePayload } from "./imageGen";
@@ -75,7 +75,7 @@ export const isLayered = (s: { w: number; h: number }) => layerKind(s.w, s.h) !=
 export async function runLayered(
   sizes: { w: number; h: number }[],
   ctx: LayeredCtx,
-  onTile: (s: { w: number; h: number }, r: { dataUrl: string } | { error: string }) => void,
+  onTile: (s: { w: number; h: number }, r: { dataUrl: string; layers: LayerSource } | { error: string }) => void,
   cancelled: () => boolean,
 ): Promise<void> {
   if (!sizes.length) return;
@@ -131,7 +131,9 @@ export async function runLayered(
     for (const s of group) {
       if (cancelled()) return;
       try {
-        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art: art.filter((p) => p.role !== "button"), cta: art.find((p) => p.role === "button") ?? null }) });
+        // Слои остаются у тайла — из них GIF собирает анимацию по элементам.
+        const layers: LayerSource = { kind, plate, opts: { texts, accent, logoSrc: ctx.base.brand_logo || undefined, art: art.filter((p) => p.role !== "button"), cta: art.find((p) => p.role === "button") ?? null } };
+        onTile(s, { dataUrl: await renderBanner(s.w, s.h, kind, plate, layers.opts), layers });
       } catch (e) {
         onTile(s, { error: e instanceof Error ? e.message : "Не удалось собрать баннер" });
       }

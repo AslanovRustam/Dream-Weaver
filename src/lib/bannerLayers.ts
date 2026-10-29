@@ -99,7 +99,9 @@ export function wrapUnits(text: string): string[][] {
   words.forEach((w, i) => {
     cur.push(w);
     const next = words[i + 1];
-    const glue = next !== undefined && (isSep(w) || isPrep(w) || (isNum(w) && !isNum(next) && !isSep(next) && !isPrep(next)));
+    const glue =
+      next !== undefined &&
+      (isSep(w) || isPrep(w) || (isNum(w) && !isNum(next) && !isSep(next) && !isPrep(next)));
     if (!glue) {
       units.push(cur);
       cur = [];
@@ -170,7 +172,12 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     let bh = Math.min(h * 0.86, 64);
     let bw = bh * a;
     if (bw > maxBw) [bw, bh] = [maxBw, maxBw / a];
-    const box = { x: Math.round(right - bw), y: Math.round((h - bh) / 2), w: Math.round(bw), h: Math.round(bh) };
+    const box = {
+      x: Math.round(right - bw),
+      y: Math.round((h - bh) / 2),
+      w: Math.round(bw),
+      h: Math.round(bh),
+    };
     ops.push({ kind: "button", box, color: o.accent, art: true });
     right = box.x - pad;
   } else if (cta) {
@@ -288,15 +295,17 @@ function layoutStrip(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
 
 /** «+200% до 50 000 ₽ и 500 фриспинов» → «+200% до 50K ₽ + 500 FS». */
 export function compactOffer(t: string): string {
-  return t
-    .replace(/(\d)[\s  .,]?000[\s  .,]?000\b/g, "$1M")
-    .replace(/(\d+)[\s  .,]000\b/g, "$1K")
-    .replace(/\s(и|і|та|and)\s/gi, " + ")
-    // \w в JS — только латиница: окончания кириллицей ловим явно («фриспинов» целиком).
-    .replace(/фри\s?спин[а-яёії]*|free\s?spins?|фриспін[а-яёії]*/gi, "FS")
-    .replace(/фрибет[а-яёії]*/gi, "FB")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    t
+      .replace(/(\d)[\s  .,]?000[\s  .,]?000\b/g, "$1M")
+      .replace(/(\d+)[\s  .,]000\b/g, "$1K")
+      .replace(/\s(и|і|та|and)\s/gi, " + ")
+      // \w в JS — только латиница: окончания кириллицей ловим явно («фриспинов» целиком).
+      .replace(/фри\s?спин[а-яёії]*|free\s?spins?|фриспін[а-яёії]*/gi, "FS")
+      .replace(/фрибет[а-яёії]*/gi, "FB")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /** Оффер → строки афиши: число крупно (акцентом), слова к нему — строкой мельче. */
@@ -426,7 +435,12 @@ function layoutTower(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
     let bh = bw / a;
     const maxBh = Math.min(w * 0.36, 80);
     if (bh > maxBh) [bh, bw] = [maxBh, maxBh * a];
-    const box = { x: Math.round((w - bw) / 2), y: Math.round(h - pad * 0.7 - bh), w: Math.round(bw), h: Math.round(bh) };
+    const box = {
+      x: Math.round((w - bw) / 2),
+      y: Math.round(h - pad * 0.7 - bh),
+      w: Math.round(bw),
+      h: Math.round(bh),
+    };
     ops.push({ kind: "button", box, color: o.accent, art: true });
   } else if (cta) {
     const bh = Math.round(Math.min(w * 0.24, 54));
@@ -487,24 +501,72 @@ function ensureFonts(): Promise<void> {
   return fontsReady;
 }
 
-/** Собирает баннер w×h из подложки и текстов. Возвращает JPEG data URL. */
-export async function renderBanner(
+export type LayerSource = {
+  kind: LayerKind;
+  plate: string;
+  opts: LayerOpts & { logoSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null };
+};
+
+/** Собранный баннер: раскладка готова, картинки загружены; draw рисует кадр. */
+export type PreparedBanner = {
+  w: number;
+  h: number;
+  /** t — секунда цикла анимации (BANNER_LOOP_S); без t — статичный баннер. */
+  draw: (g: CanvasRenderingContext2D, t?: number, style?: BannerMotion) => void;
+};
+
+/** full — надписи влетают по словам; light — надписи стоят, двигаются кнопка, оффер, блик, искры (лёгкий GIF). */
+export type BannerMotion = "full" | "light";
+
+/** Длина цикла анимации баннера, с. */
+export const BANNER_LOOP_S = 4;
+
+const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const easeOutCubic = (x: number) => 1 - (1 - x) ** 3;
+/** С перелётом: 0 → ~1.1 → 1 — «пружинка» при появлении. */
+const easeOutBack = (x: number) => {
+  const c1 = 1.70158;
+  return 1 + (c1 + 1) * (x - 1) ** 3 + c1 * (x - 1) ** 2;
+};
+/** Короткий «удар» вокруг момента c (0…1). */
+const beat = (t: number, c: number, wdt = 0.13) =>
+  Math.abs(t - c) > wdt * 2.2 ? 0 : Math.exp(-(((t - c) / wdt) ** 2));
+
+/**
+ * Тайминг анимации (как у дизайнеров в баннерах казино): надписи падают сверху по
+ * одному слову с пружинкой, потом выскакивает кнопка; оффер дважды «бьётся», кнопка
+ * дышит, по ней дважды пробегает блик, рядом мерцают искры. В конце цикла надписи
+ * и кнопка гаснут и прилетают заново — шов цикла не виден.
+ */
+type Motion = { alpha: number; scale: number; dy: number };
+const STILL: Motion = { alpha: 1, scale: 1, dy: 0 };
+
+/** Загружает картинки и раскладывает баннер — один раз; кадры потом рисуются быстро. */
+export async function prepareBanner(
   w: number,
   h: number,
   kind: LayerKind,
   plateSrc: string,
-  o: LayerOpts & { logoSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null },
-): Promise<string> {
+  o: LayerSource["opts"],
+): Promise<PreparedBanner> {
   await ensureFonts();
   const [plate, logo, artImgs] = await Promise.all([
     loadImg(plateSrc),
     o.logoSrc ? loadImg(o.logoSrc).catch(() => null) : Promise.resolve(null),
-    Promise.all((o.art ?? []).map((p) => loadImg(p.src).then((img) => ({ ...p, img })).catch(() => null))),
+    Promise.all(
+      (o.art ?? []).map((p) =>
+        loadImg(p.src)
+          .then((img) => ({ ...p, img }))
+          .catch(() => null),
+      ),
+    ),
   ]);
   const ctaImg = o.cta ? await loadImg(o.cta.src).catch(() => null) : null;
   // Надписи-ассеты: слово → картинка. Все слова листа одной высоты букв, поэтому
   // масштаб общий — по медиане высот (у «+» и коротких слов рамка ниже, но буквы те же).
-  const art = new Map(artImgs.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.text, p]));
+  const art = new Map(
+    artImgs.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.text, p]),
+  );
   const hs = [...art.values()].map((p) => p.h).sort((a, b) => a - b);
   const artRefH = hs.length ? hs[Math.floor(hs.length / 2)] : 1;
   /** Строка целиком из ассетов → слова с масштабом; иначе null (рисуем шрифтом). */
@@ -518,113 +580,340 @@ export async function renderBanner(
     return { words: words as NonNullable<(typeof words)[number]>[], k, gap, width };
   };
   const sizeOf = (f: string) => parseFloat(/(\d+(?:\.\d+)?)px/.exec(f)?.[1] ?? "16");
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d")!;
+  const mc = document.createElement("canvas").getContext("2d")!;
   const measure: Measure = (t, f) => {
     // Шрифт кнопки (Manrope 800, по центру) ассетов не получает — меряем как есть.
     const a = artLine({ text: t, size: sizeOf(f) });
     if (a) return a.width;
-    g.font = f;
-    return g.measureText(t).width;
+    mc.font = f;
+    return mc.measureText(t).width;
   };
   const ops = layoutBanner(
     w,
     h,
     kind,
-    { ...o, logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null, ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null },
+    {
+      ...o,
+      logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null,
+      ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null,
+    },
     measure,
   );
-  g.fillStyle = "#0b0815";
-  g.fillRect(0, 0, w, h);
-  for (const op of ops) {
-    if (op.kind === "plate") {
-      if (op.mode === "strip-left") {
-        // Фон всей полосы — подложка по ширине, размытая и притемнённая; герой — резко слева.
-        g.save();
-        g.filter = `blur(${Math.max(2, Math.round(h * 0.08))}px) brightness(.55)`;
-        drawCover(g, plate, { x: -10, y: -10, w: w + 20, h: h + 20 }, 0.75);
-        g.restore();
-        // Резкий герой с мягким краем справа — без шва с размытым фоном.
-        const off = document.createElement("canvas");
-        off.width = op.box.w;
-        off.height = op.box.h;
-        const og = off.getContext("2d")!;
-        drawCover(og, plate, { x: 0, y: 0, w: op.box.w, h: op.box.h }, 0.16);
-        og.globalCompositeOperation = "destination-in";
-        const fade = og.createLinearGradient(0, 0, op.box.w, 0);
-        fade.addColorStop(0, "#000");
-        fade.addColorStop(0.62, "#000");
-        fade.addColorStop(1, "rgba(0,0,0,0)");
-        og.fillStyle = fade;
-        og.fillRect(0, 0, op.box.w, op.box.h);
-        g.drawImage(off, op.box.x, op.box.y);
-      } else drawCover(g, plate, op.box, 0.5);
-    } else if (op.kind === "shade") {
-      const b = op.box;
-      const gr =
-        op.dir === "right"
-          ? g.createLinearGradient(b.x, 0, b.x + Math.min(b.w, h * 2.2), 0)
-          : g.createLinearGradient(0, b.y, 0, b.y + b.h);
-      if (op.dir === "right") {
-        gr.addColorStop(0, "rgba(11,8,21,0)");
-        gr.addColorStop(1, "rgba(11,8,21,.72)");
-      } else {
-        gr.addColorStop(0, "rgba(11,8,21,.78)");
-        gr.addColorStop(1, "rgba(11,8,21,0)");
-      }
-      g.fillStyle = gr;
-      g.fillRect(b.x, b.y, b.w, b.h);
-    } else if (op.kind === "logo" && logo) {
-      const b = op.box;
-      const s = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);
-      const lw = logo.naturalWidth * s,
-        lh = logo.naturalHeight * s;
-      g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh);
-    } else if (op.kind === "button" && op.art && ctaImg) {
-      g.drawImage(ctaImg, op.box.x, op.box.y, op.box.w, op.box.h);
-    } else if (op.kind === "button") {
-      const b = op.box;
-      g.save();
-      g.shadowColor = "rgba(0,0,0,.45)";
-      g.shadowBlur = Math.round(b.h * 0.3);
-      g.shadowOffsetY = Math.round(b.h * 0.08);
-      g.fillStyle = op.color;
-      roundRect(g, b, Math.round(b.h * 0.32));
-      g.fill();
-      g.restore();
-      const hi = g.createLinearGradient(0, b.y, 0, b.y + b.h);
-      hi.addColorStop(0, "rgba(255,255,255,.28)");
-      hi.addColorStop(0.5, "rgba(255,255,255,0)");
-      g.fillStyle = hi;
-      roundRect(g, b, Math.round(b.h * 0.32));
-      g.fill();
-    } else if (op.kind === "text" && artLine(op)) {
-      const a = artLine(op)!;
-      // Шире колонки (крайний случай) — ужимаем строку целиком.
-      const fit = Math.min(1, op.maxW / a.width);
-      let x = op.align === "center" ? op.x - (a.width * fit) / 2 : op.align === "right" ? op.x - a.width * fit : op.x;
-      for (const p of a.words) {
-        const pw = p.w * a.k * fit;
-        const ph = p.h * a.k * fit;
-        g.drawImage(p.img, x, op.y - ph / 2, pw, ph);
-        x += pw + a.gap * fit;
-      }
-    } else if (op.kind === "text") {
-      g.font = op.font;
-      g.textAlign = op.align;
-      g.textBaseline = "middle";
-      g.save();
-      g.shadowColor = "rgba(0,0,0,.6)";
-      g.shadowBlur =
-        op.color === "#ffffff" || op.color === "#0b0815" ? Math.round(op.size * 0.35) : 0;
-      g.fillStyle = op.color;
-      g.fillText(op.text, op.x, op.y, op.maxW);
-      g.restore();
-    }
+
+  // Статичные слои — один раз: размытый фон полосы и резкий герой с мягким краем.
+  let bgBlur: HTMLCanvasElement | null = null;
+  let hero: HTMLCanvasElement | null = null;
+  const plateOp = ops.find((op) => op.kind === "plate");
+  if (plateOp?.kind === "plate" && plateOp.mode === "strip-left") {
+    bgBlur = document.createElement("canvas");
+    bgBlur.width = w;
+    bgBlur.height = h;
+    const bg = bgBlur.getContext("2d")!;
+    bg.filter = `blur(${Math.max(2, Math.round(h * 0.08))}px) brightness(.55)`;
+    drawCover(bg, plate, { x: -10, y: -10, w: w + 20, h: h + 20 }, 0.75);
+    hero = document.createElement("canvas");
+    hero.width = plateOp.box.w;
+    hero.height = plateOp.box.h;
+    const og = hero.getContext("2d")!;
+    drawCover(og, plate, { x: 0, y: 0, w: plateOp.box.w, h: plateOp.box.h }, 0.16);
+    og.globalCompositeOperation = "destination-in";
+    const fade = og.createLinearGradient(0, 0, plateOp.box.w, 0);
+    fade.addColorStop(0, "#000");
+    fade.addColorStop(0.62, "#000");
+    fade.addColorStop(1, "rgba(0,0,0,0)");
+    og.fillStyle = fade;
+    og.fillRect(0, 0, plateOp.box.w, plateOp.box.h);
   }
+
+  // Порядок появления: слова надписей по очереди (сверху вниз), затем кнопка.
+  const btn = ops.find((op) => op.kind === "button");
+  const textOps = ops.filter((op): op is TextOp => op.kind === "text" && !op.noArt);
+  const wordStart = new Map<TextOp, number>();
+  let k = 0;
+  for (const op of textOps) {
+    wordStart.set(op, 0.25 + k * 0.1);
+    k += artLine(op)?.words.length ?? Math.max(1, op.text.split(/\s+/).length);
+  }
+  const btnIn = 0.35 + k * 0.1;
+  const L = BANNER_LOOP_S;
+  // Удары оффера и блики кнопки — после того, как всё появилось.
+  // Между событиями — тишина: в GIF вес — это пиксели, которые меняются.
+  const beats = [Math.min(L - 1.2, btnIn + 0.75)];
+  // Второй блик кончается до начала цикла GIF (BANNER_GIF_START) — кадры на стыке чистые.
+  const shines = [btnIn + 0.4, Math.min(L - 1.1, btnIn + 1.9)];
+
+  /** Появление слова i строки op в момент t. */
+  const wordMotion = (op: TextOp, i: number, t: number | undefined): Motion => {
+    if (t === undefined) return STILL;
+    const out = 1 - clamp01((t - (L - 0.3)) / 0.25);
+    const p = clamp01((t - (wordStart.get(op) ?? 0) - i * 0.1) / 0.42);
+    return {
+      alpha: Math.min(1, p * 3) * out,
+      scale: 0.55 + 0.45 * easeOutBack(p),
+      dy: -(1 - easeOutCubic(p)) * op.size * 0.9,
+    };
+  };
+  /** Удар оффера — строкой целиком (по словам они налезают друг на друга). */
+  const lineMotion = (op: TextOp, t: number | undefined): Motion =>
+    t === undefined || op.color !== o.accent
+      ? STILL
+      : { alpha: 1, scale: 1 + beats.reduce((s2, c) => s2 + beat(t, c) * 0.14, 0), dy: 0 };
+  const buttonMotion = (t: number | undefined): Motion => {
+    if (t === undefined) return STILL;
+    const out = 1 - clamp01((t - (L - 0.3)) / 0.25);
+    const p = clamp01((t - btnIn) / 0.38);
+    // Два толчка между ударами оффера — непрерывное «дыхание» раздувает GIF в разы.
+    const push = beats.reduce((s2, c) => s2 + beat(t, c + 0.45, 0.11) * 0.09, 0);
+    return { alpha: Math.min(1, p * 4) * out, scale: easeOutBack(p) + push, dy: 0 };
+  };
+  /** Лёгкий вариант: кнопка всегда на месте, два толчка за цикл. */
+  const buttonLight = (t: number): Motion => ({
+    alpha: 1,
+    scale:
+      1 +
+      beat(t, btnIn + 0.2, 0.12) * 0.1 +
+      beats.reduce((s2, c) => s2 + beat(t, c + 0.45, 0.11) * 0.09, 0),
+    dy: 0,
+  });
+  /** Вокруг (cx, cy): прозрачность, масштаб, сдвиг — и рисуем. */
+  const moved = (
+    g: CanvasRenderingContext2D,
+    m: Motion,
+    cx: number,
+    cy: number,
+    fn: () => void,
+  ) => {
+    if (m.alpha <= 0.002 || m.scale <= 0.01) return;
+    g.save();
+    g.globalAlpha *= m.alpha;
+    g.translate(cx, cy + m.dy);
+    g.scale(m.scale, m.scale);
+    g.translate(-cx, -cy);
+    fn();
+    g.restore();
+  };
+  /** Блик по кнопке: светлая косая полоса только по самой кнопке. */
+  const btnShine = (g: CanvasRenderingContext2D, b: Box, t: number | undefined) => {
+    if (t === undefined) return;
+    for (const c of shines) {
+      const p = (t - c) / 0.5;
+      if (p <= 0 || p >= 1) continue;
+      const off = document.createElement("canvas");
+      off.width = Math.ceil(b.w);
+      off.height = Math.ceil(b.h);
+      const og = off.getContext("2d")!;
+      if (btn?.kind === "button" && btn.art && ctaImg) og.drawImage(ctaImg, 0, 0, b.w, b.h);
+      else {
+        og.fillStyle = "#000";
+        og.beginPath();
+        og.roundRect(0, 0, b.w, b.h, Math.round(b.h * 0.32));
+        og.fill();
+      }
+      og.globalCompositeOperation = "source-in";
+      const x = -b.w * 0.4 + p * b.w * 1.8;
+      const gr = og.createLinearGradient(x - b.h, 0, x + b.h * 0.4, b.h);
+      gr.addColorStop(0, "rgba(255,255,255,0)");
+      gr.addColorStop(0.5, "rgba(255,255,255,.85)");
+      gr.addColorStop(1, "rgba(255,255,255,0)");
+      og.fillStyle = gr;
+      og.fillRect(0, 0, b.w, b.h);
+      g.drawImage(off, b.x, b.y);
+    }
+  };
+  /** Четырёхлучевая искра. */
+  const spark = (g: CanvasRenderingContext2D, x: number, y: number, r: number, a: number) => {
+    if (a <= 0.02) return;
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    g.globalAlpha = a;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, "rgba(255,255,240,1)");
+    gr.addColorStop(0.25, "rgba(255,230,160,.55)");
+    gr.addColorStop(1, "rgba(255,200,80,0)");
+    g.fillStyle = gr;
+    g.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const an = (i * Math.PI) / 2;
+      g.moveTo(x, y);
+      g.lineTo(x + Math.cos(an - 0.18) * r * 0.22, y + Math.sin(an - 0.18) * r * 0.22);
+      g.lineTo(x + Math.cos(an) * r, y + Math.sin(an) * r);
+      g.lineTo(x + Math.cos(an + 0.18) * r * 0.22, y + Math.sin(an + 0.18) * r * 0.22);
+    }
+    g.closePath();
+    g.fill();
+    g.restore();
+  };
+
+  const draw = (g: CanvasRenderingContext2D, t?: number, style: BannerMotion = "full") => {
+    // Лёгкий вариант: надписи стоят (без вылета, удара и затухания) — двигаются кнопка, блик, искры.
+    const wordT = style === "light" ? undefined : t;
+    g.fillStyle = "#0b0815";
+    g.fillRect(0, 0, w, h);
+    const sparkAt: { x: number; y: number }[] = [];
+    for (const op of ops) {
+      if (op.kind === "plate") {
+        if (op.mode === "strip-left" && bgBlur && hero) {
+          // Фон и герой стоят: в GIF вес — это пиксели, которые меняются; движутся надписи и кнопка.
+          g.drawImage(bgBlur, 0, 0);
+          g.drawImage(hero, op.box.x, op.box.y);
+        } else drawCover(g, plate, op.box, 0.5);
+      } else if (op.kind === "shade") {
+        const b = op.box;
+        const gr =
+          op.dir === "right"
+            ? g.createLinearGradient(b.x, 0, b.x + Math.min(b.w, h * 2.2), 0)
+            : g.createLinearGradient(0, b.y, 0, b.y + b.h);
+        if (op.dir === "right") {
+          gr.addColorStop(0, "rgba(11,8,21,0)");
+          gr.addColorStop(1, "rgba(11,8,21,.72)");
+        } else {
+          gr.addColorStop(0, "rgba(11,8,21,.78)");
+          gr.addColorStop(1, "rgba(11,8,21,0)");
+        }
+        g.fillStyle = gr;
+        g.fillRect(b.x, b.y, b.w, b.h);
+      } else if (op.kind === "logo" && logo) {
+        const b = op.box;
+        const sc = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);
+        const lw = logo.naturalWidth * sc,
+          lh = logo.naturalHeight * sc;
+        g.drawImage(logo, b.x + (b.w - lw) / 2, b.y + (b.h - lh) / 2, lw, lh);
+      } else if (op.kind === "button") {
+        const b = op.box;
+        moved(
+          g,
+          style === "light" && t !== undefined ? buttonLight(t) : buttonMotion(t),
+          b.x + b.w / 2,
+          b.y + b.h / 2,
+          () => {
+            if (op.art && ctaImg) g.drawImage(ctaImg, b.x, b.y, b.w, b.h);
+            else {
+              g.save();
+              g.shadowColor = "rgba(0,0,0,.45)";
+              g.shadowBlur = Math.round(b.h * 0.3);
+              g.shadowOffsetY = Math.round(b.h * 0.08);
+              g.fillStyle = op.color;
+              roundRect(g, b, Math.round(b.h * 0.32));
+              g.fill();
+              g.restore();
+              const hi = g.createLinearGradient(0, b.y, 0, b.y + b.h);
+              hi.addColorStop(0, "rgba(255,255,255,.28)");
+              hi.addColorStop(0.5, "rgba(255,255,255,0)");
+              g.fillStyle = hi;
+              roundRect(g, b, Math.round(b.h * 0.32));
+              g.fill();
+            }
+            // Подпись кодовой кнопки — вместе с кнопкой.
+            for (const lb of ops) if (lb.kind === "text" && lb.noArt) drawText(g, lb);
+            btnShine(g, b, t);
+          },
+        );
+        sparkAt.push({ x: b.x + b.w * 0.92, y: b.y + b.h * 0.12 });
+      } else if (op.kind === "text" && op.noArt) {
+        if (!btn) drawText(g, op);
+      } else if (op.kind === "text" && artLine(op)) {
+        const a = artLine(op)!;
+        // Шире колонки (крайний случай) — ужимаем строку целиком.
+        const fit = Math.min(1, op.maxW / a.width);
+        let x =
+          op.align === "center"
+            ? op.x - (a.width * fit) / 2
+            : op.align === "right"
+              ? op.x - a.width * fit
+              : op.x;
+        const x0 = x;
+        moved(g, lineMotion(op, wordT), x0 + (a.width * fit) / 2, op.y, () =>
+          a.words.forEach((p, i) => {
+            const pw = p.w * a.k * fit;
+            const ph = p.h * a.k * fit;
+            const px = x;
+            moved(g, wordMotion(op, i, wordT), px + pw / 2, op.y, () =>
+              g.drawImage(p.img, px, op.y - ph / 2, pw, ph),
+            );
+            x += pw + a.gap * fit;
+          }),
+        );
+        if (op.color === o.accent)
+          sparkAt.push(
+            { x: x0 - op.size * 0.1, y: op.y - op.size * 0.35 },
+            { x: x - op.size * 0.2, y: op.y + op.size * 0.3 },
+          );
+      } else if (op.kind === "text") {
+        g.font = op.font;
+        const tw = Math.min(op.maxW, g.measureText(op.text).width);
+        const cx =
+          op.align === "center" ? op.x : op.align === "right" ? op.x - tw / 2 : op.x + tw / 2;
+        moved(g, lineMotion(op, wordT), cx, op.y, () =>
+          moved(g, wordMotion(op, 0, wordT), cx, op.y, () => drawText(g, op)),
+        );
+      }
+    }
+    // Искры: у оффера и кнопки, по очереди после появления.
+    if (t !== undefined) {
+      const r = Math.max(6, Math.min(w, h) * 0.2);
+      sparkAt.slice(0, 4).forEach((p, i) => {
+        const c = btnIn + 0.6 + i * 0.55;
+        const ph = (t - c) / 0.45;
+        if (ph > 0 && ph < 1)
+          spark(g, p.x, p.y, r * (0.6 + 0.4 * Math.sin(Math.PI * ph)), Math.sin(Math.PI * ph));
+      });
+    }
+  };
+  return { w, h, draw };
+}
+
+function drawText(g: CanvasRenderingContext2D, op: TextOp) {
+  g.font = op.font;
+  g.textAlign = op.align;
+  g.textBaseline = "middle";
+  g.save();
+  g.shadowColor = "rgba(0,0,0,.6)";
+  g.shadowBlur = op.color === "#ffffff" || op.color === "#0b0815" ? Math.round(op.size * 0.35) : 0;
+  g.fillStyle = op.color;
+  g.fillText(op.text, op.x, op.y, op.maxW);
+  g.restore();
+}
+
+/** Собирает баннер w×h из подложки и текстов. Возвращает JPEG data URL. */
+export async function renderBanner(
+  w: number,
+  h: number,
+  kind: LayerKind,
+  plateSrc: string,
+  o: LayerSource["opts"],
+): Promise<string> {
+  const b = await prepareBanner(w, h, kind, plateSrc, o);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  b.draw(c.getContext("2d")!);
   return c.toDataURL("image/jpeg", 0.9);
+}
+
+/**
+ * С какой секунды цикла начинается GIF: всё уже на месте, гаснуть ещё не начало.
+ * GIF с ограниченными повторами останавливается на последнем кадре — он тоже полный.
+ */
+export const BANNER_GIF_START = BANNER_LOOP_S - 0.35;
+
+/** Кадры анимации (RGBA) за один цикл, начиная с BANNER_GIF_START. */
+export function bannerFrames(
+  b: PreparedBanner,
+  fps: number,
+  style: BannerMotion = "full",
+): Uint8ClampedArray[] {
+  const c = document.createElement("canvas");
+  c.width = b.w;
+  c.height = b.h;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
+  const n = Math.round(BANNER_LOOP_S * fps);
+  return Array.from({ length: n }, (_, i) => {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+    b.draw(g, (BANNER_GIF_START + (i / n) * BANNER_LOOP_S) % BANNER_LOOP_S, style);
+    return g.getImageData(0, 0, b.w, b.h).data;
+  });
 }
 
 /** Картинка «cover» в рамку; fx — куда смещён кадр по горизонтали (0 — левый край, 0.5 — центр). */

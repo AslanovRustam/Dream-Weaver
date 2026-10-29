@@ -7,7 +7,15 @@ import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-client";
-import { GDN_GIF_LIMIT, imageSize, makeGifFromPixels, pixelsFromImage, type GifEffects } from "@/lib/bannerGif";
+import {
+  GDN_GIF_LIMIT,
+  imageSize,
+  makeGifFromFrames,
+  makeGifFromPixels,
+  pixelsFromImage,
+  type GifEffects,
+} from "@/lib/bannerGif";
+import { bannerFrames, prepareBanner, type LayerSource } from "@/lib/bannerLayers";
 
 type Props = {
   open: boolean;
@@ -15,6 +23,8 @@ type Props = {
   src: string;
   /** Точный размер (ресайз). Нет — мастер: уменьшаем с его пропорциями. */
   size?: { w: number; h: number };
+  /** Тонкий формат, собранный слоями: можно анимировать сами элементы. */
+  layers?: LayerSource;
 };
 
 const SIDES = [320, 480, 640];
@@ -41,18 +51,33 @@ async function fetchDataUrl(url: string): Promise<string> {
 const chip = (on: boolean) =>
   `rounded-full border px-3 py-1.5 text-sm transition ${on ? "border-accent-green bg-accent-green/15 text-foreground" : "border-border text-muted-foreground hover:bg-white/5"}`;
 
-export function GifDialog({ open, onOpenChange, src, size }: Props) {
+export function GifDialog({ open, onOpenChange, src, size, layers }: Props) {
+  // «Сцена» — надписи и кнопка двигаются (есть слои); «Блик» — эффекты поверх картинки.
+  const [mode, setMode] = useState<"scene" | "light" | "flat">(layers ? "scene" : "flat");
+  const [limit, setLimit] = useState(true);
   const [fx, setFx] = useState<GifEffects>({ shine: true, sparkles: true, zoom: false });
   const [plays, setPlays] = useState(3);
   const [side, setSide] = useState(480);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(size ?? null);
-  const [gif, setGif] = useState<{ url: string; kb: number; fps: number; colors: number; over: boolean } | null>(null);
+  const [gif, setGif] = useState<{
+    url: string;
+    kb: number;
+    fps: number;
+    colors: number;
+    over: boolean;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Старый GIF освобождаем, когда его сменил новый (или окно закрыли), — не раньше:
+  // иначе превью показывает отозванную ссылку.
+  useEffect(() => () => void (gif && URL.revokeObjectURL(gif.url)), [gif]);
 
   // Размер: у ресайза — его; у мастера — длинная сторона = side.
   useEffect(() => {
     if (!open) return;
-    if (size) return setDims(size);
+    // size приходит новым объектом на каждый рендер родителя — сравниваем числа,
+    // иначе GIF пересобирается на любой рендер пакета.
+    if (size)
+      return setDims((d) => (d && d.w === size.w && d.h === size.h ? d : { w: size.w, h: size.h }));
     let off = false;
     imageSize(src)
       .then(({ w, h }) => {
@@ -63,7 +88,8 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
     return () => {
       off = true;
     };
-  }, [open, src, size, side]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, src, size?.w, size?.h, side]);
 
   useEffect(() => {
     if (!open || !dims) return;
@@ -73,14 +99,36 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
     // Даём кадру отрисовать спиннер — кодирование идёт в основном потоке.
     const t = setTimeout(async () => {
       try {
-        const px = await pixelsFromImage(await toDataUrl(src), dims.w, dims.h);
-        if (off) return;
-        const r = makeGifFromPixels(px, dims.w, dims.h, { ...fx, plays });
+        const maxBytes = limit ? GDN_GIF_LIMIT : Infinity;
+        let r;
+        if (mode !== "flat" && layers) {
+          const b = await prepareBanner(
+            dims.w,
+            dims.h,
+            layers.kind,
+            await toDataUrl(layers.plate),
+            layers.opts,
+          );
+          if (off) return;
+          r = makeGifFromFrames(
+            (fps) => bannerFrames(b, fps, mode === "light" ? "light" : "full"),
+            dims.w,
+            dims.h,
+            { plays, maxBytes },
+          );
+        } else {
+          const px = await pixelsFromImage(await toDataUrl(src), dims.w, dims.h);
+          if (off) return;
+          r = makeGifFromPixels(px, dims.w, dims.h, { ...fx, plays, maxBytes });
+        }
         url = URL.createObjectURL(new Blob([r.bytes as BlobPart], { type: "image/gif" }));
         if (off) return URL.revokeObjectURL(url);
         setGif({ url, kb: r.bytes.length / 1024, fps: r.fps, colors: r.colors, over: r.overLimit });
       } catch (e) {
-        if (!off) toast.error("Не удалось собрать GIF", { description: e instanceof Error ? e.message : String(e) });
+        if (!off)
+          toast.error("Не удалось собрать GIF", {
+            description: e instanceof Error ? e.message : String(e),
+          });
       } finally {
         if (!off) setBusy(false);
       }
@@ -88,41 +136,120 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
     return () => {
       off = true;
       clearTimeout(t);
-      if (url) URL.revokeObjectURL(url);
     };
-  }, [open, src, dims, fx, plays]);
+  }, [open, src, dims, fx, plays, mode, layers, limit]);
 
-  const none = !fx.shine && !fx.sparkles && !fx.zoom;
+  const none = mode === "flat" && !fx.shine && !fx.sparkles && !fx.zoom;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92svh] max-w-3xl overflow-y-auto border-border bg-popover p-0 text-foreground">
         <DialogHeader className="border-b border-border px-5 py-4">
-          <DialogTitle className="ds-h4 text-left">GIF-баннер{dims ? ` · ${dims.w}×${dims.h}` : ""}</DialogTitle>
+          <DialogTitle className="ds-h4 text-left">
+            GIF-баннер{dims ? ` · ${dims.w}×${dims.h}` : ""}
+          </DialogTitle>
         </DialogHeader>
         <div className="grid gap-5 p-5 md:grid-cols-[1fr_240px]">
-          <div className="relative flex min-h-48 items-center justify-center rounded-xl bg-black/40 p-3">
+          <div className="relative flex min-h-48 min-w-0 items-center justify-center rounded-xl bg-black/40 p-3">
             {gif ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={gif.url} alt="GIF" className="max-h-[60svh] max-w-full object-contain" style={{ opacity: busy ? 0.5 : 1 }} />
+              <img
+                src={gif.url}
+                alt="GIF"
+                // Явная ширина: иначе во flex-контейнере полоса 728×90 ужимается до пары десятков px.
+                className="h-auto max-h-[60svh] max-w-full shrink-0 object-contain"
+                style={{ width: dims?.w, opacity: busy ? 0.5 : 1 }}
+              />
             ) : null}
             {busy ? <Loader2 className="absolute h-8 w-8 animate-spin text-accent-green" /> : null}
           </div>
           <div className="flex flex-col gap-4">
+            {layers ? (
+              <div>
+                <div className="ds-caption mb-2 text-muted-foreground">Анимация</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={chip(mode === "scene")}
+                    onClick={() => setMode("scene")}
+                  >
+                    Элементы
+                  </button>
+                  <button
+                    type="button"
+                    className={chip(mode === "light")}
+                    onClick={() => setMode("light")}
+                  >
+                    Лёгкая
+                  </button>
+                  <button
+                    type="button"
+                    className={chip(mode === "flat")}
+                    onClick={() => setMode("flat")}
+                  >
+                    Блик поверх
+                  </button>
+                </div>
+                {mode === "scene" ? (
+                  <p className="ds-caption mt-2 text-muted-foreground">
+                    Надписи влетают по словам, оффер «бьётся», кнопка выскакивает, по ней бежит
+                    блик. Тяжелее 150 КБ — как у дизайнеров (230–420 КБ).
+                  </p>
+                ) : null}
+                {mode === "light" ? (
+                  <p className="ds-caption mt-2 text-muted-foreground">
+                    Надписи стоят; кнопка выскакивает и толкается, по ней бежит блик, мерцают искры.
+                    Для Google Ads (≤150 КБ).
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {mode === "flat" ? (
+              <div>
+                <div className="ds-caption mb-2 text-muted-foreground">Эффекты</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={chip(fx.shine)}
+                    onClick={() => setFx({ ...fx, shine: !fx.shine })}
+                  >
+                    Блик
+                  </button>
+                  <button
+                    type="button"
+                    className={chip(fx.sparkles)}
+                    onClick={() => setFx({ ...fx, sparkles: !fx.sparkles })}
+                  >
+                    Искры
+                  </button>
+                  <button
+                    type="button"
+                    className={chip(fx.zoom)}
+                    onClick={() => setFx({ ...fx, zoom: !fx.zoom })}
+                  >
+                    Наезд
+                  </button>
+                </div>
+                {fx.zoom ? (
+                  <p className="ds-caption mt-2 text-muted-foreground">
+                    Наезд меняет каждый пиксель — GIF станет в разы тяжелее.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <div>
-              <div className="ds-caption mb-2 text-muted-foreground">Эффекты</div>
+              <div className="ds-caption mb-2 text-muted-foreground">Вес</div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(fx.shine)} onClick={() => setFx({ ...fx, shine: !fx.shine })}>
-                  Блик
+                <button type="button" className={chip(limit)} onClick={() => setLimit(true)}>
+                  ≤ 150 КБ
                 </button>
-                <button type="button" className={chip(fx.sparkles)} onClick={() => setFx({ ...fx, sparkles: !fx.sparkles })}>
-                  Искры
-                </button>
-                <button type="button" className={chip(fx.zoom)} onClick={() => setFx({ ...fx, zoom: !fx.zoom })}>
-                  Наезд
+                <button type="button" className={chip(!limit)} onClick={() => setLimit(false)}>
+                  Без лимита
                 </button>
               </div>
-              {fx.zoom ? <p className="ds-caption mt-2 text-muted-foreground">Наезд меняет каждый пиксель — GIF станет в разы тяжелее.</p> : null}
+              <p className="ds-caption mt-2 text-muted-foreground">
+                150 КБ — требование Google Ads; для прямых площадок качество важнее веса.
+              </p>
             </div>
             <div>
               <div className="ds-caption mb-2 text-muted-foreground">Повторы</div>
@@ -134,14 +261,23 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
                   Бесконечно
                 </button>
               </div>
-              <p className="ds-caption mt-2 text-muted-foreground">Google Ads: анимация не дольше 30 с — «3 раза» укладывается.</p>
+              <p className="ds-caption mt-2 text-muted-foreground">
+                Google Ads: анимация не дольше 30 с — «3 раза» укладывается.
+              </p>
             </div>
             {!size ? (
               <div>
-                <div className="ds-caption mb-2 text-muted-foreground">Размер (длинная сторона)</div>
+                <div className="ds-caption mb-2 text-muted-foreground">
+                  Размер (длинная сторона)
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {SIDES.map((s) => (
-                    <button key={s} type="button" className={chip(side === s)} onClick={() => setSide(s)}>
+                    <button
+                      key={s}
+                      type="button"
+                      className={chip(side === s)}
+                      onClick={() => setSide(s)}
+                    >
                       {s}px
                     </button>
                   ))}
@@ -149,9 +285,13 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
               </div>
             ) : null}
             {gif ? (
-              <div className={`rounded-lg px-3 py-2 text-sm ${gif.over ? "bg-[color:var(--status-warning,#f59e0b)]/15" : "bg-accent-green/15"}`}>
+              <div
+                className={`rounded-lg px-3 py-2 text-sm ${gif.over ? "bg-[color:var(--status-warning,#f59e0b)]/15" : "bg-accent-green/15"}`}
+              >
                 <b>{gif.kb.toFixed(0)} КБ</b> ·{" "}
-                {gif.over ? `больше лимита Google Ads (${GDN_GIF_LIMIT / 1024} КБ)` : `в лимите Google Ads (${GDN_GIF_LIMIT / 1024} КБ)`}
+                {gif.over
+                  ? `больше лимита Google Ads (${GDN_GIF_LIMIT / 1024} КБ)`
+                  : `в лимите Google Ads (${GDN_GIF_LIMIT / 1024} КБ)`}
                 <div className="ds-caption text-muted-foreground">
                   {gif.fps} кадр/с · {gif.colors} цветов
                 </div>
@@ -167,7 +307,9 @@ export function GifDialog({ open, onOpenChange, src, size }: Props) {
               <Download className="h-4 w-4" />
               Скачать GIF
             </a>
-            {none ? <p className="ds-caption text-muted-foreground">Включите хотя бы один эффект.</p> : null}
+            {none ? (
+              <p className="ds-caption text-muted-foreground">Включите хотя бы один эффект.</p>
+            ) : null}
           </div>
         </div>
       </DialogContent>
