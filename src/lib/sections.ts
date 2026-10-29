@@ -4,6 +4,7 @@
 // backends behind them are still mocked to varying degrees.
 import {
   Image,
+  ImagePlay,
   LayoutTemplate,
   Gamepad2,
   Film,
@@ -16,6 +17,7 @@ import {
 
 export type SectionId =
   | "banner"
+  | "gif"
   | "landing"
   | "playable"
   | "video"
@@ -51,6 +53,16 @@ export const SECTIONS: Section[] = [
     description: "Статичные баннеры для соцсетей, ставок и рекламы",
     cta: "Создать баннер",
     icon: Image,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    id: "gif",
+    route: "/gif",
+    title: "GIF-генератор",
+    description: "Анимированные баннеры под рекламные сети из готового баннера",
+    cta: "Создать GIF",
+    icon: ImagePlay,
     scaffoldHint: "",
     ready: true,
   },

@@ -68,6 +68,8 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
       { key: "ctaText", label: "Текст кнопки" },
     ],
   },
+  // GIF собирается из готового баннера — брифа нет.
+  gif: { genHint: "", fields: [] },
   ads: { genHint: "", fields: [] },
   stats: { genHint: "", fields: [] },
   mailing: { genHint: "", fields: [] },
