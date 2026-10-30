@@ -69,7 +69,7 @@ function savedNetwork(): GifNetworkId {
 }
 
 /** Свой файл → data URL не больше 1536 px по длинной стороне (модели больше не нужно). */
-async function fileToDataUrl(file: File): Promise<string> {
+async function fileToDataUrl(file: File): Promise<{ src: string; w: number; h: number }> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -80,7 +80,7 @@ async function fileToDataUrl(file: File): Promise<string> {
     c.width = Math.round(img.naturalWidth * k);
     c.height = Math.round(img.naturalHeight * k);
     c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL("image/jpeg", 0.92);
+    return { src: c.toDataURL("image/jpeg", 0.92), w: c.width, h: c.height };
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -99,6 +99,43 @@ export function GifGenApp() {
   const [running, setRunning] = useState(false);
   const [tune, setTune] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Свой файл сразу становится карточкой Истории: слои GIF сохранятся в неё, и повторная
+  // сборка будет бесплатной и после перезагрузки. Не сохранилось — работаем с файлом как есть.
+  async function upload(file: File) {
+    setUploading(true);
+    try {
+      const img = await fileToDataUrl(file);
+      try {
+        const r = await apiJson<{ card_id: string; image_url: string; name: string }>(
+          "/api/history/upload-card",
+          {
+            method: "POST",
+            body: JSON.stringify({ image: img.src, name: file.name, width: img.w, height: img.h }),
+          },
+        );
+        setCards((prev) => [
+          {
+            id: r.card_id,
+            name: r.name,
+            master: { image_url: r.image_url, width: img.w, height: img.h },
+          },
+          ...(prev ?? []),
+        ]);
+        setSource({ kind: "card", id: r.card_id, name: r.name, image: img.src });
+      } catch (e) {
+        toast.warning("Не удалось сохранить баннер в Историю — слои будут только до перезагрузки", {
+          description: e instanceof Error ? e.message : String(e),
+        });
+        setSource({ kind: "upload", name: file.name, image: img.src });
+      }
+    } catch {
+      toast.error("Не удалось открыть картинку");
+    } finally {
+      setUploading(false);
+    }
+  }
   // Контекст слоёв на выбранный баннер: подложки, персонаж и надписи кэшируются в нём.
   const ctxRef = useRef<{ key: string; ctx: LayeredCtx } | null>(null);
   const saved = useRef<Promise<SavedLayers | null> | null>(null);
@@ -295,19 +332,25 @@ export function GifGenApp() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
+                disabled={uploading}
                 className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:bg-white/5"
               >
-                <Upload className="h-4 w-4" /> Загрузить свой баннер
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {uploading ? "Сохраняем в Историю…" : "Загрузить свой баннер"}
               </button>
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
-                  if (f) setSource({ kind: "upload", name: f.name, image: await fileToDataUrl(f) });
+                  if (f) void upload(f);
                 }}
               />
               <div className="ds-caption text-muted-foreground">или из Истории:</div>
@@ -418,7 +461,7 @@ export function GifGenApp() {
           <p className="ds-caption -mt-3 text-muted-foreground">
             Первая сборка: персонаж и надписи в стиле баннера (по ≈ 23 кр.) и фон. Дальше —
             бесплатно
-            {source.kind === "card" ? ": слои сохранятся в карточку Истории." : " в этой сессии."}
+            {source.kind === "card" ? ": слои сохранятся в карточку Истории." : " до перезагрузки страницы."}
           </p>
         ) : null}
       </div>
