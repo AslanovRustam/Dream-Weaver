@@ -120,7 +120,10 @@ const SHOW_MOBILE_TABBAR = false;
 const DEV_PREVIEW_RESULT = false;
 const DEV_PREVIEW_IMAGE = "https://picsum.photos/seed/dwbanner/900/900";
 
-export function ImageGenApp() {
+/** classic — ресайзы перерисовывает модель (тонкие — слоями); layers — все ресайзы слоями, как GIF. */
+export type ResizeMode = "classic" | "layers";
+
+export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMode } = {}) {
   // Generation context lives at root level so the master image and
   // resize-batch progress survive navigation to /history or /admin. We
   // proxy through it here instead of holding local state for these
@@ -923,6 +926,7 @@ export function ImageGenApp() {
       masterRatio: imageUrl ? lastMasterRatio : ratio,
       basePayload: lastPayload ?? ({} as GeneratePayload),
       reuseCache: opts?.reuseCache,
+      resizeMode,
     });
   };
 
@@ -2097,6 +2101,7 @@ export function ImageGenApp() {
                       batchStatus={gen.status}
                       onRegenerateTile={gen.regenerateTile}
                       gifLayers={gen.gifLayers}
+                      resizeMode={resizeMode}
                       onRemoveTile={gen.removeTile}
                       onCancel={gen.cancel}
                       leadingButton={

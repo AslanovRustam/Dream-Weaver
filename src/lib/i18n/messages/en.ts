@@ -115,6 +115,11 @@ export const en: Messages = {
       description: "Static banners for social, betting and paid ads",
       cta: "Create a banner",
     },
+    bannerLayers: {
+      title: "Banner generator · layers",
+      description: "Same banners, resizes assembled from layers like GIFs",
+      cta: "Create a banner",
+    },
     gif: {
       title: "GIF generator",
       description: "Animated banners for ad networks from a finished banner",

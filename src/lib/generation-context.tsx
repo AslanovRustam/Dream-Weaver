@@ -125,6 +125,8 @@ interface GenerationContextValue extends GenerationStateSnapshot {
      *  minting a new, visually inconsistent one. False/omitted (a fresh
      *  "Сгенерировать" / "Сгенерировать заново") always generates anew. */
     reuseCache?: boolean;
+    /** layers — все размеры собираются слоями (раздел «Баннер-генератор · слои»). */
+    resizeMode?: "classic" | "layers";
   }) => Promise<void>;
   /** Abort everything pending. In-flight provider calls return naturally. */
   cancel: () => void;
@@ -305,6 +307,8 @@ export function GenerationProvider({ children }: ProviderProps) {
   // the original run. masterEpoch bumps (invalidating the cache) whenever a
   // genuinely new master image becomes active.
   const masterEpochRef = useRef(0);
+  // Режим последнего пакета: «Перегенерировать» тайла идёт тем же способом.
+  const resizeModeRef = useRef<"classic" | "layers">("classic");
   // Слои, сохранённые в карточке Истории: грузим лениво, один раз на карточку.
   const savedLayersRef = useRef(new Map<string, Promise<SavedLayers | null>>());
   const savedFor = useCallback((cardId?: string) => {
@@ -533,8 +537,9 @@ export function GenerationProvider({ children }: ProviderProps) {
   );
 
   const runBatch = useCallback<GenerationContextValue["runBatch"]>(
-    async ({ sizes, master, masterRatio, basePayload, reuseCache }) => {
+    async ({ sizes, master, masterRatio, basePayload, reuseCache, resizeMode = "classic" }) => {
       if (sizes.length === 0 || !master) return;
+      resizeModeRef.current = resizeMode;
       cancelRef.current = false;
       const epoch = masterEpochRef.current;
       const cacheKeyFor = (ratio: string, detail: string) => `${epoch}|${ratio}|${detail}`;
@@ -563,8 +568,9 @@ export function GenerationProvider({ children }: ProviderProps) {
       // pure client crop covers every member (resizePlan.ts).
       const sizeByKey = new Map(sizes.map((s) => [`${s.w}x${s.h}`, s]));
       // Тонкие форматы (728×90, 160×600…) — слоями: подложка без текста + текст кодом.
-      const layered = sizes.filter(isLayered);
-      const plans = planResizes(sizes.filter((s) => !isLayered(s)).map((s) => ({ w: s.w, h: s.h })));
+      const viaLayers = (s: { w: number; h: number }) => resizeMode === "layers" || isLayered(s);
+      const layered = sizes.filter(viaLayers);
+      const plans = planResizes(sizes.filter((s) => !viaLayers(s)).map((s) => ({ w: s.w, h: s.h })));
       const planByKey = new Map<string, SourcePlan>();
       for (const p of plans) for (const t of p.targets) planByKey.set(`${t.w}x${t.h}`, p);
 
@@ -806,7 +812,7 @@ export function GenerationProvider({ children }: ProviderProps) {
           }
         }
 
-        if (isLayered(tile.size)) {
+        if (isLayered(tile.size) || resizeModeRef.current === "layers") {
           // Тонкий формат: новая подложка (кэш этой формы сбрасываем) + текст кодом.
           const epoch = masterEpochRef.current;
           for (const k of [...sourceCacheRef.current.keys()]) if (k.startsWith(`${epoch}|plate|`)) sourceCacheRef.current.delete(k);

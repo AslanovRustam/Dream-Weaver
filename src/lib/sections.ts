@@ -12,11 +12,13 @@ import {
   BarChart3,
   Mail,
   Send,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
 export type SectionId =
   | "banner"
+  | "bannerLayers"
   | "gif"
   | "landing"
   | "playable"
@@ -53,6 +55,18 @@ export const SECTIONS: Section[] = [
     description: "Статичные баннеры для соцсетей, ставок и рекламы",
     cta: "Создать баннер",
     icon: Image,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    // Тот же баннер-генератор и те же пресеты, но ВСЕ ресайзы собираются слоями
+    // (подложка формы + надписи модели), как GIF. Для A/B двух способов ресайза.
+    id: "bannerLayers",
+    route: "/banner-layers",
+    title: "Баннер-генератор · слои",
+    description: "Те же баннеры, ресайзы собираются слоями — как GIF",
+    cta: "Создать баннер",
+    icon: Layers,
     scaffoldHint: "",
     ready: true,
   },

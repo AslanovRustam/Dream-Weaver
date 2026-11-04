@@ -55,6 +55,7 @@ const GROUPS: { titleKey?: string; title?: string; items: NavItem[] }[] = [
     items: [
       { href: "/campaign", labelKey: "nav.campaign", label: "Кампания", icon: Layers },
       s("banner"),
+      s("bannerLayers"),
       s("gif"),
       s("landing"),
       s("playable"),

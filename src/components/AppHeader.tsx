@@ -112,7 +112,7 @@ export function AppHeader() {
   // chrome). Tool routes show the section switcher; the banner editor also gets
   // the project-name breadcrumb + undo/redo.
   const isHub = pathname === "/";
-  const isBannerEditor = pathname === "/banner";
+  const isBannerEditor = pathname === "/banner" || pathname === "/banner-layers";
 
   const [me, setLocalMe] = useState<MeResponse | null>(cachedMe);
   type UploadItem = { cardId: string | null; name: string; count: number; latest: string };

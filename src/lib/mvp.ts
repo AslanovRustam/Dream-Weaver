@@ -7,7 +7,7 @@
 import { SECTION_BY_ID, type SectionId } from "./sections";
 
 /** Section ids that are live in the MVP. */
-export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "gif", "landing", "playable"]);
+export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "bannerLayers", "gif", "landing", "playable"]);
 
 /** Routes that are reachable in the MVP (adds the hub + working History).
  *  History is a real feature (loads/edits generation_cards via /api/history), so

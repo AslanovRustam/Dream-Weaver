@@ -69,6 +69,8 @@ export const BRIEF_SCHEMAS: Record<SectionId, BriefSchema> = {
     ],
   },
   // GIF собирается из готового баннера — брифа нет.
+  // Раздел-двойник баннера: ImageGenApp разбирает ТЗ как product="banner".
+  bannerLayers: { genHint: "", fields: [] },
   gif: { genHint: "", fields: [] },
   ads: { genHint: "", fields: [] },
   stats: { genHint: "", fields: [] },

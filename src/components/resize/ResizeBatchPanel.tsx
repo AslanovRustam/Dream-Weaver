@@ -37,7 +37,7 @@ import { toast } from "sonner";
 
 import { BANNER_SIZE_GROUPS, sizeKey, type BannerSize } from "@/lib/bannerSizes";
 import { PLAYABLE_ASSET_PRICE_CREDITS, resizeCredits } from "@/lib/credit-estimate";
-import { layerKind, type LayerSource } from "@/lib/bannerLayers";
+import { gifKind, layerKind, type LayerSource } from "@/lib/bannerLayers";
 import { GifDialog } from "./GifDialog";
 import { buildGif } from "@/lib/gifRender";
 import { GIF_NETWORKS, GIF_NETWORK_BY_ID, type GifNetworkId } from "@/lib/gifNetworks";
@@ -88,6 +88,8 @@ type Props = {
   /** Rendered before the "Выбрать ресайзы" trigger, inside the SAME row (and
    *  the same mobile sticky-bottom bar) — e.g. a "Сделать лендинг" button. */
   leadingButton?: ReactNode;
+  /** layers — все ресайзы собираются слоями: подложка на форму + лист надписей. */
+  resizeMode?: "classic" | "layers";
 };
 
 type Phase = "select" | "generating" | "result";
@@ -110,6 +112,7 @@ export function ResizeBatchPanel({
   onRemoveTile,
   onCancel,
   leadingButton,
+  resizeMode = "classic",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("select");
@@ -147,9 +150,15 @@ export function ResizeBatchPanel({
   // Тонкие форматы (728×90, 300×1050…) собираются слоями: плюс один лист надписей,
   // нарисованных моделью (плоская цена). Оценка не должна занижать списание.
   const packageCredits = useMemo(() => {
+    if (resizeMode === "layers") {
+      if (!selected.size) return 0;
+      // Одна подложка на форму (полоса, башня, квадрат, горизонталь, портрет) + лист надписей.
+      const kinds = new Set([...selected.values()].map((s) => gifKind(s.w, s.h)));
+      return resizeCredits(kinds.size) + PLAYABLE_ASSET_PRICE_CREDITS;
+    }
     const layered = [...selected.values()].some((s) => layerKind(s.w, s.h) !== null);
     return resizeCredits(selected.size) + (layered ? PLAYABLE_ASSET_PRICE_CREDITS : 0);
-  }, [selected]);
+  }, [selected, resizeMode]);
 
   const total = tiles.length;
   const doneCount = tiles.filter((t) => t.status === "done").length;
