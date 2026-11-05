@@ -125,7 +125,7 @@ interface GenerationContextValue extends GenerationStateSnapshot {
      *  minting a new, visually inconsistent one. False/omitted (a fresh
      *  "Сгенерировать" / "Сгенерировать заново") always generates anew. */
     reuseCache?: boolean;
-    /** layers — все размеры собираются слоями (раздел «Баннер-генератор · слои»). */
+    /** layers — все размеры собираются слоями (раздел «Слои»). */
     resizeMode?: "classic" | "layers";
   }) => Promise<void>;
   /** Abort everything pending. In-flight provider calls return naturally. */

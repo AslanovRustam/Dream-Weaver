@@ -145,8 +145,12 @@ export async function POST(request: Request) {
   }
 
   let text = await res.text();
+  // Отказ OpenAI раньше не оставлял следа: в Истории был виден только ответ запасного Grok.
+  if (!res.ok) console.warn("[generate-character] OpenAI failed", res.status, { keepPose, hasReference }, text.slice(0, 500));
   // OpenAI вернул ошибку (фильтр, перегрузка, лимиты) — тот же запрос в Grok (если подключён XAI_API_KEY).
-  const grok = primary ?? (await grokOnFailure(res.ok, { prompt: full, size: "1024x1536", transparent: true, format: "png" }));
+  // Запасной Grok — с тем же референсом: без него при keep_pose он рисовал случайного
+  // персонажа (вместо героини баннера — «розового рейнджера», чужую франшизу).
+  const grok = primary ?? (await grokOnFailure(res.ok, { prompt: full, size: "1024x1536", transparent: true, format: "png", refs: hasReference ? [reference] : [] }));
   if (grok) text = grok.text;
   if (!res.ok && !grok) {
     let msg = text.slice(0, 300);

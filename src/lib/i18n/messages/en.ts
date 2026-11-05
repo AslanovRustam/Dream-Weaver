@@ -116,7 +116,7 @@ export const en: Messages = {
       cta: "Create a banner",
     },
     bannerLayers: {
-      title: "Banner generator · layers",
+      title: "Layers",
       description: "Same banners, resizes assembled from layers like GIFs",
       cta: "Create a banner",
     },

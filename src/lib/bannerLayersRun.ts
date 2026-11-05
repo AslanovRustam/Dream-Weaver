@@ -29,13 +29,17 @@ const PLATE_PARAM: Record<LayerKind, NonNullable<GeneratePayload["plate"]>> = {
 /** Тексты баннера — из брифа мастера; если там пусто — прочитанные с самой картинки. */
 async function bannerTexts(base: GeneratePayload, master: string): Promise<BannerTexts> {
   const t: BannerTexts = {
-    headline: (base.banner_text || base.event_text || "").trim(),
+    // Заголовок: текст баннера, иначе название слота (на мастере оно и есть главная надпись).
+    headline: (base.banner_text || base.slot_name || base.event_text || "").trim(),
     offer: (base.bonus_text || base.subheadline_text || "").trim(),
     cta: (base.button_text || "").trim(),
     // Доп-текст — подзаголовок, если оффер уже взят из bonus_text.
     sub: base.bonus_text ? (base.subheadline_text || "").trim() : "",
   };
-  if (t.headline || t.offer) return { ...t, cta: t.cta || "Play" };
+  // Всё нужное есть в брифе — картинку не читаем. Не хватает заголовка или оффера
+  // (поле пустое, текст придумала модель) — недостающее берём с самого мастера:
+  // раньше хватало одного оффера, и заголовок «Gate of Olympus» пропадал.
+  if (t.headline && t.offer) return { ...t, cta: t.cta || "Play" };
   const md = await extractMasterDetails(master).catch(() => null);
   const items = (md?.banner_texts ?? []).map((b) =>
     typeof b === "string" ? { text: b, position: "" } : b,
@@ -50,7 +54,12 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
   const headline = rest.find((x) => x !== offer) ?? "";
   // Доп-текст — следующая надпись мастера (условия, «только для новых» и т.п.).
   const sub = rest.find((x) => x !== offer && x !== headline) ?? "";
-  return { headline, offer, sub, cta: btn?.text.trim() || t.cta || "Play" };
+  return {
+    headline: t.headline || headline,
+    offer: t.offer || offer,
+    sub: t.sub || sub,
+    cta: t.cta || btn?.text.trim() || "Play",
+  };
 }
 
 /**

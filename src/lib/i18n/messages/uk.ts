@@ -114,7 +114,7 @@ export const uk: Messages = {
       cta: "Створити банер",
     },
     bannerLayers: {
-      title: "Банер-генератор · шари",
+      title: "Шари",
       description: "Ті самі банери, ресайзи збираються шарами — як GIF",
       cta: "Створити банер",
     },

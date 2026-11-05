@@ -1197,6 +1197,20 @@ async function generateImage(request: Request, slot: { release?: () => void }) {
           );
         }
 
+        // «Текст на баннере» / «Текст на кнопке» включены, но пустые — по подсказке в форме
+        // ИИ должен придумать их сам. Спорт и Событие делают это в своих билдерах; остальные
+        // ветки (слот, шаблон, свободная) видели только строку и молча выпускали баннер без текста.
+        if (!isSportPreset && !isEventLikePreset && !hasSourceImage) {
+          const lang = LANG_LABELS[language] || "the most natural language for the brand/subject";
+          const invent: string[] = [];
+          if (body.banner_text_enabled === true && !bannerText)
+            invent.push(`a short, punchy main HEADLINE (2–6 words) written in ${lang}, invented to fit the subject and offer, large, bold and clearly readable`);
+          if (body.button_text_enabled === true && !buttonText)
+            invent.push(`a clearly visible CTA BUTTON with a short action label (1–3 words) written in ${lang}`);
+          if (invent.length)
+            finalPrompt += `\n\nREQUIRED TEXT (must be rendered even if other marketing copy is removed): include ${invent.join(" and ")}. Do not leave these out.`;
+        }
+
         // Per-template custom-field selections (compiled client-side from the
         // preset's declarative `fields`). Appended as a strict CUSTOMISATION
         // block so it steers the visual without touching the preset builders.

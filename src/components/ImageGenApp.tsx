@@ -2,6 +2,7 @@
 
 import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gifKind, PLATES, renderBanner } from "@/lib/bannerLayers";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -206,6 +207,54 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
+
+  // Раздел «Слои»: мастер сразу после генерации разбирается на слои (подложка формы
+  // + надписи и кнопка модели + лого) и показывается уже пересобранным. Оригинал
+  // остаётся источником ресайзов и доступен переключателем — для сравнения.
+  const [layeredView, setLayeredView] = useState<{
+    forUrl: string;
+    status: "running" | "done" | "error";
+    src?: string;
+    error?: string;
+  } | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  // Только мастер, сгенерированный здесь: восстановленный из памяти или открытый из
+  // Истории не пересобираем сами — это платная генерация, человек её не просил.
+  const armLayered = useRef(false);
+  const layeredMaster =
+    resizeMode === "layers" && armLayered.current && gen.status !== "master_running" ? gen.imageUrl : null;
+  useEffect(() => {
+    if (!layeredMaster) return;
+    if (layeredView?.forUrl === layeredMaster) return;
+    let alive = true;
+    setShowOriginal(false);
+    setLayeredView({ forUrl: layeredMaster, status: "running" });
+    (async () => {
+      try {
+        // Размер пересборки — пропорции мастера, длинная сторона как у подложки формы.
+        const [rw, rh] = (gen.lastMasterRatio || "1:1").split(":").map(Number);
+        const r = rw && rh ? rw / rh : 1;
+        const plate = PLATES[gifKind(r * 100, 100)];
+        const long = Math.max(plate.w, plate.h);
+        const w = Math.round(r >= 1 ? long : long * r);
+        const h = Math.round(r >= 1 ? long / r : long);
+        const layers = await gen.gifLayers({ w, h });
+        const src = await renderBanner(w, h, layers.kind, layers.plate, layers.opts);
+        if (alive) setLayeredView({ forUrl: layeredMaster, status: "done", src });
+      } catch (e) {
+        if (alive)
+          setLayeredView({
+            forUrl: layeredMaster,
+            status: "error",
+            error: e instanceof Error ? e.message : "Не удалось собрать по слоям",
+          });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layeredMaster]);
   const [zoomSrc, setZoomSrc] = useState<string | null>(null);
   const [history, setHistory] = useState<Record<string, string[]>>({});
   const [brandName, setBrandName] = useState("");
@@ -1088,6 +1137,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       // the context directly, but it ALSO returns the fresh image
       // string. We use the return value (not gen.imageUrl, which would
       // be stale in this closure) to seed the in-memory thumbnail list.
+      armLayered.current = true;
       const img = await gen.runMasterVariants(payload, variantCount);
       // runMaster never throws: on failure it patches gen.status="error" +
       // gen.errorMsg and returns null. Don't force "success" in that case —
@@ -1910,7 +1960,9 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           ) : null}
 
           {(() => {
-            const imageUrl = DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : gen.imageUrl;
+            const rawUrl = DEV_PREVIEW_RESULT ? DEV_PREVIEW_IMAGE : gen.imageUrl;
+            const lv = resizeMode === "layers" && layeredView?.forUrl === rawUrl ? layeredView : null;
+            const imageUrl = lv?.status === "done" && lv.src && !showOriginal ? lv.src : rawUrl;
             const lastPayload = DEV_PREVIEW_RESULT
               ? ({ preset_id: preset } as unknown as GeneratePayload)
               : gen.lastPayload;
@@ -1978,6 +2030,41 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
                     activeId={gen.activeVariantId}
                     onPick={gen.pickVariant}
                   />
+                  {lv ? (
+                    <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        {lv.status === "running" ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-green" />
+                            Разбираем на слои и пересобираем…
+                          </>
+                        ) : lv.status === "error" ? (
+                          <span className="text-destructive">Слои: {lv.error}</span>
+                        ) : showOriginal ? (
+                          "Оригинал модели"
+                        ) : (
+                          "Пересобрано по слоям"
+                        )}
+                      </span>
+                      {lv.status === "done" ? (
+                        <div className="flex overflow-hidden rounded-md border border-border">
+                          {[
+                            { on: false, label: "Слои" },
+                            { on: true, label: "Оригинал" },
+                          ].map((o) => (
+                            <button
+                              key={o.label}
+                              type="button"
+                              onClick={() => setShowOriginal(o.on)}
+                              className={`px-2.5 py-1 transition ${showOriginal === o.on ? "bg-white/10 text-foreground" : "hover:bg-white/5"}`}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div
                     className="group relative w-full overflow-hidden rounded-2xl border border-border bg-card"
                     title="Кликните для увеличения"
