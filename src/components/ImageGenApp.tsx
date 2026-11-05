@@ -2,7 +2,7 @@
 
 import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gifKind, PLATES, renderBanner } from "@/lib/bannerLayers";
+import { renderBanner } from "@/lib/bannerLayers";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -234,11 +234,10 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
         // Размер пересборки — пропорции мастера, длинная сторона как у подложки формы.
         const [rw, rh] = (gen.lastMasterRatio || "1:1").split(":").map(Number);
         const r = rw && rh ? rw / rh : 1;
-        const plate = PLATES[gifKind(r * 100, 100)];
-        const long = Math.max(plate.w, plate.h);
+        const long = 1536;
         const w = Math.round(r >= 1 ? long : long * r);
         const h = Math.round(r >= 1 ? long / r : long);
-        const layers = await gen.gifLayers({ w, h });
+        const layers = await gen.gifLayers({ w, h }, { ratio: gen.lastMasterRatio || "1:1" });
         const src = await renderBanner(w, h, layers.kind, layers.plate, layers.opts);
         if (alive) setLayeredView({ forUrl: layeredMaster, status: "done", src });
       } catch (e) {

@@ -39,7 +39,7 @@ import {
 } from "./imageGen";
 import { variationsFor } from "./bannerVariations";
 import { planResizes, type SourcePlan } from "./resizePlan";
-import { gifLayersFor, isLayered, runLayered, type SavedLayers } from "./bannerLayersRun";
+import { gifLayersFor, isLayered, masterLayers, runLayered, type SavedLayers } from "./bannerLayersRun";
 import type { LayerSource } from "./bannerLayers";
 import type { SelectedSize } from "@/components/resize/ResizeBatchPanel";
 
@@ -136,7 +136,11 @@ interface GenerationContextValue extends GenerationStateSnapshot {
   regenerateTile: (id: string) => Promise<void>;
   /** Слои для GIF любого размера от текущего мастера: подложка формы + надписи
    *  (одна генерация подложки на форму и одна — листа надписей на мастер). */
-  gifLayers: (size: { w: number; h: number }) => Promise<LayerSource>;
+  gifLayers: (
+    size: { w: number; h: number },
+    /** Пересборка самого мастера (раздел «Слои»): его пропорции — чистая копия мастера + раскладка как у него. */
+    asMaster?: { ratio: string },
+  ) => Promise<LayerSource>;
   /** Drop a single tile from the current batch (user deleted that format).
    *  A later "Download ZIP" naturally excludes it. */
   removeTile: (id: string) => void;
@@ -749,7 +753,7 @@ export function GenerationProvider({ children }: ProviderProps) {
     setState((prev) => ({ ...prev, tiles: prev.tiles.filter((t) => t.id !== id) }));
   }, []);
 
-  const gifLayers = useCallback<GenerationContextValue["gifLayers"]>(async (size) => {
+  const gifLayers = useCallback<GenerationContextValue["gifLayers"]>(async (size, asMaster) => {
     const snap = stateRef.current;
     const master = snap.imageUrl;
     if (!master) throw new Error("Нет баннера");
@@ -759,14 +763,15 @@ export function GenerationProvider({ children }: ProviderProps) {
       masterDataUrl = r.dataUrl;
     }
     const base = snap.lastPayload ?? ({} as GeneratePayload);
-    return gifLayersFor(size, {
+    const ctx = {
       master: masterDataUrl,
       base,
       plates: sourceCacheRef.current,
       epoch: masterEpochRef.current,
       cardId: base.card_id,
       saved: savedFor(base.card_id),
-    });
+    };
+    return asMaster ? masterLayers(size, asMaster.ratio, ctx) : gifLayersFor(size, ctx);
   }, [savedFor]);
 
   const regenerateTile = useCallback<GenerationContextValue["regenerateTile"]>(

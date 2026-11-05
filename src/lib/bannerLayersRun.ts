@@ -39,7 +39,7 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
   // Всё нужное есть в брифе — картинку не читаем. Не хватает заголовка или оффера
   // (поле пустое, текст придумала модель) — недостающее берём с самого мастера:
   // раньше хватало одного оффера, и заголовок «Gate of Olympus» пропадал.
-  if (t.headline && t.offer) return { ...t, cta: t.cta || "Play" };
+  if (t.headline && t.offer && figure(t.headline) !== figure(t.offer)) return { ...t, cta: t.cta || "Play" };
   const md = await extractMasterDetails(master).catch(() => null);
   const items = (md?.banner_texts ?? []).map((b) =>
     typeof b === "string" ? { text: b, position: "" } : b,
@@ -54,12 +54,28 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
   const headline = rest.find((x) => x !== offer) ?? "";
   // Доп-текст — следующая надпись мастера (условия, «только для новых» и т.п.).
   const sub = rest.find((x) => x !== offer && x !== headline) ?? "";
-  return {
+  return dedupeTexts({
     headline: t.headline || headline,
     offer: t.offer || offer,
     sub: t.sub || sub,
     cta: t.cta || btn?.text.trim() || "Play",
-  };
+  }, rest);
+}
+
+/** Число/процент строки — «+150%», «500», «50 000» — чтобы узнавать один оффер в разных записях. */
+const figure = (s: string) => (s.match(/\d[\d\s.,]*%?/g) ?? []).map((x) => x.replace(/[\s.,]/g, "")).join("|");
+
+/**
+ * Заголовок не должен повторять оффер: «+150% на первый депозит» в поле «Текст на баннере»
+ * и «+150%» с картинки давали на баннере две «+150%». Заголовок с тем же числом — это и
+ * есть оффер (берём более полную запись), а заголовком становится надпись без чисел.
+ */
+function dedupeTexts(t: BannerTexts, masterRest: string[]): BannerTexts {
+  const fh = figure(t.headline);
+  if (!fh || fh !== figure(t.offer)) return t;
+  const offer = t.headline.length > t.offer.length ? t.headline : t.offer;
+  const headline = masterRest.find((x) => !/\d/.test(x) && x !== t.sub) ?? "";
+  return { ...t, headline, offer, sub: t.sub === headline ? "" : t.sub };
 }
 
 /**
@@ -343,6 +359,71 @@ export async function gifLayersFor(
       accent,
       logoSrc: ctx.base.brand_logo || undefined,
       heroSrc: hero.src,
+      art: art.filter((p) => p.role !== "button"),
+      cta: art.find((p) => p.role === "button") ?? null,
+    },
+  };
+}
+
+/** Чистая копия мастера: та же композиция, персонаж и реквизит — без текста и кнопок. */
+async function cleanFor(ratio: string, ctx: LayeredCtx): Promise<string> {
+  const key = `${ctx.epoch}|plate|clean`;
+  const cached = ctx.plates.get(key);
+  if (cached) return cached;
+  const fromCard = (await savedOf(ctx))?.plates?.clean;
+  if (fromCard) {
+    ctx.plates.set(key, fromCard);
+    return fromCard;
+  }
+  const [rw, rh] = ratio.split(":").map(Number);
+  const r = rw && rh ? rw / rh : 1;
+  const long = 1536;
+  const res = await generateImage({
+    ...ctx.base,
+    aspect_ratio: ratio,
+    source_image: ctx.master,
+    target_w: Math.round(r >= 1 ? long : long * r),
+    target_h: Math.round(r >= 1 ? long / r : long),
+    plate: "clean",
+    ad_texts_enabled: false,
+    banner_text_enabled: false,
+    button_text_enabled: false,
+    bonus_enabled: false,
+    brand_logo: "",
+    slot_logo: "",
+    slot_screenshot: "",
+    side_a_logo: "",
+    side_b_logo: "",
+    reference_image: "",
+    master_details: undefined,
+    group_id: undefined,
+    skip_history_attach: true,
+  });
+  ctx.plates.set(key, res.image);
+  if (res.image.startsWith("data:")) persist(ctx, { plates: { clean: res.image } });
+  return res.image;
+}
+
+/**
+ * Сам мастер, пересобранный по слоям (раздел «Слои»): подложка — чистая копия мастера
+ * (композиция, персонаж, реквизит на месте), надписи модели — туда же, где они были
+ * у мастера: заголовок сверху, оффер и кнопка снизу.
+ */
+export async function masterLayers(
+  size: { w: number; h: number },
+  ratio: string,
+  ctx: LayeredCtx,
+): Promise<LayerSource> {
+  const plate = await cleanFor(ratio, ctx);
+  const { texts, accent, art } = await masterArt(ctx);
+  return {
+    kind: gifKind(size.w, size.h),
+    plate,
+    opts: {
+      texts,
+      accent,
+      split: true,
+      logoSrc: ctx.base.brand_logo || undefined,
       art: art.filter((p) => p.role !== "button"),
       cta: art.find((p) => p.role === "button") ?? null,
     },

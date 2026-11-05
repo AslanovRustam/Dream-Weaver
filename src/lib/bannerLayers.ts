@@ -59,6 +59,8 @@ export type LayerOpts = {
   lineAccent?: boolean;
   /** Персонаж отдельным слоем (фон без него) — пропорции вырезки; код ставит его с учётом текста. */
   hero?: { w: number; h: number } | null;
+  /** Пересборка самого мастера: подложка — его чистая копия, заголовок сверху, оффер и кнопка снизу. */
+  split?: boolean;
 };
 
 /** Ширина строки текста данным шрифтом (canvas.measureText или оценка в проверке). */
@@ -80,7 +82,7 @@ export type TextOp = {
 };
 export type Op =
   | { kind: "plate"; mode: "strip-left" | "cover"; box: Box }
-  | { kind: "shade"; dir: "right" | "top" | "left"; box: Box }
+  | { kind: "shade"; dir: "right" | "top" | "left" | "bottom"; box: Box }
   | { kind: "logo"; box: Box }
   | { kind: "hero"; box: Box }
   | { kind: "button"; box: Box; color: string; art?: boolean }
@@ -172,7 +174,105 @@ export function layoutBanner(
   o: LayerOpts,
   m: Measure,
 ): Op[] {
+  if (o.split && kind !== "strip" && kind !== "tower") return layoutSplit(w, h, o, m);
   return kind === "strip" ? layoutStrip(w, h, o, m) : layoutColumn(w, h, kind, o, m);
+}
+
+// Как у мастера: подложка — его же чистая копия во весь кадр; заголовок — полосой сверху,
+// оффер афишей и кнопка — снизу. Середина (персонаж, реквизит) остаётся открытой.
+function layoutSplit(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
+  const ops: Op[] = [
+    { kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } },
+    { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.3) } },
+    { kind: "shade", dir: "bottom", box: { x: 0, y: Math.round(h * 0.58), w, h: h - Math.round(h * 0.58) } },
+  ];
+  const pad = Math.round(Math.min(w, h) * 0.05);
+  const colW = w - pad * 2;
+  const cx = w / 2;
+  let top = pad;
+  if (o.logo) {
+    const lh = Math.round(h * 0.07);
+    const lw = Math.min(colW * 0.3, Math.round((lh * o.logo.w) / Math.max(1, o.logo.h)));
+    ops.push({ kind: "logo", box: { x: Math.round(cx - lw / 2), y: top, w: lw, h: lh } });
+    top += lh + pad * 0.4;
+  }
+  // Заголовок сверху: до 2 строк, зона — до 22% высоты.
+  const headline = o.texts.headline.trim().toUpperCase();
+  const headZone = h * 0.22;
+  if (headline) {
+    for (let s = Math.min(headZone * 0.62, colW * 0.16); s >= 10; s -= 1) {
+      const ls = wrap(m, headline, font(900, s, HEAD_FONT), colW, 2);
+      if (!ls || ls.length * s * 1.05 > headZone) continue;
+      ls.forEach((l, i) =>
+        ops.push({
+          kind: "text",
+          text: l,
+          x: cx,
+          y: top + s * 0.52 + i * s * 1.05,
+          size: s,
+          font: font(900, s, HEAD_FONT),
+          color: "#ffffff",
+          align: "center",
+          maxW: colW,
+        }),
+      );
+      break;
+    }
+  }
+  // Кнопка — у нижнего края по центру.
+  let btnTop = h - pad;
+  const cta = o.texts.cta.trim().toUpperCase();
+  if (cta && o.ctaArt) {
+    const a = o.ctaArt.w / o.ctaArt.h;
+    let bw = colW * 0.62;
+    let bh = bw / a;
+    if (bh > h * 0.11) [bh, bw] = [h * 0.11, h * 0.11 * a];
+    const box = { x: Math.round(cx - bw / 2), y: Math.round(h - pad - bh), w: Math.round(bw), h: Math.round(bh) };
+    ops.push({ kind: "button", box, color: o.accent, art: true });
+    btnTop = box.y;
+  } else if (cta) {
+    const bh = Math.round(h * 0.085);
+    const bw = Math.round(colW * 0.6);
+    const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, bh * 0.42, 7) ?? 7;
+    const box = { x: Math.round(cx - bw / 2), y: h - pad - bh, w: bw, h: bh };
+    ops.push({ kind: "button", box, color: o.accent });
+    ops.push({ kind: "text", text: cta, x: cx, y: box.y + bh / 2, size, font: font(800, size, BODY_FONT), color: inkOn(o.accent), noArt: true, align: "center", maxW: bw - 6 });
+    btnTop = box.y;
+  }
+  // Оффер афишей над кнопкой: нижние ~28% кадра.
+  const offer = o.texts.offer.trim();
+  const zoneBottom = btnTop - pad * 0.5;
+  const zoneTop = h * 0.64;
+  for (const vo of [offer, compactOffer(offer), mainPart(offer)]) {
+    if (!vo) break;
+    const spec = offerRows(vo);
+    let placed = false;
+    for (let k = Math.min(colW * 0.28, (zoneBottom - zoneTop) * 0.75); k * Math.min(...spec.map((r) => r.rel)) >= 9; k -= 0.5) {
+      const rows: { text: string; size: number; color: string }[] = [];
+      let fit = true;
+      for (const r of spec) {
+        const size = k * r.rel;
+        const ls = wrap(m, r.text, font(900, size, HEAD_FONT), colW, 1);
+        if (!ls) {
+          fit = false;
+          break;
+        }
+        rows.push({ text: ls[0], size, color: r.accent ? o.accent : "#ffffff" });
+      }
+      if (!fit) continue;
+      const hgt = rows.reduce((s, r) => s + r.size * 1.06, 0);
+      if (hgt > zoneBottom - zoneTop) continue;
+      let yy = zoneBottom - hgt;
+      for (const r of rows) {
+        ops.push({ kind: "text", text: r.text, x: cx, y: yy + r.size * 0.52, size: r.size, font: font(900, r.size, HEAD_FONT), color: r.color, align: "center", maxW: colW });
+        yy += r.size * 1.06;
+      }
+      placed = true;
+      break;
+    }
+    if (placed) break;
+  }
+  return ops;
 }
 
 // [герой из подложки | лого | заголовок + оффер | кнопка] в одну линию.
@@ -999,7 +1099,8 @@ export async function prepareBanner(
           gr.addColorStop(0, "rgba(11,8,21,.82)");
           gr.addColorStop(0.6, "rgba(11,8,21,.55)");
           gr.addColorStop(1, "rgba(11,8,21,0)");
-        } else if (op.dir === "right") {
+        } else if (op.dir === "right" || op.dir === "bottom") {
+          // Справа / снизу темнеет к краю: под колонкой текста или под оффером и кнопкой.
           gr.addColorStop(0, "rgba(11,8,21,0)");
           gr.addColorStop(1, "rgba(11,8,21,.72)");
         } else {

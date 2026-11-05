@@ -155,15 +155,41 @@ export async function POST(request: Request) {
   const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const W = info.width;
   const H = info.height;
-  const rowsInk = new Array<number>(H).fill(0);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (data[(y * W + x) * 4 + 3] > 40) rowsInk[y]++;
-  const bands = bandsFromAlpha(rowsInk, tokens.length);
+  // Свечение и тень букв (полупрозрачные) склеивают соседние строки: по порогу 40 лист
+  // «Gate of Olympus» не резался вовсе — и всё уходило в шрифт. Пробуем пороги по
+  // возрастанию (плотное тело буквы) и берём первый, где полосы разумной высоты.
+  const rowsAt = (thr: number) => {
+    const r = new Array<number>(H).fill(0);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (data[(y * W + x) * 4 + 3] > thr) r[y]++;
+    return r;
+  };
+  let bands: [number, number][] | null = null;
+  for (const thr of [40, 200, 240]) {
+    const b = bandsFromAlpha(rowsAt(thr), tokens.length);
+    if (!b) continue;
+    const hs = b.map(([a, z]) => z - a).sort((x, y) => x - y);
+    const med = hs[Math.floor(hs.length / 2)] || 1;
+    if (hs[0] < med * 0.35) continue; // огрызок свечения вместо строки
+    // Края — до середины промежутка с соседом: свечение и тень остаются у своего слова.
+    bands = b.map(([a, z], i) => [
+      i ? Math.round((b[i - 1][1] + a) / 2) : Math.max(0, a - 12),
+      i < b.length - 1 ? Math.round((z + b[i + 1][0]) / 2) : Math.min(H, z + 12),
+    ]);
+    break;
+  }
   if (!bands) {
     // Ни одного слова не отдали — кредиты возвращаем (сама генерация у провайдера оплачена нами).
     await refund();
     return Response.json({ pieces: [], error: "Лист не разрезался на слова", costUsd: iu.costUsd, costCredits: 0, balance: charge.balance + PLAYABLE_ASSET_PRICE_CREDITS });
   }
   const read = await readSheet(png, tokens.length, apiKey);
+  // Сверка по словам, а не «всё или ничего»: раньше при read.length !== tokens.length
+  // (распознавание склеило или разбило одну строку) браковались ВСЕ надписи — и весь
+  // баннер уходил в шрифт. Теперь слово принято, если оно прочитано в своей полосе,
+  // либо (сдвиг) в соседней ±1 — порядок строк модель держит.
+  const okAt = (i: number) =>
+    !!read && [i, i - 1, i + 1].some((j) => j >= 0 && j < read.length && sameWord(read[j], tokens[i].text));
+  console.info('[text-art]', { tokens: tokens.map((t) => t.text), read, bands: bands.length });
   const pieces = await Promise.all(
     bands.map(async ([y0, y1], i) => {
       let x0 = W;
@@ -187,7 +213,7 @@ export async function POST(request: Request) {
         w: width,
         h: height,
         // Сверка: прочитанное совпало со словом. Нет чтения — не рискуем.
-        ok: !!read && read.length === tokens.length && sameWord(read[i], tokens[i].text),
+        ok: okAt(i),
       };
     }),
   );

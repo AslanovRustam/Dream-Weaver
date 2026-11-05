@@ -64,9 +64,10 @@ function pricingModelKey(modelStr: string | undefined): "gemini-nano" | "gpt-ima
 // «Чистая подложка» для тонких форматов: текст, лого и кнопку потом кладёт код,
 // поэтому на картинке их быть не должно вовсе — иначе наложится дважды.
 /** bgwide / bgtall — фон без персонажа: персонаж для GIF — отдельным слоем. */
-type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait" | "bgwide" | "bgtall";
-const PLATE_KINDS: PlateKind[] = ["wide", "tall", "square", "landscape", "portrait", "bgwide", "bgtall"];
-const PLATE_RATIO: Record<PlateKind, string> = { wide: "3:1", tall: "1:3", square: "1:1", landscape: "3:2", portrait: "2:3", bgwide: "3:2", bgtall: "2:3" };
+/** clean — сам мастер без текста и кнопок (раздел «Слои» пересобирает его надписями модели). */
+type PlateKind = "wide" | "tall" | "square" | "landscape" | "portrait" | "bgwide" | "bgtall" | "clean";
+const PLATE_KINDS: PlateKind[] = ["wide", "tall", "square", "landscape", "portrait", "bgwide", "bgtall", "clean"];
+const PLATE_RATIO: Record<PlateKind, string> = { wide: "3:1", tall: "1:3", square: "1:1", landscape: "3:2", portrait: "2:3", bgwide: "3:2", bgtall: "2:3", clean: "1:1" };
 const PLATE_SHAPE: Record<PlateKind, string> = {
   wide: "very wide horizontal strip",
   tall: "very tall vertical strip",
@@ -75,9 +76,10 @@ const PLATE_SHAPE: Record<PlateKind, string> = {
   portrait: "vertical",
   bgwide: "horizontal",
   bgtall: "vertical",
+  clean: "same as the source",
 };
 /** Где герой и где пусто под текст — как раскладывает bannerLayers (полоса / колонка). */
-const PLATE_LAYOUT: Record<Exclude<PlateKind, "bgwide" | "bgtall">, string> = {
+const PLATE_LAYOUT: Record<Exclude<PlateKind, "bgwide" | "bgtall" | "clean">, string> = {
   wide: "LAYOUT: the character / key object sits in the LEFT THIRD (x 3%–33%), large, vertically centred, its head and the important part fully inside the frame from 10% to 90% of the height. The RIGHT TWO THIRDS are calm, darker, low-detail background (soft bokeh, gradient, light glow) — text will be placed there later, so keep it uncluttered.",
   tall: "LAYOUT: the character / key object sits in the LOWER HALF (y 45%–95%), large, horizontally centred, fully inside the frame from 10% to 90% of the width. The UPPER HALF is calm, darker, low-detail background (soft glow, gradient) — text will be placed there later, so keep it uncluttered.",
   portrait: "LAYOUT: the character / key object sits in the LOWER HALF (y 45%–97%), large, horizontally centred, fully inside the frame from 8% to 92% of the width. The UPPER 45% is calm, darker, low-detail background (soft glow, gradient) — text will be placed there later, so keep it uncluttered.",
@@ -86,6 +88,14 @@ const PLATE_LAYOUT: Record<Exclude<PlateKind, "bgwide" | "bgtall">, string> = {
 };
 
 function platePrompt(kind: PlateKind, ratio: string): string {
+  if (kind === "clean")
+    return [
+      `TASK: produce the attached approved advertising banner AGAIN, aspect ratio ${ratio}, with ALL TEXT REMOVED.`,
+      "Keep EVERYTHING else exactly as in the source: the same composition and framing, the same character in the same pose and place (identical face, hair, outfit, accessories), every prop and decoration (coins, chips, dice, money, slot machine, laurels, crowns, columns, glows, particles), the same lighting, palette and rendering style.",
+      "REMOVE: every letter, word, number, percent sign, headline, title lettering, feature list, icon list, logo, wordmark, button, badge, age-rating box and UI element. Paint the scene through where they were, continuing the surrounding background and props naturally.",
+      "The top ~25% and the bottom ~35% will get new lettering and a button later — keep them as the natural continuation of the scene (no empty boxes, no plates, no frames).",
+      "No borders, no letterboxing, no collage.",
+    ].join("\n");
   if (kind === "bgwide" || kind === "bgtall")
     return [
       `TASK: from the attached approved advertising banner make an EMPTY BACKGROUND SCENE, aspect ratio ${ratio} (${PLATE_SHAPE[kind]}).`,
