@@ -1282,7 +1282,7 @@ export const BANNER_TEMPLATES_ROUTE = "/banner/templates";
 export function PresetSidebar({ value, onChange }: Props) {
   // Каталог общий: из «Слоёв» он должен вернуть в «Слои», а не в баннер-генератор.
   const pathname = usePathname();
-  const templatesHref = pathname?.startsWith("/banner-layers") ? `${BANNER_TEMPLATES_ROUTE}?for=layers` : BANNER_TEMPLATES_ROUTE;
+  const templatesHref = pathname?.startsWith("/banner-layers") ? "/banner-layers/templates" : BANNER_TEMPLATES_ROUTE;
   // Which category tab is showing. Opens on the tab that contains the
   // selected template, so coming from the catalog shows the right group.
   const [activeTab, setActiveTab] = useState<string>(

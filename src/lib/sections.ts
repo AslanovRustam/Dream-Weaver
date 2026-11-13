@@ -63,6 +63,7 @@ export const SECTIONS: Section[] = [
     // (подложка формы + надписи модели), как GIF. Для A/B двух способов ресайза.
     id: "bannerLayers",
     route: "/banner-layers",
+    entryRoute: "/banner-layers/templates",
     title: "Слои",
     description: "Те же баннеры, ресайзы собираются слоями — как GIF",
     cta: "Создать баннер",

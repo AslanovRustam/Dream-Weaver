@@ -271,7 +271,7 @@ function ProjectsTab() {
     // generator opened a BLANK screen that looked like the project failed to
     // load. Be honest instead of misleading.
     if (p.real && p.type === "banner") {
-      router.push(`${SECTION_BY_ID.get(p.type)!.route}?card=${p.id}`);
+      router.push(`${p.layers ? "/banner-layers" : SECTION_BY_ID.get(p.type)!.route}?card=${p.id}`);
       return;
     }
     if (p.source === "email") {
@@ -536,6 +536,11 @@ export function Preview({ p, rounded }: { p: Project; rounded: string }) {
       <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-accent-green backdrop-blur" title={projectTypeInfo(p.type).title}>
         <Icon className="h-3.5 w-3.5" />
       </span>
+      {p.layers ? (
+        <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-green backdrop-blur">
+          Слои
+        </span>
+      ) : null}
       {p.uploadFailed ? (
         <span
           className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/20 text-[color:var(--status-premium)] backdrop-blur"
@@ -1083,6 +1088,7 @@ function mapRealCards(items: unknown[]): Project[] {
       uploadFailed: master?.upload_status === "failed",
       real: true,
       source: "card" as const,
+      layers: c.layers === true,
     };
   });
 }

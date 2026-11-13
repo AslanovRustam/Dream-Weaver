@@ -73,7 +73,9 @@ function CatalogTile({
   );
 }
 
-export function BannerTemplateCatalog() {
+/** Каталог общий для «Баннер-генератора» и «Слоёв»: куда вести выбор и где помнить последний шаблон. */
+export function BannerTemplateCatalog({ editorRoute = "/banner" }: { editorRoute?: string } = {}) {
+  const presetKey = editorRoute === "/banner-layers" ? "dw_preset_layers" : "dw_preset";
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
@@ -88,7 +90,7 @@ export function BannerTemplateCatalog() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("dw_preset");
+      const stored = window.localStorage.getItem(presetKey);
       if (stored && PRESET_BY_ID.has(stored)) setCurrentId(stored);
     } catch {
       /* ignore */
@@ -147,13 +149,11 @@ export function BannerTemplateCatalog() {
   const pick = (p: Preset) => {
     track("template_selected", { preset: p.id });
     try {
-      window.localStorage.setItem("dw_preset", p.id);
+      window.localStorage.setItem(presetKey, p.id);
     } catch {
       /* ignore */
     }
-    // Пришли из «Слоёв» (?for=layers) — туда и возвращаем.
-    const base = new URLSearchParams(window.location.search).get("for") === "layers" ? "/banner-layers" : "/banner";
-    router.push(`${base}?preset=${encodeURIComponent(p.id)}`);
+    router.push(`${editorRoute}?preset=${encodeURIComponent(p.id)}`);
   };
 
   return (

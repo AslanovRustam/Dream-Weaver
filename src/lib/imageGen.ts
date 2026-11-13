@@ -11,6 +11,8 @@ export type GeneratePayload = {
   /** Символ из лого (без надписи) можно повторить в декоре сцены — для кампании. */
   brand_logo_decor?: boolean;
   preset_id: string;
+  /** Баннер сделан в разделе «Слои» — пишется в карточку. */
+  resize_mode?: "layers";
   /** Директива варианта: чем этот кадр отличается от соседних в пачке. */
   variation?: string;
   button_text: string;

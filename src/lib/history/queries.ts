@@ -48,6 +48,8 @@ export interface HistoryCardListItem {
     upload_status: string | null;
   } | null;
   resize_count: number;
+  /** Сделан в разделе «Слои» (form_snapshot.resize_mode). */
+  layers: boolean;
 }
 
 export interface HistoryListResult {
@@ -67,6 +69,7 @@ interface CardRow {
   expires_at: string;
   deleted_at: string | null;
   hard_delete_after: string | null;
+  resize_mode?: string | null;
 }
 
 /**
@@ -87,7 +90,7 @@ export async function listHistoryCards(
   let query = supa
     .from("generation_cards")
     .select(
-      "id, name, preset_id, is_favorite, created_at, last_activity_at, expires_at, deleted_at, hard_delete_after",
+      "id, name, preset_id, is_favorite, created_at, last_activity_at, expires_at, deleted_at, hard_delete_after, resize_mode:form_snapshot->>resize_mode",
       { count: "exact" },
     )
     .eq("user_id", userId);
@@ -160,6 +163,7 @@ export async function listHistoryCards(
       expires_at: card.expires_at,
       deleted_at: card.deleted_at,
       hard_delete_after: card.hard_delete_after,
+      layers: card.resize_mode === "layers",
       master: master
         ? {
             id: master.id,

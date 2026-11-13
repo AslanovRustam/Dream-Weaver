@@ -164,7 +164,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       const known = (id: string | null): id is string => !!id && PRESETS.some((p) => p.id === id);
       const fromUrl = new URLSearchParams(window.location.search).get("preset");
       if (known(fromUrl)) return fromUrl;
-      const stored = window.localStorage.getItem("dw_preset");
+      const stored = window.localStorage.getItem(resizeMode === "layers" ? "dw_preset_layers" : "dw_preset");
       if (known(stored)) return stored;
     } catch {
       /* localStorage blocked — fall back */
@@ -619,7 +619,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("dw_preset", preset);
+      localStorage.setItem(resizeMode === "layers" ? "dw_preset_layers" : "dw_preset", preset);
     } catch {
       /* localStorage unavailable — ignore */
     }
@@ -669,6 +669,12 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           return;
         }
         const snap = card.form_snapshot || {};
+        // Карточка «Слоёв», открытая в классике (Главная, шапка, История) — уводим в «Слои»:
+        // иначе её ресайзы досоздались бы другим способом и смешали бы A/B.
+        if (snap.resize_mode === "layers" && resizeMode !== "layers") {
+          router.replace(`/banner-layers?card=${cardId}`);
+          return;
+        }
         const getStr = (k: string): string =>
           typeof snap[k] === "string" ? (snap[k] as string) : "";
         const getBool = (k: string, fallback: boolean): boolean =>
@@ -1157,6 +1163,8 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       .join(" ");
     const payload: GeneratePayload = {
       preset_id: preset,
+      // Раздел, где сделан баннер: карточка из Истории откроется там же (A/B способов ресайза).
+      ...(resizeMode === "layers" ? { resize_mode: "layers" as const } : {}),
       button_text: buttonTextEnabled ? buttonText : "",
       banner_text: bannerTextEnabled ? bannerText : "",
       // «Слот»: описание (оно же усиленное ТЗ) — направление; название слота — отдельно.

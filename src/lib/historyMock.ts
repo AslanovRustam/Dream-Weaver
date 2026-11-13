@@ -49,6 +49,8 @@ export type Project = {
   real?: boolean;
   /** Откуда настоящая запись: карточка баннера, проект лендинга/плейбла или черновик письма. */
   source?: "card" | "project" | "email";
+  /** Баннер из раздела «Слои» — метка на превью и открытие там же. */
+  layers?: boolean;
 };
 
 export type CreditTx = {
