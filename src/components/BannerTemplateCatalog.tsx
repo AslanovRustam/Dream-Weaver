@@ -151,7 +151,9 @@ export function BannerTemplateCatalog() {
     } catch {
       /* ignore */
     }
-    router.push(`/banner?preset=${encodeURIComponent(p.id)}`);
+    // Пришли из «Слоёв» (?for=layers) — туда и возвращаем.
+    const base = new URLSearchParams(window.location.search).get("for") === "layers" ? "/banner-layers" : "/banner";
+    router.push(`${base}?preset=${encodeURIComponent(p.id)}`);
   };
 
   return (

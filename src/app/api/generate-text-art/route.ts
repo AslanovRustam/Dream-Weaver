@@ -21,12 +21,26 @@ export const maxDuration = 300;
 const MODEL = "gpt-image-2.5-sunburst";
 const MAX_TOKENS = 14;
 
-type Body = { tokens?: ArtToken[]; style_image?: string };
+type Body = { tokens?: ArtToken[]; style_image?: string; kind?: "text" | "decor" };
+
+/** Лист декора: элементы в стиле мастера, по одному в строке (порядок = DECOR). */
+const DECOR = ["laurel", "crown", "sparkle"] as const;
+function decorPrompt(): string {
+  return [
+    "TASK: a DECORATION ASSET SHEET for a premium casino / slot advertising banner. Render ONLY the 3 items below, nothing else.",
+    "STYLE: take materials, colours, lighting and rendering from the attached banner — rich 3D metal (gold / chrome as on the banner), glossy specular highlights, rim light, subtle glow. All items share ONE consistent style.",
+    "LAYOUT: exactly 3 rows, ONE item per row, top to bottom in this order, each centred, with generous EMPTY transparent space between rows (glows included) so that no two rows touch.",
+    "  Row 1: a single LAUREL BRANCH — one curved branch of laurel leaves, the LEFT half of a victory wreath: stem at the bottom, curving up and slightly to the right, about 2.2 times taller than wide.",
+    "  Row 2: a royal CROWN, front view, compact, about 1.6 times wider than tall.",
+    "  Row 3: a single four-pointed STAR SPARKLE / lens glint, square.",
+    "ABSOLUTELY NO TEXT, letters, numbers, logos, frames or background scene. BACKGROUND: fully transparent.",
+  ].join("\n");
+}
 
 function sheetPrompt(tokens: ArtToken[]): string {
   return [
     "TASK: a TYPOGRAPHY ASSET SHEET for an advertising banner. Render ONLY the items listed below, nothing else.",
-    "STYLE: take the lettering style, materials, colours and mood from the attached banner (premium casino / game key-art lettering): bold heavy display letters with real 3D volume — bevel, extrusion depth, glossy specular highlights, rim light, a crisp dark outline and a soft drop shadow, like the title lettering of a premium slot game. All items must share ONE consistent style.",
+    "STYLE: take the lettering style, materials, colours and mood from the attached banner (premium casino / game key-art lettering): bold heavy display letters with real 3D volume — bevel, extrusion depth, glossy specular highlights, rim light and a crisp dark outline, NO drop shadow and NO dark haze around the letters (shadows are added later), like the title lettering of a premium slot game. All items must share ONE consistent style.",
     "Role colours: LIGHT items — bright white-to-pale-gold metal face; ACCENT items — rich glowing face in the banner's main accent colour (gold if unsure). Same extrusion and outline for both.",
     `LAYOUT: exactly ${tokens.length} rows, ONE item per row, top to bottom in this exact order, each row horizontally centred, all rows the same letter height, generous EMPTY space between rows so that no two rows touch or overlap (shadows included). Do not add, merge, split, translate or reorder anything.`,
     "BUTTON rows: draw a complete call-to-action BUTTON — a glossy 3D rounded pill in the banner's main accent colour (bevel, top highlight, soft outer glow and drop shadow, like a premium game UI button), about 4 times wider than tall, with the given label centred on it in bold heavy letters (dark on light buttons, white on dark ones). The label must fit inside the pill with comfortable padding.",
@@ -34,6 +48,31 @@ function sheetPrompt(tokens: ArtToken[]): string {
     "Spell every item EXACTLY character-for-character (Cyrillic stays Cyrillic, digits stay digits). No other text, no logos, no frames, no decorations, no background scene.",
     "BACKGROUND: fully transparent.",
   ].join("\n");
+}
+
+/**
+ * Чистка вырезки: модель кладёт под буквы мягкую тёмную тень и дымку свечения, а нарезка
+ * режет их по прямоугольнику полосы — на светлом фоне баннера виден «короб».
+ * Почти прозрачное — в ноль, тёмную полупрозрачную тень — ослабляем (тень код рисует сам),
+ * у краёв вырезки альфа плавно уходит в ноль: обрезанного края нет.
+ */
+async function cleanPiece(buf: Buffer): Promise<Buffer> {
+  const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const W = info.width;
+  const H = info.height;
+  const f = Math.max(4, Math.round(Math.min(W, H) * 0.08));
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      let a = data[i + 3];
+      if (!a) continue;
+      if (a < 28) a = 0;
+      else if (a < 170 && data[i] + data[i + 1] + data[i + 2] < 210) a = Math.round(a * 0.3);
+      const d = Math.min(x, y, W - 1 - x, H - 1 - y);
+      if (d < f) a = Math.round((a * d) / f);
+      data[i + 3] = a;
+    }
+  return sharp(data, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
 }
 
 /** Читает слова с листа по порядку (vision); null — не удалось. */
@@ -81,7 +120,8 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const tokens = (body.tokens ?? [])
+  const isDecor = body.kind === "decor";
+  const tokens = (isDecor ? DECOR.map((d) => ({ text: d, role: "light" as const })) : body.tokens ?? [])
     .filter((t) => t && typeof t.text === "string" && t.text.trim())
     .slice(0, MAX_TOKENS)
     .map((t) => ({ text: t.text.trim().slice(0, 40), role: t.role === "accent" || t.role === "button" ? t.role : "light" }) as ArtToken);
@@ -102,7 +142,7 @@ export async function POST(request: Request) {
   // Листу хватает места: 14 строк по ~110 px на 1024×1536.
   const fd = new FormData();
   fd.append("model", MODEL);
-  fd.append("prompt", sheetPrompt(tokens));
+  fd.append("prompt", isDecor ? decorPrompt() : sheetPrompt(tokens));
   fd.append("size", "1024x1536");
   fd.append("quality", "high");
   fd.append("background", "transparent");
@@ -182,7 +222,8 @@ export async function POST(request: Request) {
     await refund();
     return Response.json({ pieces: [], error: "Лист не разрезался на слова", costUsd: iu.costUsd, costCredits: 0, balance: charge.balance + PLAYABLE_ASSET_PRICE_CREDITS });
   }
-  const read = await readSheet(png, tokens.length, apiKey);
+  // Декор не читаем — сверять нечего; ok — если полоса нашлась.
+  const read = isDecor ? DECOR.map(String) : await readSheet(png, tokens.length, apiKey);
   // Сверка по словам, а не «всё или ничего»: раньше при read.length !== tokens.length
   // (распознавание склеило или разбило одну строку) браковались ВСЕ надписи — и весь
   // баннер уходил в шрифт. Теперь слово принято, если оно прочитано в своей полосе,
@@ -200,12 +241,12 @@ export async function POST(request: Request) {
             if (x < x0) x0 = x;
             if (x > x1) x1 = x;
           }
-      const pad = 4;
+      const pad = 10; // запас под затухание края (cleanPiece)
       const left = Math.max(0, x0 - pad);
       const top = Math.max(0, y0 - pad);
       const width = Math.min(W, x1 + pad + 1) - left;
       const height = Math.min(H, y1 + pad) - top;
-      const buf = await sharp(png).extract({ left, top, width, height }).png().toBuffer();
+      const buf = await cleanPiece(await sharp(png).extract({ left, top, width, height }).png().toBuffer());
       return {
         text: tokens[i].text,
         role: tokens[i].role,

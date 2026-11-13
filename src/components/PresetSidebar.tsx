@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -1279,6 +1280,9 @@ function RailTile({
 export const BANNER_TEMPLATES_ROUTE = "/banner/templates";
 
 export function PresetSidebar({ value, onChange }: Props) {
+  // Каталог общий: из «Слоёв» он должен вернуть в «Слои», а не в баннер-генератор.
+  const pathname = usePathname();
+  const templatesHref = pathname?.startsWith("/banner-layers") ? `${BANNER_TEMPLATES_ROUTE}?for=layers` : BANNER_TEMPLATES_ROUTE;
   // Which category tab is showing. Opens on the tab that contains the
   // selected template, so coming from the catalog shows the right group.
   const [activeTab, setActiveTab] = useState<string>(
@@ -1363,7 +1367,7 @@ export function PresetSidebar({ value, onChange }: Props) {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
-                href={BANNER_TEMPLATES_ROUTE}
+                href={templatesHref}
                 aria-label="К шаблонам"
                 className="mb-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
               >
@@ -1404,7 +1408,7 @@ export function PresetSidebar({ value, onChange }: Props) {
           catalog (the only place with search + filters now). */}
       <div className="px-4 pb-2 pt-2">
         <Link
-          href={BANNER_TEMPLATES_ROUTE}
+          href={templatesHref}
           className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition hover:border-accent-green/40 hover:bg-white/5"
         >
           <ArrowLeft size={16} className="shrink-0 text-accent-green" />

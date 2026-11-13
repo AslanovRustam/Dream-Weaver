@@ -10,9 +10,12 @@ import {
   PLATES,
   renderBanner,
   type BannerTexts,
+  type DecorName,
+  type TextSlots,
   type LayerKind,
   type LayerSource,
 } from "./bannerLayers";
+import { slotsFromPixels } from "./textSlots";
 import { sheetTokens, type ArtPiece, type ArtRole } from "./textArt";
 import { apiFetch } from "./api-client";
 import { extractMasterDetails, generateImage, type GeneratePayload } from "./imageGen";
@@ -27,7 +30,70 @@ const PLATE_PARAM: Record<LayerKind, NonNullable<GeneratePayload["plate"]>> = {
 };
 
 /** Тексты баннера — из брифа мастера; если там пусто — прочитанные с самой картинки. */
-async function bannerTexts(base: GeneratePayload, master: string): Promise<BannerTexts> {
+/** Разметка мастера (/api/read-layout): надписи с ролями и рамками, лица. */
+type MasterRead = {
+  texts: { text: string; role: string; box: [number, number, number, number] }[];
+  faces: [number, number, number, number][];
+};
+const readCache = new Map<string, Promise<MasterRead | null>>();
+function masterRead(ctx: LayeredCtx): Promise<MasterRead | null> {
+  const key = ctxKey(ctx);
+  let p = readCache.get(key);
+  if (!p) {
+    p = apiFetch("/api/read-layout", { method: "POST", json: { image: ctx.master } })
+      .then((r) => (r.ok ? (r.json() as Promise<MasterRead>) : null))
+      .catch(() => null);
+    readCache.set(key, p);
+  }
+  return p;
+}
+const b01 = ([x, y, w, h]: [number, number, number, number]) => ({ x, y, w, h });
+/** Общая рамка нескольких надписей одной роли. */
+function union(boxes: [number, number, number, number][]) {
+  if (!boxes.length) return undefined;
+  const x0 = Math.min(...boxes.map((b) => b[0]));
+  const y0 = Math.min(...boxes.map((b) => b[1]));
+  const x1 = Math.max(...boxes.map((b) => b[0] + b[2]));
+  const y1 = Math.max(...boxes.map((b) => b[1] + b[3]));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+/** Места надписей по разметке: заголовок, оффер, кнопка, бренд, ряд преимуществ, лица. */
+function slotsFromRead(r: MasterRead): TextSlots {
+  const of = (role: string) => r.texts.filter((t) => t.role === role).map((t) => t.box);
+  const feats = of("feature");
+  const rowLike = feats.length >= 2 && feats.every((b) => b[1] > 0.6);
+  return {
+    blocks: [],
+    head: union(of("headline")),
+    offer: union(of("offer")),
+    btn: union(of("button")),
+    brand: union(of("brand")),
+    row: rowLike ? union(feats) : undefined,
+    faces: r.faces.map(b01),
+  };
+}
+/** Тексты из разметки: роли уже расставлены моделью. Бриф (точное написание) — в приоритете. */
+function textsFromRead(base: GeneratePayload, r: MasterRead): BannerTexts {
+  const join = (role: string) => r.texts.filter((t) => t.role === role).map((t) => t.text.replace(/\s+/g, " ").trim()).join(" ");
+  const feats = r.texts.filter((t) => t.role === "feature");
+  const rowLike = feats.length >= 2 && feats.every((t) => t.box[1] > 0.6);
+  const t: BannerTexts = {
+    headline: (base.banner_text || base.slot_name || base.event_text || join("headline")).trim(),
+    offer: (base.bonus_text || base.subheadline_text || join("offer")).trim(),
+    cta: (base.button_text || join("button") || "Play").trim(),
+    brand: (base.brand_name || join("brand")).trim(),
+    age: r.texts.some((x) => x.role === "legal" && /18\s*\+/.test(x.text)),
+    row: rowLike ? feats.sort((a, b) => a.box[0] - b.box[0]).map((x) => x.text) : undefined,
+    sideL: rowLike ? undefined : feats.filter((x) => x.box[0] + x.box[2] / 2 < 0.5).map((x) => x.text),
+    sideR: rowLike ? undefined : feats.filter((x) => x.box[0] + x.box[2] / 2 >= 0.5).map((x) => x.text),
+  };
+  const norm = (s: string) => s.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
+  if (t.offer && norm(t.offer) === norm(t.headline)) t.offer = "";
+  return { ...t, layout: slotsFromRead(r) };
+}
+
+async function bannerTexts(base: GeneratePayload, master: string, read?: MasterRead | null): Promise<BannerTexts> {
+  if (read?.texts.length) return textsFromRead(base, read);
   const t: BannerTexts = {
     // Заголовок: текст баннера, иначе название слота (на мастере оно и есть главная надпись).
     headline: (base.banner_text || base.slot_name || base.event_text || "").trim(),
@@ -39,27 +105,44 @@ async function bannerTexts(base: GeneratePayload, master: string): Promise<Banne
   // Всё нужное есть в брифе — картинку не читаем. Не хватает заголовка или оффера
   // (поле пустое, текст придумала модель) — недостающее берём с самого мастера:
   // раньше хватало одного оффера, и заголовок «Gate of Olympus» пропадал.
-  if (t.headline && t.offer && figure(t.headline) !== figure(t.offer)) return { ...t, cta: t.cta || "Play" };
+  // Мастер читаем всегда: кроме недостающих заголовка/оффера с него берутся списки
+  // преимуществ по бокам и 18+ (пересборка мастера в «Слоях»).
   const md = await extractMasterDetails(master).catch(() => null);
   const items = (md?.banner_texts ?? []).map((b) =>
     typeof b === "string" ? { text: b, position: "" } : b,
   );
   const btn = items.find((b) => b.position.startsWith("button"));
+  const age = items.some((b) => /18\s*\+/.test(b.text));
+  const legal = (s: string) => /18\s*\+|play\s*responsibl|ответственн/i.test(s);
+  const side = (p: string) =>
+    items
+      .filter((b) => b !== btn && b.position.endsWith(p) && !b.position.startsWith("button") && !legal(b.text))
+      .map((b) => b.text.trim().replace(/\s+/g, " "))
+      .filter((x) => x && x.length <= 40 && !/\d/.test(x));
   const rest = items
     .filter((b) => b !== btn)
     .map((b) => b.text.trim())
     .filter(Boolean);
-  // Оффер — строка с числом, заголовок — первая другая.
-  const offer = rest.find((x) => /\d/.test(x)) ?? rest[1] ?? "";
+  // Оффер — только строка с числом. Раньше без числа брали «вторую надпись» — и ею
+  // оказывался тот же заголовок: на баннере он выходил дважды.
+  const offer = rest.find((x) => /\d/.test(x)) ?? "";
   const headline = rest.find((x) => x !== offer) ?? "";
   // Доп-текст — следующая надпись мастера (условия, «только для новых» и т.п.).
   const sub = rest.find((x) => x !== offer && x !== headline) ?? "";
-  return dedupeTexts({
+  const out = dedupeTexts({
     headline: t.headline || headline,
     offer: t.offer || offer,
     sub: t.sub || sub,
     cta: t.cta || btn?.text.trim() || "Play",
-  }, rest);
+  }, rest.filter((x) => !legal(x)));
+  // В боковые списки не попадают уже занятые надписи.
+  const used = new Set([out.headline, out.offer, out.sub, out.cta].map((x) => (x || "").toUpperCase()));
+  const free = (xs: string[]) => xs.filter((x) => !used.has(x.toUpperCase())).slice(0, 4);
+  const brand = (base.brand_name || "").trim();
+  const norm = (s: string) => s.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
+  // Тот же текст в заголовке и оффере — один раз.
+  if (out.offer && norm(out.offer) === norm(out.headline)) out.offer = "";
+  return { ...out, sideL: free(side("-left")), sideR: free(side("-right")), age, brand };
 }
 
 /** Число/процент строки — «+150%», «500», «50 000» — чтобы узнавать один оффер в разных записях. */
@@ -174,7 +257,7 @@ function masterArt(ctx: LayeredCtx) {
           art: saved.art.map(({ src, ...p }) => ({ ...p, src })),
         };
       const [texts, accent] = await Promise.all([
-        bannerTexts(ctx.base, ctx.master),
+        masterRead(ctx).then((r) => bannerTexts(ctx.base, ctx.master, r)),
         paletteFromImage(ctx.master)
           .then(accentFromPalette)
           .catch(() => "#f5b324"),
@@ -405,6 +488,64 @@ async function cleanFor(ratio: string, ctx: LayeredCtx): Promise<string> {
 }
 
 /**
+ * Где у мастера были надписи и кнопка: сравниваем мастер с его чистой копией на сетке
+ * 96×96 — там, где они сильно расходятся, модель стёрла текст. Пятна собираем в рамки;
+ * верхняя — заголовок, самая крупная из остальных — оффер, вытянутая низкая под ним —
+ * кнопка (её место — по надписи, даже если саму плашку модель не стёрла).
+ */
+async function textSlots(master: string, plate: string): Promise<TextSlots | null> {
+  try {
+    const N = 96;
+    const px = async (src: string) => {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = c.height = N;
+      const g = c.getContext("2d", { willReadFrequently: true })!;
+      g.drawImage(img, 0, 0, N, N);
+      return g.getImageData(0, 0, N, N).data;
+    };
+    const [a, b] = await Promise.all([px(master), px(plate)]);
+    return slotsFromPixels(a, b, N);
+  } catch {
+    return null;
+  }
+}
+
+const decorCache = new Map<string, Promise<Partial<Record<DecorName, string>>>>();
+/**
+ * Декор в стиле мастера одним листом (лавровая ветвь, корона, искра) — один на мастер.
+ * Хранится в карточке рядом с подложками (plates.laurel / crown / sparkle). Не вышло —
+ * пусто, баннер собирается без декора.
+ */
+function decorFor(ctx: LayeredCtx) {
+  const key = ctxKey(ctx);
+  let p = decorCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const saved = (await savedOf(ctx))?.plates ?? {};
+      if (saved.laurel || saved.crown || saved.sparkle)
+        return { laurel: saved.laurel, crown: saved.crown, sparkle: saved.sparkle };
+      const res = await apiFetch("/api/generate-text-art", {
+        method: "POST",
+        json: { kind: "decor", style_image: ctx.master },
+      });
+      if (!res.ok) return {};
+      const data = (await res.json()) as { pieces?: { text: string; src: string; ok: boolean }[] };
+      const out: Partial<Record<DecorName, string>> = {};
+      for (const pc of data.pieces ?? [])
+        if (pc.ok && (pc.text === "laurel" || pc.text === "crown" || pc.text === "sparkle")) out[pc.text] = pc.src;
+      if (Object.keys(out).length) persist(ctx, { plates: out });
+      return out;
+    })();
+    p.catch(() => decorCache.delete(key));
+    decorCache.set(key, p);
+  }
+  return p.catch(() => ({}));
+}
+
+/**
  * Сам мастер, пересобранный по слоям (раздел «Слои»): подложка — чистая копия мастера
  * (композиция, персонаж, реквизит на месте), надписи модели — туда же, где они были
  * у мастера: заголовок сверху, оффер и кнопка снизу.
@@ -414,8 +555,17 @@ export async function masterLayers(
   ratio: string,
   ctx: LayeredCtx,
 ): Promise<LayerSource> {
-  const plate = await cleanFor(ratio, ctx);
-  const { texts, accent, art } = await masterArt(ctx);
+  const [plate, { texts, accent, art }, decorSrc] = await Promise.all([
+    cleanFor(ratio, ctx),
+    masterArt(ctx),
+    decorFor(ctx),
+  ]);
+  // Места: из разметки мастера (сохранена в тексты карточки); нет — по разнице с чистой копией
+  // (лица всё равно берём из разметки, если она есть).
+  const read = texts.layout ? null : await masterRead(ctx);
+  const diff = texts.layout ? null : await textSlots(ctx.master, plate);
+  const slots: TextSlots | null =
+    texts.layout ?? (diff || read ? { blocks: [], ...(diff ?? {}), faces: read ? read.faces.map(b01) : diff?.faces } : null);
   return {
     kind: gifKind(size.w, size.h),
     plate,
@@ -423,6 +573,8 @@ export async function masterLayers(
       texts,
       accent,
       split: true,
+      slots,
+      decorSrc,
       logoSrc: ctx.base.brand_logo || undefined,
       art: art.filter((p) => p.role !== "button"),
       cta: art.find((p) => p.role === "button") ?? null,

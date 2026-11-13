@@ -43,7 +43,43 @@ export const PLATES: Record<LayerKind, { w: number; h: number; ratio: string }> 
   portrait: { w: 1024, h: 1536, ratio: "2:3" },
 };
 
-export type BannerTexts = { headline: string; offer: string; cta: string; sub?: string };
+export type BannerTexts = {
+  headline: string;
+  offer: string;
+  cta: string;
+  sub?: string;
+  /** Списки преимуществ мастера по бокам (пересборка мастера в «Слоях»). */
+  sideL?: string[];
+  sideR?: string[];
+  /** У мастера была плашка 18+. */
+  age?: boolean;
+  /** Название бренда — в свободную верхнюю плашку мастера (если она была). */
+  brand?: string;
+  /** Преимущества рядом (у мастера были строкой внизу, а не колонками по бокам). */
+  row?: string[];
+  /** Разметка мастера — сохраняется в карточку вместе с текстами. */
+  layout?: TextSlots | null;
+};
+
+/** Рамка в долях кадра (0..1). */
+export type Box01 = { x: number; y: number; w: number; h: number };
+/** Места надписей мастера (разница мастера и его чистой копии). */
+export type TextSlots = {
+  /** Пятна разницы мастер ↔ чистая копия (запасной путь), от крупного к мелкому. */
+  blocks: Box01[];
+  btn?: Box01;
+  /** Из разметки мастера (read-layout): места по ролям надписей. */
+  head?: Box01;
+  offer?: Box01;
+  brand?: Box01;
+  /** Ряд преимуществ (у мастера — внизу). */
+  row?: Box01;
+  /** Лица персонажей — на них не кладётся ничего. */
+  faces?: Box01[];
+};
+
+/** Декор листа (generate-text-art, kind "decor"): лавр (левая ветвь), корона, искра. */
+export type DecorName = "laurel" | "crown" | "sparkle";
 
 export type LayerOpts = {
   texts: BannerTexts;
@@ -61,6 +97,10 @@ export type LayerOpts = {
   hero?: { w: number; h: number } | null;
   /** Пересборка самого мастера: подложка — его чистая копия, заголовок сверху, оффер и кнопка снизу. */
   split?: boolean;
+  /** Декор, нарисованный моделью в стиле мастера, — пропорции каждого элемента. */
+  decor?: Partial<Record<DecorName, { w: number; h: number }>> | null;
+  /** Где у мастера стояли заголовок, оффер и кнопка — туда и кладём новые. */
+  slots?: TextSlots | null;
 };
 
 /** Ширина строки текста данным шрифтом (canvas.measureText или оценка в проверке). */
@@ -85,6 +125,8 @@ export type Op =
   | { kind: "shade"; dir: "right" | "top" | "left" | "bottom"; box: Box }
   | { kind: "logo"; box: Box }
   | { kind: "hero"; box: Box }
+  | { kind: "decor"; name: DecorName; box: Box; flip?: boolean }
+  | { kind: "badge"; text: string; box: Box }
   | { kind: "button"; box: Box; color: string; art?: boolean }
   | TextOp;
 
@@ -178,100 +220,284 @@ export function layoutBanner(
   return kind === "strip" ? layoutStrip(w, h, o, m) : layoutColumn(w, h, kind, o, m);
 }
 
-// Как у мастера: подложка — его же чистая копия во весь кадр; заголовок — полосой сверху,
-// оффер афишей и кнопка — снизу. Середина (персонаж, реквизит) остаётся открытой.
+// Как у мастера: подложка — его же чистая копия во весь кадр. Места надписей — из разметки
+// мастера (o.slots: роли и рамки надписей, лица) или по разнице с чистой копией; нет мест —
+// заголовок сверху, оффер и кнопка снизу.
+// ЖЁСТКОЕ ПРАВИЛО: на лица персонажей не ложится ничего — ни текст, ни кнопка, ни декор.
+// Зоны текста обрезаются вокруг лиц, а что всё равно задело лицо — не ставится.
 function layoutSplit(w: number, h: number, o: LayerOpts, m: Measure): Op[] {
-  const ops: Op[] = [
-    { kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } },
-    { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.3) } },
-    { kind: "shade", dir: "bottom", box: { x: 0, y: Math.round(h * 0.58), w, h: h - Math.round(h * 0.58) } },
-  ];
+  const S = o.slots ?? null;
+  const ops: Op[] = [{ kind: "plate", mode: "cover", box: { x: 0, y: 0, w, h } }];
+  const hasSlots = !!S && (!!S.head || !!S.offer || S.blocks.length > 0);
+  if (!hasSlots)
+    ops.push(
+      { kind: "shade", dir: "top", box: { x: 0, y: 0, w, h: Math.round(h * 0.3) } },
+      { kind: "shade", dir: "bottom", box: { x: 0, y: Math.round(h * 0.58), w, h: h - Math.round(h * 0.58) } },
+    );
+  const decorAt = ops.length;
   const pad = Math.round(Math.min(w, h) * 0.05);
   const colW = w - pad * 2;
-  const cx = w / 2;
-  let top = pad;
+  const dec = o.decor ?? {};
+  const px = (b: Box01): Box => ({ x: b.x * w, y: b.y * h, w: b.w * w, h: b.h * h });
+  const faces = (S?.faces ?? []).map(px).map((f) => ({
+    x: f.x - f.w * 0.08, y: f.y - f.h * 0.08, w: f.w * 1.16, h: f.h * 1.16,
+  }));
+  const hits = (b: Box) => faces.some((f) => b.x < f.x + f.w && b.x + b.w > f.x && b.y < f.y + f.h && b.y + b.h > f.y);
+  /** Часть зоны без лиц: самая большая из областей над / под / слева / справа от лица. */
+  const clear = (z: Box): Box => {
+    let r = z;
+    for (const f of faces) {
+      if (!(r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y)) continue;
+      const parts: Box[] = [
+        { x: r.x, y: r.y, w: r.w, h: f.y - r.y },
+        { x: r.x, y: f.y + f.h, w: r.w, h: r.y + r.h - (f.y + f.h) },
+        { x: r.x, y: r.y, w: f.x - r.x, h: r.h },
+        { x: f.x + f.w, y: r.y, w: r.x + r.w - (f.x + f.w), h: r.h },
+      ].filter((p) => p.w > 0 && p.h > 0);
+      r = parts.sort((p, q) => q.w * q.h - p.w * p.h)[0] ?? { ...r, h: 0 };
+    }
+    return r;
+  };
+  const textBox = (op: TextOp): Box => {
+    const tw = Math.min(op.maxW, m(op.text, op.font));
+    const x = op.align === "center" ? op.x - tw / 2 : op.align === "right" ? op.x - tw : op.x;
+    return { x, y: op.y - op.size * 0.55, w: tw, h: op.size * 1.1 };
+  };
+  const push = (op: Op) => {
+    // Последний рубеж правила лиц: элемент, задевший лицо, не ставится.
+    const b = op.kind === "text" ? textBox(op) : "box" in op ? op.box : null;
+    if (b && op.kind !== "plate" && op.kind !== "shade" && hits(b)) return false;
+    if (op.kind === "decor") ops.splice(decorAt, 0, op);
+    else ops.push(op);
+    return true;
+  };
+
+  // Роли мест: из разметки по ролям; иначе по пятнам разницы (оффер с числом — в самое
+  // крупное, заголовок — над ним; без оффера заголовок — в самое крупное).
+  const blocks = S?.blocks ?? [];
+  const hasOffer = !!o.texts.offer.trim();
+  const offerS = S?.offer ?? (hasOffer ? blocks[0] : undefined);
+  const headS =
+    S?.head ??
+    (hasOffer ? blocks.slice(1).filter((b) => b.y + b.h <= (offerS?.y ?? 1) + 0.03)[0] : blocks[0]);
+  const brandS =
+    S?.brand ?? (S?.head ? undefined : blocks.find((b) => b !== offerS && b !== headS && b.y < 0.3 && b.h < 0.14));
+
+  // ---- заголовок
+  let hz: Box = { x: pad, y: pad, w: colW, h: h * 0.22 };
+  if (headS) {
+    const b = px(headS);
+    const ww = Math.min(colW, b.w * 1.08);
+    hz = { x: b.x + b.w / 2 - ww / 2, y: b.y, w: ww, h: b.h };
+  }
   if (o.logo) {
     const lh = Math.round(h * 0.07);
     const lw = Math.min(colW * 0.3, Math.round((lh * o.logo.w) / Math.max(1, o.logo.h)));
-    ops.push({ kind: "logo", box: { x: Math.round(cx - lw / 2), y: top, w: lw, h: lh } });
-    top += lh + pad * 0.4;
+    const ly = headS ? Math.max(pad * 0.4, hz.y - lh - pad * 0.3) : hz.y;
+    push({ kind: "logo", box: { x: Math.round(hz.x + hz.w / 2 - lw / 2), y: Math.round(ly), w: lw, h: lh } });
+    if (!headS) hz = { ...hz, y: hz.y + lh + pad * 0.4 };
+  } else if (dec.crown && !headS) {
+    // Корона — только в стандартной раскладке: в местах мастера над заголовком обычно
+    // уже стоит что-то из сцены (у короля — своя корона, вышло две).
+    const ch = Math.round(h * 0.06);
+    const cw = Math.round((ch * dec.crown.w) / Math.max(1, dec.crown.h));
+    const cy = Math.max(pad * 0.3, hz.y - ch * 0.75);
+    if (push({ kind: "decor", name: "crown", box: { x: Math.round(hz.x + hz.w / 2 - cw / 2), y: Math.round(cy), w: cw, h: ch } }))
+      hz = { ...hz, y: Math.round(cy + ch * 0.85) };
   }
-  // Заголовок сверху: до 2 строк, зона — до 22% высоты.
+  hz = clear(hz);
   const headline = o.texts.headline.trim().toUpperCase();
-  const headZone = h * 0.22;
-  if (headline) {
-    for (let s = Math.min(headZone * 0.62, colW * 0.16); s >= 10; s -= 1) {
-      const ls = wrap(m, headline, font(900, s, HEAD_FONT), colW, 2);
-      if (!ls || ls.length * s * 1.05 > headZone) continue;
-      ls.forEach((l, i) =>
-        ops.push({
-          kind: "text",
-          text: l,
-          x: cx,
-          y: top + s * 0.52 + i * s * 1.05,
-          size: s,
-          font: font(900, s, HEAD_FONT),
-          color: "#ffffff",
-          align: "center",
-          maxW: colW,
-        }),
-      );
+  let headBottom = hz.y;
+  if (headline && hz.h > 10) {
+    const hcx = hz.x + hz.w / 2;
+    for (let s = Math.min(hz.h * 0.62, hz.w * 0.16); s >= 9; s -= 1) {
+      const ls = wrap(m, headline, font(900, s, HEAD_FONT), hz.w, 2);
+      if (!ls || ls.length * s * 1.05 > hz.h) continue;
+      const y0 = hz.y + (hz.h - ls.length * s * 1.05) / 2;
+      // Блок целиком: задела лицо хоть одна строка — мельче, а не без строки.
+      const lineOps: TextOp[] = ls.map((l, i) => ({ kind: "text", text: l, x: hcx, y: y0 + s * 0.52 + i * s * 1.05, size: s, font: font(900, s, HEAD_FONT), color: "#ffffff", align: "center", maxW: hz.w }));
+      if (lineOps.some((op) => hits(textBox(op)))) continue;
+      const headW = Math.max(...ls.map((l) => m(l, font(900, s, HEAD_FONT))));
+      lineOps.forEach(push);
+      headBottom = y0 + ls.length * s * 1.05;
+      if (dec.sparkle) {
+        const sz = Math.round(Math.min(w, h) * 0.07);
+        for (const [x, y] of [
+          [hcx - headW / 2 - sz * 0.35, y0 - sz * 0.25],
+          [hcx + headW / 2 - sz * 0.65, headBottom - sz * 0.75],
+        ])
+          push({ kind: "decor", name: "sparkle", box: { x: Math.round(x), y: Math.round(y), w: sz, h: sz } });
+      }
       break;
     }
   }
-  // Кнопка — у нижнего края по центру.
+
+  // ---- кнопка
   let btnTop = h - pad;
+  let btnBottom = h - pad;
   const cta = o.texts.cta.trim().toUpperCase();
+  const bc = S?.btn ? px(S.btn) : null;
+  const bcx = bc ? bc.x + bc.w / 2 : w / 2;
+  const placeBtn = (box: Box) => {
+    // На лицо — нельзя: сдвигаем под лицо, если там есть место, иначе над ним.
+    for (const f of faces)
+      if (box.x < f.x + f.w && box.x + box.w > f.x && box.y < f.y + f.h && box.y + box.h > f.y)
+        box = { ...box, y: f.y + f.h + box.h <= h - pad * 0.3 ? f.y + f.h + pad * 0.2 : Math.max(pad * 0.3, f.y - box.h - pad * 0.2) };
+    return box;
+  };
   if (cta && o.ctaArt) {
     const a = o.ctaArt.w / o.ctaArt.h;
-    let bw = colW * 0.62;
+    let bw = bc ? Math.min(colW * 0.7, Math.max(colW * 0.45, bc.w * 1.1)) : colW * 0.62;
     let bh = bw / a;
-    if (bh > h * 0.11) [bh, bw] = [h * 0.11, h * 0.11 * a];
-    const box = { x: Math.round(cx - bw / 2), y: Math.round(h - pad - bh), w: Math.round(bw), h: Math.round(bh) };
-    ops.push({ kind: "button", box, color: o.accent, art: true });
-    btnTop = box.y;
+    const maxH = h * (bc ? 0.12 : 0.11);
+    if (bh > maxH) [bh, bw] = [maxH, maxH * a];
+    const cy = bc ? (bc.h > h * 0.13 ? bc.y + bc.h - bh / 2 - h * 0.01 : bc.y + bc.h / 2) : h - pad - bh / 2;
+    const box = placeBtn({ x: Math.round(bcx - bw / 2), y: Math.round(Math.min(h - pad * 0.3 - bh, cy - bh / 2)), w: Math.round(bw), h: Math.round(bh) });
+    if (push({ kind: "button", box, color: o.accent, art: true })) [btnTop, btnBottom] = [box.y, box.y + box.h];
   } else if (cta) {
     const bh = Math.round(h * 0.085);
-    const bw = Math.round(colW * 0.6);
+    const bw = Math.round(bc ? Math.min(colW * 0.7, Math.max(colW * 0.45, bc.w * 1.1)) : colW * 0.6);
     const size = fitSize(m, cta, 800, BODY_FONT, bw - bh * 0.6, bh * 0.42, 7) ?? 7;
-    const box = { x: Math.round(cx - bw / 2), y: h - pad - bh, w: bw, h: bh };
-    ops.push({ kind: "button", box, color: o.accent });
-    ops.push({ kind: "text", text: cta, x: cx, y: box.y + bh / 2, size, font: font(800, size, BODY_FONT), color: inkOn(o.accent), noArt: true, align: "center", maxW: bw - 6 });
-    btnTop = box.y;
+    const cy = bc ? (bc.h > h * 0.13 ? bc.y + bc.h - bh / 2 - h * 0.01 : bc.y + bc.h / 2) : h - pad - bh / 2;
+    const box = placeBtn({ x: Math.round(bcx - bw / 2), y: Math.round(cy - bh / 2), w: bw, h: bh });
+    if (push({ kind: "button", box, color: o.accent })) {
+      ops.push({ kind: "text", text: cta, x: box.x + bw / 2, y: box.y + bh / 2, size, font: font(800, size, BODY_FONT), color: inkOn(o.accent), noArt: true, align: "center", maxW: bw - 6 });
+      [btnTop, btnBottom] = [box.y, box.y + box.h];
+    }
   }
-  // Оффер афишей над кнопкой: нижние ~28% кадра.
+  if (o.texts.age) {
+    const bs = Math.round(Math.min(w, h) * 0.075);
+    push({ kind: "badge", text: "18+", box: { x: w - pad - bs, y: h - pad - bs, w: bs, h: bs } });
+  }
+
+  // ---- оффер: в своём месте мастера или над кнопкой. Не теряется никогда: не влезает
+  // афишей — сжатый вид, затем одной строкой любого размера от 8 px.
+  let oz: Box = { x: pad, y: h * 0.64, w: colW, h: btnTop - pad * 0.5 - h * 0.64 };
+  if (offerS) {
+    const b = px(offerS);
+    const ww = Math.min(colW, b.w * 1.05);
+    const bottom = b.y + b.h > btnTop && b.y < btnTop ? btnTop - pad * 0.3 : b.y + b.h;
+    oz = { x: b.x + b.w / 2 - ww / 2, y: b.y, w: ww, h: Math.max(h * 0.06, bottom - b.y) };
+  }
+  oz = clear(oz);
+  const ocx = oz.x + oz.w / 2;
   const offer = o.texts.offer.trim();
-  const zoneBottom = btnTop - pad * 0.5;
-  const zoneTop = h * 0.64;
-  for (const vo of [offer, compactOffer(offer), mainPart(offer)]) {
-    if (!vo) break;
+  let offerPlaced = !offer;
+  for (const vo of offer ? [offer, compactOffer(offer), mainPart(offer)] : []) {
+    if (offerPlaced) break;
     const spec = offerRows(vo);
-    let placed = false;
-    for (let k = Math.min(colW * 0.28, (zoneBottom - zoneTop) * 0.75); k * Math.min(...spec.map((r) => r.rel)) >= 9; k -= 0.5) {
-      const rows: { text: string; size: number; color: string }[] = [];
+    for (let k = Math.min(oz.w * 0.28, oz.h * 0.75); k * Math.min(...spec.map((r) => r.rel)) >= 8; k -= 0.5) {
+      const rows: { text: string; size: number; color: string; width: number }[] = [];
       let fit = true;
       for (const r of spec) {
         const size = k * r.rel;
-        const ls = wrap(m, r.text, font(900, size, HEAD_FONT), colW, 1);
+        const ls = wrap(m, r.text, font(900, size, HEAD_FONT), oz.w, 1);
         if (!ls) {
           fit = false;
           break;
         }
-        rows.push({ text: ls[0], size, color: r.accent ? o.accent : "#ffffff" });
+        rows.push({ text: ls[0], size, color: r.accent ? o.accent : "#ffffff", width: m(ls[0], font(900, size, HEAD_FONT)) });
       }
       if (!fit) continue;
       const hgt = rows.reduce((s, r) => s + r.size * 1.06, 0);
-      if (hgt > zoneBottom - zoneTop) continue;
-      let yy = zoneBottom - hgt;
-      for (const r of rows) {
-        ops.push({ kind: "text", text: r.text, x: cx, y: yy + r.size * 0.52, size: r.size, font: font(900, r.size, HEAD_FONT), color: r.color, align: "center", maxW: colW });
+      if (hgt > oz.h) continue;
+      let yy = offerS ? oz.y + (oz.h - hgt) / 2 : oz.y + oz.h - hgt;
+      const blockTop = yy;
+      const rowOps: TextOp[] = rows.map((r) => {
+        const op: TextOp = { kind: "text", text: r.text, x: ocx, y: yy + r.size * 0.52, size: r.size, font: font(900, r.size, HEAD_FONT), color: r.color, align: "center", maxW: oz.w };
         yy += r.size * 1.06;
+        return op;
+      });
+      if (rowOps.some((op) => hits(textBox(op)))) continue;
+      rowOps.forEach(push);
+      if (dec.laurel) {
+        const lh = Math.round(hgt * 1.15);
+        const lw = Math.round((lh * dec.laurel.w) / Math.max(1, dec.laurel.h));
+        const half = Math.max(...rows.map((r) => r.width)) / 2;
+        const lx = Math.round(ocx - half - lw * 0.85);
+        const ly = Math.round(blockTop - (lh - hgt) / 2);
+        if (lx >= pad * 0.3 && ocx + half + lw * 0.85 <= w - pad * 0.3) {
+          push({ kind: "decor", name: "laurel", box: { x: lx, y: ly, w: lw, h: lh } });
+          push({ kind: "decor", name: "laurel", flip: true, box: { x: Math.round(ocx + half - lw * 0.15), y: ly, w: lw, h: lh } });
+        }
       }
-      placed = true;
+      offerPlaced = true;
       break;
     }
-    if (placed) break;
   }
+  if (!offerPlaced) {
+    // Последний шанс: одна строка во всю свободную ширину над кнопкой, сколь угодно мелко.
+    const line = compactOffer(offer).toUpperCase();
+    const zone = clear({ x: pad, y: Math.max(headBottom, btnTop - h * 0.16), w: colW, h: Math.min(h * 0.14, btnTop - Math.max(headBottom, btnTop - h * 0.16)) });
+    const s = Math.max(8, Math.min(zone.h * 0.8, fitSize(m, line, 900, HEAD_FONT, zone.w, zone.h * 0.8, 8) ?? 8));
+    push({ kind: "text", text: line, x: zone.x + zone.w / 2, y: zone.y + zone.h / 2, size: s, font: font(900, s, HEAD_FONT), color: o.accent, align: "center", maxW: zone.w });
+  }
+
+  // ---- бренд — в свою плашку
+  const brand = (o.texts.brand ?? "").trim();
+  if (brandS && brand && !o.logo) {
+    const b = clear(px(brandS));
+    const f = (s: number) => font(800, s, HEAD_FONT);
+    for (let s = b.h * 0.55; s >= 9; s -= 0.5)
+      if (m(brand, f(s)) <= b.w * 0.8) {
+        push({ kind: "text", text: brand, x: b.x + b.w / 2, y: b.y + b.h / 2, size: s, font: f(s), color: "#ffffff", align: "center", maxW: b.w * 0.85, noArt: true });
+        break;
+      }
+  }
+
+  // ---- преимущества: рядом внизу (как у мастера) или колонками по бокам
+  const rowItems = (o.texts.row ?? []).slice(0, 5).map((t) => t.trim().toUpperCase()).filter(Boolean);
+  if (rowItems.length) {
+    const rz0 = S?.row ? px(S.row) : null;
+    const top = Math.max(btnBottom + pad * 0.3, rz0 ? rz0.y : 0);
+    const zone = clear({ x: rz0 ? Math.max(pad * 0.5, rz0.x - rz0.w * 0.05) : pad, y: top, w: rz0 ? Math.min(w - pad, rz0.w * 1.1) : colW, h: h - pad * 0.4 - top });
+    const cell = zone.w / rowItems.length;
+    if (zone.h >= h * 0.04)
+      for (let s = Math.min(zone.h * 0.32, cell * 0.14); s >= 7; s -= 0.5) {
+        const f = font(700, s, BODY_FONT);
+        const wr = rowItems.map((t) => wrap(m, t, f, cell * 0.92, 2));
+        if (wr.some((x) => !x) || Math.max(...wr.map((x) => x!.length)) * s * 1.2 > zone.h) continue;
+        wr.forEach((ls, i) => {
+          const lines = ls!;
+          const y0 = zone.y + (zone.h - lines.length * s * 1.2) / 2;
+          lines.forEach((l, j) =>
+            push({ kind: "text", text: l, x: zone.x + cell * (i + 0.5), y: y0 + s * 0.6 + j * s * 1.2, size: s, font: f, color: "#ffffff", align: "center", maxW: cell * 0.92, noArt: true }),
+          );
+        });
+        break;
+      }
+  }
+  const sides: [string[] | undefined, "left" | "right"][] = [
+    [o.texts.sideL, "left"],
+    [o.texts.sideR, "right"],
+  ];
+  if (w / h >= 0.9)
+    for (const [items, side] of sides) {
+      const list = (items ?? []).slice(0, 4).map((t) => t.trim().toUpperCase()).filter(Boolean);
+      if (!list.length) continue;
+      const sw = Math.round(w * 0.2);
+      const y0 = Math.max(headBottom + pad * 0.6, h * 0.26);
+      const y1 = h * 0.6;
+      for (let s = Math.min(h * 0.026, sw * 0.12); s >= 8; s -= 0.5) {
+        const f = font(700, s, BODY_FONT);
+        const wrapped = list.map((t) => wrap(m, t, f, sw, 2));
+        if (wrapped.some((x) => !x)) continue;
+        const lines = wrapped.reduce((n, x) => n + x!.length, 0);
+        const gapItem = s * 1.1;
+        const total = lines * s * 1.2 + gapItem * (list.length - 1);
+        if (total > y1 - y0) continue;
+        let yy = y0 + (y1 - y0 - total) / 2;
+        const x = side === "left" ? pad : w - pad;
+        wrapped.forEach((ls) => {
+          ls!.forEach((l) => {
+            push({ kind: "text", text: l, x, y: yy + s * 0.6, size: s, font: f, color: "#ffffff", align: side, maxW: sw, noArt: true });
+            yy += s * 1.2;
+          });
+          yy += gapItem;
+        });
+        break;
+      }
+    }
   return ops;
 }
 
@@ -736,7 +962,13 @@ function ensureFonts(): Promise<void> {
 export type LayerSource = {
   kind: LayerKind;
   plate: string;
-  opts: LayerOpts & { logoSrc?: string; heroSrc?: string; art?: ArtPiece[]; cta?: ArtPiece | null };
+  opts: LayerOpts & {
+    logoSrc?: string;
+    heroSrc?: string;
+    art?: ArtPiece[];
+    cta?: ArtPiece | null;
+    decorSrc?: Partial<Record<DecorName, string>>;
+  };
 };
 
 /**
@@ -774,7 +1006,19 @@ export type PreparedBanner = {
   slides: SlideName[];
   /** Цикл GIF и с какой секунды его начинать (всё уже на месте). */
   timing: (style: BannerMotion) => { loop: number; start: number };
+  /** Баннер по слоям для анимированного hero: фон (JPEG) и каждый элемент — прозрачный PNG со своей рамкой. */
+  sprites: () => BannerSprites;
 };
+
+export type BannerSprite = {
+  kind: "text" | "logo" | "button" | "decor" | "badge" | "hero";
+  /** Строка оффера (цвет акцента) — ей «удар» и искры. */
+  accent?: boolean;
+  src: string;
+  /** Доли кадра 0..1. */
+  box: Box01;
+};
+export type BannerSprites = { w: number; h: number; bg: string; items: BannerSprite[] };
 
 /** full — надписи влетают по словам; light — надписи стоят, двигаются кнопка, оффер, блик, искры (лёгкий GIF). */
 /** slides — кадры по очереди (мелкие размеры: лого, заголовок, оффер, доп-текст). */
@@ -825,6 +1069,12 @@ export async function prepareBanner(
   ]);
   const ctaImg = o.cta ? await loadImg(o.cta.src).catch(() => null) : null;
   const heroImg = o.heroSrc ? await loadImg(o.heroSrc).catch(() => null) : null;
+  const decorImgs: Partial<Record<DecorName, HTMLImageElement>> = {};
+  for (const [k, src] of Object.entries(o.decorSrc ?? {}) as [DecorName, string][])
+    if (src) {
+      const img = await loadImg(src).catch(() => null);
+      if (img) decorImgs[k] = img;
+    }
   // Надписи-ассеты: слово → картинка. Все слова листа одной высоты букв, поэтому
   // масштаб общий — по медиане высот (у «+» и коротких слов рамка ниже, но буквы те же).
   const art = new Map(
@@ -856,6 +1106,9 @@ export async function prepareBanner(
     logo: logo ? { w: logo.naturalWidth, h: logo.naturalHeight } : null,
     ctaArt: ctaImg ? { w: ctaImg.naturalWidth, h: ctaImg.naturalHeight } : null,
     hero: heroImg ? { w: heroImg.naturalWidth, h: heroImg.naturalHeight } : null,
+    decor: Object.fromEntries(
+      Object.entries(decorImgs).map(([k, img]) => [k, { w: img.naturalWidth, h: img.naturalHeight }]),
+    ),
   };
   const ops = layoutBanner(w, h, kind, full, measure);
   const slideList = bannerSlides(full);
@@ -1060,7 +1313,7 @@ export async function prepareBanner(
     g.restore();
   };
 
-  const draw = (g: CanvasRenderingContext2D, t?: number, style: BannerMotion = "full") => {
+  const draw = (g: CanvasRenderingContext2D, t?: number, style: BannerMotion = "full", pick?: (op: Op) => boolean) => {
     // Лёгкий вариант: надписи стоят (без вылета, удара и затухания) — двигаются кнопка, блик, искры.
     const wordT = style === "light" ? undefined : t;
     // Кадры по очереди: общие слои из основной раскладки + надписи/лого текущего кадра.
@@ -1073,13 +1326,16 @@ export async function prepareBanner(
           ...slideOps[si],
         ]
       : ops;
+    const only = pick ? layer.filter(pick) : layer;
     const wm = (op: TextOp, i: number) =>
       sl ? slideWord(si, op, i, lt) : wordMotion(op, i, wordT);
     const lm = (op: TextOp) => (sl ? STILL : lineMotion(op, wordT));
-    g.fillStyle = "#0b0815";
-    g.fillRect(0, 0, w, h);
+    if (!pick) {
+      g.fillStyle = "#0b0815";
+      g.fillRect(0, 0, w, h);
+    }
     const sparkAt: { x: number; y: number }[] = [];
-    for (const op of layer) {
+    for (const op of only) {
       if (op.kind === "plate") {
         if (op.mode === "strip-left" && bgBlur && hero) {
           // Фон и герой стоят: в GIF вес — это пиксели, которые меняются; движутся надписи и кнопка.
@@ -1115,6 +1371,33 @@ export async function prepareBanner(
           moved(g, heroMotion(t, style, b.h), b.x + b.w / 2, b.y + b.h, () =>
             g.drawImage(heroImg, b.x, b.y, b.w, b.h),
           );
+      } else if (op.kind === "decor") {
+        const img = decorImgs[op.name];
+        const b = op.box;
+        if (img) {
+          g.save();
+          if (op.flip) {
+            g.translate(b.x + b.w, b.y);
+            g.scale(-1, 1);
+            g.drawImage(img, 0, 0, b.w, b.h);
+          } else g.drawImage(img, b.x, b.y, b.w, b.h);
+          g.restore();
+        }
+      } else if (op.kind === "badge") {
+        const b = op.box;
+        g.save();
+        roundRect(g, b, b.h * 0.12);
+        g.fillStyle = "rgba(0,0,0,.55)";
+        g.fill();
+        g.lineWidth = Math.max(1.5, b.h * 0.04);
+        g.strokeStyle = "rgba(255,255,255,.9)";
+        g.stroke();
+        g.fillStyle = "#ffffff";
+        g.font = font(800, b.h * 0.42, BODY_FONT);
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(op.text, b.x + b.w / 2, b.y + b.h / 2);
+        g.restore();
       } else if (op.kind === "logo" && logo) {
         const b = op.box;
         const sc = Math.min(b.w / logo.naturalWidth, b.h / logo.naturalHeight);
@@ -1198,7 +1481,7 @@ export async function prepareBanner(
       }
     }
     // Искры: у оффера и кнопки, по очереди после появления (в кадрах — нет: вес).
-    if (t !== undefined && !sl) {
+    if (t !== undefined && !sl && !pick) {
       const r = Math.max(6, Math.min(w, h) * 0.2);
       sparkAt.slice(0, 4).forEach((p, i) => {
         const c = btnIn + 0.6 + i * 0.55;
@@ -1212,7 +1495,55 @@ export async function prepareBanner(
     style === "slides" && slides.length > 1
       ? { loop: slides.length * SLIDE_S, start: slideWordAt[0].ready }
       : { loop: BANNER_LOOP_S, start: BANNER_GIF_START };
-  return { w, h, draw, slides: slides.map((s) => s.name), timing };
+  const sprites = (): BannerSprites => {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d", { willReadFrequently: true })!;
+    g.fillStyle = "#0b0815";
+    g.fillRect(0, 0, w, h);
+    draw(g, undefined, "full", (op) => op.kind === "plate" || op.kind === "shade");
+    const bg = c.toDataURL("image/jpeg", 0.88);
+    const items: BannerSprite[] = [];
+    for (const op of ops) {
+      if (op.kind === "plate" || op.kind === "shade") continue;
+      if (op.kind === "text" && op.noArt && btn) continue; // подпись — внутри кнопки
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, w, h);
+      draw(g, undefined, "full", (x) => x === op);
+      const bb = alphaBox(g.getImageData(0, 0, w, h).data, w, h);
+      if (!bb) continue;
+      const pad = 2;
+      const x0 = Math.max(0, bb.x - pad), y0 = Math.max(0, bb.y - pad);
+      const cw = Math.min(w, bb.x + bb.w + pad) - x0, ch = Math.min(h, bb.y + bb.h + pad) - y0;
+      const piece = document.createElement("canvas");
+      piece.width = cw;
+      piece.height = ch;
+      piece.getContext("2d")!.drawImage(c, x0, y0, cw, ch, 0, 0, cw, ch);
+      items.push({
+        kind: op.kind === "text" ? "text" : op.kind,
+        accent: op.kind === "text" && op.color === o.accent ? true : undefined,
+        src: piece.toDataURL("image/png"),
+        box: { x: x0 / w, y: y0 / h, w: cw / w, h: ch / h },
+      });
+    }
+    return { w, h, bg, items };
+  };
+  return { w, h, draw, slides: slides.map((s) => s.name), timing, sprites };
+}
+
+/** Рамка непрозрачных пикселей (alpha > 8); пусто — null. */
+function alphaBox(d: Uint8ClampedArray, w: number, h: number): Box | null {
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (d[(y * w + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
 
 function drawText(g: CanvasRenderingContext2D, op: TextOp) {

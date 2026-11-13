@@ -92,7 +92,9 @@ function platePrompt(kind: PlateKind, ratio: string): string {
     return [
       `TASK: produce the attached approved advertising banner AGAIN, aspect ratio ${ratio}, with ALL TEXT REMOVED.`,
       "Keep EVERYTHING else exactly as in the source: the same composition and framing, the same character in the same pose and place (identical face, hair, outfit, accessories), every prop and decoration (coins, chips, dice, money, slot machine, laurels, crowns, columns, glows, particles), the same lighting, palette and rendering style.",
-      "REMOVE: every letter, word, number, percent sign, headline, title lettering, feature list, icon list, logo, wordmark, button, badge, age-rating box and UI element. Paint the scene through where they were, continuing the surrounding background and props naturally.",
+      "REMOVE: every letter, word, number, percent sign, headline, title lettering, feature list, icon list, logo, wordmark, badge, age-rating box and UI element. Paint the scene through where they were, continuing the surrounding background and props naturally.",
+      "BUTTONS: remove every call-to-action button COMPLETELY — the pill/plate shape itself, its fill colour, bevel, outline and glow, not only its label. No empty button shapes may remain.",
+      "Decorative frames, plaques or panels that held text may stay as part of the scene, but EMPTY.",
       "The top ~25% and the bottom ~35% will get new lettering and a button later — keep them as the natural continuation of the scene (no empty boxes, no plates, no frames).",
       "No borders, no letterboxing, no collage.",
     ].join("\n");

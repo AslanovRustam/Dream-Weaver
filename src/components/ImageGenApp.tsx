@@ -2,7 +2,8 @@
 
 import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { renderBanner } from "@/lib/bannerLayers";
+import { prepareBanner, renderBanner, type LayerSource } from "@/lib/bannerLayers";
+import { idbSet } from "@/lib/idbStore";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -121,6 +122,19 @@ const SHOW_MOBILE_TABBAR = false;
 const DEV_PREVIEW_RESULT = false;
 const DEV_PREVIEW_IMAGE = "https://picsum.photos/seed/dwbanner/900/900";
 
+/** Уменьшенная копия для визуальной оценки (640 px, JPEG) — модели хватает low detail. */
+async function shrinkForJudge(src: string): Promise<string> {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const k = 640 / Math.max(img.naturalWidth, img.naturalHeight);
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * k);
+  c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.8);
+}
+
 /** classic — ресайзы перерисовывает модель (тонкие — слоями); layers — все ресайзы слоями, как GIF. */
 export type ResizeMode = "classic" | "layers";
 
@@ -216,8 +230,13 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     status: "running" | "done" | "error";
     src?: string;
     error?: string;
+    /** Итог визуальной оценки раскладки — рядом с «Пересобрано по слоям». */
+    note?: string;
   } | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  // Раскладка, которую выбрала оценка: из неё же режутся слои для лендинга.
+  const layeredPick = useRef<{ forUrl: string; w: number; h: number; kind: LayerSource["kind"]; plate: string; opts: LayerSource["opts"] } | null>(null);
+  const [landingBusy, setLandingBusy] = useState(false);
   // Только мастер, сгенерированный здесь: восстановленный из памяти или открытый из
   // Истории не пересобираем сами — это платная генерация, человек её не просил.
   const armLayered = useRef(false);
@@ -238,8 +257,48 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
         const w = Math.round(r >= 1 ? long : long * r);
         const h = Math.round(r >= 1 ? long / r : long);
         const layers = await gen.gifLayers({ w, h }, { ratio: gen.lastMasterRatio || "1:1" });
-        const src = await renderBanner(w, h, layers.kind, layers.plate, layers.opts);
-        if (alive) setLayeredView({ forUrl: layeredMaster, status: "done", src });
+        // Два варианта раскладки: по местам надписей оригинала и стандартный. Какой лучше —
+        // решает визуальная оценка (модель сравнивает их с оригиналом); не ответила — первый.
+        // Лица персонажей знают все варианты: на них не ложится ничего.
+        const faces = layers.opts.slots?.faces;
+        const variants: LayerSource["opts"][] = [layers.opts];
+        if (layers.opts.slots) variants.push({ ...layers.opts, slots: { blocks: [], faces } });
+        const srcs = await Promise.all(
+          variants.map((op) => renderBanner(w, h, layers.kind, layers.plate, op)),
+        );
+        let pick = 0;
+        let note = "";
+        if (srcs.length > 1) {
+          try {
+            const original = layeredMaster.startsWith("data:") ? await shrinkForJudge(layeredMaster) : layeredMaster;
+            const judge = async (list: string[]) =>
+              apiJson<{ best: number; scores: number[] }>("/api/judge-composition", {
+                method: "POST",
+                body: JSON.stringify({ original, candidates: await Promise.all(list.map(shrinkForJudge)) }),
+              });
+            let r = await judge(srcs);
+            // Оба плохи (< 7) — «безопасная» пересборка: стандартная раскладка без декора и
+            // списков, только заголовок, оффер и кнопка вокруг лиц. Судим все три.
+            if (Math.max(...r.scores) < 7) {
+              const safe = {
+                ...layers.opts,
+                slots: { blocks: [], faces },
+                decorSrc: {},
+                texts: { ...layers.opts.texts, sideL: [], sideR: [], row: [] },
+              };
+              variants.push(safe);
+              srcs.push(await renderBanner(w, h, layers.kind, layers.plate, safe));
+              r = await judge(srcs);
+            }
+            if (r.best >= 0 && r.best < srcs.length) pick = r.best;
+            note = `оценка композиции ${r.scores[pick]}/10`;
+          } catch {
+            /* оценка недоступна — берём раскладку по местам оригинала */
+          }
+        }
+        const src = srcs[pick];
+        layeredPick.current = { forUrl: layeredMaster, w, h, kind: layers.kind, plate: layers.plate, opts: variants[pick] };
+        if (alive) setLayeredView({ forUrl: layeredMaster, status: "done", src, note });
       } catch (e) {
         if (alive)
           setLayeredView({
@@ -982,6 +1041,30 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   // известно баннер-генератору (бренд, лого, тексты полей, цвет), и уходит на
   // страницу механики. Сам баннер лендинг возьмёт из общего контекста
   // генерации: он же станет стилевым референсом для фона и персонажа.
+  // «Лендинг из слоёв»: режем выбранную раскладку на прозрачные слои (без новых
+  // генераций — всё уже есть) и открываем конструктор живого первого экрана.
+  const makeLayeredLanding = async () => {
+    const p = layeredPick.current;
+    if (!p || landingBusy) return;
+    setLandingBusy(true);
+    try {
+      const b = await prepareBanner(p.w, p.h, p.kind, p.plate, p.opts);
+      await idbSet("dw:layeredLanding", {
+        sprites: b.sprites(),
+        accent: p.opts.accent,
+        brand: brandName,
+        language,
+        vertical: bannerPresetToVertical(preset),
+        at: Date.now(),
+      });
+      router.push("/landing/layers");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось разобрать баннер на слои");
+    } finally {
+      setLandingBusy(false);
+    }
+  };
+
   const makeLandingFromBanner = (mechanic: "wheel" | "slot" | "crash") => {
     if (!imageUrl) return;
     // Разбор баннера переехал на лендинг: там он первый шаг сборки и виден в
@@ -2042,7 +2125,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
                         ) : showOriginal ? (
                           "Оригинал модели"
                         ) : (
-                          "Пересобрано по слоям"
+                          `Пересобрано по слоям${lv.note ? ` · ${lv.note}` : ""}`
                         )}
                       </span>
                       {lv.status === "done" ? (
@@ -2210,8 +2293,28 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
                             sideOffset={8}
                             className="w-56 rounded-xl border-border bg-popover p-1.5 text-foreground"
                           >
+                            {resizeMode === "layers" ? (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={makeLayeredLanding}
+                                  disabled={landingBusy || layeredView?.status !== "done"}
+                                  className="gap-2.5 rounded-lg px-2.5 py-2 text-sm focus:bg-white/10 focus:text-foreground"
+                                >
+                                  {landingBusy || layeredView?.status === "running" ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
+                                  ) : (
+                                    <LayoutTemplate className="h-4 w-4 text-accent-green" />
+                                  )}
+                                  <span className="flex flex-col">
+                                    Живой баннер
+                                    <span className="text-xs text-muted-foreground">из слоёв, без доплаты</span>
+                                  </span>
+                                </DropdownMenuItem>
+                                <div className="mx-2 my-1 h-px bg-border" />
+                              </>
+                            ) : null}
                             <div className="px-2.5 pb-1 pt-1 ds-caption text-muted-foreground">
-                              Выберите шаблон
+                              {resizeMode === "layers" ? "Или игровой шаблон" : "Выберите шаблон"}
                             </div>
                             <DropdownMenuItem
                               onClick={() => makeLandingFromBanner("wheel")}
