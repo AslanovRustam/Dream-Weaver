@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BackButton } from "@/components/BackButton";
+import { CreditPacks } from "@/components/billing/CreditPacks";
 import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 
 // Top-ups currently go through support (payment isn't wired yet) — the CTAs
@@ -155,6 +156,8 @@ export default function BillingPage() {
       <div className="mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
         <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
+        <CreditPacks />
+
         <div className="mb-8 text-center">
           <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
@@ -182,8 +185,8 @@ export default function BillingPage() {
         </div>
 
         <p className="mx-auto mt-8 max-w-md text-center text-xs text-muted-foreground">
-          Онлайн-оплата скоро будет доступна. Пока пополнение проводится через администратора —
-          напишите в поддержку из личного кабинета.
+          Подписки пока оформляются через поддержку. Разовые пакеты кредитов можно купить выше —
+          криптой, онлайн.
         </p>
       </div>
       </AppShell>

@@ -165,6 +165,9 @@ Server-side variables are read from `process.env` in route handlers. Only
 | `FTP_HOST` / `FTP_PORT` / `FTP_USER` / `FTP_PASS` | Asset storage credentials |
 | `FTP_BASE_PATH` | Upload root on the FTP host |
 | `FTP_BASE_URL` | Public HTTP origin the uploads are served from (also the SSRF allowlist) |
+| `NOWPAYMENTS_API_KEY` / `NOWPAYMENTS_IPN_SECRET` | Crypto payments for credit packages (NOWPayments); without them the «Оплатить криптой» buttons are disabled |
+| `NOWPAYMENTS_SANDBOX` | `1` = NOWPayments sandbox API |
+| `PUBLIC_APP_URL` | Public origin for payment callbacks (IPN / return URLs), e.g. `https://gen-go.ai`; falls back to the request host |
 | `CRON_SECRET` | Bearer secret for `/api/cron/retention`. Unset = endpoint refuses every call |
 | `WORKERS_IN_PROCESS` | Set to `false` to disable in-process workers and drive retention by external cron instead |
 
