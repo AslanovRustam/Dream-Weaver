@@ -549,7 +549,7 @@ function SubscriptionCard() {
           </p>
         </div>
         <Link
-          href="/billing"
+          href="/billing?tab=plans"
           className="ds-btn ds-btn-violet min-h-11 w-full shrink-0 px-5 sm:w-auto"
         >
           Улучшить план
@@ -738,7 +738,7 @@ function CreditsCard({ balance }: { balance: number | string }) {
           </p>
         </div>
         <Link
-          href="/billing"
+          href="/billing?tab=credits"
           className="ds-btn ds-btn-primary min-h-11 w-full shrink-0 gap-1.5 px-4 sm:w-auto"
         >
           <Plus className="h-4 w-4" />

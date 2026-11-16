@@ -383,7 +383,7 @@ export function AppHeader() {
                     const low = Number(creditsLabel) <= LOW_CREDIT_THRESHOLD;
                     return (
                       <Link
-                        href={low ? "/billing" : "/account"}
+                        href={low ? "/billing?tab=credits" : "/account"}
                         className={`mt-1 block rounded-xl border p-3 transition ${
                           low
                             ? "border-[color:var(--status-premium)]/40 bg-[color:var(--status-premium)]/10 hover:bg-[color:var(--status-premium)]/15"
@@ -413,7 +413,7 @@ export function AppHeader() {
                       {t("header.credits.more")}
                     </span>
                     <Link
-                      href="/billing"
+                      href="/billing?tab=credits"
                       className="rounded-lg bg-accent-green px-3 py-1 text-xs font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
                     >
                       {t("header.credits.topUpShort")}
@@ -866,7 +866,7 @@ function CreditsButton({ label }: { label: string }) {
   const low = Number(label) <= LOW_CREDIT_THRESHOLD;
   return (
     <Link
-      href="/billing"
+      href="/billing?tab=credits"
       title={low ? t("header.credits.low") : t("header.credits.topUp")}
       className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition max-sm:min-h-11 ${
         low

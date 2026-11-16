@@ -29,6 +29,21 @@ const SUPPORT_MAILTO = "mailto:support@gen-go.ai?subject=Оплата%20тари
 
 type Audience = "individual" | "business";
 
+// Вкладки страницы; у каждой свой адрес (?tab=…), чтобы «Пополнить» и возврат
+// после оплаты вели сразу куда нужно. По умолчанию — «Кредиты»: подписки пока
+// оформляются через поддержку, а пакеты можно купить онлайн.
+type Tab = "plans" | "credits" | "payments";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "plans", label: "Подписка" },
+  { value: "credits", label: "Кредиты" },
+  { value: "payments", label: "Платежи" },
+];
+const readTab = (): Tab => {
+  if (typeof window === "undefined") return "credits";
+  const t = new URLSearchParams(window.location.search).get("tab");
+  return t === "plans" || t === "payments" ? t : "credits";
+};
+
 type Plan = {
   id: string;
   name: string;
@@ -141,10 +156,20 @@ export default function BillingPage() {
   const goBack = useSmartBack("/account");
   const [audience, setAudience] = useState<Audience>("individual");
   const [annual, setAnnual] = useState(true);
+  const [tab, setTabState] = useState<Tab>("credits");
 
   useEffect(() => {
-    document.title = "Тарифы — GenGO";
+    document.title = "Тарифы и оплата — GenGO";
+    setTabState(readTab());
   }, []);
+
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", t);
+    url.searchParams.delete("paid");
+    window.history.replaceState(null, "", url.toString());
+  };
 
   const plans = audience === "individual" ? INDIVIDUAL_PLANS : BUSINESS_PLANS;
 
@@ -156,11 +181,19 @@ export default function BillingPage() {
       <div className="mx-auto max-w-5xl px-4 pt-4 pb-6 sm:py-8">
         <BackButton onClick={goBack} className="-ml-2 mb-4" />
 
-        <CreditPacks />
+        <div className="mb-6 text-center">
+          <h1 className="ds-h1 sm:text-3xl">Тарифы и оплата</h1>
+        </div>
+        <div className="mb-8 flex justify-center">
+          <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={TABS} />
+        </div>
 
+        {tab === "credits" ? <CreditPacks view="packs" /> : null}
+        {tab === "payments" ? <CreditPacks view="history" /> : null}
+        {tab === "plans" ? (
+        <>
         <div className="mb-8 text-center">
-          <h1 className="ds-h1 sm:text-3xl">Тарифы</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">
             Кредиты начисляются каждый месяц и тратятся на генерацию: 1 баннер — {BANNER_CREDITS} кр.,
             1 ресайз — {RESIZE_CREDITS} кр. При оплате за год — скидка 20%.
           </p>
@@ -185,9 +218,11 @@ export default function BillingPage() {
         </div>
 
         <p className="mx-auto mt-8 max-w-md text-center text-xs text-muted-foreground">
-          Подписки пока оформляются через поддержку. Разовые пакеты кредитов можно купить выше —
-          криптой, онлайн.
+          Подписки пока оформляются через поддержку. Разовые пакеты кредитов — во вкладке
+          «Кредиты», оплата криптой онлайн.
         </p>
+        </>
+        ) : null}
       </div>
       </AppShell>
     </div>

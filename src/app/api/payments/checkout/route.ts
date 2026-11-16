@@ -56,8 +56,8 @@ export async function POST(request: Request) {
       priceUsd: pack.priceUsd,
       description: `GenGO — ${pack.credits} кредитов`,
       ipnUrl: `${origin}/api/payments/webhook/nowpayments`,
-      successUrl: `${origin}/billing?paid=${row.id}`,
-      cancelUrl: `${origin}/billing`,
+      successUrl: `${origin}/billing?tab=credits&paid=${row.id}`,
+      cancelUrl: `${origin}/billing?tab=credits`,
     });
     await supa
       .from("payments")

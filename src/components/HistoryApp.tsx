@@ -825,7 +825,7 @@ function CreditsTab() {
             </p>
           </div>
           <Link
-            href="/billing"
+            href="/billing?tab=credits"
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] sm:w-auto"
           >
             <Plus className="h-4 w-4" /> Пополнить

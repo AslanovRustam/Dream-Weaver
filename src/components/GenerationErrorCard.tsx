@@ -62,7 +62,7 @@ export function GenerationErrorCard({
           <div className="mt-4 flex flex-wrap gap-2">
             {kind === "credits" ? (
               <Link
-                href="/billing"
+                href="/billing?tab=credits"
                 className="inline-flex items-center gap-2 rounded-lg bg-accent-green px-4 py-2 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
               >
                 Пополнить кредиты

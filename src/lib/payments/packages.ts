@@ -32,3 +32,4 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   expired: "Счёт истёк",
   refunded: "Возврат",
 };
+

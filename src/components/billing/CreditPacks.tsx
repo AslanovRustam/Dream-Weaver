@@ -9,7 +9,11 @@ import { Bitcoin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiJson } from "@/lib/api-client";
-import { refreshMe } from "@/components/AppHeader";
+import { fetchBalance, refreshMe } from "@/components/AppHeader";
+import { estimateBannerCredits, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
+
+const BANNER_CREDITS_HINT = estimateBannerCredits();
+const RESIZE_CREDITS_HINT = RESIZE_CREDITS_PER_FORMAT;
 import { CREDIT_PACKAGES, PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments/packages";
 
 type PaymentRow = {
@@ -25,8 +29,11 @@ type PaymentRow = {
 
 const ru = (n: number) => n.toLocaleString("ru-RU");
 
-export function CreditPacks() {
+/** view: «packs» — вкладка «Кредиты» (баланс + пакеты), «history» — вкладка «Платежи». */
+export function CreditPacks({ view }: { view: "packs" | "history" }) {
   const [crypto, setCrypto] = useState<boolean | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [items, setItems] = useState<PaymentRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [waitingFor, setWaitingFor] = useState<string | null>(null);
@@ -40,11 +47,14 @@ export function CreditPacks() {
     } catch {
       setCrypto(false);
       return [];
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
   useEffect(() => {
     void load();
+    void fetchBalance().then(setBalance);
     const paid = new URLSearchParams(window.location.search).get("paid");
     if (paid) setWaitingFor(paid);
   }, [load]);
@@ -60,6 +70,7 @@ export function CreditPacks() {
         toast.success(`Оплата прошла: +${ru(Number(p.credits))} кредитов`);
         setWaitingFor(null);
         refreshMe();
+        void fetchBalance().then(setBalance);
       } else if (p && ["failed", "expired", "partially_paid"].includes(p.status)) {
         toast.error(PAYMENT_STATUS_LABEL[p.status]);
         setWaitingFor(null);
@@ -82,12 +93,22 @@ export function CreditPacks() {
     }
   };
 
+  if (view === "history") return <History items={items} loaded={loaded} />;
+
   return (
-    <section className="mb-14">
-      <div className="mb-5 text-center">
-        <h2 className="text-xl font-semibold">Пакеты кредитов</h2>
-        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Разовая покупка без подписки. Оплата криптой: USDT, BTC, ETH и другие монеты.
+    <section>
+      <div className="mb-6 flex flex-col items-center gap-1 text-center">
+        {balance !== null ? (
+          <div className="mb-3 rounded-2xl border border-border bg-card px-6 py-3">
+            <div className="text-xs text-muted-foreground">Ваш баланс</div>
+            <div className="text-2xl font-semibold">{ru(Math.floor(balance))} кр.</div>
+            <div className="text-xs text-muted-foreground">
+              ≈ {ru(Math.floor(balance / BANNER_CREDITS_HINT))} баннеров или {ru(Math.floor(balance / RESIZE_CREDITS_HINT))} ресайзов
+            </div>
+          </div>
+        ) : null}
+        <p className="max-w-md text-sm text-muted-foreground">
+          Разовая покупка без подписки, кредиты не сгорают. Оплата криптой: USDT, BTC, ETH и другие монеты.
         </p>
       </div>
 
@@ -136,9 +157,22 @@ export function CreditPacks() {
         </p>
       ) : null}
 
-      {items.length ? (
-        <div className="mx-auto mt-8 max-w-3xl">
-          <h3 className="mb-2 text-sm font-medium">Мои платежи</h3>
+    </section>
+  );
+}
+
+function History({ items, loaded }: { items: PaymentRow[]; loaded: boolean }) {
+  if (!loaded)
+    return (
+      <div className="flex justify-center py-10 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  if (!items.length)
+    return <p className="py-10 text-center text-sm text-muted-foreground">Платежей пока нет.</p>;
+  return (
+    <section>
+        <div className="mx-auto max-w-3xl">
           <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
             {items.map((x) => (
               <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
@@ -161,7 +195,6 @@ export function CreditPacks() {
             ))}
           </div>
         </div>
-      ) : null}
     </section>
   );
 }
