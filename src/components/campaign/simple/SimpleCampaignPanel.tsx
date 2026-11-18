@@ -1,43 +1,114 @@
 "use client";
 
 // Простой режим кампании: ТЗ в любом виде, галочки частей → «Создать».
-// Движок ТЗ решает, что и как делать (части, механика и игра, письмо, баннеры,
-// тема и визуал), дальше — тексты всех частей и вся графика в одной теме.
-// Здесь — ввод, ход работы, карточка «Как я понял ТЗ» с решением по каждой
-// части и прогресс графики. Оркестровка — в CampaignApp.
+// Один поток сверху вниз: ввод → ход работы (с живым журналом) → план с ценой
+// и решением по каждой части («Запускаем») → тексты и графика → итог: архив,
+// проверка баннеров по ТЗ, правка словами, «дальше по этому ТЗ» → карточка
+// «Как я понял ТЗ». Оркестровка — в CampaignApp.
 import Link from "next/link";
 import { AlertTriangle, Check, Download, Loader2, X } from "lucide-react";
 
 import { PRESETS } from "@/components/PresetSidebar";
 import { AutoSteps } from "@/components/simple/AutoSteps";
-import { TzInputBox } from "@/components/simple/TzInputBox";
+import { CheckOutcome } from "@/components/simple/CheckOutcome";
+import { NextTools } from "@/components/simple/NextTools";
+import { TzEditBox } from "@/components/simple/TzEditBox";
+import { TzInputBox, type TzExample } from "@/components/simple/TzInputBox";
 import { JobRow, TzJobCard } from "@/components/simple/TzJobCard";
+import { TzPlanGate } from "@/components/simple/TzPlanGate";
 import { EMAIL_TEMPLATES } from "@/lib/emailTemplates";
 import { SCENES } from "@/lib/scenes/presets";
-import type { TzRunInput, TzUnderstood } from "@/lib/tz/client";
+import type { TzCheck, TzRequirement, TzRunInput, TzUnderstood } from "@/lib/tz/client";
 import type { AssetStepState } from "@/lib/useAssetRun";
 import { briefHeadline, type CampaignBrief, type CampaignPart } from "@/lib/campaign";
 import type { CampaignDecisions, JobImages, SimpleBannerSpec } from "./fromJob";
 
-export type CampaignAutoPhase = "reading" | "planning" | "copy" | "generating" | "done" | "error";
+export type CampaignAutoPhase = "reading" | "planning" | "review" | "copy" | "generating" | "checking" | "fixing" | "done" | "error";
+
+/** Проверка одного баннера по ТЗ. */
+export type BannerCheck = { check: TzCheck; fixed: boolean; accepted?: boolean; busy?: boolean };
 
 export type CampaignAuto = {
   phase: CampaignAutoPhase;
-  /** На каком шаге остановились с ошибкой. */
+  /** На каком шаге остановились с ошибкой (или перезагрузкой). */
   failedAt?: CampaignAutoPhase;
   error?: string;
+  /** Живой журнал: строки разбора ТЗ и свои. */
+  log?: string[];
+  /** Исходный ввод — для повтора и «дальше по этому ТЗ». */
+  input?: TzRunInput;
   u?: TzUnderstood;
   d?: CampaignDecisions;
   img?: JobImages;
-  /** Смета графики после решения: картинок и кредитов. */
+  /** Сколько картинок и кредитов ушло в графику. */
   count?: number;
   credits?: number;
+  /** Проверка баннеров: индекс баннера → итог. */
+  checks?: Record<number, BannerCheck>;
 };
+
+const EXAMPLES: TzExample[] = [
+  {
+    label: "Хэллоуин в казино",
+    text: "Кампания к Хэллоуину для казино: лендинг с игрой, плейбл, письмо и баннеры 1200×628 и 1080×1920. Оффер: 150% на депозит + 100 фриспинов. Английский язык. Тыквы, туман, фиолетово-оранжевый неон. Кнопка «Claim bonus». 18+.",
+  },
+  {
+    label: "Plinko для Казахстана",
+    text: "Промо игры Plinko для Казахстана: имитация игры (плейбл) и лендинг, где шарик падает на множители. Оффер: до 500 000 ₸ на первый депозит. Тексты на русском. Ссылка https://example.com/go. Бренд — по сайту example.com.",
+  },
+  {
+    label: "Финал ЛЧ — ставки",
+    text: "Кампания ставок на финал Лиги чемпионов: лендинг с прогнозом на матч, письмо игрокам и баннер 16:9. Фрибет 1000 ₽ за первую ставку. Русский язык, ночной стадион, золото кубка. Кнопка «Сделать ставку».",
+  },
+  {
+    label: "Возврат игроков",
+    text: "Реактивация неактивных игроков казино: письмо и баннер 1:1. 50 фриспинов без депозита в слоте с египетской тематикой. Немецкий язык. Кнопка «Jetzt spielen». 18+, правила акции на сайте.",
+  },
+];
 
 const PART_LABEL: Record<CampaignPart, string> = { landing: "Лендинг", playable: "Плейбл", email: "Письмо", banner: "Баннеры" };
 const MECH_LABEL: Record<string, string> = { wheel: "колесо фортуны", slot: "слот", crash: "crash-игра", match: "прогноз на матч" };
 const OFF_LABEL = { tick: "не делаем — снята галочка", brief: "не делаем — по ТЗ не нужно", section: "не делаем — раздел закрыт" };
 const sceneLabel = (id: string) => SCENES.find((s) => s.id === id)?.label ?? id;
+
+/** Строки «часть — решение — почему» (план перед запуском и карточка). */
+function PartRows({ d, brief, u }: { d: CampaignDecisions; brief: CampaignBrief; u: TzUnderstood }) {
+  const specs = (brief.banners ?? []) as SimpleBannerSpec[];
+  const what = (id: CampaignPart): string => {
+    if (id === "landing") return brief.landing === "scene" ? `игра «${sceneLabel(brief.scene)}»` : MECH_LABEL[brief.landing] ?? brief.landing;
+    if (id === "playable") return `«${sceneLabel(brief.scene)}»`;
+    if (id === "email") return EMAIL_TEMPLATES.find((t) => t.id === brief.emailTemplate)?.name ?? brief.emailTemplate ?? "";
+    return (specs.length ? specs : [{ name: "Баннер", aspect: "16:9" }]).map((s) => `${s.name} · ${s.aspect}`).join("; ");
+  };
+  const tplName = PRESETS.find((p) => p.id === specs[0]?.presetId)?.name;
+  const tplWhy = u.job.banners[0]?.presetWhy;
+  const on = (id: CampaignPart) => !!d.parts.find((p) => p.id === id)?.on;
+  return (
+    <>
+      {d.parts.map((p) => (
+        <JobRow key={p.id} label={PART_LABEL[p.id]}>
+          {p.on ? (
+            <>
+              <b className="font-medium">{what(p.id)}</b>
+              {p.why ? ` — ${p.why}` : ""}
+              {p.id === "banner" && tplName ? (
+                <span className="block text-muted-foreground">
+                  Шаблон «{tplName}»{tplWhy ? ` — ${tplWhy}` : ""}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {p.off ? OFF_LABEL[p.off] : "не делаем"}
+              {p.off === "brief" && p.why ? ` (${p.why})` : ""}
+            </span>
+          )}
+        </JobRow>
+      ))}
+      {on("email") && !on("banner") ? <JobRow label="Шапка письма">первый баннер без текстов — рисуем только как основу</JobRow> : null}
+    </>
+  );
+}
 
 export function SimpleCampaignPanel({
   auto,
@@ -46,9 +117,21 @@ export function SimpleCampaignPanel({
   showPlayable,
   brief,
   run,
+  cost,
+  costNote,
+  bannerImages,
+  bannerCost,
+  editCost,
   onRun,
+  onConfirm,
+  onEditTz,
+  onRetry,
   onCancel,
   onDownload,
+  onRetryBanner,
+  onAcceptBanner,
+  onEditStyle,
+  reqsFor,
   zipping,
 }: {
   auto: CampaignAuto | null;
@@ -58,41 +141,60 @@ export function SimpleCampaignPanel({
   /** Текущий бриф — что в итоге ушло в части (заголовок, кнопка, ссылка, баннеры). */
   brief: CampaignBrief;
   run: { steps: AssetStepState[]; running: boolean; notEnough: string };
+  /** Цена запуска по плану (отмеченные части) и из чего она. */
+  cost: number;
+  costNote: string;
+  /** Готовые баннеры — по порядку заданий. */
+  bannerImages: (string | undefined)[];
+  bannerCost: number;
+  /** Цена правки стиля — перерисовка всей графики. */
+  editCost: number;
   onRun: (input: TzRunInput) => void;
+  onConfirm: (clarifications: string) => void;
+  onEditTz: () => void;
+  onRetry: () => void;
   onCancel: () => void;
   onDownload: () => void;
+  onRetryBanner: (i: number) => void;
+  onAcceptBanner: (i: number) => void;
+  onEditStyle: (text: string) => void;
+  reqsFor: (i: number) => TzRequirement[];
   zipping: boolean;
 }) {
   const d = auto?.d;
   const u = auto?.u;
+  const wantBanner = !!d?.parts.find((p) => p.id === "banner")?.on;
   const steps = [
     { id: "reading", label: "Читаю ТЗ, файлы, ссылки и картинки" },
     { id: "planning", label: "Решаю, что и как делать: части, игра, письмо, баннеры, стиль" },
-    { id: "copy", label: "Пишу тексты всех частей под ТЗ" },
+    { id: "copy", label: "Пишу тексты для всех частей" },
     {
       id: "generating",
       label: auto?.credits ? `Рисую графику в одной теме: ${auto.count} шт. · ${auto.credits} кр.` : "Рисую графику в одной теме",
     },
+    ...(wantBanner || !d ? [{ id: "checking", label: auto?.phase === "fixing" ? "Исправляю баннер, не прошедший проверку" : "Проверяю баннеры по ТЗ" }] : []),
   ];
-  const current = !auto || auto.phase === "done" ? null : auto.phase === "error" ? (auto.failedAt ?? "reading") : auto.phase;
+  const review = auto?.phase === "review";
+  const current =
+    !auto || auto.phase === "done" ? null : auto.phase === "error" ? (auto.failedAt ?? "reading") : auto.phase === "fixing" ? "checking" : auto.phase;
+  // Пока рисуем — в журнале то, что рисуется сейчас.
+  const log =
+    auto?.phase === "generating"
+      ? [
+          ...run.steps.filter((s) => s.status === "done").slice(-2).map((s) => `Готово: ${s.label}`),
+          ...run.steps.filter((s) => s.status === "running").map((s) => `Рисую: ${s.label}`),
+        ]
+      : (auto?.log ?? []);
   const failed = run.steps.filter((s) => s.status === "error").length;
   const doneSteps = run.steps.filter((s) => s.status === "done").length;
-
-  const what = (id: CampaignPart): string => {
-    if (!d) return "";
-    if (id === "landing") return brief.landing === "scene" ? `игра «${sceneLabel(brief.scene)}»` : MECH_LABEL[brief.landing] ?? brief.landing;
-    if (id === "playable") return `«${sceneLabel(brief.scene)}»`;
-    if (id === "email") return EMAIL_TEMPLATES.find((t) => t.id === brief.emailTemplate)?.name ?? brief.emailTemplate ?? "";
-    const specs = (brief.banners ?? []) as SimpleBannerSpec[];
-    return specs.map((s) => `${s.name} · ${s.aspect}`).join("; ");
-  };
-  const bannerTpl = ((brief.banners ?? []) as SimpleBannerSpec[])[0]?.presetId;
-  const tplName = PRESETS.find((p) => p.id === bannerTpl)?.name;
-  const tplWhy = u?.job.banners[0]?.presetWhy;
+  const specs = (brief.banners ?? []) as SimpleBannerSpec[];
+  const showRun = run.steps.length > 0 && (auto ? ["generating", "checking", "fixing", "done"].includes(auto.phase) : run.running);
 
   return (
     <div className="flex flex-col gap-5">
       <TzInputBox
+        tool="campaign"
+        examples={EXAMPLES}
         busy={busy}
         estimate={estimate}
         options={[
@@ -105,12 +207,34 @@ export function SimpleCampaignPanel({
       />
 
       {auto ? (
-        <AutoSteps steps={steps} current={current} done={auto.phase === "done"} error={auto.phase === "error" ? auto.error : undefined} />
+        review ? (
+          <AutoSteps steps={steps.slice(0, 2)} current={null} done />
+        ) : (
+          <AutoSteps
+            steps={steps}
+            current={current}
+            done={auto.phase === "done"}
+            error={auto.phase === "error" ? auto.error : undefined}
+            log={log}
+            onRetry={auto.phase === "error" ? onRetry : undefined}
+            retryLabel={auto.error === "Прервано перезагрузкой" ? "Продолжить" : "Запустить снова"}
+          />
+        )
       ) : null}
 
-      {run.notEnough && auto ? <p className="ds-caption text-amber-400">{run.notEnough}</p> : null}
+      {review && u && d ? (
+        <TzPlanGate u={u} cost={cost} costNote={costNote} busy={busy} onRun={onConfirm} onEdit={onEditTz}>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+            <JobRow label="Тема">
+              {d.roll.themeName}
+              {d.plan.visualWhy ? ` — ${d.plan.visualWhy}` : ""}
+            </JobRow>
+            <PartRows d={d} brief={brief} u={u} />
+          </dl>
+        </TzPlanGate>
+      ) : null}
 
-      {run.steps.length && (auto ? auto.phase === "generating" || auto.phase === "done" : run.running) ? (
+      {showRun ? (
         <div className="rounded-xl border border-border bg-background/40 p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>
@@ -146,7 +270,7 @@ export function SimpleCampaignPanel({
       ) : null}
 
       {auto?.phase === "done" ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
           <button
             type="button"
             onClick={onDownload}
@@ -155,12 +279,49 @@ export function SimpleCampaignPanel({
           >
             <Download className="h-4 w-4" /> {zipping ? "Собираем…" : "Скачать всё — ZIP"}
           </button>
-          <p className="text-center ds-caption">
-            Превью каждой части — справа. Доводить руками — в «Продвинутом» или в редакторе части.{" "}
+          <p className="-mt-2 text-center ds-caption">
+            Превью каждой части — справа.{" "}
             <Link href="/campaign/view" className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
-              Страница кампании
+              Страница кампании — все материалы
             </Link>
           </p>
+
+          {Object.entries(auto.checks ?? {}).map(([k, c]) => {
+            const i = Number(k);
+            const img = bannerImages[i];
+            if (!c.check.results.some((r) => !r.ok) && !c.check.faceCovered) return null;
+            return (
+              <div key={k} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {img ? <img src={img} alt="" className="h-10 w-auto rounded-md border border-border" /> : null}
+                  {specs[i] ? `${specs[i].name} · ${specs[i].aspect}` : `Баннер ${i + 1}`}
+                </div>
+                <CheckOutcome
+                  check={c.check}
+                  requirements={reqsFor(i)}
+                  retryCost={bannerCost}
+                  busy={c.busy || busy}
+                  accepted={c.accepted}
+                  onRetry={() => onRetryBanner(i)}
+                  onAccept={() => onAcceptBanner(i)}
+                />
+              </div>
+            );
+          })}
+
+          <div>
+            <div className="mb-1.5 text-xs text-muted-foreground">Поправить стиль всей кампании</div>
+            <TzEditBox
+              busy={busy}
+              onEdit={onEditStyle}
+              costLabel={`≈ ${editCost} кр. — перерисуем всю графику кампании, тексты останутся`}
+              placeholder="Например: темнее и дороже, больше золота, без персонажей"
+              examples={["Темнее и дороже", "Больше золота", "Ярче и праздничнее"]}
+            />
+          </div>
+
+          {u && auto.input ? <NextTools from="campaign" understood={u} input={auto.input} image={bannerImages[0]} /> : null}
         </div>
       ) : null}
 
@@ -173,40 +334,22 @@ export function SimpleCampaignPanel({
                 {d.plan.kind === "sport" ? "Ставки на спорт" : "Казино"}
                 {d.plan.kindWhy ? ` — ${d.plan.kindWhy}` : ""}
               </JobRow>
-              <JobRow label="Тема">
-                {d.roll.themeName}
-                {d.plan.visualWhy ? ` — ${d.plan.visualWhy}` : ""}
-              </JobRow>
-              {d.langNote ? <JobRow label="Язык">{d.langNote}</JobRow> : null}
-              {d.parts.map((p) => (
-                <JobRow key={p.id} label={PART_LABEL[p.id]}>
-                  {p.on ? (
-                    <>
-                      <b className="font-medium">{what(p.id)}</b>
-                      {p.why ? ` — ${p.why}` : ""}
-                      {p.id === "banner" && tplName ? (
-                        <span className="block text-muted-foreground">
-                          Шаблон «{tplName}»{tplWhy ? ` — ${tplWhy}` : ""}
-                        </span>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {p.off ? OFF_LABEL[p.off] : "не делаем"}
-                      {p.off === "brief" && p.why ? ` (${p.why})` : ""}
-                    </span>
-                  )}
-                </JobRow>
-              ))}
-              {d.parts.find((p) => p.id === "email")?.on && !d.parts.find((p) => p.id === "banner")?.on ? (
-                <JobRow label="Шапка письма">первый баннер без текстов — его рисуем только как основу</JobRow>
+              {!review ? (
+                <>
+                  <JobRow label="Тема">
+                    {d.roll.themeName}
+                    {d.plan.visualWhy ? ` — ${d.plan.visualWhy}` : ""}
+                  </JobRow>
+                  <PartRows d={d} brief={brief} u={u} />
+                </>
               ) : null}
+              {d.langNote ? <JobRow label="Язык">{d.langNote}</JobRow> : null}
               <JobRow label="Заголовок">
                 {briefHeadline(brief)}
                 {d.plan.headlineFromBrief ? " (из ТЗ)" : ""}
               </JobRow>
               <JobRow label="Кнопка">{brief.cta}</JobRow>
-              <JobRow label="Ссылка">{brief.link ? `${brief.link}${d.linkFrom === "site" ? " (сайт бренда — трекера в ТЗ нет)" : ""}` : "нет в ТЗ — впишите в «Продвинутом»"}</JobRow>
+              <JobRow label="Ссылка">{brief.link ? `${brief.link}${d.linkFrom === "site" ? " (сайт бренда — трекера в ТЗ нет)" : ""}` : "нет в ТЗ"}</JobRow>
               {auto?.img ? (
                 <>
                   <JobRow label="Лого">{auto.img.logoFrom === "brief" ? "из ТЗ" : auto.img.logoFrom === "site" ? "с сайта бренда" : "нет — бренд текстом"}</JobRow>
@@ -226,6 +369,7 @@ export function SimpleCampaignPanel({
               ) : null}
             </>
           }
+          check={null}
         />
       ) : null}
     </div>

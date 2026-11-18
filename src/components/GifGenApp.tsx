@@ -20,7 +20,13 @@ import { toast } from "sonner";
 
 import { useAuthGate } from "@/components/AuthGate";
 import { PRESETS } from "@/components/PresetSidebar";
-import { SimpleGifPanel, type GifAutoState } from "@/components/gif/SimpleGifPanel";
+import {
+  GIF_WORKING,
+  SimpleGifPanel,
+  type GifAutoState,
+  type GifRun,
+  type GifSource,
+} from "@/components/gif/SimpleGifPanel";
 import { GifDialog } from "@/components/resize/GifDialog";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
@@ -41,18 +47,31 @@ import {
   type GifNetworkId,
 } from "@/lib/gifNetworks";
 import { generateImage, type GeneratePayload } from "@/lib/imageGen";
-import { checkByTz, tzImage, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import {
+  checkByTz,
+  failedCritical,
+  loadAutoSnapshot,
+  needsReview,
+  REVIEW_CREDITS,
+  rememberLastTz,
+  saveAutoSnapshot,
+  tzImage,
+  understandTz,
+  withClarifications,
+  type TzCheck,
+  type TzRequirement,
+  type TzRunInput,
+  type TzUnderstood,
+} from "@/lib/tz/client";
 import { takeTzHandoff } from "@/lib/tz/handoff";
-import { normalizeGifPlan, type GifTzPlan } from "@/lib/tz/plans/gif";
+import { normalizeGifPlan } from "@/lib/tz/plans/gif";
 
+type Source = GifSource;
 type CardItem = {
   id: string;
   name: string;
   master: { image_url: string | null; width: number | null; height: number | null } | null;
 };
-type Source =
-  | { kind: "card"; id: string; name: string; image: string }
-  | { kind: "upload"; name: string; image: string };
 type Result = {
   status: "queued" | "running" | "done" | "error";
   url?: string;
@@ -266,6 +285,8 @@ export function GifGenApp() {
     sizes?: string[];
     mode?: GifMode;
     plays?: number;
+    /** Перед каждым размером — для живого хода в простом режиме. */
+    onSize?: (k: string) => void;
   }): Promise<Map<string, Result>> {
     const list = opts?.sizes ? opts.sizes.filter(accepts) : chosen;
     const out = new Map<string, Result>();
@@ -281,6 +302,7 @@ export function GifGenApp() {
       const ctx = await ctxFor(source);
       for (const k of list) {
         const [w, h] = k.split("x").map(Number);
+        opts?.onSize?.(k);
         put(k, { status: "running" });
         try {
           const layers = flat ? undefined : await gifLayersFor({ w, h }, ctx);
@@ -319,7 +341,7 @@ export function GifGenApp() {
     return out;
   }
 
-  // ---- Простой режим: ТЗ → движок ТЗ → баннер (из ТЗ или новый) → проверка → GIF ----
+  // ---- Простой режим: ТЗ → движок ТЗ → план → баннер (из ТЗ или новый) → проверка → GIF ----
   const [toolMode, setToolMode] = useToolMode("gif");
   const simpleMode = toolMode === "simple";
   const { isGuest, openGate } = useAuthGate();
@@ -330,31 +352,87 @@ export function GifGenApp() {
     autoRef.current = next;
     setAuto(next);
   };
+  /** Строка живого хода работы. */
+  const say = (line: string) =>
+    patchAuto({ log: [...(autoRef.current?.log ?? []), line].slice(-30) });
+  const fail = (e: unknown, fallback: string) =>
+    patchAuto({
+      phase: "error",
+      failedAt: autoRef.current?.phase === "error" ? autoRef.current.failedAt : autoRef.current?.phase,
+      interrupted: false,
+      error: e instanceof Error ? e.message : fallback,
+    });
   /** Сборка, которую надо запустить, как только баннер и сеть окажутся в состоянии. */
-  const [autoGif, setAutoGif] = useState<{
-    image: string;
-    net: GifNetworkId;
-    sizes: string[];
-    mode?: GifMode;
-    plays: number;
-  } | null>(null);
-  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  const [autoGif, setAutoGif] = useState<GifRun | null>(null);
+  const autoBusy = !!auto && GIF_WORKING.has(auto.phase);
+  const BANNER_CREDITS = estimateBannerCredits();
 
   /** Картинка из ТЗ (data URL или ссылка) → карточка Истории, как «Загрузить свой баннер». */
   async function adopt(src: string, name: string): Promise<Source> {
     const blob = await (await fetch(await toDataUrl(src))).blob();
     const s = await upload(new File([blob], `${name}.jpg`, { type: blob.type || "image/jpeg" }));
-    if (!s) throw new Error("Не удалось открыть баннер из ТЗ");
+    if (!s) throw new Error("Не удалось открыть баннер");
     return s;
   }
 
-  /** Новый мастер-баннер баннерным конвейером: шаблон + описание арт-директора, проверка, одна попытка исправить. */
-  async function makeBanner(u: TzUnderstood): Promise<Source> {
+  /** Решения по понятому ТЗ: сеть, размеры, откуда баннер, цена. */
+  function decide(u: TzUnderstood, useAttached: boolean, image?: string) {
+    const plan = normalizeGifPlan(u.job.plan ?? {});
+    const target = GIF_NETWORK_BY_ID.get(plan.network)!;
+    const ok = (k: string) => !target.sizes || target.sizes.includes(k);
+    let want = plan.sizes.length ? plan.sizes : u.job.sizes.map((s) => `${s.w}x${s.h}`);
+    if (!want.length) want = GIF_DEFAULT_SIZES;
+    const skipped = want.filter((k) => !ok(k));
+    let sizes = want.filter(ok);
+    if (!sizes.length) sizes = GIF_DEFAULT_SIZES.filter(ok);
+    const attached =
+      image || (useAttached && plan.source === "attached" ? tzImage(u, plan.sourceImageId) : "");
+    const flat = plan.motion === "flat";
+    const cost = (attached ? 0 : BANNER_CREDITS) + (flat ? 0 : FIRST_BUILD_CREDITS);
+    const costNote = [
+      attached ? "баннер из ТЗ — бесплатно" : `новый баннер ≈ ${BANNER_CREDITS} кр.`,
+      flat ? "блик поверх — без слоёв" : `слои GIF ≈ ${FIRST_BUILD_CREDITS} кр.`,
+      "сборка GIF — бесплатно",
+      attached ? "" : `не пройдёт проверку по ТЗ — ещё одна генерация ≈ ${BANNER_CREDITS} кр.`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return {
+      plan,
+      sizes,
+      skipped,
+      from: (attached ? "attached" : "generated") as "attached" | "generated",
+      attached: attached || undefined,
+      cost,
+      costNote,
+    };
+  }
+
+  /** Требования ТЗ к баннеру (форматы не проверяются по картинке). */
+  const bannerReqs = (u: TzUnderstood): TzRequirement[] => {
+    const ids = u.job.banners[0]?.requirementIds ?? [];
+    return u.job.requirements.filter((r) => r.kind !== "format" && (!ids.length || ids.includes(r.id)));
+  };
+  const needsFix = (check: TzCheck | null | undefined, reqs: TzRequirement[]) =>
+    !!check && (failedCritical(check, reqs).length > 0 || check.faceCovered);
+  /** Описание с обязательными исправлениями по итогам проверки. */
+  const fixPrompt = (base: string, check: TzCheck, reqs: TzRequirement[]) => {
+    const fixes = failedCritical(check, reqs).map((r) => {
+      const q = reqs.find((x) => x.id === r.id)!;
+      return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
+    });
+    if (check.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
+    return `${base}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}`;
+  };
+
+  /** Форма мастер-баннера: шаблон из ТЗ + описание арт-директора (/api/tz/banner-brief). */
+  async function planBanner(u: TzUnderstood): Promise<GeneratePayload> {
     const { job } = u;
     const b = job.banners[0];
     if (!b) throw new Error("Движок ТЗ не описал баннер");
     const tpl = PRESETS.find((p) => p.id === b.presetId) ?? PRESETS[0];
     patchAuto({ phase: "planning", templateName: tpl.name });
+    say(`Шаблон «${tpl.name}» — пишу описание баннера`);
     const brief = await apiJson<{ prompt: string; bannerText: string; buttonText: string; ideas: string[] }>(
       "/api/tz/banner-brief",
       {
@@ -366,12 +444,12 @@ export function GifGenApp() {
         }),
       },
     );
-    // Форма баннер-генератора в простом режиме, собранная здесь же (свои поля у слота/спорта/события).
+    // Форма баннер-генератора, собранная здесь же (свои поля у слота и события).
     const isSlot = tpl.id === "preset2";
     const eventLike = tpl.id === "preset3" || tpl.id === "preset5";
     const pal = (job.brand.colors.length ? job.brand.colors : job.style.palette).slice(0, 3);
     const roles = ["primary", "secondary", "accent"];
-    const payload: GeneratePayload = {
+    return {
       preset_id: tpl.id,
       button_text: brief.buttonText,
       banner_text: brief.bannerText,
@@ -394,33 +472,15 @@ export function GifGenApp() {
         ? `Brand palette — ${pal.map((hex, i) => `${roles[i]} ${hex}`).join(", ")}. Use exactly these colors as the banner's dominant palette (primary = dominant, secondary = support, accent = highlights/CTA); keep strong contrast and readability.`
         : "",
     };
-    patchAuto({ phase: "generating" });
-    let g = await generateImage(payload);
-    patchAuto({ image: g.image });
-    const reqs = job.requirements.filter(
-      (r) => r.kind !== "format" && (!b.requirementIds.length || b.requirementIds.includes(r.id)),
-    );
-    patchAuto({ phase: "checking" });
-    let check = await checkByTz(g.image, reqs).catch(() => null);
-    patchAuto({ check });
-    const failed = (check?.results ?? []).filter((r) => {
-      const q = reqs.find((x) => x.id === r.id);
-      return !r.ok && q && (q.exact || q.kind === "text" || q.kind === "offer" || q.kind === "legal");
-    });
-    if (failed.length || check?.faceCovered) {
-      const fixes = failed.map((r) => {
-        const q = reqs.find((x) => x.id === r.id)!;
-        return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
-      });
-      if (check?.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
-      patchAuto({ phase: "fixing", retried: true });
-      g = await generateImage({ ...payload, prompt: `${payload.prompt}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}` });
-      patchAuto({ image: g.image, phase: "checking" });
-      check = await checkByTz(g.image, reqs).catch(() => null);
-      patchAuto({ check });
-    }
-    if (!g.card_id) return { kind: "upload", name: b.name, image: g.image };
-    const next: Source = { kind: "card", id: g.card_id, name: b.name, image: g.image };
+  }
+
+  /** Одна генерация баннера → карточка Истории. */
+  async function genBanner(payload: GeneratePayload): Promise<Source> {
+    const g = await generateImage(payload);
+    const name = autoRef.current?.u?.job.banners[0]?.name || "Баннер для GIF";
+    // Карточка не создалась — сохраняем сами, чтобы слои GIF было куда положить.
+    if (!g.card_id) return adopt(g.image, name);
+    const next: Source = { kind: "card", id: g.card_id, name, image: g.image };
     setCards((prev) => [
       { id: next.id, name: next.name, master: { image_url: g.image, width: null, height: null } },
       ...(prev ?? []),
@@ -429,46 +489,72 @@ export function GifGenApp() {
   }
 
   /**
-   * Автопилот по понятому ТЗ. useAttached — галочка «анимировать приложенный баннер»;
-   * image — баннер, который передал другой инструмент (handoff.decided.image).
+   * Баннер по форме base (prompt — вариант описания для этой попытки) → проверка по ТЗ →
+   * при autoFix одна попытка исправить → не прошло — ждём решения человека, иначе GIF.
    */
-  async function autopilot(u: TzUnderstood, useAttached: boolean, image?: string) {
-    const plan: GifTzPlan = normalizeGifPlan(u.job.plan ?? {});
-    const target = GIF_NETWORK_BY_ID.get(plan.network)!;
-    const ok = (k: string) => !target.sizes || target.sizes.includes(k);
-    let want = plan.sizes.length ? plan.sizes : u.job.sizes.map((s) => `${s.w}x${s.h}`);
-    if (!want.length) want = GIF_DEFAULT_SIZES;
-    const skipped = want.filter((k) => !ok(k));
-    let sizes = want.filter(ok);
-    if (!sizes.length) sizes = GIF_DEFAULT_SIZES.filter(ok);
-    const attached = image || (useAttached && plan.source === "attached" ? tzImage(u, plan.sourceImageId) : "");
-    patchAuto({ u, plan, sizes, skipped, from: attached ? "attached" : "generated" });
-
-    let src: Source;
-    if (attached) {
-      patchAuto({ phase: "checking", image: attached });
-      src = await adopt(attached, u.job.brand.name ? `${u.job.brand.name} — баннер из ТЗ` : "Баннер из ТЗ");
-      // Готовый баннер клиента не перерисовываем — только показываем, что не прошло.
-      const check = await checkByTz(src.image, u.job.requirements).catch(() => null);
+  async function bannerRound(base: GeneratePayload, o: { autoFix: boolean; prompt?: string }) {
+    const u = autoRef.current!.u!;
+    const reqs = bannerReqs(u);
+    patchAuto({ phase: "generating", payload: base, reqs, check: null, accepted: false, built: undefined });
+    say("Генерирую баннер");
+    let src = await genBanner(o.prompt ? { ...base, prompt: o.prompt } : base);
+    patchAuto({ phase: "checking", source: src, image: src.image });
+    say("Проверяю баннер по требованиям ТЗ");
+    let check = await checkByTz(src.image, reqs).catch(() => null);
+    patchAuto({ check });
+    if (o.autoFix && check && needsFix(check, reqs)) {
+      const bad = failedCritical(check, reqs).length + (check.faceCovered ? 1 : 0);
+      patchAuto({ phase: "fixing", retried: true });
+      say(`Не прошло пунктов: ${bad} — перегенерирую с исправлениями`);
+      src = await genBanner({ ...base, prompt: fixPrompt(base.prompt, check, reqs) });
+      patchAuto({ phase: "checking", source: src, image: src.image });
+      say("Проверяю исправленный баннер");
+      check = await checkByTz(src.image, reqs).catch(() => null);
       patchAuto({ check });
-    } else {
-      src = await makeBanner(u);
-      if (src.kind === "upload") {
-        // Карточка не создалась — сохраняем сами, чтобы слои GIF было куда положить.
-        src = await adopt(src.image, src.name);
-      } else setSource(src);
     }
+    if (needsFix(check, reqs)) {
+      patchAuto({ phase: "verdict" });
+      return;
+    }
+    gifStage(src);
+  }
 
-    patchAuto({ phase: "gif", image: src.image });
-    setNetId(plan.network);
-    setSizes(new Set(sizes.filter((k) => GIF_CATALOG.has(k))));
-    setAutoGif({
+  /** Баннер и решения → в состояние инструмента; сборку запустит эффект ниже. */
+  function gifStage(src: Source) {
+    const a = autoRef.current!;
+    const plan = a.plan!;
+    const run: GifRun = {
       image: src.image,
       net: plan.network,
-      sizes,
+      sizes: a.sizes ?? GIF_DEFAULT_SIZES,
       mode: plan.motion === "auto" ? undefined : plan.motion,
       plays: plan.loops,
-    });
+    };
+    patchAuto({ phase: "gif", source: src, image: src.image, run, built: undefined });
+    say(`Собираю GIF под «${GIF_NETWORK_BY_ID.get(plan.network)!.label}»`);
+    setNetId(plan.network);
+    setSizes(new Set(run.sizes.filter((k) => GIF_CATALOG.has(k))));
+    setSource(src);
+    setAutoGif(run);
+  }
+
+  /** Всё после понимания и плана: баннер (из ТЗ или новый) → проверка → GIF. */
+  async function execute() {
+    const a = autoRef.current!;
+    const u = a.u!;
+    if (a.attached) {
+      patchAuto({ phase: "checking", image: a.attached });
+      say("Сохраняю баннер из ТЗ в Историю");
+      const src = await adopt(a.attached, u.job.brand.name ? `${u.job.brand.name} — баннер из ТЗ` : "Баннер из ТЗ");
+      patchAuto({ source: src, image: src.image });
+      say("Проверяю баннер по требованиям ТЗ");
+      // Готовый баннер клиента не перерисовываем — только показываем, что не прошло.
+      const check = await checkByTz(src.image, u.job.requirements).catch(() => null);
+      patchAuto({ check, reqs: u.job.requirements });
+      gifStage(src);
+      return;
+    }
+    await bannerRound(await planBanner(u), { autoFix: true });
   }
 
   async function runAuto(input: TzRunInput, understood?: TzUnderstood, image?: string) {
@@ -476,19 +562,128 @@ export function GifGenApp() {
       openGate();
       return;
     }
-    const init: GifAutoState = { phase: "reading" };
+    const init: GifAutoState = { phase: "reading", log: [], input, handoffImage: image };
     autoRef.current = init;
     setAuto(init);
     setAutoGif(null);
+    void rememberLastTz(input, "gif", "GIF-генератор").catch(() => undefined);
     try {
-      const u = understood ?? (await understandTz(input, "gif", TZ_TEMPLATES));
-      await autopilot(u, input.options.useAttached !== false, image);
+      const u = understood ?? (await understandTz(input, "gif", TZ_TEMPLATES, say));
+      const d = decide(u, input.options.useAttached !== false, image);
+      patchAuto({ u, ...d });
+      if (needsReview(u, d.cost)) {
+        patchAuto({ phase: "review" });
+        return;
+      }
+      await execute();
     } catch (e) {
-      patchAuto({
-        phase: "error",
-        failedAt: autoRef.current?.phase,
-        error: e instanceof Error ? e.message : "Не удалось выполнить ТЗ",
-      });
+      fail(e, "Не удалось выполнить ТЗ");
+    }
+  }
+
+  /** «Запускаем» в плане: ответы на вопросы → понять ТЗ заново и сразу дальше, без второго плана. */
+  async function confirmPlan(clarifications: string) {
+    const a = autoRef.current;
+    if (!a?.u || !a.input) return;
+    try {
+      if (clarifications) {
+        const input = withClarifications(a.input, clarifications);
+        patchAuto({ phase: "reading", input, log: [] });
+        const u = await understandTz(input, "gif", TZ_TEMPLATES, say);
+        patchAuto({ u, ...decide(u, input.options.useAttached !== false, a.handoffImage) });
+      }
+      await execute();
+    } catch (e) {
+      fail(e, "Не удалось выполнить ТЗ");
+    }
+  }
+
+  /** «Поправить ТЗ»: назад к вводу (текст хранит черновик поля ТЗ). */
+  function backToInput() {
+    autoRef.current = null;
+    setAuto(null);
+    setAutoGif(null);
+    void saveAutoSnapshot("gif", null).catch(() => undefined);
+  }
+
+  /** Повтор после ошибки или перезагрузки — с того места, где остановились, без повторного разбора. */
+  async function resume() {
+    const a = autoRef.current;
+    if (!a) return;
+    if (!a.u) {
+      if (a.input) void runAuto(a.input, undefined, a.handoffImage);
+      return;
+    }
+    patchAuto({ error: undefined, interrupted: false, log: [] });
+    try {
+      if (a.source && a.failedAt === "gif") return gifStage(a.source);
+      if (a.source && a.from === "generated" && (a.failedAt === "checking" || a.failedAt === "fixing")) {
+        // Баннер уже есть — только проверяем заново, не генерируем.
+        const reqs = a.reqs ?? bannerReqs(a.u);
+        patchAuto({ phase: "checking" });
+        say("Проверяю баннер по требованиям ТЗ");
+        const check = await checkByTz(a.source.image, reqs).catch(() => null);
+        patchAuto({ check, reqs });
+        if (needsFix(check, reqs)) patchAuto({ phase: "verdict" });
+        else gifStage(a.source);
+        return;
+      }
+      await execute();
+    } catch (e) {
+      fail(e, "Не удалось продолжить");
+    }
+  }
+
+  /** «Попробовать ещё» после проверки: ещё одна генерация с исправлениями. */
+  async function retryCheck() {
+    const a = autoRef.current;
+    if (!a?.payload || !a.check || !a.reqs) return;
+    try {
+      say("Ещё одна попытка с исправлениями");
+      await bannerRound(a.payload, { autoFix: false, prompt: fixPrompt(a.payload.prompt, a.check, a.reqs) });
+    } catch (e) {
+      fail(e, "Не удалось перегенерировать баннер");
+    }
+  }
+
+  /** «Принять как есть» → собираем GIF из этого баннера. */
+  function acceptCheck() {
+    const a = autoRef.current;
+    if (!a?.source) return;
+    patchAuto({ accepted: true });
+    gifStage(a.source);
+  }
+
+  /**
+   * Правка словами. Новый баннер — перегенерируем с правкой, проверяем, собираем GIF.
+   * Баннер клиента не трогаем: правка про анимацию, сеть и размеры — понимаем ТЗ с ней заново.
+   */
+  async function tweak(text: string) {
+    const a = autoRef.current;
+    if (!a?.u || !a.input || !a.source) return;
+    patchAuto({ log: [], retried: false });
+    try {
+      if (a.from === "generated" && a.payload) {
+        say(`Правка: ${text}`);
+        const base = {
+          ...a.payload,
+          prompt: `${a.payload.prompt}\n\nПРАВКА КЛИЕНТА (обязательно учесть): ${text}`,
+        };
+        await bannerRound(base, { autoFix: false });
+        return;
+      }
+      const input = withClarifications(
+        a.input,
+        `Правка после результата (готовый баннер не менять — только анимация, сеть, размеры, повторы): ${text}`,
+      );
+      patchAuto({ phase: "reading", input });
+      say(`Правка: ${text}`);
+      const u = await understandTz(input, "gif", TZ_TEMPLATES, say);
+      const d = decide(u, false);
+      patchAuto({ u, plan: d.plan, sizes: d.sizes, skipped: d.skipped });
+      gifStage(a.source);
+    } catch (e) {
+      fail(e, "Не удалось применить правку");
     }
   }
 
@@ -497,7 +692,12 @@ export function GifGenApp() {
     if (!autoGif || running || source?.image !== autoGif.image || netId !== autoGif.net) return;
     const go = autoGif;
     setAutoGif(null);
-    void run({ sizes: go.sizes, mode: go.mode, plays: go.plays }).then((res) => {
+    void run({
+      sizes: go.sizes,
+      mode: go.mode,
+      plays: go.plays,
+      onSize: (k) => say(`Собираю GIF ${k.replace("x", "×")}…`),
+    }).then((res) => {
       if (!autoRef.current) return;
       const all = [...res.values()];
       const done = all.filter((r) => r.status === "done");
@@ -518,20 +718,36 @@ export function GifGenApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGif, source, netId, running]);
 
-  // Передача из другого инструмента (лендинг-хаб, баннер…): сразу автопилот, без повторного
-  // разбора, если ТЗ понималось под GIF; иначе понимаем заново под GIF из исходного ввода.
-  const handoffTaken = useRef(false);
+  // Снимок автопилота — переживает перезагрузку (GIF-файлы — нет: их пересоберём из слоёв).
   useEffect(() => {
-    if (handoffTaken.current) return;
-    handoffTaken.current = true;
-    void takeTzHandoff("gif")
-      .then((h) => {
-        if (!h) return;
+    if (!autoRef.current) return;
+    void saveAutoSnapshot("gif", autoRef.current).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto?.phase, auto?.u, auto?.source, auto?.check, auto?.built, auto?.accepted, auto?.run]);
+
+  // При открытии: передача из другого инструмента — сразу автопилот (без повторного разбора,
+  // если ТЗ понималось под GIF); иначе — снимок прошлого запуска. Прерванный перезагрузкой
+  // показываем ошибкой с «Продолжить с того же места».
+  const booted = useRef(false);
+  useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
+    void (async () => {
+      const h = await takeTzHandoff("gif").catch(() => null);
+      if (h) {
         setToolMode("simple");
         const img = typeof h.decided?.image === "string" ? h.decided.image : undefined;
         void runAuto(h.input, h.understood.job.product === "gif" ? h.understood : undefined, img);
-      })
-      .catch(() => undefined);
+        return;
+      }
+      const snap = await loadAutoSnapshot<GifAutoState>("gif").catch(() => null);
+      if (!snap || autoRef.current) return;
+      const restored: GifAutoState = GIF_WORKING.has(snap.phase)
+        ? { ...snap, phase: "error", failedAt: snap.phase, error: "Прервано перезагрузкой", interrupted: true }
+        : snap;
+      autoRef.current = restored;
+      setAuto(restored);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -585,8 +801,22 @@ export function GifGenApp() {
           <SimpleGifPanel
             auto={auto}
             busy={autoBusy || running || uploading}
-            estimate={`Новый баннер ≈ ${estimateBannerCredits()} кр. (если в ТЗ нет готового), слои GIF ≈ ${FIRST_BUILD_CREDITS} кр., сборка GIF — бесплатно. Не пройдёт проверку по ТЗ — одна перегенерация баннера.`}
+            hasResults={results.size > 0}
+            estimate={`Новый баннер ≈ ${BANNER_CREDITS} кр. (если в ТЗ нет готового), слои GIF ≈ ${FIRST_BUILD_CREDITS} кр., сборка GIF — бесплатно. Не пройдёт проверку по ТЗ — одна перегенерация баннера. Дороже ${REVIEW_CREDITS} кр. — сначала покажу план.`}
+            retryCost={BANNER_CREDITS}
+            tweakCost={
+              auto?.from === "generated"
+                ? `≈ ${BANNER_CREDITS + (auto.plan?.motion === "flat" ? 0 : FIRST_BUILD_CREDITS)} кр.: новый баннер${auto.plan?.motion === "flat" ? "" : " и его слои"}`
+                : "Баннер не трогаю — GIF пересоберу по правке (слои в Истории — бесплатно)"
+            }
             onRun={(i) => void runAuto(i)}
+            onGate={(c) => void confirmPlan(c)}
+            onBackToInput={backToInput}
+            onRetry={() => void resume()}
+            onRebuild={() => auto?.source && gifStage(auto.source)}
+            onAccept={acceptCheck}
+            onRetryCheck={() => void retryCheck()}
+            onTweak={(t) => void tweak(t)}
           />
         ) : (
         <>
@@ -760,12 +990,30 @@ export function GifGenApp() {
 
       <div className="min-w-0">
         {results.size === 0 ? (
-          <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border text-center text-muted-foreground">
-            <ImagePlay className="h-14 w-14 opacity-30" />
+          <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border p-4 text-center text-muted-foreground">
+            {/* Простой режим: здесь продолжается тот же поток — баннер, пока GIF собираются. */}
+            {simpleMode && auto?.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={auto.image} alt="" className="max-h-56 max-w-full rounded-lg object-contain" />
+            ) : autoBusy ? (
+              <Loader2 className="h-10 w-10 animate-spin text-accent-green" />
+            ) : (
+              <ImagePlay className="h-14 w-14 opacity-30" />
+            )}
             <div className="ds-caption max-w-xs">
-              {simpleMode
-                ? "Опишите задачу или приложите ТЗ — здесь появятся GIF с проверкой по требованиям сети."
-                : "Выберите баннер, сеть и размеры — здесь появятся GIF с проверкой по требованиям сети."}
+              {!simpleMode
+                ? "Выберите баннер, сеть и размеры — здесь появятся GIF с проверкой по требованиям сети."
+                : auto?.phase === "review"
+                  ? "Проверьте план слева и запустите — GIF появятся здесь."
+                  : auto?.phase === "verdict"
+                    ? "Баннер готов, но не во всём по ТЗ — решите слева: ещё попытка или принять. Потом соберу GIF."
+                    : auto?.phase === "done" && auto.source
+                      ? "GIF не сохраняются при перезагрузке — соберите их снова кнопкой слева, слои уже в Истории."
+                      : autoBusy
+                        ? auto?.image
+                          ? "Баннер готов — собираю из него GIF, они появятся здесь."
+                          : "Готовлю баннер — GIF появятся здесь."
+                        : "Опишите задачу или приложите ТЗ — здесь появятся GIF с проверкой по требованиям сети."}
             </div>
           </div>
         ) : (

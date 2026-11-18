@@ -55,7 +55,17 @@ import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import type { ToolMode } from "@/components/simple/useToolMode";
 import { SimpleScenePanel, type SceneAutoState } from "@/components/playable/simple/SimpleScenePanel";
 import { planFromJob, type PlayablePlan } from "@/components/playable/simple/scenePlan";
-import { tzImageByRole, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import {
+  loadAutoSnapshot,
+  needsReview,
+  rememberLastTz,
+  saveAutoSnapshot,
+  tzImageByRole,
+  understandTz,
+  withClarifications,
+  type TzRunInput,
+  type TzUnderstood,
+} from "@/lib/tz/client";
 import { takeTzHandoff } from "@/lib/tz/handoff";
 import type { TzJob } from "@/lib/tz/understand";
 import {
@@ -539,8 +549,9 @@ export function SceneStudio({
     void assetRun.start([stepFor(part)]);
   };
 
-  // ---- Простой режим: ТЗ → движок ТЗ → сцена, тексты, бренд, цвета → ИИ-графика
+  // ---- Простой режим: ТЗ → движок ТЗ → (план и цена) → сцена, тексты, бренд, цвета → ИИ-графика
   const simple = toolMode === "simple";
+  const snapTool = landing ? "landingScene" : "playable";
   const [auto, setAuto] = useState<SceneAutoState | null>(null);
   const autoRef = useRef<SceneAutoState | null>(null);
   const patchAuto = (p: Partial<SceneAutoState>) => {
@@ -548,16 +559,36 @@ export function SceneStudio({
     autoRef.current = next;
     setAuto(next);
   };
-  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  const startAuto = (s: SceneAutoState | null) => {
+    autoRef.current = s;
+    setAuto(s);
+  };
+  const pushLog = (line: string) => patchAuto({ log: [...(autoRef.current?.log ?? []), line].slice(-30) });
+  const autoBusy = !!auto && (auto.phase === "reading" || auto.phase === "planning" || auto.phase === "art");
   /** Решение ждёт, пока студия переключится на выбранную сцену и подхватит её черновик. */
-  const [pendingPlan, setPendingPlan] = useState<{ plan: PlayablePlan; job: TzJob; logo: string; offer: string; sub: string } | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<{
+    plan: PlayablePlan;
+    job: TzJob;
+    logo: string;
+    offer: string;
+    sub: string;
+    /** Правка: графику и бренд не трогаем, меняем тексты/тему; redraw — какие детали перерисовать (null — все). */
+    keep?: { redraw: string[] | null | false };
+  } | null>(null);
   /** Черновик разложен — графику запускаем, когда тема уже в нём (шаги берут её из черновика). */
-  const [autoArt, setAutoArt] = useState<{ scene: SceneId; theme: string } | null>(null);
+  const [autoArt, setAutoArt] = useState<{ scene: SceneId; theme: string; only?: string[] | null } | null>(null);
+
+  /** Графика сцены по каталогу: сколько стоит каждая сцена. */
+  const sceneCredits = (id: SceneId) => scenePartsFor(id).reduce((sum, p) => sum + scenePartRequest(p, "", "").credits, 0);
+  const blocksCredits = landing ? extrasAssets.allSteps({ floaters: false }).reduce((sum, st) => sum + st.credits, 0) : 0;
+  const artCost = (id: SceneId) => sceneCredits(id) + blocksCredits;
 
   /** Понятое ТЗ + план → бренд-лого готовим заранее, сцену переключаем, раскладка — в эффекте ниже. */
   const decide = async (u: TzUnderstood, plan: PlayablePlan, decided?: Record<string, unknown>) => {
-    patchAuto({ phase: "planning", u, plan });
+    patchAuto({ phase: "planning", u, plan, error: undefined, interrupted: false });
+    pushLog(`Выбираю игру: ${sceneMeta(plan.scene).label}${plan.why ? ` — ${plan.why}` : ""}`);
     const logoSrc = tzImageByRole(u, "brand");
+    if (logoSrc) pushLog("Беру логотип из ТЗ");
     const logo = logoSrc ? await shrinkPng(logoSrc, 560).catch(() => "") : "";
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     setPendingPlan({ plan, job: u.job, logo, offer: str(decided?.offer) || u.job.offer, sub: str(decided?.sub) });
@@ -565,51 +596,192 @@ export function SceneStudio({
     onPickScene?.(plan.scene);
   };
 
-  const runAuto = async (input: TzRunInput) => {
+  /** План готов: дорогой запуск или вопросы по ТЗ — сначала показываем план и цену. */
+  const proceed = (u: TzUnderstood, plan: PlayablePlan, gate: boolean) => {
+    const a = autoRef.current;
+    const cost = a?.art ? artCost(plan.scene) : 0;
+    if (gate && needsReview(u, cost)) return patchAuto({ phase: "review", u, plan, cost });
+    return decide(u, plan, a?.decided);
+  };
+
+  type RunOpts = { clar?: string; decided?: Record<string, unknown>; fromHub?: boolean; gate?: boolean };
+  const runAuto = async (input: TzRunInput, o: RunOpts = {}) => {
     if (isGuest) return openGate();
     if (assetRun.running) return toast("Дождитесь текущей генерации");
-    const init: SceneAutoState = { phase: "reading", art: input.options.art !== false };
-    autoRef.current = init;
-    setAuto(init);
+    if (!o.clar && !o.fromHub) void rememberLastTz(input, snapTool, landing ? "Лендинг на сцене" : "Плейбл");
+    startAuto({ phase: "reading", art: input.options.art !== false, input, clar: o.clar, decided: o.decided, fromHub: o.fromHub, log: [] });
     try {
-      const u = await understandTz(input, "playable");
-      await decide(u, planFromJob(u.job));
+      const u = await understandTz(withClarifications(input, o.clar ?? ""), "playable", [], pushLog);
+      await proceed(u, planFromJob(u.job, o.decided), o.gate ?? !o.clar);
     } catch (e) {
       patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
     }
   };
 
-  // Лендинг-хаб (или кампания) уже понял ТЗ и выбрал сцену — забираем передачу и
-  // едем без повторного разбора. Ref, а не флаг в эффекте: в StrictMode эффект
-  // запускается дважды, а передача забирается один раз.
+  /** План в воротах → «Запускаем»: с ответами — понимаем ТЗ заново (уже без ворот), без — сразу раскладываем. */
+  const runFromGate = (clar: string) => {
+    const a = autoRef.current;
+    if (!a?.u || !a.plan) return;
+    if (clar && a.input) {
+      const all = [a.clar, clar].filter(Boolean).join("\n");
+      return void runAuto(a.input, { clar: all, decided: a.decided, fromHub: a.fromHub, gate: false });
+    }
+    void decide(a.u, a.plan, a.decided).catch((e) => patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось применить ТЗ" }));
+  };
+
+  /** Повтор после ошибки или перезагрузки — с того места, где остановились. */
+  const retryAuto = () => {
+    const a = autoRef.current;
+    if (!a) return;
+    if (a.applied && a.plan) {
+      if (isGuest) return openGate();
+      patchAuto({ phase: "art", error: undefined, interrupted: false });
+      return setAutoArt({ scene, theme: d.theme });
+    }
+    if (a.u && a.plan) return void decide(a.u, a.plan, a.decided);
+    if (a.input) void runAuto(a.input, { clar: a.clar, decided: a.decided, fromHub: a.fromHub });
+  };
+
+  // Детали сцены, о которых говорит правка («фон темнее» → фон); пусто — все.
+  const partsInText = (text: string) => {
+    const t = text.toLowerCase();
+    return parts
+      .filter((p) => {
+        const w = p.label.toLowerCase().split(/\s+/)[0];
+        return w.length >= 3 && t.includes(w.slice(0, Math.max(3, w.length - 2)));
+      })
+      .map((p) => p.id);
+  };
+
+  /** Правка словами: движок ТЗ пересобирает план с правкой; меняются только тексты и/или затронутая графика. */
+  const runEdit = async (text: string) => {
+    const a = autoRef.current;
+    if (!a?.u || !a.plan) return;
+    if (isGuest) return openGate();
+    if (assetRun.running) return toast("Дождитесь текущей генерации");
+    const prev = a.plan;
+    patchAuto({ phase: "planning", error: undefined, log: [...(a.log ?? []), `Правка: ${text}`].slice(-30) });
+    try {
+      let u = a.u;
+      let plan: PlayablePlan;
+      let clar = a.clar;
+      if (a.input) {
+        const note =
+          `ПРАВКА ПОСЛЕ РЕЗУЛЬТАТА: ${text}\n` +
+          `Сейчас: сцена ${prev.scene}, заголовок «${prev.headline.replace(/\n/g, " ")}», кнопка «${prev.cta}», тема графики: ${prev.theme}. ` +
+          "Сохрани всё, чего правка не касается; игру меняй, только если правка прямо об этом просит.";
+        clar = [a.clar, note].filter(Boolean).join("\n");
+        u = await understandTz(withClarifications(a.input, clar), "playable", [], pushLog);
+        plan = planFromJob(u.job);
+      } else plan = { ...prev, theme: `${prev.theme}. ${text}`.slice(0, 300) };
+      patchAuto({ u, clar });
+      if (plan.scene !== prev.scene) {
+        pushLog(`Меняю игру на «${sceneMeta(plan.scene).label}»`);
+        return await decide(u, plan, a.decided);
+      }
+      const hit = partsInText(text);
+      let redraw: string[] | null | false = false;
+      if (plan.theme !== prev.theme) redraw = hit.length ? hit : null;
+      else if (hit.length) {
+        // Тема та же, но правка про конкретную деталь — дописываем правку к теме и рисуем только её.
+        plan = { ...plan, theme: `${plan.theme}. ${text}`.slice(0, 300) };
+        redraw = hit;
+      }
+      patchAuto({ plan });
+      setPendingPlan({ plan, job: u.job, logo: "", offer: "", sub: "", keep: { redraw: a.art ? redraw : false } });
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось применить правку" });
+    }
+  };
+
+  // При открытии: передача из другого инструмента (лендинг-хаб, кампания) —
+  // едем без повторного разбора, через план и цену; иначе — снимок прошлого
+  // запуска (переживает перезагрузку). Ref: в StrictMode эффект идёт дважды,
+  // а передача забирается один раз.
   const handoffTaken = useRef(false);
+  const snapLoaded = useRef(false);
   useEffect(() => {
     if (handoffTaken.current) return;
     handoffTaken.current = true;
-    void takeTzHandoff(landing ? "scene" : "playable").then((h) => {
-      if (!h) return;
-      onToolMode?.("simple");
-      const init: SceneAutoState = { phase: "reading", art: h.input?.options?.art !== false, fromHub: true };
-      autoRef.current = init;
-      setAuto(init);
-      decide(h.understood, planFromJob(h.understood.job, h.decided), h.decided).catch((e) =>
-        patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось применить ТЗ" }),
-      );
-    });
+    void (async () => {
+      const h = await takeTzHandoff(landing ? "scene" : "playable");
+      if (h) {
+        snapLoaded.current = true;
+        onToolMode?.("simple");
+        startAuto({ phase: "reading", art: h.input?.options?.art !== false, input: h.input, decided: h.decided, fromHub: true, log: ["ТЗ уже понято — беру решения оттуда"] });
+        await proceed(h.understood, planFromJob(h.understood.job, h.decided), true);
+        return;
+      }
+      const snap = await loadAutoSnapshot<SceneAutoState>(snapTool);
+      snapLoaded.current = true;
+      if (!snap || autoRef.current) return;
+      if (snap.phase === "art") startAuto({ ...snap, resumed: true });
+      else if (snap.phase === "reading" || snap.phase === "planning")
+        startAuto({ ...snap, phase: "error", error: "Прервано перезагрузкой", interrupted: true });
+      else startAuto(snap);
+    })().catch((e) => patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось применить ТЗ" }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Снимок автопилота — после каждого шага (null — «Новое ТЗ», снимок стираем).
+  useEffect(() => {
+    if (!snapLoaded.current) return;
+    const id = window.setTimeout(() => void saveAutoSnapshot(snapTool, auto), 400);
+    return () => window.clearTimeout(id);
+  }, [auto, snapTool]);
+
+  // После перезагрузки посреди графики: серверная сборка подхватывается сама
+  // (useAssetRun) — ждём её; не подхватилась за 5 с — «Прервано», повтор.
+  const seenResumed = useRef(false);
+  useEffect(() => {
+    if (auto?.phase !== "art" || !auto.resumed) return;
+    if (assetRun.running) {
+      seenResumed.current = true;
+      return;
+    }
+    if (seenResumed.current) {
+      seenResumed.current = false;
+      patchAuto({ phase: "done", resumed: false });
+      return;
+    }
+    const id = window.setTimeout(() => {
+      if (!seenResumed.current) patchAuto({ phase: "error", error: "Прервано перезагрузкой", interrupted: true, resumed: false });
+    }, 5000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto?.phase, auto?.resumed, assetRun.running]);
+
   // Сцена выбрана и её черновик загружен (эффект черновика объявлен выше и идёт
-  // раньше) → раскладываем решение поверх чистого черновика сцены.
+  // раньше) → раскладываем решение: новое — поверх чистого черновика сцены,
+  // правка — поверх текущего (графика и бренд остаются).
   useEffect(() => {
     if (!pendingPlan || pendingPlan.plan.scene !== scene || !restored) return;
-    const { plan, job, logo, offer, sub } = pendingPlan;
+    const { plan, job, logo, offer, sub, keep } = pendingPlan;
     setPendingPlan(null);
     const art = autoRef.current?.art ?? true;
     const iso = (plan.language || job.language).slice(0, 2).toLowerCase();
     // Готовых наборов четыре; на другом языке все тексты пишет план, а числа — по-английски.
     const lang = (SCENE_LANGS.some((l) => l.id === iso) ? iso : "en") as SceneLang;
     const theme = plan.theme || meta.bgTheme;
+    if (keep) {
+      pushLog("Меняю тексты по правке");
+      setD((prev) => ({
+        ...prev,
+        text: { ...prev.text, ...plan.texts },
+        amount: plan.amount || prev.amount,
+        unit: plan.unit || prev.unit,
+        legal: plan.legal || prev.legal,
+        prizes: plan.prizes.length ? plan.prizes : prev.prizes,
+        winIndex: plan.prizes.length ? plan.winPrize : prev.winIndex,
+        theme,
+      }));
+      if (keep.redraw !== false) {
+        patchAuto({ phase: "art", applied: true });
+        setAutoArt({ scene, theme, only: keep.redraw });
+      } else patchAuto({ phase: "done", applied: true });
+      return;
+    }
+    pushLog("Ставлю бренд, тексты и цвета");
     // Цвет бренда — главнее; без него и без графики — палитра стиля, иначе гамма по нарисованному фону.
     const color = job.brand.colors[0] ?? (art ? undefined : job.style.palette[0]);
     const rawSite = job.brand.site.trim();
@@ -644,31 +816,34 @@ export function SceneStudio({
       };
     });
     if (art) {
-      patchAuto({ phase: "art" });
+      patchAuto({ phase: "art", applied: true });
       setAutoArt({ scene, theme });
-    } else patchAuto({ phase: "done" });
+    } else patchAuto({ phase: "done", applied: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPlan, scene, restored]);
 
   // Тема легла в черновик → шаги графики собираются уже по ней; баланс — до старта.
   useEffect(() => {
     if (!autoArt || autoArt.scene !== scene || d.theme !== autoArt.theme) return;
+    const only = autoArt.only;
     setAutoArt(null);
-    const steps = assetSteps();
+    const steps = assetSteps().filter((st) => !only || only.includes(st.id));
     const credits = steps.reduce((sum, st) => sum + st.credits, 0);
     void (async () => {
       if (isGuest) {
         openGate();
         return patchAuto({ phase: "error", error: "Войдите, чтобы нарисовать графику — сцена и тексты уже готовы." });
       }
-      if (assetRun.running) return patchAuto({ phase: "error", error: "Идёт прошлая генерация графики — дождитесь её и запустите заново ниже." });
+      if (assetRun.running) return patchAuto({ phase: "error", error: "Идёт прошлая генерация графики — дождитесь её и повторите." });
+      if (!steps.length) return patchAuto({ phase: "done" });
       const balance = await fetchBalance();
       if (balance !== null && balance < credits) {
         return patchAuto({
           phase: "error",
-          error: `На графику нужно ${credits} кр., на балансе ${balance}. Сцена и тексты уже готовы — пополните баланс и запустите графику ниже.`,
+          error: `На графику нужно ${credits} кр., на балансе ${balance}. Сцена и тексты уже готовы — пополните баланс и повторите.`,
         });
       }
+      pushLog(`Рисую графику: ${steps.length} шт. · ${credits} кр.`);
       try {
         await assetRun.start(steps);
         patchAuto({ phase: "done" });
@@ -679,16 +854,23 @@ export function SceneStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoArt, scene, d.theme]);
 
+  /** Живой ход графики — строками под шагом «Рисую…». */
+  const artLog =
+    auto?.phase === "art"
+      ? assetRun.steps.map((st) =>
+          st.status === "done" ? `Готово: ${st.label}` : st.status === "running" ? `Рисую: ${st.label}…` : st.status === "error" ? `Не вышло: ${st.label}` : `В очереди: ${st.label}`,
+        )
+      : [];
+
   /** Смета до разбора: сцена ещё не выбрана — вилка по каталогу сцен. */
   const artRange = useMemo(() => {
     const c = SCENES.map((s) => scenePartsFor(s.id).reduce((sum, p) => sum + scenePartRequest(p, "", "").credits, 0));
     return [Math.min(...c), Math.max(...c)] as const;
   }, []);
-  const blocksCredits = landing ? extrasAssets.allSteps({ floaters: false }).reduce((sum, st) => sum + st.credits, 0) : 0;
   const simpleEstimate =
     `Разбор ТЗ — бесплатно. Графика ИИ ≈ ${artRange[0] === artRange[1] ? artRange[0] : `${artRange[0]}–${artRange[1]}`} кр. (зависит от сцены)` +
-    (landing && blocksCredits ? ` + блоки лендинга ≈ ${blocksCredits} кр.` : "") +
-    " Без галочки — только тексты и цвета.";
+    (landing && blocksCredits ? ` + блоки лендинга ≈ ${blocksCredits} кр.` : ".") +
+    " Перед запуском покажу план и точную цену.";
   /** Своя картинка вместо ИИ: для символов — до шести файлов. */
   const uploadPart = async (part: ScenePart, files: FileList | null) => {
     const list = Array.from(files ?? []).filter((file) => file.type.startsWith("image/") && file.size <= 8 * 1024 * 1024);
@@ -824,25 +1006,37 @@ export function SceneStudio({
             {onToolMode ? <ModeSwitch mode={toolMode} onChange={onToolMode} className={simple ? "mb-2" : ""} /> : null}
             {simple ? (
               <SimpleScenePanel
+                tool={snapTool}
                 auto={auto}
                 busy={autoBusy || assetRun.running}
                 landing={landing}
                 estimate={simpleEstimate}
+                log={[...(auto?.log ?? []), ...artLog]}
                 onRun={(i) => void runAuto(i)}
+                onGateRun={runFromGate}
+                onReset={() => startAuto(null)}
+                onRetry={retryAuto}
+                onEdit={(t) => void runEdit(t)}
+                editCost={`Тексты — бесплатно; перерисовка графики — до ${assetCredits} кр.`}
+                onCancelArt={assetRun.cancel}
+                nextImage={d.bgImage}
                 clickUrl={d.clickUrl}
                 onClickUrl={(v) => set("clickUrl", v)}
                 urlRequired={landing || needsUrl}
                 artPanel={
-                  <AssetRunPanel
-                    title={assetRun.steps.length ? "Перерисовать графику" : "Нарисовать графику"}
-                    plan={assetSteps()}
-                    steps={assetRun.steps}
-                    running={assetRun.running}
-                    notEnough={assetRun.notEnough}
-                    credits={assetCredits}
-                    onStart={startAssets}
-                    onCancel={assetRun.cancel}
-                  />
+                  // Только когда что-то не вышло: повтор по деталям; обычный ход — в журнале шагов.
+                  !assetRun.running && (assetRun.notEnough || assetRun.steps.some((st) => st.status === "error")) ? (
+                    <AssetRunPanel
+                      title="Дорисовать графику"
+                      plan={assetSteps()}
+                      steps={assetRun.steps}
+                      running={assetRun.running}
+                      notEnough={assetRun.notEnough}
+                      credits={assetCredits}
+                      onStart={startAssets}
+                      onCancel={assetRun.cancel}
+                    />
+                  ) : null
                 }
               />
             ) : (

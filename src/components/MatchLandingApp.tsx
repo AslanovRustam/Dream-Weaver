@@ -16,11 +16,10 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
-import { JobRow } from "@/components/simple/TzJobCard";
+import { MECHANIC_EXAMPLES, matchDecisions } from "@/components/mechanics/simple/mechanics";
 import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
 import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
 import type { MechanicPlan } from "@/components/mechanics/simple/plan";
-import { matchPrize, matchSport } from "@/components/mechanics/simple/match";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
@@ -579,20 +578,18 @@ export function MatchLandingApp() {
     setCharPrompts({ left: p.chars.left, right: p.chars.right });
     setCharOn({ left: true, right: true });
     setCrestTheme(p.icon || p.topic);
-    const home = (p.scene.home ?? "").trim();
-    const away = (p.scene.away ?? "").trim();
-    if (home && away) setTeams({ home, away });
-    if (p.scene.event) setEventName(p.scene.event);
-    setSport(matchSport(`${p.scene.sport ?? ""} ${p.u.job.summary} ${home} ${away}`, sport));
+    const d = matchDecisions(p, { sport });
+    if (d.teams) setTeams(d.teams);
+    if (d.event) setEventName(d.event);
+    setSport(d.sport);
     // Приз — из оффера ТЗ: тип, сумма, валюта; условие — строкой под ним.
-    const prize = matchPrize(p.offer);
-    if (prize) {
-      setPrizeType(prize.type);
-      setPrizeAmount(prize.amount);
-      setPrizeCurrency(prize.currency);
+    if (d.prize) {
+      setPrizeType(d.prize.type);
+      setPrizeAmount(d.prize.amount);
+      setPrizeCurrency(d.prize.currency);
       setShowOffer(true);
     }
-    if (p.scene.terms) setOfferText(p.scene.terms);
+    if (d.terms) setOfferText(d.terms);
     if (wantArt) {
       // Картинки прошлого матча не к этому ТЗ — сборка нарисует новые.
       setCharImages({ left: "", right: "" });
@@ -601,6 +598,11 @@ export function MatchLandingApp() {
   };
   const autopilot = useMechanicAutopilot({
     mechanic: "match",
+    label: "Матч-прогноз",
+    art: () => [
+      { id: "crest-home", label: "эмблема хозяев", credits: CREST_PRICE },
+      { id: "crest-away", label: "эмблема гостей", credits: CREST_PRICE },
+    ],
     kind: "sport",
     setMode: setToolMode,
     icon: true,
@@ -613,8 +615,9 @@ export function MatchLandingApp() {
     ],
     current: () => ({ extras, cta: ctaText }),
     apply: applyPlan,
-    startArt: async () => {
-      await assetRun.start(assetSteps());
+    // Правка — только задетые картинки (id шага или префикс «char-»).
+    startArt: async (only) => {
+      await assetRun.start(assetSteps().filter((st) => !only || only.some((k) => st.id === k || (k.endsWith("-") && st.id.startsWith(k)))));
     },
   });
   const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
@@ -772,28 +775,31 @@ export function MatchLandingApp() {
         <ModeSwitch mode={toolMode} onChange={setToolMode} />
         {toolMode === "simple" ? (
           <SimpleMechanicPanel
+            tool="match"
             auto={autopilot.auto}
             busy={autopilot.busy || genning || charGenning !== null || crestGenning !== null}
             estimate={simpleEstimate}
-            onRun={autopilot.run}
+            examples={MECHANIC_EXAMPLES.match}
             artLabel="фон, персонажи, эмблемы команд, картинки блоков"
+            rows={(p) => {
+              const d = matchDecisions(p, { sport });
+              const t = d.teams ?? teams;
+              return [
+                { label: "Матч", value: `${t.home} — ${t.away}${d.event ? ` · ${d.event}` : ""}` },
+                { label: "Вид спорта", value: SPORTS.find((s) => s.id === d.sport)?.label ?? d.sport },
+                ...(d.prize ? [{ label: "Приз", value: `${[d.prize.amount, d.prize.currency].filter(Boolean).join(" ")}${d.terms ? ` · ${d.terms}` : ""}` }] : []),
+                ...(p.icon ? [{ label: "Эмблемы", value: p.icon }] : []),
+              ];
+            }}
             art={assetRun}
+            image={bgImage}
+            editCost={autopilot.editCost}
+            onRun={autopilot.run}
+            onApprove={autopilot.approve}
+            onBack={autopilot.backToInput}
+            onRetry={autopilot.retry}
+            onEdit={autopilot.edit}
             onDownload={exportHtml}
-            rows={
-              <>
-                <JobRow label="Матч">
-                  {teams.home} — {teams.away}
-                  {eventName ? <span className="text-muted-foreground"> · {eventName}</span> : null}
-                </JobRow>
-                <JobRow label="Вид спорта">{SPORTS.find((s) => s.id === sport)?.label ?? sport}</JobRow>
-                {showOffer ? (
-                  <JobRow label="Приз">
-                    {[prizeAmount, prizeCurrency].filter(Boolean).join(" ")}
-                    {offerText ? <span className="text-muted-foreground"> · {offerText}</span> : null}
-                  </JobRow>
-                ) : null}
-              </>
-            }
           />
         ) : (
         <>

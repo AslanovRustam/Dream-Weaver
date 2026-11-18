@@ -35,13 +35,28 @@ import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
-import { SimpleBannerPanel, type AutoState, type SimpleInput } from "./banner/SimpleBannerPanel";
+import { SimpleBannerInput, SimpleBannerStatus, type AutoPhase, type AutoState } from "./banner/SimpleBannerPanel";
+import {
+  checkByTz,
+  failedCritical,
+  loadAutoSnapshot,
+  needsReview,
+  rememberLastTz,
+  saveAutoSnapshot,
+  understandTz,
+  withClarifications,
+  type TzCheck,
+  type TzRequirement,
+  type TzRunInput,
+  type TzUnderstood,
+} from "@/lib/tz/client";
+import { takeTzHandoff } from "@/lib/tz/handoff";
 import { ModeSwitch } from "./simple/ModeSwitch";
 import { useToolMode } from "./simple/useToolMode";
 import { BANNER_SIZE_GROUPS, type BannerSize } from "@/lib/bannerSizes";
 import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import type { TzBanner, TzJob } from "@/lib/tz/understand";
-import type { TzImage, TzLinkInfo, TzSource } from "@/lib/tz/ingest";
+import type { TzImage } from "@/lib/tz/ingest";
 import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
 import { GenerationSteps } from "@/components/banner/GenerationSteps";
 import { fetchBalance } from "@/components/AppHeader";
@@ -1285,10 +1300,13 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingBriefGen, prompt, status]);
 
-  // ---- Простой режим: ТЗ → движок ТЗ → баннер → проверка → ресайзы ----------
+  // ---- Простой режим: ТЗ → движок ТЗ → план → баннер → проверка → ресайзы ----
   // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
-  const [toolMode, setToolMode] = useToolMode(resizeMode === "layers" ? "bannerLayers" : "banner");
+  const autoTool = resizeMode === "layers" ? "bannerLayers" : "banner";
+  const autoToolLabel = resizeMode === "layers" ? "Слои" : "Баннер-генератор";
+  const [toolMode, setToolMode, showToolMode] = useToolMode(autoTool);
   const simpleMode = toolMode === "simple";
+  const masterCredits = estimateBannerCredits({ model: "gpt", quality });
 
   const [auto, setAuto] = useState<AutoState | null>(null);
   const autoRef = useRef<AutoState | null>(null);
@@ -1297,11 +1315,21 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     autoRef.current = next;
     setAuto(next);
   };
+  /** Строка в живой журнал текущего шага. */
+  const logAuto = (line: string) => {
+    if (autoRef.current) patchAuto({ log: [...autoRef.current.log, line].slice(-30) });
+  };
   /** Описание, которое должно оказаться в форме, прежде чем запустить генерацию. */
   const [autoGen, setAutoGen] = useState<string | null>(null);
   /** Размеры, которые надо запустить, как только мастер окажется в контексте. */
   const [autoBatch, setAutoBatch] = useState<BannerSize[] | null>(null);
-  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  /** Следующий креатив из ТЗ — когда текущий баннер и его ресайзы закончатся. */
+  const [autoNext, setAutoNext] = useState<number | null>(null);
+  const autoBusy = !!auto && !["done", "error", "review", "decide"].includes(auto.phase);
+
+  const templatesForTz = () =>
+    // Спорт-шаблону нужны команды и составы — их в простом режиме пока не собираем.
+    PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description }));
 
   /** Размеры ресайзов из задания: точные из ТЗ, иначе по одному на площадку. */
   const sizesFor = (job: TzJob): BannerSize[] => {
@@ -1331,11 +1359,23 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     return out;
   };
 
+  /** Цена запуска по плану: мастера (все креативы или один) + ресайзы каждого. */
+  const autoCost = (job: TzJob, queueAll: boolean, wantResizes: boolean) => {
+    const n = queueAll ? job.banners.length : 1;
+    const sizes = wantResizes ? sizesFor(job).length : 0;
+    return {
+      cost: n * (masterCredits + sizes * RESIZE_CREDITS_PER_FORMAT),
+      note: `${n > 1 ? `${n} баннера × ` : "Баннер "}${masterCredits} кр.${sizes ? ` + ${sizes} ресайз${sizes === 1 ? "" : sizes < 5 ? "а" : "ов"} × ${RESIZE_CREDITS_PER_FORMAT} кр.${n > 1 ? " у каждого" : ""}` : ""}. Если баннер не пройдёт проверку по ТЗ — одна перегенерация (${masterCredits} кр.).`,
+    };
+  };
+
   /** Баннер №index из задания: шаблон, описание от арт-директора, форма — и генерация. */
   const planAutoBanner = async (job: TzJob, index: number, images: TzImage[]) => {
     const b: TzBanner = job.banners[index];
     const tpl = PRESETS.find((p) => p.id === b.presetId) ?? PRESETS[0];
-    patchAuto({ phase: "planning", bannerIndex: index, templateName: tpl.name, check: undefined, retried: false });
+    patchAuto({ phase: "planning", bannerIndex: index, templateName: tpl.name, check: undefined, retried: false, accepted: false, error: undefined, interrupted: false, log: [] });
+    logAuto(`Шаблон «${tpl.name}»${b.presetWhy ? ` — ${b.presetWhy}` : ""}`);
+    logAuto("Пишу описание баннера");
     const brief = await apiJson<{ prompt: string; bannerText: string; buttonText: string; ideas: string[] }>("/api/tz/banner-brief", {
       method: "POST",
       body: JSON.stringify({ job, banner: b, template: { name: tpl.name, description: tpl.description, prompt: tpl.template } }),
@@ -1359,34 +1399,63 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     const pal = job.brand.colors.length ? job.brand.colors : job.style.palette;
     setColorRoles((rs) => rs.map((r, i) => (pal[i] ? { ...r, enabled: true, hex: pal[i] } : { ...r, enabled: false })));
     if (CREATIVE_LANGUAGES.some((l) => l.value === job.language)) setLanguage(job.language);
-    patchAuto({ phase: "generating", ideas: brief.ideas, prompt: brief.prompt });
+    patchAuto({ phase: "generating", ideas: brief.ideas, prompt: brief.prompt, log: [] });
+    logAuto(`«${brief.bannerText || b.headline}»${brief.buttonText ? ` / «${brief.buttonText}»` : ""} · ${b.aspect}`);
     setAutoGen(brief.prompt);
   };
 
-  const runAuto = async (input: SimpleInput) => {
+  /** После разбора: дорогой запуск или вопросы по ТЗ — сначала план; иначе сразу в работу. */
+  const afterUnderstood = async (r: TzUnderstood, skipGate: boolean) => {
+    const a = autoRef.current!;
+    const { cost, note } = autoCost(r.job, a.queueAll, a.wantResizes);
+    patchAuto({ job: r.job, images: r.images, links: r.links, sources: r.sources, cost, costNote: note, bannerIndex: 0, results: [] });
+    if (!skipGate && needsReview(r, cost)) {
+      patchAuto({ phase: "review" });
+      return;
+    }
+    await planAutoBanner(r.job, 0, r.images);
+  };
+
+  const understandForAuto = (input: TzRunInput) =>
+    understandTz(input, autoTool, templatesForTz(), (m) => logAuto(m));
+
+  const runAuto = async (input: TzRunInput, prepared?: TzUnderstood) => {
     if (isGuest) {
       openGate();
       return;
     }
-    const init: AutoState = { phase: "reading", bannerIndex: 0, wantResizes: input.wantResizes };
+    const init: AutoState = {
+      phase: "reading",
+      bannerIndex: 0,
+      wantResizes: !!input.options.resizes,
+      queueAll: input.options.all !== false,
+      input,
+      log: [],
+      results: [],
+    };
     autoRef.current = init;
     setAuto(init);
+    setMobileTab("result");
+    void rememberLastTz(input, autoTool, autoToolLabel);
     try {
-      const r = await apiJson<{ job: TzJob; images: TzImage[]; links: TzLinkInfo[]; sources: TzSource[] }>("/api/tz/understand", {
-        method: "POST",
-        body: JSON.stringify({
-          product: resizeMode === "layers" ? "bannerLayers" : "banner",
-          text: input.text,
-          files: input.files,
-          images: input.images,
-          // Спорт-шаблону нужны команды и составы — их в простом режиме пока не собираем.
-          templates: PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description })),
-        }),
-      });
-      patchAuto({ job: r.job, images: r.images, links: r.links, sources: r.sources });
-      await planAutoBanner(r.job, 0, r.images);
+      await afterUnderstood(prepared ?? (await understandForAuto(input)), false);
     } catch (e) {
       patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+    }
+  };
+
+  /** План одобрен. Были ответы на вопросы — понимаем ТЗ заново с ними и запускаем без второго показа плана. */
+  const runAfterGate = async (clarifications: string) => {
+    const a = autoRef.current;
+    if (!a?.job || !a.input) return;
+    try {
+      if (clarifications) {
+        const input = withClarifications(a.input, clarifications);
+        patchAuto({ phase: "reading", input, log: [] });
+        await afterUnderstood(await understandForAuto(input), true);
+      } else await planAutoBanner(a.job, 0, a.images ?? []);
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось подготовить баннер" });
     }
   };
 
@@ -1400,49 +1469,83 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     }
   };
 
-  /** Готовый мастер: проверка по требованиям, одна попытка исправить, затем ресайзы. */
+  /** Перегенерация текущего баннера с добавкой к описанию (исправления по проверке или правка словами). */
+  const regenerateWith = (addition: string, phase: AutoPhase) => {
+    const a = autoRef.current;
+    if (!a) return;
+    const p2 = `${a.prompt ?? prompt}\n\n${addition}`;
+    patchAuto({ phase, prompt: p2, accepted: false, log: [] });
+    setPrompt(p2);
+    setAutoGen(p2);
+  };
+
+  const fixesFor = (check: TzCheck, reqs: TzRequirement[]) => {
+    const fixes = failedCritical(check, reqs).map((r) => {
+      const q = reqs.find((x) => x.id === r.id)!;
+      return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
+    });
+    if (check.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
+    return fixes;
+  };
+
+  /** Баннер принят (прошёл проверку или «Принять как есть»): ресайзы, затем следующий креатив. */
+  const continueAfterBanner = () => {
+    const a = autoRef.current;
+    if (!a?.job) return;
+    if (a.wantResizes) {
+      const sizes = sizesFor(a.job);
+      if (sizes.length) {
+        patchAuto({ phase: "resizing" });
+        logAuto(`Ресайзы: ${sizes.map((s) => `${s.w}×${s.h}`).join(", ")}`);
+        setAutoBatch(sizes);
+        return;
+      }
+    }
+    finishBanner();
+  };
+
+  /** Баннер со всеми ресайзами готов: следующий креатив из ТЗ или конец. */
+  const finishBanner = () => {
+    const a = autoRef.current;
+    if (!a?.job) return;
+    const next = a.job.banners.findIndex((_, i) => i > a.bannerIndex && !a.results.some((r) => r.index === i));
+    if (a.queueAll && next >= 0) {
+      patchAuto({ phase: "planning" });
+      setAutoNext(next);
+    } else patchAuto({ phase: "done" });
+  };
+
+  /** Готовый мастер: проверка по требованиям, одна попытка исправить, затем решение человека или дальше. */
   const afterAutoMaster = async (img: string) => {
     const a = autoRef.current;
     if (!a?.job) return;
     const job = a.job;
     const b = job.banners[a.bannerIndex];
+    patchAuto({ results: [...a.results.filter((r) => r.index !== a.bannerIndex), { index: a.bannerIndex, image: img }] });
     const reqs = job.requirements.filter((r) => r.kind !== "format" && (!b.requirementIds.length || b.requirementIds.includes(r.id)));
-    patchAuto({ phase: "checking" });
-    let check: AutoState["check"] | null = null;
+    patchAuto({ phase: "checking", log: [] });
+    logAuto(`Сверяю с ТЗ: ${reqs.length} требований`);
+    let check: TzCheck | null = null;
     try {
-      check = await apiJson<NonNullable<AutoState["check"]>>("/api/tz/check", {
-        method: "POST",
-        body: JSON.stringify({ image: img, requirements: reqs }),
-      });
+      check = await checkByTz(img, reqs);
       patchAuto({ check });
+      const bad = check.results.filter((r) => !r.ok).length + (check.faceCovered ? 1 : 0);
+      logAuto(bad ? `Не прошло: ${bad}` : "Всё по ТЗ");
     } catch {
-      /* проверка недоступна — баннер всё равно отдаём */
+      logAuto("Проверка недоступна — баннер отдаю без неё");
     }
-    const failed = (check?.results ?? []).filter((r) => {
-      const q = reqs.find((x) => x.id === r.id);
-      return !r.ok && q && (q.exact || q.kind === "text" || q.kind === "offer" || q.kind === "legal");
-    });
-    if ((failed.length || check?.faceCovered) && !a.retried) {
-      const fixes = failed.map((r) => {
-        const q = reqs.find((x) => x.id === r.id)!;
-        return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
-      });
-      if (check?.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
-      const p2 = `${a.prompt ?? prompt}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}`;
-      patchAuto({ phase: "fixing", retried: true });
-      setPrompt(p2);
-      setAutoGen(p2);
+    const fixes = check ? fixesFor(check, reqs) : [];
+    if (fixes.length && !autoRef.current?.retried) {
+      patchAuto({ retried: true });
+      regenerateWith(`ОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}`, "fixing");
       return;
     }
-    if (a.wantResizes) {
-      const sizes = sizesFor(job);
-      if (sizes.length) {
-        patchAuto({ phase: "resizing" });
-        setAutoBatch(sizes);
-        return;
-      }
+    // Не прошло и после исправления — решает человек: ещё попытка (с ценой) или «как есть».
+    if (fixes.length) {
+      patchAuto({ phase: "decide" });
+      return;
     }
-    patchAuto({ phase: "done" });
+    continueAfterBanner();
   };
 
   // Форма заполнена описанием автопилота → генерация (в этом рендере состояние уже свежее).
@@ -1450,6 +1553,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     if (!autoGen || prompt !== autoGen || status === "loading" || gen.isBusy) return;
     setAutoGen(null);
     void (async () => {
+      logAuto("Рисую баннер — обычно 30–60 секунд");
       const img = await onGenerate();
       if (!autoRef.current?.job) return;
       if (!img) {
@@ -1462,14 +1566,73 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   }, [autoGen, prompt, status, gen.isBusy]);
 
   // Мастер и его payload в контексте → запускаем ресайзы автопилота.
+  /** 0 — нет, 1 — ресайзы запущены, 2 — генератор занят ими. */
+  const autoBatchStage = useRef(0);
   useEffect(() => {
     if (!autoBatch || !imageUrl || !lastPayload || gen.isBusy) return;
     const sizes = autoBatch;
     setAutoBatch(null);
+    autoBatchStage.current = 1;
     onLaunchBatch(sizes);
-    patchAuto({ phase: "done" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoBatch, imageUrl, lastPayload, gen.isBusy]);
+  // Ресайзы закончились (генератор был занят и освободился) → баннер готов.
+  useEffect(() => {
+    if (!autoBatchStage.current || autoRef.current?.phase !== "resizing") return;
+    if (gen.isBusy) {
+      autoBatchStage.current = 2;
+      return;
+    }
+    if (autoBatchStage.current < 2) return;
+    autoBatchStage.current = 0;
+    finishBanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gen.isBusy, gen.status]);
+  // Следующий креатив — только когда генератор свободен (смена шаблона сбросила бы идущие ресайзы).
+  useEffect(() => {
+    if (autoNext === null || gen.isBusy || status === "loading") return;
+    const a = autoRef.current;
+    setAutoNext(null);
+    if (a?.job) void makeAutoBanner(autoNext);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoNext, gen.isBusy, status]);
+
+  // Снимок автопилота — переживает перезагрузку; при открытии простого режима восстанавливаем.
+  const autoRestored = useRef(false);
+  useEffect(() => {
+    if (autoRestored.current) return;
+    autoRestored.current = true;
+    void (async () => {
+      // Передача из другого инструмента («Баннер по этому ТЗ») важнее снимка; показываем
+      // простой режим на этот раз, сохранённый выбор человека не трогаем.
+      const h = await takeTzHandoff(autoTool);
+      if (h) {
+        showToolMode("simple");
+        const same = h.understood.job.product === "banner" || h.understood.job.product === "bannerLayers";
+        void runAuto(h.input, same ? h.understood : undefined);
+        return;
+      }
+      const snap = await loadAutoSnapshot<AutoState>(autoTool);
+      if (!snap || autoRef.current) return;
+      const midRun = !["done", "error", "review", "decide"].includes(snap.phase);
+      const restored: AutoState = midRun ? { ...snap, phase: "error", interrupted: true, error: "Прервано перезагрузкой страницы." } : snap;
+      autoRef.current = restored;
+      setAuto(restored);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!auto) return;
+    void saveAutoSnapshot(autoTool, auto);
+  }, [auto, autoTool]);
+
+  /** Продолжить после прерывания или ошибки: задание уже понято — разбор не повторяем. */
+  const resumeAuto = () => {
+    const a = autoRef.current;
+    if (!a) return;
+    if (a.job) void makeAutoBanner(a.bannerIndex);
+    else if (a.input) void runAuto(a.input);
+  };
 
   const backToStart = async () => {
     if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
@@ -1533,12 +1696,11 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
             <div className="flex flex-col gap-6">
               <ModeSwitch mode={toolMode} onChange={setToolMode} />
               {simpleMode ? (
-                <SimpleBannerPanel
-                  auto={auto}
+                <SimpleBannerInput
+                  tool={autoTool}
                   busy={autoBusy || status === "loading" || gen.isBusy}
-                  estimate={`Баннер ≈ ${estimateBannerCredits({ model: "gpt", quality })} кр., ресайз ≈ ${RESIZE_CREDITS_PER_FORMAT} кр. за формат. Если баннер не пройдёт проверку по ТЗ — одна перегенерация.`}
+                  estimate={`≈ ${masterCredits} кр. за баннер + ${RESIZE_CREDITS_PER_FORMAT} кр. за ресайз. Точную цену покажу после разбора ТЗ.`}
                   onRun={(i) => void runAuto(i)}
-                  onMakeBanner={(i) => void makeAutoBanner(i)}
                 />
               ) : (
               <>
@@ -2130,6 +2292,41 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
             mobileTab !== "result" ? "max-lg:hidden" : ""
           }`}
         >
+          {simpleMode && auto ? (
+            <SimpleBannerStatus
+              auto={auto}
+              busy={autoBusy || status === "loading" || gen.isBusy}
+              from={autoTool}
+              image={imageUrl}
+              editCost={masterCredits}
+              onGateRun={(c) => void runAfterGate(c)}
+              onGateEdit={() => {
+                patchAuto({ phase: "error", error: "Поправьте ТЗ слева и нажмите «Создать» ещё раз." });
+                setMobileTab("settings");
+              }}
+              onResume={resumeAuto}
+              onOutcomeRetry={() => {
+                const a = autoRef.current;
+                const b = a?.job?.banners[a.bannerIndex];
+                if (!a?.job || !a.check || !b) return;
+                const reqs = a.job.requirements.filter((r) => r.kind !== "format" && (!b.requirementIds.length || b.requirementIds.includes(r.id)));
+                regenerateWith(`ОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixesFor(a.check, reqs).join(" ")}`, "fixing");
+              }}
+              onOutcomeAccept={() => {
+                patchAuto({ accepted: true });
+                continueAfterBanner();
+              }}
+              onEdit={(t) => {
+                patchAuto({ retried: false, check: undefined });
+                regenerateWith(`ПРАВКА КЛИЕНТА (обязательно учесть): ${t}`, "generating");
+              }}
+              onMakeBanner={(i) => void makeAutoBanner(i)}
+              onShowResult={(src) => {
+                setZoomSrc(src);
+                setZoomOpen(true);
+              }}
+            />
+          ) : null}
           {status !== "loading" && gen.status !== "master_running" ? (
             <button
               type="button"
@@ -2578,7 +2775,9 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
                   <div className="space-y-1">
                     <h2 className="ds-h4">Здесь появится ваш баннер</h2>
                     <p className="ds-caption">
-                      Заполните настройки, чтобы сгенерировать баннер.
+                      {simpleMode
+                        ? "Опишите задачу слева или нажмите пример — шаблон, тексты и размеры я подберу сам."
+                        : "Заполните настройки, чтобы сгенерировать баннер."}
                     </p>
                   </div>
                 </div>

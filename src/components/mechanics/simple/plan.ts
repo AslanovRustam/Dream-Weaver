@@ -14,6 +14,7 @@ import { applyBlockTexts, blocksFor, enabledBlocks, type BlockId } from "@/compo
 import { topicHasPair } from "@/components/landing/ApplyTopicButton";
 import { landingStrings, relocalizeExtras, stripExtrasImages, type LandingExtras, type LandingKind } from "@/lib/landingKit";
 import { humanizeOffer } from "@/lib/offerText";
+import { CHARACTER_PRICE_CREDITS, imageCredits, SLOT_SYMBOLS_PRICE_CREDITS } from "@/lib/credit-estimate";
 import { tzImage, tzImageByRole, type TzUnderstood } from "@/lib/tz/client";
 
 export type MechanicId = "wheel" | "slot" | "crash" | "match";
@@ -140,21 +141,27 @@ export async function buildMechanicPlan(o: {
   icon?: boolean;
   /** Что сейчас в кнопке — пример длины для копирайтера. */
   cta: string;
+  /** Живой ход: строки для журнала шага. */
+  log?: (m: string) => void;
+  /** Правка текстов словами: переписываем только тексты, остальное — из base. */
+  edit?: { text: string; base: MechanicPlan };
 }): Promise<MechanicPlan> {
-  const { u, mechanic, kind } = o;
+  const { u, mechanic, kind, edit } = o;
+  const log = o.log ?? (() => {});
   const job = u.job;
-  // Хаб решил тексты сам — его решения главнее плана движка.
+  // Хаб решил тексты сам — его решения главнее плана движка. При правке тексты пишем заново.
   const raw: Record<string, unknown> = { ...obj(job.plan), ...obj(o.decided) };
+  if (edit) for (const k of ["headline", "title", "cta", "ctaText", "button", "sub", "subheadline", "subtitle"]) delete raw[k];
   const L = langOf(pick(raw, ["language"], 8) || job.language);
-  const notes: string[] = [];
+  const notes: string[] = edit ? [...edit.base.notes] : [];
   // Движок мог счесть, что ТЗ лучше подходит другой лендинг: собираем тот, что открыт, но говорим.
   const planType = str(obj(job.plan).type, 12);
   const sameType = !planType || planType === mechanic || !!o.decided;
-  if (!sameType) notes.push(`По ТЗ лучше подошёл бы другой лендинг (${TYPE_LABEL[planType] ?? planType}) — собрал ${TYPE_LABEL[mechanic]}, как вы открыли.`);
+  if (!sameType && !edit) notes.push(`По ТЗ лучше подошёл бы другой лендинг (${TYPE_LABEL[planType] ?? planType}) — собрал ${TYPE_LABEL[mechanic]}, как вы открыли.`);
 
   const offerRaw = pick(raw, ["offer"], 200) || str(job.offer, 200);
   const offer = offerRaw ? humanizeOffer(offerRaw, L.code) : "";
-  const exactCta = job.requirements.find((r) => r.exact && /cta|кнопк|button/i.test(r.text))?.exact ?? "";
+  const exactCta = edit ? "" : job.requirements.find((r) => r.exact && /cta|кнопк|button/i.test(r.text))?.exact ?? "";
 
   // Тема одной строкой: суть, оффер, стиль, что на референсах.
   const refNotes = job.images
@@ -178,26 +185,28 @@ export async function buildMechanicPlan(o: {
   const short = topic.slice(0, 300);
   const visual = [topic, job.style.palette.length ? `Палитра: ${job.style.palette.join(", ")}` : ""].filter(Boolean).join(". ");
 
-  // Блоки: что выбрал план (если выбрал), иначе — как сейчас на странице.
+  // Блоки: при правке — как были; иначе что выбрал план (если выбрал), иначе как сейчас на странице.
   // Картинки блоков прошлой темы — не к этому ТЗ: сборка нарисует новые.
-  let x: LandingExtras = relocalizeExtras(stripExtrasImages(o.extras), L.base, kind);
-  // kitBlocks — блоки под первым экраном механики (plans/landing.ts); blocks там — для блочного лендинга.
-  const planBlocks = pickList(raw, ["kitBlocks"], 24).map((b) => b.toLowerCase());
-  const known = blocksFor(kind).map((b) => b.id);
-  const chosen = planBlocks.filter((b): b is BlockId => (known as string[]).includes(b));
-  if (chosen.length) {
-    const on = new Set<BlockId>(chosen);
-    if (offer) on.add("bonuses");
-    const next = { ...x } as unknown as Record<string, { on: boolean }>;
-    for (const id of known) next[id] = { ...next[id], on: on.has(id) };
-    x = next as unknown as LandingExtras;
-  } else if (offer && !x.bonuses.on) {
-    x = { ...x, bonuses: { ...x.bonuses, on: true } };
+  let x: LandingExtras = edit ? edit.base.extras : relocalizeExtras(stripExtrasImages(o.extras), L.base, kind);
+  if (!edit) {
+    // kitBlocks — блоки под первым экраном механики (plans/landing.ts); blocks там — для блочного лендинга.
+    const planBlocks = pickList(raw, ["kitBlocks"], 24).map((b) => b.toLowerCase());
+    const known = blocksFor(kind).map((b) => b.id);
+    const chosen = planBlocks.filter((b): b is BlockId => (known as string[]).includes(b));
+    if (chosen.length) {
+      const on = new Set<BlockId>(chosen);
+      if (offer) on.add("bonuses");
+      const next = { ...x } as unknown as Record<string, { on: boolean }>;
+      for (const id of known) next[id] = { ...next[id], on: on.has(id) };
+      x = next as unknown as LandingExtras;
+    } else if (offer && !x.bonuses.on) {
+      x = { ...x, bonuses: { ...x.bonuses, on: true } };
+    }
   }
   const blocks = enabledBlocks(x, kind);
 
   const fields = [
-    { key: "cta", label: "button text, 1-3 words, upper case", value: o.cta || "PLAY" },
+    { key: "cta", label: "button text, 1-3 words, upper case", value: (edit ? edit.base.cta : o.cta) || "PLAY" },
     ...o.fields({ offer, raw }),
   ].slice(0, 16);
 
@@ -205,22 +214,42 @@ export async function buildMechanicPlan(o: {
   const logoFromTz = tzImageByRole(u, "brand");
   const site = job.brand.site || job.links.find((l) => l.role === "brand")?.url || "";
   const pairNamed = topicHasPair(job.summary) || job.images.filter((i) => i.role === "character").length > 1 || /2|two|два|двое|пара/i.test(pick(raw, ["characters"], 40));
+  const wantLookup = !edit && !!site && (!logoFromTz || !job.brand.name);
+
+  log(edit ? `Переписываю тексты с правкой: «${edit.text}»` : `Пишу заголовок, кнопку и призы на языке «${L.code}»${blocks.length ? `, тексты блоков (${blocks.length})` : ""}`);
+  if (!edit) log(`Подбираю сцену фона${o.icon ? ", иконки механики" : ""} и персонажа${pairNamed ? "ей" : ""} под стиль ТЗ`);
+  if (wantLookup) log(`Ищу лого и цвет бренда на ${site}`);
+  if (L.translate && !edit) log(`Перевожу подписи механики и блоков (${L.code})`);
+
+  const say = <T,>(p: Promise<T>, msg: (v: T) => string) =>
+    p.then((v) => {
+      const m = msg(v);
+      if (m) log(m);
+      return v;
+    });
+  const none = Promise.resolve("");
 
   // Всё независимое — разом: тексты, перевод подписей, промпты картинок, бренд.
   const [copy, tr, bg, charL, charR, icon, found] = await Promise.all([
-    post<{ copy?: { headline?: string; scene?: Record<string, string>; blocks?: Record<string, Record<string, unknown>> } }>("/api/campaign-copy", {
-      topic: short || offer || "casino promo",
-      brief: [job.summary, ...job.requirements.filter((r) => r.kind === "text" || r.kind === "offer").map((r) => r.text)].join(" ").slice(0, 600),
-      kind,
-      lang: L.code,
-      brand: job.brand.name,
-      offer: offerRaw,
-      cta: pick(raw, ["cta", "ctaText", "button"], 24) || exactCta,
-      parts: { landing: true, playable: true, email: false, banner: false },
-      scene: { id: mechanic, fields },
-      blocks,
-    }).then((d) => d?.copy ?? null),
-    L.translate
+    say(
+      post<{ copy?: { headline?: string; scene?: Record<string, string>; blocks?: Record<string, Record<string, unknown>> } }>("/api/campaign-copy", {
+        topic: (edit ? `ПРАВКА КЛИЕНТА (учесть обязательно): ${edit.text}. ${short}` : short || offer || "casino promo").slice(0, 300),
+        brief: [edit ? `Правка клиента: ${edit.text}.` : "", job.summary, ...job.requirements.filter((r) => r.kind === "text" || r.kind === "offer").map((r) => r.text)]
+          .filter(Boolean)
+          .join(" ")
+          .slice(0, 600),
+        kind,
+        lang: L.code,
+        brand: job.brand.name,
+        offer: offerRaw,
+        cta: pick(raw, ["cta", "ctaText", "button"], 24) || exactCta,
+        parts: { landing: true, playable: true, email: false, banner: false },
+        scene: { id: mechanic, fields },
+        blocks: edit ? [] : blocks,
+      }).then((d) => d?.copy ?? null),
+      (c) => (c?.headline ? `Тексты готовы: «${c.headline}»` : "Тексты от ИИ не пришли — беру тексты из ТЗ"),
+    ),
+    L.translate && !edit
       ? (() => {
           const src: CampaignI18n = {};
           flatten(landingStrings("en"), "kit", src);
@@ -231,22 +260,29 @@ export async function buildMechanicPlan(o: {
           return post<{ texts?: CampaignI18n }>("/api/translate-texts", { lang: L.code, texts: src }).then((d) => d?.texts ?? null);
         })()
       : Promise.resolve(null),
-    suggest(visual, "bg", mechanic),
-    suggest(visual, "character", mechanic, "left"),
-    pairNamed ? suggest(visual, "character", mechanic, "right") : Promise.resolve(""),
-    o.icon ? suggest(visual, "icon", mechanic) : Promise.resolve(""),
-    site && (!logoFromTz || !job.brand.name) ? lookupBrand(site).catch(() => null) : Promise.resolve(null),
+    edit ? Promise.resolve(edit.base.bg) : say(suggest(visual, "bg", mechanic), (t) => (t ? "Сцена фона готова" : "")),
+    edit ? Promise.resolve(edit.base.chars.left) : say(suggest(visual, "character", mechanic, "left"), (t) => (t ? "Персонаж придуман" : "")),
+    edit ? Promise.resolve(edit.base.chars.right) : pairNamed ? suggest(visual, "character", mechanic, "right") : none,
+    edit ? Promise.resolve(edit.base.icon) : o.icon ? suggest(visual, "icon", mechanic) : none,
+    wantLookup
+      ? say(
+          lookupBrand(site).catch(() => null),
+          (f) => (f ? `Бренд с сайта: ${f.brand_name || site}` : "Сайт бренда не открылся — лого не нашли"),
+        )
+      : Promise.resolve(null),
   ]);
 
   // Язык без готовых подписей: перевод английского набора, иначе — английский с <html lang>.
-  if (L.translate && tr) x = { ...applyFlat(x, "extras", tr), strings: kitStringsFrom(tr), htmlLang: L.code };
-  else if (L.code !== L.base) {
-    x = { ...x, htmlLang: L.code };
-    notes.push("Подписи механики и блоков — на английском: готового перевода на язык ТЗ нет.");
+  if (!edit) {
+    if (L.translate && tr) x = { ...applyFlat(x, "extras", tr), strings: kitStringsFrom(tr), htmlLang: L.code };
+    else if (L.code !== L.base) {
+      x = { ...x, htmlLang: L.code };
+      notes.push("Подписи механики и блоков — на английском: готового перевода на язык ТЗ нет.");
+    }
   }
   if (copy?.blocks && Object.keys(copy.blocks).length) x = applyBlockTexts(x, copy.blocks);
   // Оффер — первой карточкой бонусов: его показывает первый экран.
-  if (offer) {
+  if (offer && !edit) {
     // Длинный оффер: короткая версия от копирайтера, иначе первая часть оффера (не шаблонный бонус).
     const copied = copy?.blocks?.bonuses ? x.bonuses.items[0]?.title?.trim() : "";
     const head = offerParts(offer)[0] ?? "";
@@ -260,11 +296,16 @@ export async function buildMechanicPlan(o: {
         items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title, ...(sub ? { text: sub } : {}) } : it)),
       },
     };
-  } else notes.push("В ТЗ нет оффера — бонусы на странице общие, проверьте их.");
-  if (job.legal.length) x = { ...x, legal: job.legal.join(" · ").slice(0, 300) };
+  } else if (!offer && !edit) notes.push("В ТЗ нет оффера — бонусы на странице общие, проверьте их.");
+  if (job.legal.length && !edit) x = { ...x, legal: job.legal.join(" · ").slice(0, 300) };
 
-  const headline = pick(raw, ["headline", "title"], 60) || str(copy?.headline, 60);
-  const cta = pick(raw, ["cta", "ctaText", "button"], 24) || exactCta || str(copy?.scene?.cta, 24);
+  const headline = pick(raw, ["headline", "title"], 60) || str(copy?.headline, 60) || (edit?.base.headline ?? "");
+  const cta = pick(raw, ["cta", "ctaText", "button"], 24) || exactCta || str(copy?.scene?.cta, 24) || (edit?.base.cta ?? "");
+
+  if (edit) {
+    // Правка текстов: бренд, цвет, картинки и референсы — как были.
+    return { ...edit.base, headline, cta, extras: x, scene: { ...edit.base.scene, ...(copy?.scene ?? {}) }, notes };
+  }
 
   // Цвет: из ТЗ, иначе с сайта бренда.
   const accent =
@@ -312,4 +353,61 @@ export function offerParts(offer: string, max = 3): string[] {
     .map((s) => s.trim())
     .filter((s) => s.length > 1)
     .slice(0, max);
+}
+
+// ---- Цена графики -----------------------------------------------------------
+
+export type ArtPart = { id: string; label: string; credits: number };
+
+/** Картинки блоков: то же, что соберёт useExtrasAssets.allSteps (по сетке на блок). */
+export function extrasArt(x: LandingExtras): ArtPart[] {
+  const out: ArtPart[] = [];
+  if (x.bonuses.on && x.bonuses.items.some((b) => b.title.trim())) out.push({ id: "x-bonuses", label: "картинки бонусов", credits: SLOT_SYMBOLS_PRICE_CREDITS });
+  if (x.games.on && x.games.items.some((g) => g.title.trim())) out.push({ id: "x-games", label: "обложки игр", credits: SLOT_SYMBOLS_PRICE_CREDITS });
+  if (x.look.floaters) out.push({ id: "x-floaters", label: "парящие объекты", credits: SLOT_SYMBOLS_PRICE_CREDITS });
+  return out;
+}
+
+/** Вся графика по плану: фон, персонажи, своё у механики, картинки блоков. */
+export function planArt(p: MechanicPlan, mechanicParts: ArtPart[]): ArtPart[] {
+  return [
+    { id: "bg", label: "фон", credits: BG_CREDITS },
+    ...(p.chars.left.trim() ? [{ id: "char-left", label: "персонаж слева", credits: CHARACTER_PRICE_CREDITS }] : []),
+    ...(p.chars.right.trim() ? [{ id: "char-right", label: "персонаж справа", credits: CHARACTER_PRICE_CREDITS }] : []),
+    ...mechanicParts,
+    ...extrasArt(p.extras),
+  ];
+}
+
+export const BG_CREDITS = imageCredits(1);
+export const sumCredits = (parts: ArtPart[]) => parts.reduce((s, x) => s + x.credits, 0);
+export const costNote = (parts: ArtPart[]) => parts.map((x) => `${x.label} ${x.credits}`).join(" + ");
+
+// ---- Правка словами ---------------------------------------------------------
+
+/** Что задевает правка: тексты, фон, персонажи, иконки механики. */
+export function editTargets(text: string): { texts: boolean; bg: boolean; chars: boolean; icon: boolean } {
+  const t = text.toLowerCase();
+  const r = {
+    texts: /заголов|текст|кнопк|надпис|cta|приз|сектор|бонус|оффер|слоган|призыв|перевод|язык|headline|button|copy/.test(t),
+    bg: /фон|сцен|небо|атмосфер|освещ|background|scene|темн|светл|цвет/.test(t),
+    chars: /персонаж|маскот|девушк|мужчин|женщин|парень|герой|болельщик|character|mascot/.test(t),
+    icon: /иконк|символ|ракет|эмблем|герб|логотип команд|crest|rocket|symbol|icon/.test(t),
+  };
+  // Ничего не узнали — правим картинку фона и тексты: так правка точно будет видна.
+  if (!r.texts && !r.bg && !r.chars && !r.icon) return { texts: true, bg: true, chars: false, icon: false };
+  return r;
+}
+
+/** Правка в промпт картинки: дописываем как обязательное требование. */
+export const withEdit = (prompt: string, edit: string) => (prompt.trim() ? `${prompt.trim()}. MUST: ${edit}` : edit);
+
+/** Новые блоки при правке, но картинки — уже нарисованные на странице. */
+export function keepExtrasImages(next: LandingExtras, cur: LandingExtras): LandingExtras {
+  return {
+    ...next,
+    bonuses: { ...next.bonuses, items: next.bonuses.items.map((b, i) => ({ ...b, image: cur.bonuses.items[i]?.image ?? b.image })) },
+    games: { ...next.games, items: next.games.items.map((g, i) => ({ ...g, image: cur.games.items[i]?.image ?? g.image })) },
+    look: { ...next.look, floatImgs: cur.look.floatImgs ?? next.look.floatImgs },
+  };
 }

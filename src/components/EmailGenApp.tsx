@@ -54,9 +54,21 @@ import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
 import { HeroRules } from "@/components/email/HeroRules";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
-import { SimpleEmailPanel, type EmailAutoState } from "@/components/email/simple/SimpleEmailPanel";
-import { checkCopy, draftFromTz, emailPlanOf, ensureExact, type EmailPlan } from "@/components/email/simple/emailAuto";
-import { checkByTz, tzImage, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import { isImageEdit, SimpleEmailPanel, type EmailAutoState } from "@/components/email/simple/SimpleEmailPanel";
+import { checkCopy, draftFromTz, emailPlanOf, ensureExact, templateOf, type EmailPlan } from "@/components/email/simple/emailAuto";
+import {
+  checkByTz,
+  loadAutoSnapshot,
+  needsReview,
+  rememberLastTz,
+  saveAutoSnapshot,
+  tzImage,
+  understandTz,
+  withClarifications,
+  type TzCheck,
+  type TzRunInput,
+  type TzUnderstood,
+} from "@/lib/tz/client";
 import { takeTzHandoff } from "@/lib/tz/handoff";
 import { lookupBrand } from "@/lib/brandLookup";
 
@@ -155,6 +167,7 @@ export function EmailGenApp() {
     baselineRef.current = JSON.stringify(d);
     setSaved(true);
     rememberInUrl(d.id);
+    setAutoState(null);
   };
 
   /**
@@ -190,6 +203,7 @@ export function EmailGenApp() {
     baselineRef.current = JSON.stringify(d);
     setSaved(false);
     rememberInUrl(null);
+    setAutoState(null);
   };
 
   const deleteDraftById = async (id: string) => {
@@ -538,18 +552,22 @@ export function EmailGenApp() {
     setSaved(false);
   };
 
-  // ---- Простой режим: ТЗ → движок ТЗ → письмо → картинка → проверка ----------
+  // ---- Простой режим: ТЗ → движок ТЗ → (вопросы) → письмо → картинка → проверка ----
   // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
   const [toolMode, setToolMode] = useToolMode("email");
   const simpleMode = toolMode === "simple";
   const [auto, setAuto] = useState<EmailAutoState | null>(null);
   const autoRef = useRef<EmailAutoState | null>(null);
-  const patchAuto = (p: Partial<EmailAutoState>) => {
-    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
-    autoRef.current = next;
-    setAuto(next);
+  const setAutoState = (s: EmailAutoState | null) => {
+    autoRef.current = s;
+    setAuto(s);
   };
-  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  const patchAuto = (p: Partial<EmailAutoState>) => setAutoState(autoRef.current ? { ...autoRef.current, ...p } : null);
+  /** Строка живого журнала под шагами. */
+  const say = (line: string) => patchAuto({ log: [...(autoRef.current?.log ?? []), line].slice(-30) });
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error" && auto.phase !== "gate";
+  const failAuto = (e: unknown, fallback: string) =>
+    patchAuto({ phase: "error", errorAt: autoRef.current?.phase, error: e instanceof Error ? e.message : fallback });
 
   /** Референс для картинки: картинка ТЗ со стилем, иначе главный визуал или композиция. */
   const styleRefOf = (u: TzUnderstood) => {
@@ -557,26 +575,111 @@ export function EmailGenApp() {
     return pick("style") || pick("main") || pick("layout");
   };
 
-  /** Картинка письма по плану; то, что ТЗ требует видеть на самой картинке, — проверяем. */
-  const autoHero = async (d: EmailDraft, u: TzUnderstood, plan: EmailPlan) => {
-    const img = await requestHero(d, { presetTemplate: plan.heroPrompt, styleReferenceImage: styleRefOf(u) });
-    await putHero(img, d);
+  /** Цена запуска по плану: только картинка письма, если её рисуем. */
+  const autoCost = (u: TzUnderstood, plan: EmailPlan, wantHero: boolean) =>
+    wantHero && plan.heroPrompt && !tzImage(u, plan.heroFromImageId) ? EMAIL_HERO_PRICE_CREDITS : 0;
+
+  /**
+   * Картинка письма по промпту плана; то, что ТЗ требует видеть на самой
+   * картинке, проверяем и (autoFix) один раз перерисовываем с исправлением.
+   * Обычно на картинке письма текста нет — тогда и проверять нечего.
+   */
+  const drawAutoHero = async (d: EmailDraft, u: TzUnderstood, plan: EmailPlan, autoFix: boolean): Promise<TzCheck | null> => {
     const reqs = u.job.requirements.filter((r) => plan.heroRequirementIds.includes(r.id));
-    // Обычно на картинке письма текста нет — тогда и проверять нечего.
-    if (!reqs.length) return null;
-    try {
-      return await checkByTz(img, reqs);
-    } catch {
-      return null; // проверка недоступна — картинку всё равно отдаём
+    const prompt = plan.heroPrompt || `Email hero for: ${d.heroTitle.replace(/\*\*/g, "")}`;
+    const draw = async (p: string) => {
+      const img = await requestHero(d, { presetTemplate: p, styleReferenceImage: styleRefOf(u) });
+      await putHero(img, d);
+      if (!reqs.length) return null;
+      try {
+        return await checkByTz(img, reqs);
+      } catch {
+        return null; // проверка недоступна — картинку всё равно отдаём
+      }
+    };
+    say("Рисую картинку письма");
+    let hc = await draw(prompt);
+    const failed = (hc?.results ?? []).filter((r) => !r.ok);
+    if (autoFix && failed.length) {
+      say("Картинка не прошла проверку по ТЗ — перерисовываю");
+      const fixes = failed
+        .map((r) => reqs.find((q) => q.id === r.id))
+        .map((q) => (q?.exact ? `The image MUST clearly show: "${q.exact}".` : q ? `The image MUST satisfy: ${q.text}` : ""))
+        .filter(Boolean);
+      hc = await draw(`${prompt}\n\nMUST FIX: ${fixes.join(" ")}`);
     }
+    return hc;
   };
 
-  const runAuto = async (input: TzRunInput, pre?: TzUnderstood) => {
+  /** Свести проверку текста и проверку картинки в одну. */
+  const mergeCheck = (copy: TzCheck["results"], hero: TzCheck | null, keepHero: TzCheck["results"] = []): TzCheck => ({
+    results: [...copy, ...(hero?.results ?? keepHero)],
+    faceCovered: !!hero?.faceCovered,
+  });
+
+  /** Понятое ТЗ → письмо: шаблон, тексты, бренд, лого, цвета → картинка → проверка. */
+  const buildAuto = async (u: TzUnderstood, plan: EmailPlan, keepHero?: { src: string; results: TzCheck["results"] }) => {
+    const wantHero = autoRef.current?.wantHero ?? true;
+    const fromTz = keepHero ? "" : tzImage(u, plan.heroFromImageId);
+    patchAuto({ phase: "building", heroFromTz: !!fromTz, check: undefined, accepted: false, heroError: undefined });
+    say(`Пишу письмо: шаблон «${templateOf(plan).name}»${plan.subject ? `, тема «${plan.subject}»` : ""}`);
+
+    let d = draftFromTz(u, plan);
+    if (d.logo) d = { ...d, logo: await rasterizeSvg(d.logo) };
+    else if (u.job.brand.site) {
+      // Лого в ТЗ нет, но есть сайт бренда — лого и цвет берём с сайта.
+      say(`Беру лого и цвет с сайта ${u.job.brand.site}`);
+      try {
+        const r = await lookupBrand(u.job.brand.site);
+        if (r.logo_data_url) d = { ...d, logo: await rasterizeSvg(r.logo_data_url), brandMode: "logo" };
+        if (!d.brand && r.brand_name) d = { ...d, brand: r.brand_name };
+        if (!plan.accent && !u.job.brand.colors.length && /^#[0-9a-f]{6}$/i.test(r.accent_color_hex)) d = { ...d, accent: r.accent_color_hex };
+      } catch {
+        say("Сайт не отдал лого — в шапке будет название бренда");
+      }
+    }
+    const fixed = ensureExact(d, u.job.requirements, plan.heroRequirementIds);
+    d = fixed.draft;
+    if (fixed.added.length) say(`Дописал обязательное из ТЗ: ${fixed.added.join(", ")}`);
+    if (keepHero) d = { ...d, heroSource: keepHero.src };
+    if (keepHero || fromTz || (wantHero && plan.heroPrompt)) d = { ...d, blocks: { ...d.blocks, hero: true } };
+    setDraft(d);
+    // Новое письмо ещё не сохранено: переход на другое спросит подтверждение.
+    baselineRef.current = "";
+    setSaved(false);
+    if (!keepHero) setHeroSaved(null);
+    rememberInUrl(null);
+    patchAuto({ added: fixed.added });
+
+    let heroCheck: TzCheck | null = null;
+    let heroError: string | undefined;
+    if (fromTz) {
+      patchAuto({ phase: "hero" });
+      say("Ставлю картинку из ТЗ");
+      await putHero(fromTz, d);
+    } else if (!keepHero && wantHero && plan.heroPrompt) {
+      patchAuto({ phase: "hero" });
+      try {
+        heroCheck = await drawAutoHero(d, u, plan, true);
+      } catch (e) {
+        heroError = e instanceof Error ? e.message : "ошибка генерации";
+      }
+    }
+    patchAuto({ phase: "checking", heroError });
+    say("Сверяю тексты письма с требованиями ТЗ");
+    const copy = checkCopy(d, u.job.requirements, plan.heroRequirementIds);
+    patchAuto({ phase: "done", check: mergeCheck(copy, heroCheck, keepHero?.results) });
+  };
+
+  const runAuto = async (
+    input: TzRunInput,
+    opts: { pre?: TzUnderstood; noGate?: boolean; skipConfirm?: boolean; keepHero?: { src: string; results: TzCheck["results"] } } = {},
+  ) => {
     if (guest) {
       openGate();
       return;
     }
-    if (isDirty() && (draft.subject || draft.heroTitle || draft.body)) {
+    if (!opts.skipConfirm && isDirty() && (draft.subject || draft.heroTitle || draft.body)) {
       const ok = await confirm({
         title: "Собрать новое письмо?",
         body: "Несохранённые изменения в текущем письме пропадут.",
@@ -585,95 +688,176 @@ export function EmailGenApp() {
       if (!ok) return;
     }
     const wantHero = input.options.hero !== false;
-    const init: EmailAutoState = { phase: "reading", wantHero };
-    autoRef.current = init;
-    setAuto(init);
+    setAutoState({ phase: "reading", wantHero, input, log: [] });
+    void rememberLastTz(input, "email", "Генератор писем").catch(() => {});
     try {
-      const u = pre ?? (await understandTz(input, "email"));
+      const u = opts.pre ?? (await understandTz(input, "email", [], say));
       const plan = emailPlanOf(u);
-      const fromTz = tzImage(u, plan.heroFromImageId);
-      patchAuto({ u, plan, phase: "building", heroFromTz: !!fromTz });
-
-      let d = draftFromTz(u, plan);
-      if (d.logo) d = { ...d, logo: await rasterizeSvg(d.logo) };
-      else if (u.job.brand.site) {
-        // Лого в ТЗ нет, но есть сайт бренда — лого и цвет берём с сайта.
-        try {
-          const r = await lookupBrand(u.job.brand.site);
-          if (r.logo_data_url) d = { ...d, logo: await rasterizeSvg(r.logo_data_url), brandMode: "logo" };
-          if (!d.brand && r.brand_name) d = { ...d, brand: r.brand_name };
-          if (!plan.accent && !u.job.brand.colors.length && /^#[0-9a-f]{6}$/i.test(r.accent_color_hex)) d = { ...d, accent: r.accent_color_hex };
-        } catch {
-          /* сайт не открылся — в шапке будет название бренда */
-        }
+      patchAuto({ u, plan });
+      // Вопросы движка по пробелам ТЗ — сначала ответы, потом письмо (цена ~7 кр. сама по себе не держит).
+      if (!opts.noGate && needsReview(u, autoCost(u, plan, wantHero))) {
+        patchAuto({ phase: "gate" });
+        return;
       }
-      const fixed = ensureExact(d, u.job.requirements, plan.heroRequirementIds);
-      d = fixed.draft;
-      if (fromTz || (wantHero && plan.heroPrompt)) d = { ...d, blocks: { ...d.blocks, hero: true } };
-      setDraft(d);
-      // Новое письмо ещё не сохранено: переход на другое спросит подтверждение.
-      baselineRef.current = "";
-      setSaved(false);
-      setHeroSaved(null);
-      rememberInUrl(null);
-      patchAuto({ added: fixed.added });
-
-      let heroCheck: Awaited<ReturnType<typeof autoHero>> = null;
-      let heroError: string | undefined;
-      if (fromTz) {
-        patchAuto({ phase: "hero" });
-        await putHero(fromTz, d);
-      } else if (wantHero && plan.heroPrompt) {
-        patchAuto({ phase: "hero" });
-        try {
-          heroCheck = await autoHero(d, u, plan);
-        } catch (e) {
-          heroError = e instanceof Error ? e.message : "ошибка генерации";
-        }
-      }
-      patchAuto({ phase: "checking", heroError });
-      const results = checkCopy(d, u.job.requirements, plan.heroRequirementIds);
-      patchAuto({
-        phase: "done",
-        check: { results: [...results, ...(heroCheck?.results ?? [])], faceCovered: !!heroCheck?.faceCovered },
-      });
+      await buildAuto(u, plan, opts.keepHero);
     } catch (e) {
-      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+      failAuto(e, "Не удалось разобрать ТЗ");
     }
   };
 
-  /** «Другая картинка» после автопилота: тот же план, текущее письмо. */
-  const regenAutoHero = async () => {
+  /** Ответы на вопросы: есть — понимаем ТЗ заново с ними; нет — собираем по плану. Второй раз не спрашиваем. */
+  const runFromGate = async (clarifications: string) => {
+    const a = autoRef.current;
+    if (!a?.input || !a.u || !a.plan) return;
+    if (clarifications.trim()) {
+      await runAuto(withClarifications(a.input, clarifications), { noGate: true, skipConfirm: true });
+      return;
+    }
+    try {
+      await buildAuto(a.u, a.plan);
+    } catch (e) {
+      failAuto(e, "Не удалось собрать письмо");
+    }
+  };
+
+  /** Повтор после ошибки или перезагрузки: ТЗ уже понято — собираем, иначе понимаем заново. */
+  const retryAuto = async () => {
+    const a = autoRef.current;
+    if (!a) return;
+    if (a.u && a.plan) {
+      patchAuto({ log: [], error: undefined });
+      try {
+        await buildAuto(a.u, a.plan);
+      } catch (e) {
+        failAuto(e, "Не удалось собрать письмо");
+      }
+    } else if (a.input) await runAuto(a.input, { skipConfirm: true });
+  };
+
+  /** Картинка заново по плану (кнопка, итог проверки, правка про картинку). */
+  const regenAutoHero = async (planOverride?: EmailPlan) => {
     const a = autoRef.current;
     if (!a?.u || !a.plan) return;
+    const plan = planOverride ?? a.plan;
     const d = { ...draft, blocks: { ...draft.blocks, hero: true } };
     setBlock("hero", true);
-    patchAuto({ phase: "hero", wantHero: true, heroError: undefined });
+    patchAuto({ phase: "hero", plan, wantHero: true, heroError: undefined, accepted: false, log: [] });
+    const ids = new Set(plan.heroRequirementIds);
+    const copy = (a.check?.results ?? []).filter((r) => !ids.has(r.id));
     try {
-      const hc = await autoHero(d, a.u, a.plan);
-      const ids = new Set(a.plan.heroRequirementIds);
-      const keep = (a.check?.results ?? []).filter((r) => !ids.has(r.id));
-      patchAuto({ phase: "done", check: { results: [...keep, ...(hc?.results ?? [])], faceCovered: !!hc?.faceCovered } });
+      const hc = await drawAutoHero(d, a.u, plan, false);
+      patchAuto({ phase: "done", check: mergeCheck(copy, hc) });
     } catch (e) {
       patchAuto({ phase: "done", heroError: e instanceof Error ? e.message : "ошибка генерации" });
     }
   };
 
-  // Передача из другого инструмента (лендинг-хаб, кампания…): понятое ТЗ уже
-  // есть — сразу автопилот. Понятое не под письмо — понимаем заново из ввода.
-  const handoffTaken = useRef(false);
+  /** Правка словами: про картинку — перерисовываем с правкой; про тексты — переписываем письмо, картинку оставляем. */
+  const editAuto = async (text: string) => {
+    const a = autoRef.current;
+    if (!a?.input || !a.u || !a.plan) return;
+    if (isImageEdit(text)) {
+      const base = a.plan.heroPrompt || `Email hero for: ${draft.heroTitle.replace(/\*\*/g, "")}`;
+      await regenAutoHero({ ...a.plan, heroPrompt: `${base}\n\nClient edit (apply it): ${text}`.slice(0, 1600) });
+      return;
+    }
+    const ids = new Set(a.plan.heroRequirementIds);
+    const keepHero = draft.heroSource ? { src: draft.heroSource, results: (a.check?.results ?? []).filter((r) => ids.has(r.id)) } : undefined;
+    await runAuto(withClarifications(a.input, `Правка: ${text}`), { noGate: true, skipConfirm: true, keepHero });
+    // Картинка в письме осталась — так и показываем в карточке.
+    if (keepHero && autoRef.current?.phase === "done") patchAuto({ wantHero: true });
+  };
+
+  // При входе: передача из другого инструмента (понятое ТЗ уже есть — сразу
+  // автопилот; понятое не под письмо — понимаем заново из ввода), иначе —
+  // снимок прошлого запуска: карточка и письмо, оборванный — с «Запустить снова».
+  type EmailSnapshot = { auto: EmailAutoState; draft: EmailDraft };
+  const mountedRef = useRef(false);
+  const restoredRef = useRef(false);
   useEffect(() => {
-    if (handoffTaken.current) return;
-    handoffTaken.current = true;
-    void takeTzHandoff("email")
-      .then((h) => {
-        if (!h) return;
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    void (async () => {
+      const h = await takeTzHandoff("email").catch(() => null);
+      if (h) {
+        restoredRef.current = true;
         setToolMode("simple");
-        void runAuto({ ...h.input, options: { hero: true, ...h.input.options } }, h.understood.job.product === "email" ? h.understood : undefined);
-      })
-      .catch(() => {});
+        void runAuto({ ...h.input, options: { hero: true, ...h.input.options } }, { pre: h.understood.job.product === "email" ? h.understood : undefined, skipConfirm: true });
+        return;
+      }
+      // Письмо из адреса (?draft=…) важнее снимка.
+      const fromUrl = new URLSearchParams(window.location.search).get("draft");
+      const snap = fromUrl ? null : await loadAutoSnapshot<EmailSnapshot>("email").catch(() => null);
+      if (snap?.auto) {
+        const live = snap.auto.phase !== "done" && snap.auto.phase !== "error" && snap.auto.phase !== "gate";
+        setAutoState(live ? { ...snap.auto, phase: "error", errorAt: snap.auto.phase, error: "Прервано перезагрузкой страницы" } : snap.auto);
+        if (snap.draft) {
+          setDraft(snap.draft);
+          baselineRef.current = "";
+          setSaved(false);
+        }
+      }
+      restoredRef.current = true;
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Снимок автопилота с письмом — переживает перезагрузку (с задержкой: письмо правят посимвольно).
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const t = window.setTimeout(() => {
+      void saveAutoSnapshot<EmailSnapshot>("email", auto ? { auto, draft } : null).catch(() => {});
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [auto, draft]);
+
+  /** Выгрузка письма — в продвинутом режиме внизу формы, в простом — в итоге автопилота. */
+  const exportBar = (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void onSave()}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
+        >
+          {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          {saved ? "Сохранено" : "Сохранить письмо"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void downloadHtml()}
+          disabled={exporting}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
+        >
+          {exporting ? (
+            <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
+          ) : (
+            <Download className="h-4 w-4 text-accent-green" />
+          )}
+          {exporting ? "Размещаем картинки…" : "Скачать HTML"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void copyHtml()}
+          disabled={exporting}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
+        >
+          {copied ? <Check className="h-4 w-4 text-accent-green" /> : <Copy className="h-4 w-4 text-accent-green" />}
+          {copied ? "Скопировано" : "Скопировать HTML"}
+        </button>
+        <Link
+          href="/mailing"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
+        >
+          <Send className="h-4 w-4 text-accent-green" />
+          В рассылки
+        </Link>
+      </div>
+      {saved ? (
+        <p className="ds-caption">Письмо сохранено — доступно в кабинете рассылок для отправки.</p>
+      ) : null}
+    </>
+  );
 
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,420px)_1fr]">
@@ -694,9 +878,15 @@ export function EmailGenApp() {
             busy={autoBusy || genning || heroBusy}
             estimate={`Разбор ТЗ и тексты — без списания кредитов. Картинка письма ≈ ${EMAIL_HERO_PRICE_CREDITS} кр.`}
             heroPrice={EMAIL_HERO_PRICE_CREDITS}
+            heroImage={draft.heroSource}
+            result={exportBar}
             onRun={(i) => void runAuto(i)}
+            onRetry={() => void retryAuto()}
+            onGateRun={(c) => void runFromGate(c)}
+            onGateEdit={() => setAutoState(null)}
+            onEdit={(t) => void editAuto(t)}
             onRegenHero={() => void regenAutoHero()}
-            onAdvanced={() => setToolMode("advanced")}
+            onAccept={() => patchAuto({ accepted: true })}
           />
         ) : (
         <>
@@ -1059,53 +1249,7 @@ export function EmailGenApp() {
         </>
         )}
 
-        {/* В простом режиме выгрузка — когда письмо собрано. */}
-        {!simpleMode || auto?.phase === "done" ? (
-        <>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void onSave()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] hover:shadow-glow-lime"
-          >
-            {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saved ? "Сохранено" : "Сохранить письмо"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void downloadHtml()}
-            disabled={exporting}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
-          >
-            {exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-accent-green" />
-            ) : (
-              <Download className="h-4 w-4 text-accent-green" />
-            )}
-            {exporting ? "Размещаем картинки…" : "Скачать HTML"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void copyHtml()}
-            disabled={exporting}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10 disabled:opacity-60"
-          >
-            {copied ? <Check className="h-4 w-4 text-accent-green" /> : <Copy className="h-4 w-4 text-accent-green" />}
-            {copied ? "Скопировано" : "Скопировать HTML"}
-          </button>
-          <Link
-            href="/mailing"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition hover:border-white/25 hover:bg-white/10"
-          >
-            <Send className="h-4 w-4 text-accent-green" />
-            В рассылки
-          </Link>
-        </div>
-        {saved ? (
-          <p className="ds-caption">Письмо сохранено — доступно в кабинете рассылок для отправки.</p>
-        ) : null}
-        </>
-        ) : null}
+        {simpleMode ? null : exportBar}
       </div>
 
       {/* min-w-0: иначе масштабируемый блок предпросмотра задаёт колонке

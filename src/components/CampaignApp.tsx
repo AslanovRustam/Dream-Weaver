@@ -44,9 +44,22 @@ import { useAuth } from "@/lib/auth-context";
 import { PRESETS } from "@/components/PresetSidebar";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
-import { SimpleCampaignPanel, type CampaignAuto } from "@/components/campaign/simple/SimpleCampaignPanel";
-import { briefFromJob, jobImages, type SimpleBannerSpec } from "@/components/campaign/simple/fromJob";
-import { understandTz, type TzRunInput } from "@/lib/tz/client";
+import { SimpleCampaignPanel, type BannerCheck, type CampaignAuto, type CampaignAutoPhase } from "@/components/campaign/simple/SimpleCampaignPanel";
+import { briefFromJob, jobImages, type CampaignDecisions, type SimpleBannerSpec } from "@/components/campaign/simple/fromJob";
+import {
+  checkByTz,
+  failedCritical,
+  loadAutoSnapshot,
+  rememberLastTz,
+  saveAutoSnapshot,
+  understandTz,
+  withClarifications,
+  type TzCheck,
+  type TzRequirement,
+  type TzRunInput,
+  type TzUnderstood,
+} from "@/lib/tz/client";
+import { takeTzHandoff } from "@/lib/tz/handoff";
 import {
   briefAccent,
   briefBanner,
@@ -82,6 +95,9 @@ const CHIP_ON = "border-accent-green bg-accent-green/10 text-accent-green";
 const CHIP_OFF = "border-border text-foreground/70 hover:bg-white/5";
 
 type Tab = "landing" | "playable" | "email" | "banner";
+
+/** Каталог шаблонов баннеров для движка ТЗ; спорт-шаблону нужны команды и составы — их здесь не собираем. */
+const CAMPAIGN_TEMPLATES = PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description }));
 
 const LANDING_OPTIONS: Record<LandingKind, { id: CampaignLanding; label: string }[]> = {
   casino: [
@@ -524,14 +540,16 @@ export function CampaignApp() {
   /** Вся графика: детали сцены, фон, награда — и картинки блоков лендинга. */
   const luckySteps = (bgOnly = false): AssetStep[] => (roll ? stepsFor(roll, { ...parts, playable: doPlayable }, briefBannerSpecs(b), bgOnly) : []);
   /** Баннер в той же теме — генератором баннеров; попадает и в «Мои проекты» как обычный баннер. */
-  const bannerStep = (theme: string, spec: SimpleBannerSpec, i: number, asBanner = parts.banner): AssetStep => {
-    // Баннер из простого режима — со своим шаблоном, подзаголовком и кнопкой из ТЗ.
-    const payload = {
+  /** Баннер из простого режима — со своим шаблоном, подзаголовком и кнопкой из ТЗ. */
+  const bannerPayload = (theme: string, spec: SimpleBannerSpec): GeneratePayload =>
+    ({
       ...luckyBannerPayload(full, theme, spec),
       ...(spec.presetId && PRESETS.some((pr) => pr.id === spec.presetId) ? { preset_id: spec.presetId } : {}),
       ...(spec.sub ? { subheadline_text: spec.sub, subheadline_enabled: true } : {}),
       ...(spec.cta ? { button_text: spec.cta } : {}),
-    } as GeneratePayload;
+    }) as GeneratePayload;
+  const bannerStep = (theme: string, spec: SimpleBannerSpec, i: number, asBanner = parts.banner): AssetStep => {
+    const payload = bannerPayload(theme, spec);
     const key = i === 0 ? "banner" : `banner-${i}`;
     return {
       id: key,
@@ -620,7 +638,7 @@ export function CampaignApp() {
   }, [pendingRun, full]); // eslint-disable-line react-hooks/exhaustive-deps
   const sceneLabel = (id: string) => SCENES.find((s) => s.id === id)?.label ?? id;
 
-  // ---- Простой режим: ТЗ → движок ТЗ → бриф кампании → тексты → вся графика ----
+  // ---- Простой режим: ТЗ → движок ТЗ → план с ценой → тексты → вся графика → проверка баннеров ----
   // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
   const [toolMode, setToolMode] = useToolMode("campaign");
   const simpleMode = toolMode === "simple";
@@ -631,62 +649,276 @@ export function CampaignApp() {
     autoRef.current = next;
     setAuto(next);
   };
-  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  const startAuto = (a: CampaignAuto | null) => {
+    autoRef.current = a;
+    setAuto(a);
+  };
+  const addLog = (line: string) => patchAuto({ log: [...(autoRef.current?.log ?? []), line].slice(-30) });
+  const failAuto = (at: CampaignAutoPhase, e: unknown) =>
+    patchAuto({ phase: "error", failedAt: at, error: e instanceof Error ? e.message : "Не получилось — попробуйте ещё раз" });
+  const autoBusy = !!auto && !["done", "error", "review"].includes(auto.phase);
+  // Свежие значения для асинхронных шагов (замыкания рендера устаревают).
+  const artRef = useRef(art);
+  artRef.current = art;
+  const runningRef = useRef(lucky.running);
+  runningRef.current = lucky.running;
+  const guestRef = useRef(isGuest);
+  guestRef.current = isGuest;
+
+  /** Задание → бриф кампании, лого, реф и гамма; превью справа сразу показывает план. */
+  const prepareSimple = async (u: TzUnderstood, input: TzRunInput) => {
+    patchAuto({ phase: "planning", u, input, error: undefined, failedAt: undefined, checks: undefined });
+    const o = input.options;
+    const ticks = { landing: o.landing !== false, playable: o.playable !== false, email: o.email !== false, banner: o.banner !== false };
+    const { brief, d } = briefFromJob(u.job, ticks, showPlayable);
+    patchAuto({ d });
+    addLog(`${d.plan.kind === "sport" ? "Ставки на спорт" : "Казино"} · тема «${d.roll.themeName}» · игра «${sceneLabel(d.roll.scene)}»`);
+    addLog(`Делаю: ${d.parts.filter((p) => p.on).map((p) => CAMPAIGN_PARTS.find((x) => x.id === p.id)?.label.toLowerCase()).join(", ")}`);
+    if (u.job.images.some((i) => i.role === "brand")) addLog("Лого — из ТЗ");
+    else if (u.job.brand.site || u.job.links.some((l) => l.role === "brand")) addLog("Ищу лого и цвет на сайте бренда");
+    const img = await jobImages(u, brief);
+    const nb: CampaignBrief = { ...brief, ...img.patch };
+    // Новый бриф целиком: прежние лого, ссылка, реф и графика к этой кампании не относятся.
+    setB(nb);
+    latestB.current = nb;
+    setI18n({});
+    setRoll(d.roll);
+    setArt(null);
+    patchAuto({ img });
+    return { nb, d };
+  };
+  /** После «Запускаем»: тексты всех частей, затем графика (эффект pendingRun). */
+  const launchSimple = async (nb: CampaignBrief, d: CampaignDecisions) => {
+    patchAuto({ phase: "copy" });
+    addLog("Пишу тексты для всех частей: лендинг, плейбл, письмо, баннеры");
+    await buildCampaign(d.roll, { ...nb, i18n: {}, art: null }, d.copyBrief, true);
+  };
   const runSimple = async (input: TzRunInput) => {
-    if (isGuest) return openGate("Кампания по ТЗ тратит кредиты на графику — войдите, чтобы собрать");
-    if (lucky.running) return toast.error("Дождитесь конца текущей сборки или отмените её");
-    const init: CampaignAuto = { phase: "reading" };
-    autoRef.current = init;
-    setAuto(init);
-    let at: CampaignAuto["phase"] = "reading";
+    if (guestRef.current) return openGate("Кампания по ТЗ тратит кредиты на графику — войдите, чтобы собрать");
+    if (runningRef.current) return toast.error("Дождитесь конца текущей сборки или отмените её");
+    void rememberLastTz(input, "campaign", "Кампания");
+    startAuto({ phase: "reading", input, log: [] });
+    let at: CampaignAutoPhase = "reading";
     try {
-      // Каталог шаблонов баннеров; спорт-шаблону нужны команды и составы — их здесь не собираем.
-      const u = await understandTz(
-        input,
-        "campaign",
-        PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description })),
-      );
+      const u = await understandTz(input, "campaign", CAMPAIGN_TEMPLATES, addLog);
       at = "planning";
-      patchAuto({ phase: "planning", u });
-      const ticks = { landing: input.options.landing !== false, playable: input.options.playable !== false, email: input.options.email !== false, banner: input.options.banner !== false };
-      const { brief, d } = briefFromJob(u.job, ticks, showPlayable);
-      patchAuto({ d });
-      const img = await jobImages(u, brief);
-      const nb: CampaignBrief = { ...brief, ...img.patch };
-      patchAuto({ img });
-      at = "copy";
-      patchAuto({ phase: "copy" });
-      // Новый бриф целиком: прежние лого, ссылка и реф к этой кампании не относятся.
-      setB(nb);
-      latestB.current = nb;
-      setI18n({});
-      setRoll(d.roll);
-      await buildCampaign(d.roll, { ...nb, i18n: {}, art: null }, d.copyBrief, true);
+      await prepareSimple(u, input);
+      // Кампания дорогая — всегда план и цена, запуск по кнопке.
+      patchAuto({ phase: "review" });
     } catch (e) {
-      patchAuto({ phase: "error", failedAt: at, error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+      failAuto(at, e);
     }
   };
-  // Сборка графики простого режима: запустилась → закончилась (или не хватило кредитов).
+  /** «Запускаем»: были ответы на вопросы — понимаем ТЗ заново и запускаем сразу, без второго плана. */
+  const confirmSimple = async (clarifications: string) => {
+    const a = autoRef.current;
+    if (!a?.u || !a.input || !a.d) return;
+    if (runningRef.current) return toast.error("Дождитесь конца текущей сборки или отмените её");
+    let at: CampaignAutoPhase = "copy";
+    try {
+      let nb = latestB.current;
+      let d = a.d;
+      if (clarifications.trim()) {
+        const input = withClarifications(a.input, clarifications);
+        at = "reading";
+        patchAuto({ phase: "reading", input, log: ["Учитываю ответы"] });
+        const u = await understandTz(input, "campaign", CAMPAIGN_TEMPLATES, addLog);
+        at = "planning";
+        ({ nb, d } = await prepareSimple(u, input));
+      }
+      at = "copy";
+      await launchSimple(nb, d);
+    } catch (e) {
+      failAuto(at, e);
+    }
+  };
+  /** Повтор после ошибки или перезагрузки: проверку — заново; иначе с понятого ТЗ к плану. */
+  const retrySimple = () => {
+    const a = autoRef.current;
+    if (!a) return;
+    if ((a.failedAt === "checking" || a.failedAt === "fixing") && a.u) return void runChecks();
+    if (a.u && a.input) {
+      const { u, input } = a;
+      return void prepareSimple(u, input)
+        .then(() => patchAuto({ phase: "review" }))
+        .catch((e) => failAuto("planning", e));
+    }
+    if (a.input) void runSimple(a.input);
+  };
+
+  // Сборка графики: запустилась → закончилась (и шапка письма готова) → проверка баннеров.
   const simpleWasRunning = useRef(false);
   useEffect(() => {
     if (auto?.phase !== "generating") {
       simpleWasRunning.current = false;
       return;
     }
-    if (lucky.notEnough) return patchAuto({ phase: "error", failedAt: "generating", error: lucky.notEnough });
+    if (lucky.notEnough) return failAuto("generating", new Error(lucky.notEnough));
     if (lucky.running) simpleWasRunning.current = true;
     else if (simpleWasRunning.current && !heroBusy) {
       simpleWasRunning.current = false;
-      patchAuto({ phase: "done" });
+      void runChecks();
     }
   }, [auto?.phase, lucky.running, lucky.notEnough, heroBusy]); // eslint-disable-line react-hooks/exhaustive-deps
-  /** Смета до старта: вся кампания на типичной сцене этого типа трафика, один баннер и шапка письма. */
+
+  /** Требования ТЗ для баннера №i: свои из задания; нет — тексты, оффер и юр. строка. */
+  const reqsFor = (i: number): TzRequirement[] => {
+    const job = autoRef.current?.u?.job;
+    const spec = briefBannerSpecs(latestB.current)[i] as SimpleBannerSpec | undefined;
+    if (!job || !spec) return [];
+    return job.requirements.filter(
+      (r) => r.kind !== "format" && (spec.req?.length ? spec.req.includes(r.id) : r.kind === "text" || r.kind === "offer" || r.kind === "legal"),
+    );
+  };
+  const fixesFor = (check: TzCheck, reqs: TzRequirement[], all: boolean) => {
+    const bad = all ? check.results.filter((r) => !r.ok) : failedCritical(check, reqs);
+    const out = bad.map((r) => {
+      const q = reqs.find((x) => x.id === r.id);
+      return q?.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : (q?.text ?? r.note);
+    });
+    if (check.faceCovered) out.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
+    return out.filter(Boolean).join(" ");
+  };
+  /** Перерисовать баннер №i с исправлениями (шапку письма не трогаем — она без текстов). */
+  const regenBanner = async (i: number, fixes: string): Promise<string> => {
+    const spec = briefBannerSpecs(latestB.current)[i] as SimpleBannerSpec;
+    const p = bannerPayload(artRef.current?.theme || roll?.theme || "", spec);
+    const r = await generateImage({ ...p, prompt: `${p.prompt}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes}` });
+    setArt((a) => {
+      if (!a) return a;
+      const banners = [...(a.banners ?? [])];
+      banners[i] = { name: spec.name, aspect: spec.aspect, image: r.image };
+      return { ...a, banners, ...(i === 0 ? { banner: r.image } : {}) };
+    });
+    return r.image;
+  };
+  /** Проверка каждого баннера по его требованиям; не прошёл по текстам — одна перегенерация. */
+  const runChecks = async () => {
+    const job = autoRef.current?.u?.job;
+    const nb = latestB.current;
+    if (!job || !briefParts(nb).banner) return patchAuto({ phase: "done" });
+    const specs = briefBannerSpecs(nb);
+    const checks: Record<number, BannerCheck> = {};
+    patchAuto({ phase: "checking", checks, error: undefined, failedAt: undefined });
+    try {
+      for (let i = 0; i < specs.length; i++) {
+        const img = artRef.current?.banners?.[i]?.image || (i === 0 ? artRef.current?.banner : "");
+        const reqs = reqsFor(i);
+        if (!img || !reqs.length) continue;
+        addLog(`Проверяю по ТЗ: ${specs[i].name}`);
+        let check = await checkByTz(img, reqs).catch(() => null);
+        if (!check) continue;
+        let fixed = false;
+        if (failedCritical(check, reqs).length || check.faceCovered) {
+          patchAuto({ phase: "fixing" });
+          addLog(`Исправляю «${specs[i].name}» — ${BANNER_PRICE_CREDITS} кр.`);
+          const img2 = await regenBanner(i, fixesFor(check, reqs, false)).catch(() => "");
+          if (img2) {
+            fixed = true;
+            check = (await checkByTz(img2, reqs).catch(() => null)) ?? check;
+          }
+          patchAuto({ phase: "checking" });
+        }
+        checks[i] = { check, fixed };
+        patchAuto({ checks: { ...checks } });
+      }
+    } finally {
+      patchAuto({ phase: "done" });
+    }
+  };
+  const patchCheck = (i: number, p: Partial<BannerCheck>) => {
+    const cs = autoRef.current?.checks ?? {};
+    if (cs[i]) patchAuto({ checks: { ...cs, [i]: { ...cs[i], ...p } } });
+  };
+  /** «Попробовать ещё» у баннера: исправить всё, что не прошло, и проверить снова. */
+  const retryBanner = async (i: number) => {
+    const c = autoRef.current?.checks?.[i];
+    if (!c) return;
+    const reqs = reqsFor(i);
+    patchCheck(i, { busy: true });
+    try {
+      const img = await regenBanner(i, fixesFor(c.check, reqs, true));
+      const check = (await checkByTz(img, reqs).catch(() => null)) ?? c.check;
+      patchCheck(i, { check, fixed: true, busy: false });
+    } catch (e) {
+      patchCheck(i, { busy: false });
+      toast.error(e instanceof Error ? e.message : "Не удалось перерисовать баннер");
+    }
+  };
+  /** Правка словами — к стилю всей кампании: тема дополняется правкой, вся графика рисуется заново. */
+  const editStyle = (text: string) => {
+    if (!roll || runningRef.current) return;
+    const theme = `${roll.theme}. Client correction (apply to every image): ${text}`.slice(0, 700);
+    const nr = { ...roll, theme };
+    setRoll(nr);
+    setB((p) => ({ ...p, tzPlan: p.tzPlan ? { ...p.tzPlan, visual: theme } : p.tzPlan }));
+    setArt((a) => (a ? { ...a, theme } : a));
+    const d = autoRef.current?.d;
+    patchAuto({ checks: undefined, log: [...(autoRef.current?.log ?? []), `Правка стиля: ${text}`], ...(d ? { d: { ...d, roll: nr } } : {}) });
+    setPendingRun({ simple: true });
+  };
+
+  // Снимок автопилота — переживает перезагрузку (пишем после попытки восстановить).
+  const snapReady = useRef(false);
+  useEffect(() => {
+    if (snapReady.current) void saveAutoSnapshot("campaign", auto ? { ...auto, log: [] } : null);
+  }, [auto]);
+  // При открытии: передача ТЗ из другого инструмента, иначе — прошлый запуск.
+  const simpleInit = useRef(false);
+  useEffect(() => {
+    if (simpleInit.current) return;
+    simpleInit.current = true;
+    void (async () => {
+      const h = await takeTzHandoff("campaign").catch(() => null);
+      if (h) {
+        snapReady.current = true;
+        setToolMode("simple");
+        if (h.understood.job.product !== "campaign") return void runSimple(h.input);
+        void rememberLastTz(h.input, "campaign", "Кампания");
+        startAuto({ phase: "planning", input: h.input, log: ["ТЗ уже понято в другом инструменте"] });
+        try {
+          await prepareSimple(h.understood, h.input);
+          patchAuto({ phase: "review" });
+        } catch (e) {
+          failAuto("planning", e);
+        }
+        return;
+      }
+      let a = await loadAutoSnapshot<CampaignAuto>("campaign").catch(() => null);
+      snapReady.current = true;
+      if (!a || autoRef.current) return;
+      // Посреди работы: графику, возможно, доводит серверная очередь — ждём её; остальное прервано.
+      if (!["done", "error", "review"].includes(a.phase) && !(a.phase === "generating" && runningRef.current))
+        a = { ...a, phase: "error", failedAt: a.phase, error: "Прервано перезагрузкой" };
+      startAuto(a);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Цена запуска по плану: графика отмеченных частей и шапка письма. */
+  const simpleBgOnly = b.landing !== "scene" && !doPlayable;
+  const simpleSteps = simpleMode && roll && auto ? luckySteps(simpleBgOnly) : [];
+  const creditsOf = (pre: string) => simpleSteps.filter((s) => s.id.startsWith(pre)).reduce((n, s) => n + s.credits, 0);
+  const simpleBanners = simpleSteps.filter((s) => s.id.startsWith("banner")).length;
+  const simpleCost = simpleSteps.reduce((n, s) => n + s.credits, 0) + (parts.email && simpleSteps.length ? EMAIL_HERO_PRICE_CREDITS : 0);
+  const simpleCostNote =
+    [
+      creditsOf("s-") ? `графика игры ${creditsOf("s-")}` : "",
+      creditsOf("x-") ? `картинки блоков лендинга ${creditsOf("x-")}` : "",
+      simpleBanners ? `${parts.banner ? "баннеры" : "баннер — основа шапки"} ${simpleBanners} × ${BANNER_PRICE_CREDITS}` : "",
+      parts.email ? `шапка письма ${EMAIL_HERO_PRICE_CREDITS}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") +
+    (parts.banner ? `. Баннер не прошёл проверку по текстам ТЗ — одна перегенерация, ${BANNER_PRICE_CREDITS} кр.` : ".") +
+    " Тексты и сборка — бесплатно.";
+
+  /** Смета до разбора: вся кампания на типичной сцене этого типа трафика, один баннер и шапка письма. */
   const simpleEstimate = (() => {
     if (!simpleMode) return "";
     const r: LuckyRoll = { scene: LUCKY_SCENES[b.kind][0], theme: "", themeName: "" };
     const all = stepsFor(r, { landing: true, playable: showPlayable, email: true, banner: true }, briefBannerSpecs({ ...b, banners: [] }));
     const sum = all.reduce((s, st) => s + st.credits, 0) + EMAIL_HERO_PRICE_CREDITS;
-    return `Вся кампания ≈ ${sum} кр.: графика игры, картинки блоков лендинга, баннер (${BANNER_PRICE_CREDITS} кр. за каждый размер из ТЗ) и шапка письма. Меньше частей — дешевле; тексты и сборка — бесплатно.`;
+    return `Вся кампания ≈ ${sum} кр. Точную цену по вашему ТЗ покажу перед запуском — ничего не спишется, пока не нажмёте «Запускаем».`;
   })();
 
   // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
@@ -940,9 +1172,21 @@ export function CampaignApp() {
             showPlayable={showPlayable}
             brief={b}
             run={{ steps: lucky.steps, running: lucky.running, notEnough: lucky.notEnough }}
+            cost={simpleCost}
+            costNote={simpleCostNote}
+            bannerImages={(art?.banners?.length ? art.banners : [{ image: art?.banner ?? "" }]).map((x) => x?.image || undefined)}
+            bannerCost={BANNER_PRICE_CREDITS}
+            editCost={simpleCost}
             onRun={(i) => void runSimple(i)}
+            onConfirm={(c) => void confirmSimple(c)}
+            onEditTz={() => startAuto(null)}
+            onRetry={retrySimple}
             onCancel={lucky.cancel}
             onDownload={() => void downloadAll()}
+            onRetryBanner={(i) => void retryBanner(i)}
+            onAcceptBanner={(i) => patchCheck(i, { accepted: true })}
+            onEditStyle={editStyle}
+            reqsFor={reqsFor}
             zipping={zipping}
           />
         ) : (

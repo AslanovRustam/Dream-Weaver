@@ -21,7 +21,7 @@ import { paletteFromImage, type ImagePalette } from "@/lib/imagePalette";
 export type CampaignTicks = Record<CampaignPart, boolean>;
 
 /** Баннер кампании из ТЗ: сверх общего задания — шаблон, подзаголовок и кнопка. */
-export type SimpleBannerSpec = BannerSpec & { presetId?: string; sub?: string; cta?: string };
+export type SimpleBannerSpec = BannerSpec & { presetId?: string; sub?: string; cta?: string; /** id требований ТЗ — по ним проверяем баннер. */ req?: string[] };
 
 export type PartDecision = {
   id: CampaignPart;
@@ -65,6 +65,7 @@ function bannerSpecs(job: TzJob, lang: string): SimpleBannerSpec[] {
     presetId: bn.presetId,
     sub: bn.sub ? humanizeOffer(bn.sub, lang).slice(0, 80) : "",
     cta: bn.cta.slice(0, 24),
+    req: bn.requirementIds,
   }));
   if (specs.length === 1) {
     for (const sz of job.sizes) {

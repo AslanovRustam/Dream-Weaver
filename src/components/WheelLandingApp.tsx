@@ -45,7 +45,7 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
-import { JobRow } from "@/components/simple/TzJobCard";
+import { MECHANIC_EXAMPLES } from "@/components/mechanics/simple/mechanics";
 import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
 import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
 import { offerParts, pickList, type MechanicPlan } from "@/components/mechanics/simple/plan";
@@ -568,6 +568,8 @@ export function WheelLandingApp() {
   };
   const autopilot = useMechanicAutopilot({
     mechanic: "wheel",
+    label: "Колесо фортуны",
+    art: () => [],
     kind: "casino",
     setMode: setToolMode,
     fields: ({ offer, raw }) => {
@@ -584,8 +586,9 @@ export function WheelLandingApp() {
     },
     current: () => ({ extras, cta: ctaText }),
     apply: applyPlan,
-    startArt: async () => {
-      await assetRun.start(assetSteps());
+    // Правка — только задетые картинки (id шага или префикс «char-»).
+    startArt: async (only) => {
+      await assetRun.start(assetSteps().filter((st) => !only || only.some((k) => st.id === k || (k.endsWith("-") && st.id.startsWith(k)))));
     },
   });
   const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
@@ -700,24 +703,29 @@ export function WheelLandingApp() {
         <ModeSwitch mode={toolMode} onChange={setToolMode} />
         {toolMode === "simple" ? (
           <SimpleMechanicPanel
+            tool="wheel"
             auto={autopilot.auto}
             busy={autopilot.busy || genning || charGenning !== null}
             estimate={simpleEstimate}
-            onRun={autopilot.run}
+            examples={MECHANIC_EXAMPLES.wheel}
             artLabel="фон, персонажи, картинки блоков"
+            rows={(p) => [
+              {
+                label: "Сектора",
+                value: `${wheelPrizes(p)
+                  .map((s) => [s.label, s.sub].filter(Boolean).join(" "))
+                  .join(", ")} — выпадает первый`,
+              },
+            ]}
             art={assetRun}
+            image={bgImage}
+            editCost={autopilot.editCost}
+            onRun={autopilot.run}
+            onApprove={autopilot.approve}
+            onBack={autopilot.backToInput}
+            onRetry={autopilot.retry}
+            onEdit={autopilot.edit}
             onDownload={exportHtml}
-            rows={
-              <JobRow label="Сектора">
-                {prizes.map((s, i) => (
-                  <span key={i} className={s.enabled !== false ? "font-semibold text-accent-green" : ""}>
-                    {i ? ", " : ""}
-                    {[s.label, s.sub].filter(Boolean).join(" ")}
-                  </span>
-                ))}
-                <span className="text-muted-foreground"> — выпадают выделенные</span>
-              </JobRow>
-            }
           />
         ) : (
         <>

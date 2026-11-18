@@ -37,10 +37,10 @@ import { BannerReferenceField } from "@/components/landing/BannerReferenceField"
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
 import { ModeSwitch } from "@/components/simple/ModeSwitch";
 import { useToolMode } from "@/components/simple/useToolMode";
-import { JobRow } from "@/components/simple/TzJobCard";
+import { MECHANIC_EXAMPLES, slotAttempts } from "@/components/mechanics/simple/mechanics";
 import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
 import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
-import { offerParts, type MechanicPlan } from "@/components/mechanics/simple/plan";
+import type { MechanicPlan } from "@/components/mechanics/simple/plan";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
@@ -702,9 +702,7 @@ export function SlotLandingApp() {
     setSymbolTheme(p.icon || p.topic);
     // Игра из ТЗ (скрин слота) — референс иконок символов.
     setSymbolRef(p.mainRef);
-    // Выигрыши по попыткам — части оффера дословно; без оффера — бонус от копирайтера.
-    const parts = offerParts(p.offer);
-    setAttempts(parts.length ? parts : [p.scene.win || ""]);
+    setAttempts(slotAttempts(p));
     if (wantArt) {
       // Картинки прошлой темы не к этому ТЗ — сборка нарисует новые.
       setCharImages({ left: "", right: "" });
@@ -713,14 +711,17 @@ export function SlotLandingApp() {
   };
   const autopilot = useMechanicAutopilot({
     mechanic: "slot",
+    label: "Слот-машина",
+    art: (p) => (p.icon || p.topic ? [{ id: "symbols", label: "иконки символов", credits: SYMBOLS_PRICE }] : []),
     kind: "casino",
     setMode: setToolMode,
     icon: true,
     fields: ({ offer }) => [{ key: "win", label: "bonus won on the slot, <=24 chars", value: offer.slice(0, 24) || "100% BONUS" }],
     current: () => ({ extras, cta: ctaText }),
     apply: applyPlan,
-    startArt: async () => {
-      await assetRun.start(assetSteps());
+    // Правка — только задетые картинки (id шага или префикс «char-»).
+    startArt: async (only) => {
+      await assetRun.start(assetSteps().filter((st) => !only || only.some((k) => st.id === k || (k.endsWith("-") && st.id.startsWith(k)))));
     },
   });
   const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
@@ -837,19 +838,25 @@ export function SlotLandingApp() {
         <ModeSwitch mode={toolMode} onChange={setToolMode} />
         {toolMode === "simple" ? (
           <SimpleMechanicPanel
+            tool="slot"
             auto={autopilot.auto}
             busy={autopilot.busy || genning || charGenning !== null || symbolsGenning}
             estimate={simpleEstimate}
-            onRun={autopilot.run}
+            examples={MECHANIC_EXAMPLES.slot}
             artLabel="фон, персонажи, иконки символов, картинки блоков"
+            rows={(p) => [
+              { label: "Выигрыши по попыткам", value: slotAttempts(p).filter(Boolean).join(" → ") || "—" },
+              ...(p.icon ? [{ label: "Иконки символов", value: p.icon }] : []),
+            ]}
             art={assetRun}
+            image={bgImage}
+            editCost={autopilot.editCost}
+            onRun={autopilot.run}
+            onApprove={autopilot.approve}
+            onBack={autopilot.backToInput}
+            onRetry={autopilot.retry}
+            onEdit={autopilot.edit}
             onDownload={exportHtml}
-            rows={
-              <>
-                <JobRow label="Выигрыши по попыткам">{attempts.filter(Boolean).join(" → ") || "—"}</JobRow>
-                {symbolTheme ? <JobRow label="Иконки символов">{symbolTheme}</JobRow> : null}
-              </>
-            }
           />
         ) : (
         <>
