@@ -207,7 +207,10 @@ async function openLink(url: string): Promise<{ info: TzLinkInfo; images: TzImag
   }
 }
 
-export async function ingestTz(input: TzInput): Promise<TzBundle> {
+/** Ход разбора — короткие строки по-русски («Открыл olymp-csn.com — «Olymp»»), для живого прогресса. */
+export type TzEvent = (message: string) => void;
+
+export async function ingestTz(input: TzInput, onEvent: TzEvent = () => {}): Promise<TzBundle> {
   const sources: TzSource[] = [];
   const images: TzImage[] = [];
   const texts: string[] = [];
@@ -230,9 +233,11 @@ export async function ingestTz(input: TzInput): Promise<TzBundle> {
         const good = d.images.filter((i) => okImage(i.buf, i.mime));
         good.forEach((i) => images.push({ id: "", src: toDataUrl(i.buf, i.mime), from: `файл ${name}` }));
         sources.push({ kind: "file", name, ok: true, note: good.length ? `картинок внутри: ${good.length}` : undefined });
+        onEvent(`Прочитал ${name}${good.length ? ` — картинок внутри: ${good.length}` : ""}`);
       } else if (lower.endsWith(".pdf") && kind === "pdf") {
         texts.push(`[Файл ${name}]\n${await extractPdf(buf)}`);
         sources.push({ kind: "file", name, ok: true, note: "картинки из PDF пока не берём — приложите их отдельно" });
+        onEvent(`Прочитал ${name}`);
       } else if (/\.(png|jpe?g|webp|gif)$/.test(lower)) {
         const mime = lower.endsWith(".png") ? "image/png" : lower.endsWith(".webp") ? "image/webp" : lower.endsWith(".gif") ? "image/gif" : "image/jpeg";
         if (buf.length <= MAX_IMAGE_BYTES) images.push({ id: "", src: toDataUrl(buf, mime), from: `файл ${name}` });
@@ -257,7 +262,26 @@ export async function ingestTz(input: TzInput): Promise<TzBundle> {
 
   // Ссылки — из всего текста (и из файлов тоже), параллельно.
   const urls = findLinks(texts.join("\n"));
-  const opened = await Promise.all(urls.map(openLink));
+  if (urls.length) onEvent(`Открываю ссылки: ${urls.length}`);
+  const opened = await Promise.all(
+    urls.map((u) =>
+      openLink(u).then((o) => {
+        const host = (() => {
+          try {
+            return new URL(o.info.url).host.replace(/^www\./, "");
+          } catch {
+            return o.info.url;
+          }
+        })();
+        onEvent(
+          o.info.ok
+            ? `Открыл ${host}${o.info.kind === "image" ? " — картинка-референс" : o.info.name ? ` — «${o.info.name}»` : ""}${o.images.length && o.info.kind === "page" ? `, взял картинок: ${o.images.length}` : ""}`
+            : `${host} не открылся: ${o.info.error ?? "ошибка"}`,
+        );
+        return o;
+      }),
+    ),
+  );
   const links = opened.map((o) => o.info);
   for (const o of opened) {
     images.push(...o.images);

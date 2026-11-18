@@ -61,6 +61,8 @@ export type TzJob = {
   requirements: TzRequirement[];
   cannot: string[];
   assumptions: string[];
+  /** Вопросы по критичным пробелам ТЗ — задать до запуска (0–2). */
+  questions: TzQuestion[];
   /** Для какого инструмента понято задание. */
   product: TzProduct;
   /** Решения, своё у каждого инструмента (см. src/lib/tz/plans). */
@@ -68,6 +70,17 @@ export type TzJob = {
 };
 
 export type TemplateInfo = { id: string; name: string; description: string };
+
+export type TzQuestion = {
+  id: string;
+  /** По-русски, коротко: «В ТЗ нет оффера — что написать на креативе?» */
+  text: string;
+  field: "offer" | "language" | "brand" | "cta" | "other";
+  /** 2–3 готовых ответа по-русски. */
+  options: string[];
+  /** Можно ли ответить своим текстом. */
+  custom: boolean;
+};
 
 const SIZE_GROUPS = BANNER_SIZE_GROUPS.map((g) => `${g.id} — ${g.title}${g.subtitle ? ` (${g.subtitle})` : ""}`).join("\n");
 
@@ -93,11 +106,12 @@ const SYSTEM = (templates: TemplateInfo[], spec: TzPlanSpec) =>
     "  exact: ONLY for text that must literally appear on the creative — the string EXACTLY as it must be printed, in the creatives' language (e.g. the localized offer numbers «100% … 5 000 000 so‘m», the CTA, «18+»). Empty for everything else (language, style, formats, brand colours).",
     "- cannot: what we cannot do as written (video, animation timing, exact fonts, licensed characters…), Russian.",
     "- assumptions: what the brief does not say and you decided (Russian), so the client sees it.",
+    "- questions: 0–2 questions ONLY for critical gaps that would make the creatives wrong or useless if guessed: a promo brief with no offer at all, an unclear target language/geo, contradicting requirements. NOT for style, colours, sizes or anything you can decide well yourself. Each {id, text (Russian, short), field: offer|language|brand|cta|other, options (2–3 short Russian answers; for a missing offer include one like «Без оффера — только бренд»), custom (true if a typed answer makes sense)}. The CLARIFICATIONS block, when present, already answers earlier questions — then ask nothing again.",
     "Never invent an offer, brand or numbers the brief does not contain — put it into assumptions instead and keep texts generic.",
     "",
     spec.banners && templates.length ? "TEMPLATE CATALOG (id — name: description):\n" + templates.map((t) => `${t.id} — ${t.name}: ${t.description}`).join("\n") + "\n" : "",
     spec.banners ? "RESIZE GROUPS:\n" + SIZE_GROUPS + "\n" : "",
-    "Return STRICT JSON with exactly these keys: summary, language, geo, audience, brand{name,site,colors}, offer, legal[], style{direction,palette,mood}, images[{id,role,note}], links[{url,role,note}], banners[{name,aspect,headline,sub,cta,visual,presetId,presetWhy,mainRefId,requirementIds}], sizes[{w,h,label}], sizeGroups[], requirements[{id,text,kind,exact}], cannot[], assumptions[], plan.",
+    "Return STRICT JSON with exactly these keys: summary, language, geo, audience, brand{name,site,colors}, offer, legal[], style{direction,palette,mood}, images[{id,role,note}], links[{url,role,note}], banners[{name,aspect,headline,sub,cta,visual,presetId,presetWhy,mainRefId,requirementIds}], sizes[{w,h,label}], sizeGroups[], requirements[{id,text,kind,exact}], cannot[], assumptions[], questions[], plan.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -200,6 +214,19 @@ export function normalizeJob(
     requirements,
     cannot: arr(j.cannot, (x) => s(x, 240) || null, 10),
     assumptions: arr(j.assumptions, (x) => s(x, 240) || null, 10),
+    questions: arr<TzQuestion>(j.questions, (x) => {
+      const q = o(x);
+      const text = s(q.text, 200);
+      const fields = ["offer", "language", "brand", "cta", "other"];
+      if (!text) return null;
+      return {
+        id: s(q.id, 12) || "q",
+        text,
+        field: (fields.includes(String(q.field)) ? q.field : "other") as TzQuestion["field"],
+        options: arr(q.options, (y) => s(y, 80) || null, 3),
+        custom: q.custom !== false,
+      };
+    }, 2).map((q, i) => ({ ...q, id: `q${i + 1}` })),
     product,
     plan: (() => {
       const raw = o(j.plan);

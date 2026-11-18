@@ -10,7 +10,20 @@
 import { idbGet, idbSet } from "@/lib/idbStore";
 import type { TzRunInput, TzUnderstood } from "./client";
 
-export type TzHandoffTarget = "wheel" | "slot" | "crash" | "match" | "scene" | "blocks" | "playable" | "gif" | "email" | "banner";
+export type TzHandoffTarget =
+  | "wheel"
+  | "slot"
+  | "crash"
+  | "match"
+  | "scene"
+  | "blocks"
+  | "landing"
+  | "playable"
+  | "gif"
+  | "email"
+  | "banner"
+  | "bannerLayers"
+  | "campaign";
 
 export type TzHandoff = {
   target: TzHandoffTarget;
