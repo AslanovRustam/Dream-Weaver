@@ -36,6 +36,8 @@ import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
 import { SimpleBannerPanel, type AutoState, type SimpleInput } from "./banner/SimpleBannerPanel";
+import { ModeSwitch } from "./simple/ModeSwitch";
+import { useToolMode } from "./simple/useToolMode";
 import { BANNER_SIZE_GROUPS, type BannerSize } from "@/lib/bannerSizes";
 import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
 import type { TzBanner, TzJob } from "@/lib/tz/understand";
@@ -1284,27 +1286,8 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   }, [pendingBriefGen, prompt, status]);
 
   // ---- Простой режим: ТЗ → движок ТЗ → баннер → проверка → ресайзы ----------
-  // Режим у каждого инструмента свой. Новичку — простой; у кого уже есть
-  // выбранный шаблон (работал в генераторе) — привычный продвинутый.
-  const modeKey = resizeMode === "layers" ? "dw_mode_bannerLayers" : "dw_mode_banner";
-  const [toolMode, setToolModeState] = useState<"simple" | "advanced">("advanced");
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem(modeKey);
-      const used = window.localStorage.getItem("dw_preset") || window.localStorage.getItem("dw_preset_layers");
-      setToolModeState(v === "simple" || v === "advanced" ? v : used ? "advanced" : "simple");
-    } catch {
-      /* ignore */
-    }
-  }, [modeKey]);
-  const setToolMode = (m: "simple" | "advanced") => {
-    setToolModeState(m);
-    try {
-      window.localStorage.setItem(modeKey, m);
-    } catch {
-      /* ignore */
-    }
-  };
+  // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
+  const [toolMode, setToolMode] = useToolMode(resizeMode === "layers" ? "bannerLayers" : "banner");
   const simpleMode = toolMode === "simple";
 
   const [auto, setAuto] = useState<AutoState | null>(null);
@@ -1392,6 +1375,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       const r = await apiJson<{ job: TzJob; images: TzImage[]; links: TzLinkInfo[]; sources: TzSource[] }>("/api/tz/understand", {
         method: "POST",
         body: JSON.stringify({
+          product: resizeMode === "layers" ? "bannerLayers" : "banner",
           text: input.text,
           files: input.files,
           images: input.images,
@@ -1547,25 +1531,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
-              <div className="flex overflow-hidden rounded-lg border border-border text-sm" role="tablist" aria-label="Режим">
-                {(
-                  [
-                    { id: "simple", label: "Простой" },
-                    { id: "advanced", label: "Продвинутый" },
-                  ] as const
-                ).map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={toolMode === m.id}
-                    onClick={() => setToolMode(m.id)}
-                    className={`flex-1 px-3 py-2 transition ${toolMode === m.id ? "bg-white/10 font-medium text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+              <ModeSwitch mode={toolMode} onChange={setToolMode} />
               {simpleMode ? (
                 <SimpleBannerPanel
                   auto={auto}

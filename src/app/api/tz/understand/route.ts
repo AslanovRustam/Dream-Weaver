@@ -1,7 +1,7 @@
 // POST /api/tz/understand — движок ТЗ: собрать всё из ТЗ и понять задачу.
 //
-// Body: { text?, files?: [{name, base64}], images?: string[] (data URL),
-//         templates: [{id, name, description}] }  — каталог шаблонов шлёт клиент
+// Body: { product?: TzProduct (по умолчанию banner), text?, files?: [{name, base64}],
+//         images?: string[] (data URL), templates?: [{id, name, description}] }  — каталог шаблонов шлёт клиент
 //         (он живёт в клиентском модуле), сервер выбирает из него.
 // Response: { job: TzJob, images: TzImage[], links: TzLinkInfo[], sources: TzSource[] }
 // Кредиты не списываются (текстовый запрос); лимит — на пользователя.
@@ -9,6 +9,7 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { ingestTz } from "@/lib/tz/ingest";
 import { TZ_MODEL, understandTz, type TemplateInfo } from "@/lib/tz/understand";
+import { TZ_PLANS, TZ_PRODUCTS, type TzProduct } from "@/lib/tz/plans";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   if (rl) return rl;
   const big = rejectLargeBody(request, 40 * 1024 * 1024);
   if (big) return big;
-  let body: { text?: unknown; files?: unknown; images?: unknown; templates?: unknown };
+  let body: { product?: unknown; text?: unknown; files?: unknown; images?: unknown; templates?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -50,7 +51,8 @@ export async function POST(request: Request) {
     }))
     .slice(0, 200);
   if (!text.trim() && !files.length && !images.length) return Response.json({ error: "Пустое ТЗ" }, { status: 400 });
-  if (!templates.length) return Response.json({ error: "Нет каталога шаблонов" }, { status: 400 });
+  const product: TzProduct = TZ_PRODUCTS.includes(body.product as TzProduct) ? (body.product as TzProduct) : "banner";
+  if (TZ_PLANS[product].banners && !templates.length) return Response.json({ error: "Нет каталога шаблонов" }, { status: 400 });
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
@@ -58,8 +60,8 @@ export async function POST(request: Request) {
     const bundle = await ingestTz({ text, files, images });
     if (!bundle.text && !bundle.images.length)
       return Response.json({ error: "Не удалось ничего прочитать из ТЗ", sources: bundle.sources }, { status: 422 });
-    const { job, usage } = await understandTz(bundle, templates, apiKey);
-    await recordUsage(user.id, { model: TZ_MODEL, feature: "tz-understand", type: "llm", ...extractUsage(usage, TZ_MODEL) });
+    const { job, usage } = await understandTz(bundle, templates, apiKey, product);
+    await recordUsage(user.id, { model: TZ_MODEL, feature: `tz-understand:${product}`, type: "llm", ...extractUsage(usage, TZ_MODEL) });
     return Response.json({ job, images: bundle.images, links: bundle.links, sources: bundle.sources });
   } catch (e) {
     console.error("[tz/understand]", e);
