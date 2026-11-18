@@ -4,6 +4,8 @@
 // готовая хореография из public/playable; здесь задаются тексты, сумма,
 // бренд, ссылка и сеть, а ИИ по желанию рисует фон и награду для попапа.
 // Превью — тот же файл, что уйдёт в сеть, только без сетевых скриптов.
+// Простой режим: ТЗ → движок ТЗ выбирает сцену, тексты, бренд, цвета и тему →
+// сразу рисуется графика; продвинутый — ручные настройки, как было.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -48,9 +50,18 @@ import type { UiPalette, WheelPalette } from "@/lib/scenes/presets";
 import { forgetProject, saveProject, sceneDraftKey } from "@/lib/projects";
 import { useProjectAutosave } from "@/lib/useProjectAutosave";
 import { useAuth } from "@/lib/auth-context";
+import { fetchBalance } from "@/components/AppHeader";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import type { ToolMode } from "@/components/simple/useToolMode";
+import { SimpleScenePanel, type SceneAutoState } from "@/components/playable/simple/SimpleScenePanel";
+import { planFromJob, type PlayablePlan } from "@/components/playable/simple/scenePlan";
+import { tzImageByRole, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import { takeTzHandoff } from "@/lib/tz/handoff";
+import type { TzJob } from "@/lib/tz/understand";
 import {
   DEFAULT_WIN_INDEX,
   SCENE_LANGS,
+  SCENES,
   sceneMeta,
   scenePartsFor,
   scenePreset,
@@ -188,9 +199,17 @@ export function SceneStudio({
   hiddenOnMobile,
   onBack,
   mode = "playable",
+  toolMode = "advanced",
+  onToolMode,
+  onPickScene,
 }: {
   scene: SceneId;
   mode?: StudioMode;
+  /** Простой / продвинутый режим (держит страница: в простом она прячет каталог). */
+  toolMode?: ToolMode;
+  onToolMode?: (m: ToolMode) => void;
+  /** Автопилот выбрал сцену — переключить шаблон так же, как это делает каталог. */
+  onPickScene?: (scene: SceneId) => void;
   /** Бренд из основного генератора — стартовое значение для нового черновика. */
   brandName: string;
   brandLogo: string;
@@ -519,6 +538,157 @@ export function SceneStudio({
     if (assetRun.running) return toast("Дождитесь текущей генерации");
     void assetRun.start([stepFor(part)]);
   };
+
+  // ---- Простой режим: ТЗ → движок ТЗ → сцена, тексты, бренд, цвета → ИИ-графика
+  const simple = toolMode === "simple";
+  const [auto, setAuto] = useState<SceneAutoState | null>(null);
+  const autoRef = useRef<SceneAutoState | null>(null);
+  const patchAuto = (p: Partial<SceneAutoState>) => {
+    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
+    autoRef.current = next;
+    setAuto(next);
+  };
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  /** Решение ждёт, пока студия переключится на выбранную сцену и подхватит её черновик. */
+  const [pendingPlan, setPendingPlan] = useState<{ plan: PlayablePlan; job: TzJob; logo: string; offer: string; sub: string } | null>(null);
+  /** Черновик разложен — графику запускаем, когда тема уже в нём (шаги берут её из черновика). */
+  const [autoArt, setAutoArt] = useState<{ scene: SceneId; theme: string } | null>(null);
+
+  /** Понятое ТЗ + план → бренд-лого готовим заранее, сцену переключаем, раскладка — в эффекте ниже. */
+  const decide = async (u: TzUnderstood, plan: PlayablePlan, decided?: Record<string, unknown>) => {
+    patchAuto({ phase: "planning", u, plan });
+    const logoSrc = tzImageByRole(u, "brand");
+    const logo = logoSrc ? await shrinkPng(logoSrc, 560).catch(() => "") : "";
+    const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+    setPendingPlan({ plan, job: u.job, logo, offer: str(decided?.offer) || u.job.offer, sub: str(decided?.sub) });
+    // Всегда: замыкание могло застать старую сцену (передача приходит после того, как страница выбрала свою).
+    onPickScene?.(plan.scene);
+  };
+
+  const runAuto = async (input: TzRunInput) => {
+    if (isGuest) return openGate();
+    if (assetRun.running) return toast("Дождитесь текущей генерации");
+    const init: SceneAutoState = { phase: "reading", art: input.options.art !== false };
+    autoRef.current = init;
+    setAuto(init);
+    try {
+      const u = await understandTz(input, "playable");
+      await decide(u, planFromJob(u.job));
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+    }
+  };
+
+  // Лендинг-хаб (или кампания) уже понял ТЗ и выбрал сцену — забираем передачу и
+  // едем без повторного разбора. Ref, а не флаг в эффекте: в StrictMode эффект
+  // запускается дважды, а передача забирается один раз.
+  const handoffTaken = useRef(false);
+  useEffect(() => {
+    if (handoffTaken.current) return;
+    handoffTaken.current = true;
+    void takeTzHandoff(landing ? "scene" : "playable").then((h) => {
+      if (!h) return;
+      onToolMode?.("simple");
+      const init: SceneAutoState = { phase: "reading", art: h.input?.options?.art !== false, fromHub: true };
+      autoRef.current = init;
+      setAuto(init);
+      decide(h.understood, planFromJob(h.understood.job, h.decided), h.decided).catch((e) =>
+        patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось применить ТЗ" }),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Сцена выбрана и её черновик загружен (эффект черновика объявлен выше и идёт
+  // раньше) → раскладываем решение поверх чистого черновика сцены.
+  useEffect(() => {
+    if (!pendingPlan || pendingPlan.plan.scene !== scene || !restored) return;
+    const { plan, job, logo, offer, sub } = pendingPlan;
+    setPendingPlan(null);
+    const art = autoRef.current?.art ?? true;
+    const iso = (plan.language || job.language).slice(0, 2).toLowerCase();
+    // Готовых наборов четыре; на другом языке все тексты пишет план, а числа — по-английски.
+    const lang = (SCENE_LANGS.some((l) => l.id === iso) ? iso : "en") as SceneLang;
+    const theme = plan.theme || meta.bgTheme;
+    // Цвет бренда — главнее; без него и без графики — палитра стиля, иначе гамма по нарисованному фону.
+    const color = job.brand.colors[0] ?? (art ? undefined : job.style.palette[0]);
+    const rawSite = job.brand.site.trim();
+    const site = /^https?:\/\//i.test(rawSite) ? rawSite : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(rawSite) ? `https://${rawSite}` : "";
+    setD((prev) => {
+      const base = freshDraft(scene, lang, job.brand.name.slice(0, 32) || prev.brandName, logo || prev.logo);
+      let extras: LandingExtras | undefined;
+      if (landing) {
+        const x = defaultExtras(lang as LandingLang, kind);
+        extras = {
+          ...x,
+          legal: plan.legal || x.legal,
+          // Первая карточка бонусов — оффер из ТЗ: она же оффер первого экрана промо.
+          bonuses: offer
+            ? { ...x.bonuses, items: x.bonuses.items.map((it, i) => (i === 0 ? { ...it, title: humanizeOffer(offer, lang).slice(0, 60), text: sub.slice(0, 120) || it.text } : it)) }
+            : x.bonuses,
+        };
+      }
+      return {
+        ...base,
+        text: { ...base.text, ...plan.texts },
+        amount: plan.amount || base.amount,
+        unit: plan.unit || base.unit,
+        legal: plan.legal || base.legal,
+        prizes: plan.prizes.length ? plan.prizes : base.prizes,
+        winIndex: plan.prizes.length ? plan.winPrize : base.winIndex,
+        clickUrl: site || prev.clickUrl,
+        targets: plan.networks.length ? plan.networks : prev.targets.length ? prev.targets : base.targets,
+        theme,
+        pickColor: color,
+        extras,
+      };
+    });
+    if (art) {
+      patchAuto({ phase: "art" });
+      setAutoArt({ scene, theme });
+    } else patchAuto({ phase: "done" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPlan, scene, restored]);
+
+  // Тема легла в черновик → шаги графики собираются уже по ней; баланс — до старта.
+  useEffect(() => {
+    if (!autoArt || autoArt.scene !== scene || d.theme !== autoArt.theme) return;
+    setAutoArt(null);
+    const steps = assetSteps();
+    const credits = steps.reduce((sum, st) => sum + st.credits, 0);
+    void (async () => {
+      if (isGuest) {
+        openGate();
+        return patchAuto({ phase: "error", error: "Войдите, чтобы нарисовать графику — сцена и тексты уже готовы." });
+      }
+      if (assetRun.running) return patchAuto({ phase: "error", error: "Идёт прошлая генерация графики — дождитесь её и запустите заново ниже." });
+      const balance = await fetchBalance();
+      if (balance !== null && balance < credits) {
+        return patchAuto({
+          phase: "error",
+          error: `На графику нужно ${credits} кр., на балансе ${balance}. Сцена и тексты уже готовы — пополните баланс и запустите графику ниже.`,
+        });
+      }
+      try {
+        await assetRun.start(steps);
+        patchAuto({ phase: "done" });
+      } catch (e) {
+        patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось запустить графику" });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoArt, scene, d.theme]);
+
+  /** Смета до разбора: сцена ещё не выбрана — вилка по каталогу сцен. */
+  const artRange = useMemo(() => {
+    const c = SCENES.map((s) => scenePartsFor(s.id).reduce((sum, p) => sum + scenePartRequest(p, "", "").credits, 0));
+    return [Math.min(...c), Math.max(...c)] as const;
+  }, []);
+  const blocksCredits = landing ? extrasAssets.allSteps({ floaters: false }).reduce((sum, st) => sum + st.credits, 0) : 0;
+  const simpleEstimate =
+    `Разбор ТЗ — бесплатно. Графика ИИ ≈ ${artRange[0] === artRange[1] ? artRange[0] : `${artRange[0]}–${artRange[1]}`} кр. (зависит от сцены)` +
+    (landing && blocksCredits ? ` + блоки лендинга ≈ ${blocksCredits} кр.` : "") +
+    " Без галочки — только тексты и цвета.";
   /** Своя картинка вместо ИИ: для символов — до шести файлов. */
   const uploadPart = async (part: ScenePart, files: FileList | null) => {
     const list = Array.from(files ?? []).filter((file) => file.type.startsWith("image/") && file.size <= 8 * 1024 * 1024);
@@ -629,7 +799,7 @@ export function SceneStudio({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-1 text-sm text-muted-foreground transition hover:text-foreground lg:hidden"
+            className={`inline-flex min-h-11 items-center gap-1 rounded-lg px-1 text-sm text-muted-foreground transition hover:text-foreground lg:hidden ${simple ? "hidden" : ""}`}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -651,6 +821,32 @@ export function SceneStudio({
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-3">
+            {onToolMode ? <ModeSwitch mode={toolMode} onChange={onToolMode} className={simple ? "mb-2" : ""} /> : null}
+            {simple ? (
+              <SimpleScenePanel
+                auto={auto}
+                busy={autoBusy || assetRun.running}
+                landing={landing}
+                estimate={simpleEstimate}
+                onRun={(i) => void runAuto(i)}
+                clickUrl={d.clickUrl}
+                onClickUrl={(v) => set("clickUrl", v)}
+                urlRequired={landing || needsUrl}
+                artPanel={
+                  <AssetRunPanel
+                    title={assetRun.steps.length ? "Перерисовать графику" : "Нарисовать графику"}
+                    plan={assetSteps()}
+                    steps={assetRun.steps}
+                    running={assetRun.running}
+                    notEnough={assetRun.notEnough}
+                    credits={assetCredits}
+                    onStart={startAssets}
+                    onCancel={assetRun.cancel}
+                  />
+                }
+              />
+            ) : (
+            <>
             <SettingsSection
               title="Графика от ИИ"
               icon={<Sparkles className="h-4 w-4 text-accent-green" />}
@@ -980,7 +1176,8 @@ export function SceneStudio({
               </p>
             </SettingsSection>
             )}
-
+            </>
+            )}
           </div>
         </div>
       </section>

@@ -43,6 +43,12 @@ import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { JobRow } from "@/components/simple/TzJobCard";
+import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
+import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
+import { offerParts, pickList, type MechanicPlan } from "@/components/mechanics/simple/plan";
 
 const BG_PRICE = imageCredits(1);
 const CHAR_PRICE = CHARACTER_PRICE_CREDITS;
@@ -118,6 +124,13 @@ export function WheelLandingApp() {
   const [bannerRef, setBannerRef] = useState("");
 
   const [restored, setRestored] = useState(false);
+  // Простой / продвинутый режим. Цвет бренда из ТЗ держим, пока не перешли в продвинутый.
+  const [toolMode, setToolModeRaw, showToolMode] = useToolMode("wheel");
+  const accentLock = useRef(false);
+  const setToolMode = (m: typeof toolMode) => {
+    if (m === "advanced") accentLock.current = false;
+    setToolModeRaw(m);
+  };
   // Mount-time hydration (draft restore + banner-seed override, below) must
   // run EXACTLY once. React StrictMode double-invokes effects in dev; without
   // this guard, the second pass re-reads dw_wheel_draft (unchanged — the
@@ -236,6 +249,8 @@ export function WheelLandingApp() {
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
       setCharImages((c) => ({ ...c, left: "" }));
       window.localStorage.removeItem("dw:landingSeed");
+      // Пришли из баннера: всё заполнено из него — открываем заполненную форму, выбор режима не трогаем.
+      showToolMode("advanced");
 
       // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
       // Тексты, акцент и промпты перекрываем только тем, что модель реально
@@ -434,6 +449,8 @@ export function WheelLandingApp() {
   /** Фон от ИИ: ставим и подстраиваем акцент (кнопки, подсветку, блоки) под его цвет. */
   function setBgFromAi(img: string) {
     setBgImage(img);
+    // Цвет бренда из ТЗ (простой режим) главнее цвета фона.
+    if (accentLock.current) return;
     void paletteFromImage(img)
       .then((p) => setAccent(accentFromPalette(p)))
       .catch(() => {});
@@ -531,8 +548,57 @@ export function WheelLandingApp() {
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
+  // ---- Простой режим: ТЗ → тексты, сектора, бренд, язык → вся графика ----
+  const applyPlan = (p: MechanicPlan, wantArt: boolean) => {
+    accentLock.current = !!p.accent;
+    setExtras(p.extras);
+    setBrand(p.brand.name || "LOGO");
+    setBrandLogo(p.brand.logo);
+    if (p.accent) setAccent(p.accent);
+    if (p.headline) setHeadline(p.headline);
+    if (p.cta) setCtaText(p.cta);
+    setTopic(p.topic);
+    if (p.bg) setTheme(p.bg);
+    setBannerRef(p.ref);
+    setCharPrompts({ left: p.chars.left, right: p.chars.right });
+    setCharOn({ left: true, right: true });
+    // Персонажи прошлой темы не к этому ТЗ — сборка нарисует новых.
+    if (wantArt) setCharImages({ left: "", right: "" });
+    setPrizes(wheelPrizes(p));
+  };
+  const autopilot = useMechanicAutopilot({
+    mechanic: "wheel",
+    kind: "casino",
+    setMode: setToolMode,
+    fields: ({ offer, raw }) => {
+      const given = pickList(raw, ["prizes", "sectors", "segments"], 14);
+      const ex = (i: number) => given[i] ?? DEFAULT_PRIZES[i]?.label ?? "";
+      return [
+        { key: "p1", label: "WINNING sector = the main offer prize, <=12 chars", value: offerParts(offer)[0]?.slice(0, 14) || ex(0) },
+        { key: "q1", label: "caption under sector 1, <=8 chars, may be empty", value: "BONUS" },
+        ...[2, 3, 4, 5, 6].flatMap((n) => [
+          { key: `p${n}`, label: `sector ${n}: another prize or try again, <=12 chars`, value: ex(n - 1) },
+          { key: `q${n}`, label: "caption, <=8 chars, may be empty", value: DEFAULT_PRIZES[n - 1]?.sub ?? "" },
+        ]),
+      ];
+    },
+    current: () => ({ extras, cta: ctaText }),
+    apply: applyPlan,
+    startArt: async () => {
+      await assetRun.start(assetSteps());
+    },
+  });
+  const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
+  const simpleEstimate = `Графика ≈ ${BG_PRICE + CHAR_PRICE + extrasCredits}–${BG_PRICE + 2 * CHAR_PRICE + extrasCredits} кр.: фон, 1–2 персонажа, картинки блоков. Без галочки — только тексты, сектора и блоки.`;
+
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
+
+  const exportHtml = () =>
+    downloadAndSave(
+      `${slugify(brand, "wheel")}-wheel.html`,
+      buildWheelHtml({ extras, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, prizes, charLeft: chars.left, charRight: chars.right }),
+    );
 
   const renderCharSlot = (side: "left" | "right", title: string) => (
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
@@ -630,6 +696,31 @@ export function WheelLandingApp() {
             Геймифицированный лендинг: крутите колесо, выигрывайте бонус, ведите на регистрацию.
           </p>
         </header>
+
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+        {toolMode === "simple" ? (
+          <SimpleMechanicPanel
+            auto={autopilot.auto}
+            busy={autopilot.busy || genning || charGenning !== null}
+            estimate={simpleEstimate}
+            onRun={autopilot.run}
+            artLabel="фон, персонажи, картинки блоков"
+            art={assetRun}
+            onDownload={exportHtml}
+            rows={
+              <JobRow label="Сектора">
+                {prizes.map((s, i) => (
+                  <span key={i} className={s.enabled !== false ? "font-semibold text-accent-green" : ""}>
+                    {i ? ", " : ""}
+                    {[s.label, s.sub].filter(Boolean).join(" ")}
+                  </span>
+                ))}
+                <span className="text-muted-foreground"> — выпадают выделенные</span>
+              </JobRow>
+            }
+          />
+        ) : (
+        <>
 
         <div>
           <div className="mb-2 flex items-center gap-1.5">
@@ -878,28 +969,13 @@ export function WheelLandingApp() {
         <button
           data-tour="landing-export"
           type="button"
-          onClick={() =>
-            downloadAndSave(
-              `${slugify(brand, "wheel")}-wheel.html`,
-              buildWheelHtml({ extras, 
-                brand,
-                brandLogo,
-                headline,
-                accent,
-                dark,
-                ctaText,
-                ctaUrl,
-                bgImage,
-                prizes,
-                charLeft: chars.left,
-                charRight: chars.right,
-              }),
-            )
-          }
+          onClick={exportHtml}
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
         >
           <Download className="h-4 w-4" /> Скачать HTML
         </button>
+        </>
+        )}
       </div>
 
       <div className="lg:sticky lg:top-6 lg:h-fit">
@@ -950,6 +1026,21 @@ export function WheelLandingApp() {
       </div>
     </div>
   );
+}
+
+/** Сектора из ТЗ: список из плана, иначе от копирайтера; выпадает только первый — оффер. */
+function wheelPrizes(p: MechanicPlan): WheelSegment[] {
+  const fromPlan = pickList(p.raw, ["prizes", "sectors", "segments"], 14);
+  let list: WheelSegment[] =
+    fromPlan.length >= 3
+      ? fromPlan.slice(0, 12).map((label) => ({ label }))
+      : [1, 2, 3, 4, 5, 6].map((n) => ({ label: p.scene[`p${n}`] ?? "", sub: p.scene[`q${n}`] || undefined })).filter((s) => s.label);
+  if (list.length < 3) {
+    // Копирайтер не ответил — стандартные сектора, оффер выигрышным.
+    const win = offerParts(p.offer)[0]?.slice(0, 14);
+    list = win ? [{ label: win }, ...DEFAULT_PRIZES.filter((_, i) => i !== 1)] : DEFAULT_PRIZES;
+  }
+  return list.map((s, i) => ({ ...s, enabled: i === 0 }));
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

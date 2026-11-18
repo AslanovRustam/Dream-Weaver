@@ -10,7 +10,12 @@ export type ToolMode = "simple" | "advanced";
 
 const key = (tool: string) => `dw_mode_${tool}`;
 
-export function useToolMode(tool: string): [ToolMode, (m: ToolMode) => void] {
+/**
+ * [режим, выбрать режим (запоминается), показать режим только сейчас (не запоминается)].
+ * Третье — для входа с готовыми данными, например «Сделать лендинг» из баннера:
+ * их заполняет продвинутая форма, а выбор человека трогать нельзя.
+ */
+export function useToolMode(tool: string): [ToolMode, (m: ToolMode) => void, (m: ToolMode) => void] {
   const [mode, setModeState] = useState<ToolMode>("simple");
   useEffect(() => {
     try {
@@ -27,5 +32,5 @@ export function useToolMode(tool: string): [ToolMode, (m: ToolMode) => void] {
       /* ignore */
     }
   };
-  return [mode, setMode];
+  return [mode, setMode, setModeState];
 }

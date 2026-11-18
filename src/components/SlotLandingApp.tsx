@@ -35,6 +35,12 @@ import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { JobRow } from "@/components/simple/TzJobCard";
+import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
+import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
+import { offerParts, type MechanicPlan } from "@/components/mechanics/simple/plan";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
@@ -164,6 +170,13 @@ export function SlotLandingApp() {
   const [bannerRef, setBannerRef] = useState("");
 
   const [restored, setRestored] = useState(false);
+  // Простой / продвинутый режим. Цвет бренда из ТЗ держим, пока не перешли в продвинутый.
+  const [toolMode, setToolModeRaw, showToolMode] = useToolMode("slot");
+  const accentLock = useRef(false);
+  const setToolMode = (m: typeof toolMode) => {
+    if (m === "advanced") accentLock.current = false;
+    setToolModeRaw(m);
+  };
   // Mount-time hydration (draft restore + banner-seed override, below) must
   // run EXACTLY once. React StrictMode double-invokes effects in dev; without
   // this guard, the second pass re-reads dw_slot_draft (unchanged — the
@@ -280,6 +293,8 @@ export function SlotLandingApp() {
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
       setCharImages((c) => ({ ...c, left: "" }));
       window.localStorage.removeItem("dw:landingSeed");
+      // Пришли из баннера: всё заполнено из него — открываем заполненную форму, выбор режима не трогаем.
+      showToolMode("advanced");
 
       // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
       // Тексты, акцент и промпты перекрываем только тем, что модель реально
@@ -549,6 +564,8 @@ export function SlotLandingApp() {
   /** Фон от ИИ: ставим и подстраиваем акцент (кнопки, подсветку, блоки) под его цвет. */
   function setBgFromAi(img: string) {
     setBgImage(img);
+    // Цвет бренда из ТЗ (простой режим) главнее цвета фона.
+    if (accentLock.current) return;
     void paletteFromImage(img)
       .then((p) => setAccent(accentFromPalette(p)))
       .catch(() => {});
@@ -668,8 +685,55 @@ export function SlotLandingApp() {
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
 
+  // ---- Простой режим: ТЗ → тексты, бонусы по попыткам, бренд, язык → вся графика ----
+  const applyPlan = (p: MechanicPlan, wantArt: boolean) => {
+    accentLock.current = !!p.accent;
+    setExtras(p.extras);
+    setBrand(p.brand.name || "LOGO");
+    setBrandLogo(p.brand.logo);
+    if (p.accent) setAccent(p.accent);
+    if (p.headline) setHeadline(p.headline);
+    if (p.cta) setCtaText(p.cta);
+    setTopic(p.topic);
+    if (p.bg) setTheme(p.bg);
+    setBannerRef(p.ref);
+    setCharPrompts({ left: p.chars.left, right: p.chars.right });
+    setCharOn({ left: true, right: true });
+    setSymbolTheme(p.icon || p.topic);
+    // Игра из ТЗ (скрин слота) — референс иконок символов.
+    setSymbolRef(p.mainRef);
+    // Выигрыши по попыткам — части оффера дословно; без оффера — бонус от копирайтера.
+    const parts = offerParts(p.offer);
+    setAttempts(parts.length ? parts : [p.scene.win || ""]);
+    if (wantArt) {
+      // Картинки прошлой темы не к этому ТЗ — сборка нарисует новые.
+      setCharImages({ left: "", right: "" });
+      setSymbols((prev) => prev.map(({ symbol }) => ({ symbol })));
+    }
+  };
+  const autopilot = useMechanicAutopilot({
+    mechanic: "slot",
+    kind: "casino",
+    setMode: setToolMode,
+    icon: true,
+    fields: ({ offer }) => [{ key: "win", label: "bonus won on the slot, <=24 chars", value: offer.slice(0, 24) || "100% BONUS" }],
+    current: () => ({ extras, cta: ctaText }),
+    apply: applyPlan,
+    startArt: async () => {
+      await assetRun.start(assetSteps());
+    },
+  });
+  const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
+  const simpleEstimate = `Графика ≈ ${BG_PRICE + CHAR_PRICE + SYMBOLS_PRICE + extrasCredits}–${BG_PRICE + 2 * CHAR_PRICE + SYMBOLS_PRICE + extrasCredits} кр.: фон, 1–2 персонажа, иконки символов, картинки блоков. Без галочки — только тексты, бонусы и блоки.`;
+
   const inputCls =
     "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
+
+  const exportHtml = () =>
+    downloadAndSave(
+      `${slugify(brand, "slot")}-slot.html`,
+      buildSlotHtml({ extras, brand, brandLogo, headline, accent, dark, ctaText, ctaUrl, bgImage, symbols, attempts, charLeft: chars.left, charRight: chars.right }),
+    );
 
   const renderCharSlot = (side: "left" | "right", title: string) => (
     <div className="rounded-lg border border-border/60 bg-background/40 p-2.5">
@@ -769,6 +833,26 @@ export function SlotLandingApp() {
             Геймифицированный лендинг: крутите барабаны, ловите три в ряд, ведите на регистрацию.
           </p>
         </header>
+
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+        {toolMode === "simple" ? (
+          <SimpleMechanicPanel
+            auto={autopilot.auto}
+            busy={autopilot.busy || genning || charGenning !== null || symbolsGenning}
+            estimate={simpleEstimate}
+            onRun={autopilot.run}
+            artLabel="фон, персонажи, иконки символов, картинки блоков"
+            art={assetRun}
+            onDownload={exportHtml}
+            rows={
+              <>
+                <JobRow label="Выигрыши по попыткам">{attempts.filter(Boolean).join(" → ") || "—"}</JobRow>
+                {symbolTheme ? <JobRow label="Иконки символов">{symbolTheme}</JobRow> : null}
+              </>
+            }
+          />
+        ) : (
+        <>
 
         <div>
           <label className="mb-2 block ds-h4">
@@ -1126,29 +1210,13 @@ export function SlotLandingApp() {
         <button
           data-tour="landing-export"
           type="button"
-          onClick={() =>
-            downloadAndSave(
-              `${slugify(brand, "slot")}-slot.html`,
-              buildSlotHtml({ extras, 
-                brand,
-                brandLogo,
-                headline,
-                accent,
-                dark,
-                ctaText,
-                ctaUrl,
-                bgImage,
-                symbols,
-                attempts,
-                charLeft: chars.left,
-                charRight: chars.right,
-              }),
-            )
-          }
+          onClick={exportHtml}
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)]"
         >
           <Download className="h-4 w-4" /> Скачать HTML
         </button>
+        </>
+        )}
       </div>
 
       <div className="lg:sticky lg:top-6 lg:h-fit">

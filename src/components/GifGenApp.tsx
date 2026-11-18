@@ -18,20 +18,32 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuthGate } from "@/components/AuthGate";
+import { PRESETS } from "@/components/PresetSidebar";
+import { SimpleGifPanel, type GifAutoState } from "@/components/gif/SimpleGifPanel";
 import { GifDialog } from "@/components/resize/GifDialog";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
 import { apiJson } from "@/lib/api-client";
 import { gifLayersFor, type LayeredCtx, type SavedLayers } from "@/lib/bannerLayersRun";
 import type { LayerSource } from "@/lib/bannerLayers";
-import { buildGif, toDataUrl } from "@/lib/gifRender";
+import { estimateBannerCredits } from "@/lib/credit-estimate";
+import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
+import { buildGif, slidesOf, toDataUrl } from "@/lib/gifRender";
 import {
   GIF_DEFAULT_SIZES,
   GIF_NETWORKS,
   GIF_NETWORK_BY_ID,
   GIF_SIZE_GROUPS,
   type GifCheck,
+  type GifMode,
+  type GifNetwork,
   type GifNetworkId,
 } from "@/lib/gifNetworks";
-import type { GeneratePayload } from "@/lib/imageGen";
+import { generateImage, type GeneratePayload } from "@/lib/imageGen";
+import { checkByTz, tzImage, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import { takeTzHandoff } from "@/lib/tz/handoff";
+import { normalizeGifPlan, type GifTzPlan } from "@/lib/tz/plans/gif";
 
 type CardItem = {
   id: string;
@@ -68,8 +80,29 @@ function savedNetwork(): GifNetworkId {
   return "google";
 }
 
+/** Каталог шаблонов для движка ТЗ — как у баннер-генератора (спорт-шаблону нужны составы). */
+const TZ_TEMPLATES = PRESETS.filter((p) => p.id !== "preset4").map((p) => ({
+  id: p.id,
+  name: p.name,
+  description: p.description,
+}));
+/** Модель мастер-баннера — та же, что по умолчанию в баннер-генераторе (MODEL_IDS.gpt). */
+const BANNER_MODEL = "openai/gpt-5.4-image-2";
+const GIF_CATALOG = new Set(GIF_SIZE_GROUPS.flatMap((g) => g.sizes));
+
+/** Движение из плана → режим сборки; что сеть или слои не позволяют — по плану сети. */
+function modeFor(m: GifMode | undefined, net: GifNetwork, layers?: LayerSource): GifMode | undefined {
+  if (!m) return undefined;
+  if (m === "flat") return m;
+  if (!layers) return undefined;
+  // Google: медленнее 5 кадр/с — плавная сцена не пройдёт.
+  if (m === "scene" && net.minFrameMs > 0) return undefined;
+  if (m === "slides" && slidesOf(layers).length < 2) return undefined;
+  return m;
+}
+
 /** Свой файл → data URL не больше 1536 px по длинной стороне (модели больше не нужно). */
-async function fileToDataUrl(file: File): Promise<{ src: string; w: number; h: number }> {
+async function fileToDataUrl(file: Blob): Promise<{ src: string; w: number; h: number }> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -103,10 +136,12 @@ export function GifGenApp() {
 
   // Свой файл сразу становится карточкой Истории: слои GIF сохранятся в неё, и повторная
   // сборка будет бесплатной и после перезагрузки. Не сохранилось — работаем с файлом как есть.
-  async function upload(file: File) {
+  // Возвращает выбранный баннер (простому режиму); не открылась картинка — null.
+  async function upload(file: File): Promise<Source | null> {
     setUploading(true);
     try {
       const img = await fileToDataUrl(file);
+      let next: Source;
       try {
         const r = await apiJson<{ card_id: string; image_url: string; name: string }>(
           "/api/history/upload-card",
@@ -123,15 +158,18 @@ export function GifGenApp() {
           },
           ...(prev ?? []),
         ]);
-        setSource({ kind: "card", id: r.card_id, name: r.name, image: img.src });
+        next = { kind: "card", id: r.card_id, name: r.name, image: img.src };
       } catch (e) {
         toast.warning("Не удалось сохранить баннер в Историю — слои будут только до перезагрузки", {
           description: e instanceof Error ? e.message : String(e),
         });
-        setSource({ kind: "upload", name: file.name, image: img.src });
+        next = { kind: "upload", name: file.name, image: img.src };
       }
+      setSource(next);
+      return next;
     } catch {
       toast.error("Не удалось открыть картинку");
+      return null;
     } finally {
       setUploading(false);
     }
@@ -219,20 +257,44 @@ export function GifGenApp() {
 
   const setResult = (k: string, r: Result) => setResults((prev) => new Map(prev).set(k, r));
 
-  async function run() {
-    if (!source || !chosen.length) return;
+  /**
+   * Сборка GIF выбранного баннера. Без opts — как в продвинутом режиме (выбранные
+   * размеры, сценарий по сети). Простой режим передаёт решения движка ТЗ: размеры
+   * (могут быть и вне каталога), движение и повторы. flat — без слоёв: блик поверх.
+   */
+  async function run(opts?: {
+    sizes?: string[];
+    mode?: GifMode;
+    plays?: number;
+  }): Promise<Map<string, Result>> {
+    const list = opts?.sizes ? opts.sizes.filter(accepts) : chosen;
+    const out = new Map<string, Result>();
+    if (!source || !list.length) return out;
+    const put = (k: string, r: Result) => {
+      out.set(k, r);
+      setResult(k, r);
+    };
+    const flat = opts?.mode === "flat";
     setRunning(true);
-    setResults(new Map(chosen.map((k) => [k, { status: "queued" } as Result])));
+    setResults(new Map(list.map((k) => [k, { status: "queued" } as Result])));
     try {
       const ctx = await ctxFor(source);
-      for (const k of chosen) {
+      for (const k of list) {
         const [w, h] = k.split("x").map(Number);
-        setResult(k, { status: "running" });
+        put(k, { status: "running" });
         try {
-          const layers = await gifLayersFor({ w, h }, ctx);
-          const g = await buildGif({ net, w, h, layers, src: ctx.master });
+          const layers = flat ? undefined : await gifLayersFor({ w, h }, ctx);
+          const g = await buildGif({
+            net,
+            w,
+            h,
+            layers,
+            src: ctx.master,
+            mode: modeFor(opts?.mode, net, layers),
+            wantPlays: opts?.plays,
+          });
           const url = URL.createObjectURL(new Blob([g.bytes as BlobPart], { type: "image/gif" }));
-          setResult(k, {
+          put(k, {
             status: "done",
             url,
             bytes: g.bytes,
@@ -241,12 +303,12 @@ export function GifGenApp() {
             layers,
           });
         } catch (e) {
-          setResult(k, { status: "error", error: e instanceof Error ? e.message : String(e) });
+          put(k, { status: "error", error: e instanceof Error ? e.message : String(e) });
         }
         // Кодирование — в основном потоке: даём интерфейсу перерисоваться между размерами.
         await new Promise((r) => setTimeout(r, 0));
       }
-      setSavedReady(source.kind === "card" ? true : savedReady);
+      if (!flat) setSavedReady(source.kind === "card" ? true : savedReady);
     } catch (e) {
       toast.error("Не удалось собрать GIF", {
         description: e instanceof Error ? e.message : String(e),
@@ -254,7 +316,224 @@ export function GifGenApp() {
     } finally {
       setRunning(false);
     }
+    return out;
   }
+
+  // ---- Простой режим: ТЗ → движок ТЗ → баннер (из ТЗ или новый) → проверка → GIF ----
+  const [toolMode, setToolMode] = useToolMode("gif");
+  const simpleMode = toolMode === "simple";
+  const { isGuest, openGate } = useAuthGate();
+  const [auto, setAuto] = useState<GifAutoState | null>(null);
+  const autoRef = useRef<GifAutoState | null>(null);
+  const patchAuto = (p: Partial<GifAutoState>) => {
+    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
+    autoRef.current = next;
+    setAuto(next);
+  };
+  /** Сборка, которую надо запустить, как только баннер и сеть окажутся в состоянии. */
+  const [autoGif, setAutoGif] = useState<{
+    image: string;
+    net: GifNetworkId;
+    sizes: string[];
+    mode?: GifMode;
+    plays: number;
+  } | null>(null);
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+
+  /** Картинка из ТЗ (data URL или ссылка) → карточка Истории, как «Загрузить свой баннер». */
+  async function adopt(src: string, name: string): Promise<Source> {
+    const blob = await (await fetch(await toDataUrl(src))).blob();
+    const s = await upload(new File([blob], `${name}.jpg`, { type: blob.type || "image/jpeg" }));
+    if (!s) throw new Error("Не удалось открыть баннер из ТЗ");
+    return s;
+  }
+
+  /** Новый мастер-баннер баннерным конвейером: шаблон + описание арт-директора, проверка, одна попытка исправить. */
+  async function makeBanner(u: TzUnderstood): Promise<Source> {
+    const { job } = u;
+    const b = job.banners[0];
+    if (!b) throw new Error("Движок ТЗ не описал баннер");
+    const tpl = PRESETS.find((p) => p.id === b.presetId) ?? PRESETS[0];
+    patchAuto({ phase: "planning", templateName: tpl.name });
+    const brief = await apiJson<{ prompt: string; bannerText: string; buttonText: string; ideas: string[] }>(
+      "/api/tz/banner-brief",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          job,
+          banner: b,
+          template: { name: tpl.name, description: tpl.description, prompt: tpl.template },
+        }),
+      },
+    );
+    // Форма баннер-генератора в простом режиме, собранная здесь же (свои поля у слота/спорта/события).
+    const isSlot = tpl.id === "preset2";
+    const eventLike = tpl.id === "preset3" || tpl.id === "preset5";
+    const pal = (job.brand.colors.length ? job.brand.colors : job.style.palette).slice(0, 3);
+    const roles = ["primary", "secondary", "accent"];
+    const payload: GeneratePayload = {
+      preset_id: tpl.id,
+      button_text: brief.buttonText,
+      banner_text: brief.bannerText,
+      prompt: brief.prompt,
+      model: BANNER_MODEL,
+      aspect_ratio: b.aspect,
+      ad_texts_enabled: true,
+      person_enabled: !isSlot,
+      person_gender: isSlot ? null : "female",
+      brand_name: job.brand.name,
+      brand_logo: tzImage(u, job.images.find((i) => i.role === "brand")?.id),
+      language: CREATIVE_LANGUAGES.some((l) => l.value === job.language) ? job.language : "auto",
+      reference_image: tzImage(u, b.mainRefId),
+      subheadline_text: eventLike ? b.sub : "",
+      banner_text_enabled: !!brief.bannerText,
+      button_text_enabled: !!brief.buttonText,
+      subheadline_enabled: eventLike && !!b.sub,
+      quality: "medium",
+      template_options: pal.length
+        ? `Brand palette — ${pal.map((hex, i) => `${roles[i]} ${hex}`).join(", ")}. Use exactly these colors as the banner's dominant palette (primary = dominant, secondary = support, accent = highlights/CTA); keep strong contrast and readability.`
+        : "",
+    };
+    patchAuto({ phase: "generating" });
+    let g = await generateImage(payload);
+    patchAuto({ image: g.image });
+    const reqs = job.requirements.filter(
+      (r) => r.kind !== "format" && (!b.requirementIds.length || b.requirementIds.includes(r.id)),
+    );
+    patchAuto({ phase: "checking" });
+    let check = await checkByTz(g.image, reqs).catch(() => null);
+    patchAuto({ check });
+    const failed = (check?.results ?? []).filter((r) => {
+      const q = reqs.find((x) => x.id === r.id);
+      return !r.ok && q && (q.exact || q.kind === "text" || q.kind === "offer" || q.kind === "legal");
+    });
+    if (failed.length || check?.faceCovered) {
+      const fixes = failed.map((r) => {
+        const q = reqs.find((x) => x.id === r.id)!;
+        return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
+      });
+      if (check?.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
+      patchAuto({ phase: "fixing", retried: true });
+      g = await generateImage({ ...payload, prompt: `${payload.prompt}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}` });
+      patchAuto({ image: g.image, phase: "checking" });
+      check = await checkByTz(g.image, reqs).catch(() => null);
+      patchAuto({ check });
+    }
+    if (!g.card_id) return { kind: "upload", name: b.name, image: g.image };
+    const next: Source = { kind: "card", id: g.card_id, name: b.name, image: g.image };
+    setCards((prev) => [
+      { id: next.id, name: next.name, master: { image_url: g.image, width: null, height: null } },
+      ...(prev ?? []),
+    ]);
+    return next;
+  }
+
+  /**
+   * Автопилот по понятому ТЗ. useAttached — галочка «анимировать приложенный баннер»;
+   * image — баннер, который передал другой инструмент (handoff.decided.image).
+   */
+  async function autopilot(u: TzUnderstood, useAttached: boolean, image?: string) {
+    const plan: GifTzPlan = normalizeGifPlan(u.job.plan ?? {});
+    const target = GIF_NETWORK_BY_ID.get(plan.network)!;
+    const ok = (k: string) => !target.sizes || target.sizes.includes(k);
+    let want = plan.sizes.length ? plan.sizes : u.job.sizes.map((s) => `${s.w}x${s.h}`);
+    if (!want.length) want = GIF_DEFAULT_SIZES;
+    const skipped = want.filter((k) => !ok(k));
+    let sizes = want.filter(ok);
+    if (!sizes.length) sizes = GIF_DEFAULT_SIZES.filter(ok);
+    const attached = image || (useAttached && plan.source === "attached" ? tzImage(u, plan.sourceImageId) : "");
+    patchAuto({ u, plan, sizes, skipped, from: attached ? "attached" : "generated" });
+
+    let src: Source;
+    if (attached) {
+      patchAuto({ phase: "checking", image: attached });
+      src = await adopt(attached, u.job.brand.name ? `${u.job.brand.name} — баннер из ТЗ` : "Баннер из ТЗ");
+      // Готовый баннер клиента не перерисовываем — только показываем, что не прошло.
+      const check = await checkByTz(src.image, u.job.requirements).catch(() => null);
+      patchAuto({ check });
+    } else {
+      src = await makeBanner(u);
+      if (src.kind === "upload") {
+        // Карточка не создалась — сохраняем сами, чтобы слои GIF было куда положить.
+        src = await adopt(src.image, src.name);
+      } else setSource(src);
+    }
+
+    patchAuto({ phase: "gif", image: src.image });
+    setNetId(plan.network);
+    setSizes(new Set(sizes.filter((k) => GIF_CATALOG.has(k))));
+    setAutoGif({
+      image: src.image,
+      net: plan.network,
+      sizes,
+      mode: plan.motion === "auto" ? undefined : plan.motion,
+      plays: plan.loops,
+    });
+  }
+
+  async function runAuto(input: TzRunInput, understood?: TzUnderstood, image?: string) {
+    if (isGuest) {
+      openGate();
+      return;
+    }
+    const init: GifAutoState = { phase: "reading" };
+    autoRef.current = init;
+    setAuto(init);
+    setAutoGif(null);
+    try {
+      const u = understood ?? (await understandTz(input, "gif", TZ_TEMPLATES));
+      await autopilot(u, input.options.useAttached !== false, image);
+    } catch (e) {
+      patchAuto({
+        phase: "error",
+        failedAt: autoRef.current?.phase,
+        error: e instanceof Error ? e.message : "Не удалось выполнить ТЗ",
+      });
+    }
+  }
+
+  // Баннер и сеть уже в состоянии (эффект смены баннера отработал) → собираем GIF.
+  useEffect(() => {
+    if (!autoGif || running || source?.image !== autoGif.image || netId !== autoGif.net) return;
+    const go = autoGif;
+    setAutoGif(null);
+    void run({ sizes: go.sizes, mode: go.mode, plays: go.plays }).then((res) => {
+      if (!autoRef.current) return;
+      const all = [...res.values()];
+      const done = all.filter((r) => r.status === "done");
+      const built = {
+        done: done.length,
+        ok: done.filter((r) => r.checks?.every((c) => c.ok)).length,
+        failed: all.length - done.length,
+      };
+      if (!done.length)
+        patchAuto({
+          phase: "error",
+          failedAt: "gif",
+          built,
+          error: all.find((r) => r.error)?.error || "Не удалось собрать GIF",
+        });
+      else patchAuto({ phase: "done", built });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGif, source, netId, running]);
+
+  // Передача из другого инструмента (лендинг-хаб, баннер…): сразу автопилот, без повторного
+  // разбора, если ТЗ понималось под GIF; иначе понимаем заново под GIF из исходного ввода.
+  const handoffTaken = useRef(false);
+  useEffect(() => {
+    if (handoffTaken.current) return;
+    handoffTaken.current = true;
+    void takeTzHandoff("gif")
+      .then((h) => {
+        if (!h) return;
+        setToolMode("simple");
+        const img = typeof h.decided?.image === "string" ? h.decided.image : undefined;
+        void runAuto(h.input, h.understood.job.product === "gif" ? h.understood : undefined, img);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function zipAll() {
     const done = [...results.entries()].filter(([, r]) => r.status === "done" && r.bytes);
@@ -300,6 +579,17 @@ export function GifGenApp() {
           </p>
         </div>
 
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+
+        {simpleMode ? (
+          <SimpleGifPanel
+            auto={auto}
+            busy={autoBusy || running || uploading}
+            estimate={`Новый баннер ≈ ${estimateBannerCredits()} кр. (если в ТЗ нет готового), слои GIF ≈ ${FIRST_BUILD_CREDITS} кр., сборка GIF — бесплатно. Не пройдёт проверку по ТЗ — одна перегенерация баннера.`}
+            onRun={(i) => void runAuto(i)}
+          />
+        ) : (
+        <>
         <section>
           <div className="ds-caption mb-2 text-muted-foreground">1. Баннер</div>
           {source ? (
@@ -441,7 +731,7 @@ export function GifGenApp() {
 
         <button
           type="button"
-          onClick={run}
+          onClick={() => void run()}
           disabled={!source || !chosen.length || running}
           className="ds-btn ds-btn-primary flex items-center justify-center gap-2 px-5 py-3"
         >
@@ -464,6 +754,8 @@ export function GifGenApp() {
             {source.kind === "card" ? ": слои сохранятся в карточку Истории." : " до перезагрузки страницы."}
           </p>
         ) : null}
+        </>
+        )}
       </div>
 
       <div className="min-w-0">
@@ -471,7 +763,9 @@ export function GifGenApp() {
           <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border text-center text-muted-foreground">
             <ImagePlay className="h-14 w-14 opacity-30" />
             <div className="ds-caption max-w-xs">
-              Выберите баннер, сеть и размеры — здесь появятся GIF с проверкой по требованиям сети.
+              {simpleMode
+                ? "Опишите задачу или приложите ТЗ — здесь появятся GIF с проверкой по требованиям сети."
+                : "Выберите баннер, сеть и размеры — здесь появятся GIF с проверкой по требованиям сети."}
             </div>
           </div>
         ) : (
@@ -544,14 +838,17 @@ export function GifGenApp() {
                         >
                           <Download className="h-4 w-4" /> Скачать
                         </a>
-                        <button
-                          type="button"
-                          onClick={() => setTune(k)}
-                          className="ds-btn ds-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-sm"
-                          title="Сценарий, повторы, эффекты"
-                        >
-                          <Settings2 className="h-4 w-4" /> Настроить
-                        </button>
+                        {/* Без слоёв (простой режим, «только блик») настраивать нечего. */}
+                        {r.layers ? (
+                          <button
+                            type="button"
+                            onClick={() => setTune(k)}
+                            className="ds-btn ds-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-sm"
+                            title="Сценарий, повторы, эффекты"
+                          >
+                            <Settings2 className="h-4 w-4" /> Настроить
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics";
 // a step wizard on mobile (Назад + sticky "Сгенерировать"). Generation is
 // client-side today (see src/lib/landingGen.ts) but the shape matches the
 // banner so a real API can be slotted in later.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { BriefUploader } from "@/components/BriefUploader";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,9 @@ import { useGeneration } from "@/lib/generation-context";
 import { setUnsavedWork } from "@/lib/unsaved-work";
 import { useAuthGate } from "@/components/AuthGate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { SimpleLandingPanel } from "@/components/landing/simple/SimpleLandingPanel";
 import {
   LANDING_SECTIONS,
   LANDING_TEMPLATE_CATEGORIES,
@@ -41,6 +44,7 @@ import {
   type LandingInput,
   type LandingSectionId,
   type LandingTemplate,
+  type LandingTextOverrides,
   type LandingVertical,
 } from "@/lib/landingGen";
 
@@ -255,6 +259,9 @@ export function LandingGenApp() {
           if (s.language) lang = s.language;
           if (s.from_banner) {
             setFromBanner(true);
+            // Из баннера — режим «по баннеру» живёт в продвинутой форме; выбор режима не запоминаем.
+            // Хук режима объявлен ниже и при монтировании читает память — переключаем после него.
+            setTimeout(() => showToolMode("advanced"), 0);
             if (s.vertical) setBannerVertical(s.vertical);
           }
           window.localStorage.removeItem("dw:landingSeed");
@@ -345,6 +352,23 @@ export function LandingGenApp() {
     }
   };
 
+  // Простой режим: ТЗ → движок ТЗ решает, какой лендинг, и ведёт дальше сам
+  // (SimpleLandingPanel). Продвинутый — галерея и настройки, как было.
+  const [toolMode, setToolMode, showToolMode] = useToolMode("landing");
+  const simpleMode = toolMode === "simple";
+
+  /** Блочный лендинг из простого режима: тот же проект, что у «Сгенерировать», плюс тексты из ТЗ. */
+  const openBlocksFromTz = (inputObj: LandingInput, overrides: LandingTextOverrides) => {
+    const projectId = Date.now().toString(36);
+    const lang = normalizeLandingLang(inputObj.language);
+    window.localStorage.setItem(
+      `${LANDING_PROJECT_PREFIX}${projectId}`,
+      JSON.stringify({ input: inputObj, languages: [lang], overridesByLang: { [lang]: overrides } }),
+    );
+    pruneLandingProjects();
+    router.push(`/landing/editor/${projectId}`);
+  };
+
   const onGenerate = () => {
     if (isGuest) {
       openGate();
@@ -403,17 +427,30 @@ export function LandingGenApp() {
         {/* COLUMN 1 — templates / verticals. Hidden in from-banner mode: the
             vertical is inherited from the banner, so the picker isn't needed
             (leaves a 2-column settings + result layout). */}
-        {!fromBanner ? (
+        {!fromBanner && !simpleMode ? (
           <div className={mobileTab === "templates" ? "contents" : "hidden"}>
-            <LandingTemplateSidebar value={templateId} onSelect={selectTemplate} />
+            <LandingTemplateSidebar
+              value={templateId}
+              onSelect={selectTemplate}
+              top={<ModeSwitch mode={toolMode} onChange={setToolMode} />}
+            />
           </div>
         ) : null}
 
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
-            !(fromBanner || mobileTab === "settings") ? "!hidden" : ""
+            !(simpleMode || fromBanner || mobileTab === "settings") ? "!hidden" : ""
           }`}
         >
+          {simpleMode ? (
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="mx-auto flex max-w-2xl flex-col gap-6">
+                <ModeSwitch mode={toolMode} onChange={setToolMode} />
+                <SimpleLandingPanel fallbackBrand={{ name: brandName, logo: brandLogo }} openBlocks={openBlocksFromTz} />
+              </div>
+            </div>
+          ) : (
+          <>
           {!fromBanner ? (
             <div className="flex items-center gap-3 px-2 pb-2 pt-3">
               <button
@@ -429,6 +466,7 @@ export function LandingGenApp() {
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-3">
+              <ModeSwitch mode={toolMode} onChange={setToolMode} />
               {!fromBanner ? (
                 <button
                   type="button"
@@ -817,6 +855,8 @@ export function LandingGenApp() {
               </p>
             ) : null}
           </div>
+          </>
+          )}
         </section>
       </div>
     </div>
@@ -893,9 +933,12 @@ const LANDING_CATEGORY_OPTIONS = [
 function LandingTemplateSidebar({
   value,
   onSelect,
+  top,
 }: {
   value: string;
   onSelect: (t: LandingTemplate) => void;
+  /** Над поиском — переключатель режима. */
+  top?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
@@ -965,6 +1008,7 @@ function LandingTemplateSidebar({
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="ds-h4">Шаблоны</h2>
       </div>
+      {top ? <div className="px-4 pt-3">{top}</div> : null}
       <div ref={filterRef} className="relative px-4 pb-2 pt-2">
         <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 transition focus-within:border-accent-green focus-within:ring-1 focus-within:ring-accent-green">
           <Search size={16} className="shrink-0 text-foreground/70" />

@@ -28,7 +28,7 @@ import { compressImage, rasterizeSvg } from "@/lib/imageCompress";
 import { composeHeroWithLogo } from "@/lib/emailHeroCompose";
 import { buildPalette } from "@/lib/emailPalette";
 import { downloadText } from "@/lib/download";
-import { imageCredits } from "@/lib/credit-estimate";
+import { EMAIL_HERO_PRICE_CREDITS, imageCredits } from "@/lib/credit-estimate";
 
 const IMG_PRICE = imageCredits(1);
 import {
@@ -52,6 +52,13 @@ import { listDrafts, loadDraft, persistDraft, removeDraft, type DraftMeta } from
 import { toast } from "sonner";
 import { EmailGammaPicker } from "@/components/email/EmailGammaPicker";
 import { HeroRules } from "@/components/email/HeroRules";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { SimpleEmailPanel, type EmailAutoState } from "@/components/email/simple/SimpleEmailPanel";
+import { checkCopy, draftFromTz, emailPlanOf, ensureExact, type EmailPlan } from "@/components/email/simple/emailAuto";
+import { checkByTz, tzImage, understandTz, type TzRunInput, type TzUnderstood } from "@/lib/tz/client";
+import { takeTzHandoff } from "@/lib/tz/handoff";
+import { lookupBrand } from "@/lib/brandLookup";
 
 export function EmailGenApp() {
   const [draft, setDraft] = useState<EmailDraft>(() => newDraft());
@@ -104,7 +111,7 @@ export function EmailGenApp() {
     };
   };
 
-  const { isGuest: guest } = useAuthGate();
+  const { isGuest: guest, openGate } = useAuthGate();
   const confirm = useConfirm();
   const [drafts, setDrafts] = useState<DraftMeta[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
@@ -392,13 +399,14 @@ export function EmailGenApp() {
    * «лучше» и «легче», это письмо, которое половина получателей не дождётся.
    * Прозрачность теряется, поэтому подкладываем цвет полотна письма.
    */
-  const putHero = async (dataUrl: string) => {
+  // d — гамма письма, под которую жмём: автопилот зовёт до того, как свежий черновик попал в замыкание.
+  const putHero = async (dataUrl: string, d: EmailDraft = draft) => {
     setHeroBusy(true);
     try {
       const out = await compressImage(dataUrl, {
         maxWidth: HERO_RETINA_WIDTH,
         maxBytes: HERO_MAX_BYTES,
-        background: buildPalette(draft.accent, emailBase(draft)).panel,
+        background: buildPalette(d.accent, emailBase(d)).panel,
       });
       set("heroSource", out.dataUrl);
       setHeroSaved(out.skipped ? null : { before: out.bytesBefore, after: out.bytes });
@@ -442,6 +450,38 @@ export function EmailGenApp() {
     reader.readAsDataURL(file);
   };
 
+  /**
+   * Запрос картинки письма — общий для ручной кнопки и автопилота. Черновик
+   * передаётся явно: автопилот зовёт сразу после сборки письма. Ошибку
+   * бросает текстом для человека.
+   */
+  const requestHero = async (
+    d: EmailDraft,
+    extra: { presetTemplate?: string; styleReferenceImage?: string } = {},
+  ): Promise<string> => {
+    const res = await apiFetch("/api/generate-email-hero", {
+      method: "POST",
+      json: {
+        brand: d.brand,
+        heroTitle: d.heroTitle,
+        body: d.body,
+        presetTemplate: extra.presetTemplate || undefined,
+        styleReferenceImage: extra.styleReferenceImage || undefined,
+        logoBase64: d.logo && d.logoMode === "reference" ? d.logo : undefined,
+        logoMode: d.logoMode,
+        palette: { accent: d.accent, base: emailBase(d) },
+        aspectRatio: HERO_ASPECT_RATIO,
+        feature: "email-hero",
+      },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.imageUrl) {
+      throw new Error([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
+    }
+    if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
+    return String(data.imageUrl);
+  };
+
   const generateHero = async () => {
     setGenning(true);
     setGenError("");
@@ -457,27 +497,7 @@ export function EmailGenApp() {
           presetTemplate = p.template.replace(/\{SUBJECT\}/g, subject || draft.brand || "the offer");
         }
       }
-      const res = await apiFetch("/api/generate-email-hero", {
-        method: "POST",
-        json: {
-          brand: draft.brand,
-          heroTitle: draft.heroTitle,
-          body: draft.body,
-          presetTemplate: presetTemplate || undefined,
-          logoBase64: draft.logo && draft.logoMode === "reference" ? draft.logo : undefined,
-          logoMode: draft.logoMode,
-          palette: { accent: draft.accent, base: emailBase(draft) },
-          aspectRatio: HERO_ASPECT_RATIO,
-          feature: "email-hero",
-        },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.imageUrl) {
-        setGenError([data?.error || "Не удалось сгенерировать", data?.detail].filter(Boolean).join(" — "));
-        return;
-      }
-      if (typeof data.costUsd === "number") setCostUsd((c) => c + data.costUsd);
-      await putHero(data.imageUrl);
+      await putHero(await requestHero(draft, { presetTemplate }));
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Ошибка запроса");
     } finally {
@@ -518,6 +538,143 @@ export function EmailGenApp() {
     setSaved(false);
   };
 
+  // ---- Простой режим: ТЗ → движок ТЗ → письмо → картинка → проверка ----------
+  // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
+  const [toolMode, setToolMode] = useToolMode("email");
+  const simpleMode = toolMode === "simple";
+  const [auto, setAuto] = useState<EmailAutoState | null>(null);
+  const autoRef = useRef<EmailAutoState | null>(null);
+  const patchAuto = (p: Partial<EmailAutoState>) => {
+    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
+    autoRef.current = next;
+    setAuto(next);
+  };
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+
+  /** Референс для картинки: картинка ТЗ со стилем, иначе главный визуал или композиция. */
+  const styleRefOf = (u: TzUnderstood) => {
+    const pick = (role: TzUnderstood["job"]["images"][number]["role"]) => tzImage(u, u.job.images.find((i) => i.role === role)?.id);
+    return pick("style") || pick("main") || pick("layout");
+  };
+
+  /** Картинка письма по плану; то, что ТЗ требует видеть на самой картинке, — проверяем. */
+  const autoHero = async (d: EmailDraft, u: TzUnderstood, plan: EmailPlan) => {
+    const img = await requestHero(d, { presetTemplate: plan.heroPrompt, styleReferenceImage: styleRefOf(u) });
+    await putHero(img, d);
+    const reqs = u.job.requirements.filter((r) => plan.heroRequirementIds.includes(r.id));
+    // Обычно на картинке письма текста нет — тогда и проверять нечего.
+    if (!reqs.length) return null;
+    try {
+      return await checkByTz(img, reqs);
+    } catch {
+      return null; // проверка недоступна — картинку всё равно отдаём
+    }
+  };
+
+  const runAuto = async (input: TzRunInput, pre?: TzUnderstood) => {
+    if (guest) {
+      openGate();
+      return;
+    }
+    if (isDirty() && (draft.subject || draft.heroTitle || draft.body)) {
+      const ok = await confirm({
+        title: "Собрать новое письмо?",
+        body: "Несохранённые изменения в текущем письме пропадут.",
+        confirmLabel: "Собрать",
+      });
+      if (!ok) return;
+    }
+    const wantHero = input.options.hero !== false;
+    const init: EmailAutoState = { phase: "reading", wantHero };
+    autoRef.current = init;
+    setAuto(init);
+    try {
+      const u = pre ?? (await understandTz(input, "email"));
+      const plan = emailPlanOf(u);
+      const fromTz = tzImage(u, plan.heroFromImageId);
+      patchAuto({ u, plan, phase: "building", heroFromTz: !!fromTz });
+
+      let d = draftFromTz(u, plan);
+      if (d.logo) d = { ...d, logo: await rasterizeSvg(d.logo) };
+      else if (u.job.brand.site) {
+        // Лого в ТЗ нет, но есть сайт бренда — лого и цвет берём с сайта.
+        try {
+          const r = await lookupBrand(u.job.brand.site);
+          if (r.logo_data_url) d = { ...d, logo: await rasterizeSvg(r.logo_data_url), brandMode: "logo" };
+          if (!d.brand && r.brand_name) d = { ...d, brand: r.brand_name };
+          if (!plan.accent && !u.job.brand.colors.length && /^#[0-9a-f]{6}$/i.test(r.accent_color_hex)) d = { ...d, accent: r.accent_color_hex };
+        } catch {
+          /* сайт не открылся — в шапке будет название бренда */
+        }
+      }
+      const fixed = ensureExact(d, u.job.requirements, plan.heroRequirementIds);
+      d = fixed.draft;
+      if (fromTz || (wantHero && plan.heroPrompt)) d = { ...d, blocks: { ...d.blocks, hero: true } };
+      setDraft(d);
+      // Новое письмо ещё не сохранено: переход на другое спросит подтверждение.
+      baselineRef.current = "";
+      setSaved(false);
+      setHeroSaved(null);
+      rememberInUrl(null);
+      patchAuto({ added: fixed.added });
+
+      let heroCheck: Awaited<ReturnType<typeof autoHero>> = null;
+      let heroError: string | undefined;
+      if (fromTz) {
+        patchAuto({ phase: "hero" });
+        await putHero(fromTz, d);
+      } else if (wantHero && plan.heroPrompt) {
+        patchAuto({ phase: "hero" });
+        try {
+          heroCheck = await autoHero(d, u, plan);
+        } catch (e) {
+          heroError = e instanceof Error ? e.message : "ошибка генерации";
+        }
+      }
+      patchAuto({ phase: "checking", heroError });
+      const results = checkCopy(d, u.job.requirements, plan.heroRequirementIds);
+      patchAuto({
+        phase: "done",
+        check: { results: [...results, ...(heroCheck?.results ?? [])], faceCovered: !!heroCheck?.faceCovered },
+      });
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+    }
+  };
+
+  /** «Другая картинка» после автопилота: тот же план, текущее письмо. */
+  const regenAutoHero = async () => {
+    const a = autoRef.current;
+    if (!a?.u || !a.plan) return;
+    const d = { ...draft, blocks: { ...draft.blocks, hero: true } };
+    setBlock("hero", true);
+    patchAuto({ phase: "hero", wantHero: true, heroError: undefined });
+    try {
+      const hc = await autoHero(d, a.u, a.plan);
+      const ids = new Set(a.plan.heroRequirementIds);
+      const keep = (a.check?.results ?? []).filter((r) => !ids.has(r.id));
+      patchAuto({ phase: "done", check: { results: [...keep, ...(hc?.results ?? [])], faceCovered: !!hc?.faceCovered } });
+    } catch (e) {
+      patchAuto({ phase: "done", heroError: e instanceof Error ? e.message : "ошибка генерации" });
+    }
+  };
+
+  // Передача из другого инструмента (лендинг-хаб, кампания…): понятое ТЗ уже
+  // есть — сразу автопилот. Понятое не под письмо — понимаем заново из ввода.
+  const handoffTaken = useRef(false);
+  useEffect(() => {
+    if (handoffTaken.current) return;
+    handoffTaken.current = true;
+    void takeTzHandoff("email")
+      .then((h) => {
+        if (!h) return;
+        setToolMode("simple");
+        void runAuto({ ...h.input, options: { hero: true, ...h.input.options } }, h.understood.job.product === "email" ? h.understood : undefined);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,420px)_1fr]">
       <div className="flex flex-col gap-5">
@@ -529,6 +686,20 @@ export function EmailGenApp() {
           </p>
         </header>
 
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+
+        {simpleMode ? (
+          <SimpleEmailPanel
+            auto={auto}
+            busy={autoBusy || genning || heroBusy}
+            estimate={`Разбор ТЗ и тексты — без списания кредитов. Картинка письма ≈ ${EMAIL_HERO_PRICE_CREDITS} кр.`}
+            heroPrice={EMAIL_HERO_PRICE_CREDITS}
+            onRun={(i) => void runAuto(i)}
+            onRegenHero={() => void regenAutoHero()}
+            onAdvanced={() => setToolMode("advanced")}
+          />
+        ) : (
+        <>
         <DraftPicker
           drafts={drafts}
           loading={draftsLoading}
@@ -885,7 +1056,12 @@ export function EmailGenApp() {
             </Field>
           </div>
         </OptionalBlock>
+        </>
+        )}
 
+        {/* В простом режиме выгрузка — когда письмо собрано. */}
+        {!simpleMode || auto?.phase === "done" ? (
+        <>
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -927,6 +1103,8 @@ export function EmailGenApp() {
         </div>
         {saved ? (
           <p className="ds-caption">Письмо сохранено — доступно в кабинете рассылок для отправки.</p>
+        ) : null}
+        </>
         ) : null}
       </div>
 

@@ -41,6 +41,12 @@ import { enabledBlocks } from "@/components/landing/LandingBlocksPicker";
 import { buildCampaignZip, campaignSlug, saveBlob } from "@/lib/campaignBundle";
 import { humanizeOffer, humanizeUnit } from "@/lib/offerText";
 import { useAuth } from "@/lib/auth-context";
+import { PRESETS } from "@/components/PresetSidebar";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { SimpleCampaignPanel, type CampaignAuto } from "@/components/campaign/simple/SimpleCampaignPanel";
+import { briefFromJob, jobImages, type SimpleBannerSpec } from "@/components/campaign/simple/fromJob";
+import { understandTz, type TzRunInput } from "@/lib/tz/client";
 import {
   briefAccent,
   briefBanner,
@@ -64,6 +70,7 @@ import {
   CAMPAIGN_PARTS,
   type CampaignArt,
   type CampaignBrief,
+  type CampaignParts,
   type LuckyRoll,
   type CampaignLanding,
 } from "@/lib/campaign";
@@ -491,31 +498,44 @@ export function CampaignApp() {
     await applyLucky(key, data.imageUrl);
     return true;
   };
-  /** Вся графика: детали сцены, фон, награда — и картинки блоков лендинга. */
-  const luckySteps = (): AssetStep[] => {
-    if (!roll) return [];
-    const style = sceneAiStyle(roll.theme);
+  /**
+   * Графика для набора частей: детали сцены, фон, награда, картинки блоков
+   * лендинга, баннеры. bgOnly — лендинг на механике без сцены и без плейбла:
+   * от сцены нужен только фон (простой режим).
+   */
+  const stepsFor = (r: LuckyRoll, p: CampaignParts, specs: BannerSpec[], bgOnly = false): AssetStep[] => {
+    const style = sceneAiStyle(r.theme);
     return [
       // Детали сцены — для лендинга на сцене и для плейбла.
-      ...(parts.landing || doPlayable
-        ? scenePartsFor(roll.scene).map((p) => {
-            const r = scenePartRequest(p, style, roll.theme);
-            return { id: `s-${p.id}`, label: p.label, credits: r.credits, run: callStep(`s-${p.id}`, r.route, r.body), server: { route: r.route, body: r.body } };
-          })
+      ...(p.landing || p.playable
+        ? scenePartsFor(r.scene)
+            .filter((sp) => !bgOnly || sp.id === "bg")
+            .map((sp) => {
+              const q = scenePartRequest(sp, style, r.theme);
+              return { id: `s-${sp.id}`, label: sp.label, credits: q.credits, run: callStep(`s-${sp.id}`, q.route, q.body), server: { route: q.route, body: q.body } };
+            })
         : []),
       // Картинки блоков — только у лендинга.
-      ...(parts.landing ? extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })) : []),
+      ...(p.landing ? extrasAssets.allSteps({ floaters: false }).map((st) => ({ ...st, id: `x-${st.id}` })) : []),
       // Баннер — сам по себе или как основа шапки письма.
-      ...(parts.banner ? briefBannerSpecs(b) : parts.email ? briefBannerSpecs(b).slice(0, 1) : []).map((spec, i) => bannerStep(roll.theme, spec, i)),
+      ...(p.banner ? specs : p.email ? specs.slice(0, 1) : []).map((spec, i) => bannerStep(r.theme, spec, i, p.banner)),
     ];
   };
+  /** Вся графика: детали сцены, фон, награда — и картинки блоков лендинга. */
+  const luckySteps = (bgOnly = false): AssetStep[] => (roll ? stepsFor(roll, { ...parts, playable: doPlayable }, briefBannerSpecs(b), bgOnly) : []);
   /** Баннер в той же теме — генератором баннеров; попадает и в «Мои проекты» как обычный баннер. */
-  const bannerStep = (theme: string, spec: BannerSpec, i: number): AssetStep => {
-    const payload = luckyBannerPayload(full, theme, spec) as GeneratePayload;
+  const bannerStep = (theme: string, spec: SimpleBannerSpec, i: number, asBanner = parts.banner): AssetStep => {
+    // Баннер из простого режима — со своим шаблоном, подзаголовком и кнопкой из ТЗ.
+    const payload = {
+      ...luckyBannerPayload(full, theme, spec),
+      ...(spec.presetId && PRESETS.some((pr) => pr.id === spec.presetId) ? { preset_id: spec.presetId } : {}),
+      ...(spec.sub ? { subheadline_text: spec.sub, subheadline_enabled: true } : {}),
+      ...(spec.cta ? { button_text: spec.cta } : {}),
+    } as GeneratePayload;
     const key = i === 0 ? "banner" : `banner-${i}`;
     return {
       id: key,
-      label: parts.banner ? `${spec.name} · ${spec.aspect}` : "Баннер — основа для шапки письма",
+      label: asBanner ? `${spec.name} · ${spec.aspect}` : "Баннер — основа для шапки письма",
       credits: BANNER_PRICE_CREDITS,
       run: async () => {
         const r = await generateImage(payload);
@@ -537,34 +557,39 @@ export function CampaignApp() {
    * строятся по их названиям, а смета и баннер — по свежему брифу.
    */
   const [copying, setCopying] = useState(false);
-  const [pendingRun, setPendingRun] = useState(false);
+  /** Шаг 2 ждёт свежий бриф; simple — сборка простого режима. */
+  const [pendingRun, setPendingRun] = useState<false | { simple: boolean }>(false);
   const startLucky = async () => {
     if (!roll) return;
     if (isGuest) return openGate("Графика от ИИ тратит кредиты — войдите, чтобы собрать кампанию");
     if (!topic) return toast.error("Введите тематику или загрузите ТЗ — по ним собирается вся кампания");
-    luckyScene.current = roll.scene;
-    const nb = { ...full, landing: "scene" as const, scene: roll.scene };
+    const tz = b.tzPlan ? [b.tzPlan.summary, ...b.tzPlan.notes].filter(Boolean).join(" ") : "";
+    await buildCampaign(roll, { ...full, landing: "scene" as const, scene: roll.scene }, tz, false);
+  };
+  /** Шаг 1 (тексты всех частей под тему) и запуск шага 2 — для обоих режимов. */
+  const buildCampaign = async (r: LuckyRoll, nb: CampaignBrief, tz: string, simple: boolean) => {
+    luckyScene.current = r.scene;
+    const np = briefParts(nb);
     setCopying(true);
     let copy: CampaignCopy | null = null;
     try {
       const sc = briefScene(nb);
-      const fields = (SCENES.find((x) => x.id === roll.scene)?.fields ?? [])
+      const fields = (SCENES.find((x) => x.id === r.scene)?.fields ?? [])
         .filter((fl) => fl.key !== "cta")
         .map((fl) => ({ key: fl.key, label: fl.label, value: String((sc.text as Record<string, string>)[fl.key] ?? "") }));
-      const tz = b.tzPlan ? [b.tzPlan.summary, ...b.tzPlan.notes].filter(Boolean).join(" ") : "";
       const res = await apiFetch("/api/campaign-copy", {
         method: "POST",
         json: {
-          topic,
+          topic: nb.topic.trim(),
           brief: tz,
-          kind: b.kind,
-          lang: b.lang,
-          brand: b.brand,
-          offer: b.offer,
-          cta: b.cta,
-          parts: { ...parts, playable: doPlayable },
-          scene: { id: roll.scene, fields },
-          blocks: enabledBlocks(briefExtras(nb), b.kind),
+          kind: nb.kind,
+          lang: nb.lang,
+          brand: nb.brand,
+          offer: nb.offer,
+          cta: nb.cta,
+          parts: { ...np, playable: np.playable && showPlayable },
+          scene: { id: r.scene, fields },
+          blocks: enabledBlocks(briefExtras(nb), nb.kind),
         },
       });
       const data = (await res.json().catch(() => ({}))) as { copy?: CampaignCopy; error?: string };
@@ -576,17 +601,93 @@ export function CampaignApp() {
       setCopying(false);
     }
     forgetProject(CAMPAIGN_BRIEF_KEY); // новая сборка — новая кампания в истории
-    setArt({ scene: roll.scene, theme: roll.theme, themeName: roll.themeName });
-    setB((p) => ({ ...p, landing: "scene", scene: roll.scene, ...(copy ? { copy } : {}) }));
-    setTab("landing");
-    setPendingRun(true);
+    setArt({ scene: r.scene, theme: r.theme, themeName: r.themeName });
+    setB((p) => ({ ...p, landing: nb.landing, scene: r.scene, ...(copy ? { copy } : {}) }));
+    setTab(np.landing ? "landing" : np.playable && showPlayable ? "playable" : np.email ? "email" : "banner");
+    setPendingRun({ simple });
   };
   useEffect(() => {
     if (!pendingRun || b.scene !== roll?.scene) return;
+    const { simple } = pendingRun;
     setPendingRun(false);
-    void lucky.start(luckySteps());
+    // Простой режим: лендинг на механике без сцены и без плейбла — от сцены нужен только фон.
+    const list = luckySteps(simple && b.landing !== "scene" && !doPlayable);
+    if (simple) {
+      if (!list.length) return patchAuto({ phase: "done" });
+      patchAuto({ phase: "generating", count: list.length, credits: list.reduce((s, st) => s + st.credits, 0) + (parts.email ? EMAIL_HERO_PRICE_CREDITS : 0) });
+    }
+    void lucky.start(list);
   }, [pendingRun, full]); // eslint-disable-line react-hooks/exhaustive-deps
   const sceneLabel = (id: string) => SCENES.find((s) => s.id === id)?.label ?? id;
+
+  // ---- Простой режим: ТЗ → движок ТЗ → бриф кампании → тексты → вся графика ----
+  // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
+  const [toolMode, setToolMode] = useToolMode("campaign");
+  const simpleMode = toolMode === "simple";
+  const [auto, setAuto] = useState<CampaignAuto | null>(null);
+  const autoRef = useRef<CampaignAuto | null>(null);
+  const patchAuto = (p: Partial<CampaignAuto>) => {
+    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
+    autoRef.current = next;
+    setAuto(next);
+  };
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+  const runSimple = async (input: TzRunInput) => {
+    if (isGuest) return openGate("Кампания по ТЗ тратит кредиты на графику — войдите, чтобы собрать");
+    if (lucky.running) return toast.error("Дождитесь конца текущей сборки или отмените её");
+    const init: CampaignAuto = { phase: "reading" };
+    autoRef.current = init;
+    setAuto(init);
+    let at: CampaignAuto["phase"] = "reading";
+    try {
+      // Каталог шаблонов баннеров; спорт-шаблону нужны команды и составы — их здесь не собираем.
+      const u = await understandTz(
+        input,
+        "campaign",
+        PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description })),
+      );
+      at = "planning";
+      patchAuto({ phase: "planning", u });
+      const ticks = { landing: input.options.landing !== false, playable: input.options.playable !== false, email: input.options.email !== false, banner: input.options.banner !== false };
+      const { brief, d } = briefFromJob(u.job, ticks, showPlayable);
+      patchAuto({ d });
+      const img = await jobImages(u, brief);
+      const nb: CampaignBrief = { ...brief, ...img.patch };
+      patchAuto({ img });
+      at = "copy";
+      patchAuto({ phase: "copy" });
+      // Новый бриф целиком: прежние лого, ссылка и реф к этой кампании не относятся.
+      setB(nb);
+      latestB.current = nb;
+      setI18n({});
+      setRoll(d.roll);
+      await buildCampaign(d.roll, { ...nb, i18n: {}, art: null }, d.copyBrief, true);
+    } catch (e) {
+      patchAuto({ phase: "error", failedAt: at, error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+    }
+  };
+  // Сборка графики простого режима: запустилась → закончилась (или не хватило кредитов).
+  const simpleWasRunning = useRef(false);
+  useEffect(() => {
+    if (auto?.phase !== "generating") {
+      simpleWasRunning.current = false;
+      return;
+    }
+    if (lucky.notEnough) return patchAuto({ phase: "error", failedAt: "generating", error: lucky.notEnough });
+    if (lucky.running) simpleWasRunning.current = true;
+    else if (simpleWasRunning.current && !heroBusy) {
+      simpleWasRunning.current = false;
+      patchAuto({ phase: "done" });
+    }
+  }, [auto?.phase, lucky.running, lucky.notEnough, heroBusy]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** Смета до старта: вся кампания на типичной сцене этого типа трафика, один баннер и шапка письма. */
+  const simpleEstimate = (() => {
+    if (!simpleMode) return "";
+    const r: LuckyRoll = { scene: LUCKY_SCENES[b.kind][0], theme: "", themeName: "" };
+    const all = stepsFor(r, { landing: true, playable: showPlayable, email: true, banner: true }, briefBannerSpecs({ ...b, banners: [] }));
+    const sum = all.reduce((s, st) => s + st.credits, 0) + EMAIL_HERO_PRICE_CREDITS;
+    return `Вся кампания ≈ ${sum} кр.: графика игры, картинки блоков лендинга, баннер (${BANNER_PRICE_CREDITS} кр. за каждый размер из ТЗ) и шапка письма. Меньше частей — дешевле; тексты и сборка — бесплатно.`;
+  })();
 
   // Перевод: один раз на язык и набор текстов (тип трафика, сцена), с кэшем в браузере.
   const source = useMemo(() => briefSource(b), [b.lang, b.kind, b.scene]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -829,361 +930,380 @@ export function CampaignApp() {
           <p className="mt-1 ds-caption">Лендинг, плейбл, письмо и баннер — в одной теме, с одним оффером и одной ссылкой.</p>
         </div>
 
-        <div>
-          <div role="tablist" className="mb-2 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["topic", "Ввести тематику"],
-                ["tz", "Загрузить ТЗ"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={topicMode === id}
-                onClick={() => setTopicMode(id)}
-                className={`rounded-lg border px-3 py-2 text-sm transition ${topicMode === id ? CHIP_ON : CHIP_OFF}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {topicMode === "topic" ? (
-            <>
-              <label htmlFor="campaign-topic" className="mb-1.5 block ds-caption">Тематика — остальное подберём сами</label>
-              <input
-                id="campaign-topic"
-                value={b.topic}
-                maxLength={200}
-                onChange={(e) => setB((p) => ({ ...p, topic: e.target.value, ...(e.target.value.trim() ? {} : { autoHeadline: "" }) }))}
-                className={INPUT}
-                placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
-              />
-            </>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="ds-caption">
-                ТЗ файлом (.docx, .pdf, .txt) или текстом: возьмём тематику, бренд и сайт (лого с него), оффер, заголовок, кнопку,
-                ссылку, язык, тип трафика и что делать.
-              </p>
-              <div className="flex gap-2">
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+
+        {simpleMode ? (
+          <SimpleCampaignPanel
+            auto={auto}
+            busy={autoBusy || copying || lucky.running}
+            estimate={simpleEstimate}
+            showPlayable={showPlayable}
+            brief={b}
+            run={{ steps: lucky.steps, running: lucky.running, notEnough: lucky.notEnough }}
+            onRun={(i) => void runSimple(i)}
+            onCancel={lucky.cancel}
+            onDownload={() => void downloadAll()}
+            zipping={zipping}
+          />
+        ) : (
+          <>
+          <div>
+            <div role="tablist" className="mb-2 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["topic", "Ввести тематику"],
+                  ["tz", "Загрузить ТЗ"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={topicMode === id}
+                  onClick={() => setTopicMode(id)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${topicMode === id ? CHIP_ON : CHIP_OFF}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {topicMode === "topic" ? (
+              <>
+                <label htmlFor="campaign-topic" className="mb-1.5 block ds-caption">Тематика — остальное подберём сами</label>
+                <input
+                  id="campaign-topic"
+                  value={b.topic}
+                  maxLength={200}
+                  onChange={(e) => setB((p) => ({ ...p, topic: e.target.value, ...(e.target.value.trim() ? {} : { autoHeadline: "" }) }))}
+                  className={INPUT}
+                  placeholder="Викинги, Хэллоуин, Супермен, финал Лиги чемпионов…"
+                />
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="ds-caption">
+                  ТЗ файлом (.docx, .pdf, .txt) или текстом: возьмём тематику, бренд и сайт (лого с него), оффер, заголовок, кнопку,
+                  ссылку, язык, тип трафика и что делать.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={tzBusy}
+                    onClick={() => tzFile.current?.click()}
+                    className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-sm transition disabled:opacity-60 ${CHIP_OFF}`}
+                  >
+                    {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {tzBusy ? "Разбираем ТЗ…" : "Загрузить файл ТЗ"}
+                  </button>
+                  <input
+                    ref={tzFile}
+                    type="file"
+                    accept=".docx,.pdf,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) void parseTz(f);
+                    }}
+                  />
+                </div>
+                <textarea
+                  id="campaign-tz"
+                  value={tzText}
+                  onChange={(e) => setTzText(e.target.value)}
+                  rows={4}
+                  placeholder="…или вставьте текст ТЗ"
+                  className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
+                />
                 <button
                   type="button"
-                  disabled={tzBusy}
-                  onClick={() => tzFile.current?.click()}
-                  className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-sm transition disabled:opacity-60 ${CHIP_OFF}`}
+                  disabled={tzBusy || !tzText.trim()}
+                  onClick={() => void parseTz()}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
                 >
-                  {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {tzBusy ? "Разбираем ТЗ…" : "Загрузить файл ТЗ"}
+                  {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Разобрать текст ТЗ
                 </button>
-                <input
-                  ref={tzFile}
-                  type="file"
-                  accept=".docx,.pdf,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = "";
-                    if (f) void parseTz(f);
-                  }}
-                />
+                {tzFilled.length ? (
+                  <p className="ds-caption">
+                    Заполнено из ТЗ: {tzFilled.join(", ")}.{b.topic ? <> Тематика: <b className="text-foreground">{b.topic}</b>.</> : null}
+                  </p>
+                ) : null}
+                {b.tzPlan ? <TzPlanCard plan={b.tzPlan} kind={b.kind} /> : null}
               </div>
-              <textarea
-                id="campaign-tz"
-                value={tzText}
-                onChange={(e) => setTzText(e.target.value)}
-                rows={4}
-                placeholder="…или вставьте текст ТЗ"
-                className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-accent-green"
-              />
+            )}
+          </div>
+
+          <fieldset>
+            <legend className="mb-1.5 ds-caption">Что делаем</legend>
+            <div className="flex flex-wrap gap-2">
+              {CAMPAIGN_PARTS.filter((p) => p.id !== "playable" || showPlayable).map((p) => {
+                const on = parts[p.id];
+                // Хотя бы одна часть остаётся.
+                const last = on && CAMPAIGN_PARTS.filter((x) => parts[x.id] && (x.id !== "playable" || showPlayable)).length === 1;
+                return (
+                  <label
+                    key={p.id}
+                    className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition ${on ? CHIP_ON : CHIP_OFF} ${last ? "cursor-not-allowed opacity-70" : ""}`}
+                    title={last ? "Хотя бы одну часть оставьте" : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={last}
+                      onChange={(e) => setB((prev) => ({ ...prev, parts: { ...briefParts(prev), [p.id]: e.target.checked } }))}
+                      className="h-4 w-4 accent-[var(--accent-green,#c6ff3d)]"
+                    />
+                    {p.label}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <p className="ds-caption">
+                {planning ? (
+                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Подбираем сцену, визуал и заголовок…</span>
+                ) : copying ? (
+                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Раскладываем тему по креативам: тексты лендинга, плейбла, баннера и письма…</span>
+                ) : !topic ? (
+                  "Введите тематику или загрузите ТЗ — по ним соберём тексты для всех частей и графику для отмеченных."
+                ) : roll ? (
+                  <>
+                    Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Сначала тексты всех частей под тему, затем графика от ИИ для отмеченных: {CAMPAIGN_PARTS.filter((p) => parts[p.id] && (p.id !== "playable" || showPlayable)).map((p) => p.label.toLowerCase()).join(", ")}.
+                  </>
+                ) : (
+                  "Выбираем тему…"
+                )}
+              </p>
               <button
                 type="button"
-                disabled={tzBusy || !tzText.trim()}
-                onClick={() => void parseTz()}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent-green px-3 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                onClick={rerollLucky}
+                disabled={lucky.running || planning}
+                title={topic ? "Другая сцена в той же тематике" : b.refScene ? "Другая сцена (тема — с рефа)" : "Другая тема и сцена"}
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition disabled:opacity-50 ${CHIP_OFF}`}
               >
-                {tzBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Разобрать текст ТЗ
+                <Dices className="h-3.5 w-3.5" /> Другая
               </button>
-              {tzFilled.length ? (
-                <p className="ds-caption">
-                  Заполнено из ТЗ: {tzFilled.join(", ")}.{b.topic ? <> Тематика: <b className="text-foreground">{b.topic}</b>.</> : null}
-                </p>
-              ) : null}
-              {b.tzPlan ? <TzPlanCard plan={b.tzPlan} kind={b.kind} /> : null}
             </div>
-          )}
-        </div>
-
-        <fieldset>
-          <legend className="mb-1.5 ds-caption">Что делаем</legend>
-          <div className="flex flex-wrap gap-2">
-            {CAMPAIGN_PARTS.filter((p) => p.id !== "playable" || showPlayable).map((p) => {
-              const on = parts[p.id];
-              // Хотя бы одна часть остаётся.
-              const last = on && CAMPAIGN_PARTS.filter((x) => parts[x.id] && (x.id !== "playable" || showPlayable)).length === 1;
-              return (
-                <label
-                  key={p.id}
-                  className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition ${on ? CHIP_ON : CHIP_OFF} ${last ? "cursor-not-allowed opacity-70" : ""}`}
-                  title={last ? "Хотя бы одну часть оставьте" : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={last}
-                    onChange={(e) => setB((prev) => ({ ...prev, parts: { ...briefParts(prev), [p.id]: e.target.checked } }))}
-                    className="h-4 w-4 accent-[var(--accent-green,#c6ff3d)]"
-                  />
-                  {p.label}
-                </label>
-              );
-            })}
+            <AssetRunPanel
+              title="Собрать кампанию"
+              plan={luckyPlan}
+              steps={lucky.steps}
+              running={lucky.running}
+              notEnough={lucky.notEnough}
+              credits={luckyCredits}
+              onStart={startLucky}
+              onCancel={lucky.cancel}
+              disabled={!roll || planning || copying || !topic}
+            />
+            {art ? (
+              <p className="ds-caption">
+                Графика кампании: {art.themeName} — {sceneLabel(art.scene)}
+                {art.scene !== b.scene ? " (детали — для другой сцены; фон и блоки — на месте)" : ""}.{" "}
+                <button type="button" onClick={() => setArt(null)} disabled={lucky.running} className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+                  Убрать графику
+                </button>{" "}·{" "}
+                <Link href="/campaign/view" className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+                  Страница кампании — все материалы
+                </Link>
+              </p>
+            ) : null}
           </div>
-        </fieldset>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-start justify-between gap-3">
-            <p className="ds-caption">
-              {planning ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Подбираем сцену, визуал и заголовок…</span>
-              ) : copying ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Раскладываем тему по креативам: тексты лендинга, плейбла, баннера и письма…</span>
-              ) : !topic ? (
-                "Введите тематику или загрузите ТЗ — по ним соберём тексты для всех частей и графику для отмеченных."
-              ) : roll ? (
-                <>
-                  Тема: <b className="text-foreground">{roll.themeName}</b> · сцена: <b className="text-foreground">{sceneLabel(roll.scene)}</b>. Сначала тексты всех частей под тему, затем графика от ИИ для отмеченных: {CAMPAIGN_PARTS.filter((p) => parts[p.id] && (p.id !== "playable" || showPlayable)).map((p) => p.label.toLowerCase()).join(", ")}.
-                </>
-              ) : (
-                "Выбираем тему…"
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={rerollLucky}
-              disabled={lucky.running || planning}
-              title={topic ? "Другая сцена в той же тематике" : b.refScene ? "Другая сцена (тема — с рефа)" : "Другая тема и сцена"}
-              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition disabled:opacity-50 ${CHIP_OFF}`}
-            >
-              <Dices className="h-3.5 w-3.5" /> Другая
-            </button>
+          <div className="grid grid-cols-2 gap-2">
+            {(["casino", "sport"] as LandingKind[]).map((k) => (
+              <button key={k} type="button" onClick={() => switchKind(k)} aria-pressed={b.kind === k} className={`rounded-lg border px-3 py-2 text-sm transition ${b.kind === k ? CHIP_ON : CHIP_OFF}`}>
+                {k === "casino" ? "Казино" : "Ставки на спорт"}
+              </button>
+            ))}
           </div>
-          <AssetRunPanel
-            title="Собрать кампанию"
-            plan={luckyPlan}
-            steps={lucky.steps}
-            running={lucky.running}
-            notEnough={lucky.notEnough}
-            credits={luckyCredits}
-            onStart={startLucky}
-            onCancel={lucky.cancel}
-            disabled={!roll || planning || copying || !topic}
+
+          {/* Найти по сайту: лого (уйдёт в баннер и шапку письма), название и фирменный цвет. */}
+          <BrandLookup
+            onFound={(f) =>
+              setB((p) => ({
+                ...p,
+                brand: f.brandName || p.brand,
+                logo: f.logoDataUrl,
+                // Фирменный цвет — гаммой кампании, если её не задали пипеткой и нет рефа.
+                ...(/^#[0-9a-f]{6}$/i.test(f.accentHex) && !p.pickColor && !p.ref ? { pickColor: f.accentHex } : {}),
+              }))
+            }
           />
-          {art ? (
-            <p className="ds-caption">
-              Графика кампании: {art.themeName} — {sceneLabel(art.scene)}
-              {art.scene !== b.scene ? " (детали — для другой сцены; фон и блоки — на месте)" : ""}.{" "}
-              <button type="button" onClick={() => setArt(null)} disabled={lucky.running} className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
-                Убрать графику
-              </button>{" "}·{" "}
-              <Link href="/campaign/view" className="text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
-                Страница кампании — все материалы
-              </Link>
-            </p>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {(["casino", "sport"] as LandingKind[]).map((k) => (
-            <button key={k} type="button" onClick={() => switchKind(k)} aria-pressed={b.kind === k} className={`rounded-lg border px-3 py-2 text-sm transition ${b.kind === k ? CHIP_ON : CHIP_OFF}`}>
-              {k === "casino" ? "Казино" : "Ставки на спорт"}
-            </button>
-          ))}
-        </div>
-
-        {/* Найти по сайту: лого (уйдёт в баннер и шапку письма), название и фирменный цвет. */}
-        <BrandLookup
-          onFound={(f) =>
-            setB((p) => ({
-              ...p,
-              brand: f.brandName || p.brand,
-              logo: f.logoDataUrl,
-              // Фирменный цвет — гаммой кампании, если её не задали пипеткой и нет рефа.
-              ...(/^#[0-9a-f]{6}$/i.test(f.accentHex) && !p.pickColor && !p.ref ? { pickColor: f.accentHex } : {}),
-            }))
-          }
-        />
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="mb-1.5 block ds-caption">Бренд — название, лого или оба</label>
-            <input value={b.brand} maxLength={40} onChange={(e) => set("brand", e.target.value)} className={INPUT} placeholder={b.logo ? "Можно без названия — есть лого" : "Название бренда"} />
-          </div>
-          <div>
-            <label className="mb-1.5 block ds-caption">Лого</label>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => logoInput.current?.click()} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-elevated" aria-label="Загрузить лого">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="mb-1.5 block ds-caption">Бренд — название, лого или оба</label>
+              <input value={b.brand} maxLength={40} onChange={(e) => set("brand", e.target.value)} className={INPUT} placeholder={b.logo ? "Можно без названия — есть лого" : "Название бренда"} />
+            </div>
+            <div>
+              <label className="mb-1.5 block ds-caption">Лого</label>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => logoInput.current?.click()} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-elevated" aria-label="Загрузить лого">
+                  {b.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={b.logo} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
                 {b.logo ? (
+                  <button type="button" onClick={() => set("logo", "")} aria-label="Убрать лого" className="flex h-10 w-8 items-center justify-center text-muted-foreground hover:text-foreground">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                ) : null}
+                <input ref={logoInput} type="file" accept="image/*" className="hidden" onChange={(e) => void pickLogo(e.target.files?.[0])} />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block ds-caption">Референс — по нему цвета, фон и тексты кампании</label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => refInput.current?.click()}
+                className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-elevated"
+                aria-label="Загрузить референс"
+              >
+                {b.ref ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={b.logo} alt="" className="h-full w-full object-contain" />
+                  <img src={b.ref} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <Upload className="h-4 w-4 text-muted-foreground" />
+                  <Upload className="h-5 w-5 text-muted-foreground" />
                 )}
               </button>
-              {b.logo ? (
-                <button type="button" onClick={() => set("logo", "")} aria-label="Убрать лого" className="flex h-10 w-8 items-center justify-center text-muted-foreground hover:text-foreground">
-                  <Trash2 className="h-4 w-4" />
+              <div className="min-w-0 flex-1 ds-caption">
+                {analyzing ? (
+                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Разбираем картинку…</span>
+                ) : b.ref ? (
+                  <>
+                    {b.refScene ? <span className="line-clamp-3">Сцена: {b.refScene}</span> : "Цвета — с рефа."}
+                    <span className="mt-1 flex gap-3">
+                      <button type="button" onClick={() => refInput.current?.click()} className="text-foreground/80 hover:text-foreground">Заменить</button>
+                      <button type="button" onClick={() => setB((p) => ({ ...p, ref: "", refScene: "", refPalette: null }))} className="text-foreground/80 hover:text-foreground">Убрать</button>
+                    </span>
+                  </>
+                ) : (
+                  "Баннер, ключевой визуал или скрин конкурента: возьмём цвета, бренд, заголовок и оффер, а сцену передадим ИИ в редакторах."
+                )}
+              </div>
+              <input ref={refInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void pickRef(e.target.files?.[0]); e.target.value = ""; }} />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block ds-caption">Гамма — кнопки, плашки, колесо, письмо</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => set("pickColor", undefined)}
+                aria-pressed={!b.pickColor}
+                title={b.ref ? "Цвета берутся с рефа" : "Загрузите реф — цвета возьмём с него"}
+                className={`flex h-10 items-center gap-2 rounded-lg border px-2.5 text-sm transition ${!b.pickColor ? CHIP_ON : CHIP_OFF}`}
+              >
+                <span className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: briefAccent({ ...b, pickColor: undefined }) }} />
+                {b.ref ? "Авто — по рефу" : "Авто"}
+              </button>
+              {hasEyeDropper ? (
+                <button type="button" onClick={() => void pickFromScreen()} title="Взять цвет с экрана — с рефа, превью или любой картинки" className={`flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-sm transition ${CHIP_OFF}`}>
+                  <Pipette className="h-4 w-4" /> Пипетка
                 </button>
               ) : null}
-              <input ref={logoInput} type="file" accept="image/*" className="hidden" onChange={(e) => void pickLogo(e.target.files?.[0])} />
+              <label title="Выбрать цвет" className={`relative flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm transition ${b.pickColor ? CHIP_ON : CHIP_OFF}`}>
+                <span className="h-5 w-5 rounded-full ring-1 ring-white/30" style={{ background: b.pickColor ?? accent }} />
+                {b.pickColor ? b.pickColor.toUpperCase() : "Свой цвет"}
+                <input type="color" value={b.pickColor ?? accent} onChange={(e) => set("pickColor", e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+              </label>
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="mb-1.5 block ds-caption">Референс — по нему цвета, фон и тексты кампании</label>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => refInput.current?.click()}
-              className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-elevated"
-              aria-label="Загрузить референс"
-            >
-              {b.ref ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={b.ref} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Upload className="h-5 w-5 text-muted-foreground" />
-              )}
-            </button>
-            <div className="min-w-0 flex-1 ds-caption">
-              {analyzing ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Разбираем картинку…</span>
-              ) : b.ref ? (
-                <>
-                  {b.refScene ? <span className="line-clamp-3">Сцена: {b.refScene}</span> : "Цвета — с рефа."}
-                  <span className="mt-1 flex gap-3">
-                    <button type="button" onClick={() => refInput.current?.click()} className="text-foreground/80 hover:text-foreground">Заменить</button>
-                    <button type="button" onClick={() => setB((p) => ({ ...p, ref: "", refScene: "", refPalette: null }))} className="text-foreground/80 hover:text-foreground">Убрать</button>
-                  </span>
-                </>
-              ) : (
-                "Баннер, ключевой визуал или скрин конкурента: возьмём цвета, бренд, заголовок и оффер, а сцену передадим ИИ в редакторах."
-              )}
-            </div>
-            <input ref={refInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void pickRef(e.target.files?.[0]); e.target.value = ""; }} />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block ds-caption">Гамма — кнопки, плашки, колесо, письмо</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => set("pickColor", undefined)}
-              aria-pressed={!b.pickColor}
-              title={b.ref ? "Цвета берутся с рефа" : "Загрузите реф — цвета возьмём с него"}
-              className={`flex h-10 items-center gap-2 rounded-lg border px-2.5 text-sm transition ${!b.pickColor ? CHIP_ON : CHIP_OFF}`}
-            >
-              <span className="h-4 w-4 rounded-full ring-2 ring-[var(--bg-panel,#111)]" style={{ background: briefAccent({ ...b, pickColor: undefined }) }} />
-              {b.ref ? "Авто — по рефу" : "Авто"}
-            </button>
-            {hasEyeDropper ? (
-              <button type="button" onClick={() => void pickFromScreen()} title="Взять цвет с экрана — с рефа, превью или любой картинки" className={`flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-sm transition ${CHIP_OFF}`}>
-                <Pipette className="h-4 w-4" /> Пипетка
-              </button>
-            ) : null}
-            <label title="Выбрать цвет" className={`relative flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm transition ${b.pickColor ? CHIP_ON : CHIP_OFF}`}>
-              <span className="h-5 w-5 rounded-full ring-1 ring-white/30" style={{ background: b.pickColor ?? accent }} />
-              {b.pickColor ? b.pickColor.toUpperCase() : "Свой цвет"}
-              <input type="color" value={b.pickColor ?? accent} onChange={(e) => set("pickColor", e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block ds-caption">Язык</label>
-          <select value={b.lang} onChange={(e) => switchLang(e.target.value)} className={INPUT}>
-            {EU_LANGS.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-          {!isBuiltInLang(b.lang) ? (
-            <p className="mt-1.5 ds-caption">
-              {translating ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Переводим тексты кампании…</span>
-              ) : isGuest && !Object.keys(i18n).length ? (
-                "Перевод — после входа; пока тексты на английском."
-              ) : (
-                "Тексты переведены ИИ — проверьте оффер и кнопку."
-              )}
-            </p>
-          ) : null}
-        </div>
-
-        <div>
-          <label className="mb-1.5 block ds-caption">Заголовок</label>
-          <input value={b.headline} maxLength={60} onChange={(e) => set("headline", e.target.value)} className={INPUT} placeholder={briefHeadline({ ...full, headline: "" })} />
-        </div>
-        <div>
-          <label className="mb-1.5 block ds-caption">Оффер</label>
-          <input value={b.offer} maxLength={80} onChange={(e) => set("offer", e.target.value)} className={INPUT} />
-        </div>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="mb-1.5 block ds-caption">Выигрыш в игре</label>
-            <input type="number" min={1} value={b.amount} onChange={(e) => set("amount", Math.max(1, Number(e.target.value) || 1))} className={INPUT} />
-          </div>
-          <div className="w-28">
-            <label className="mb-1.5 block ds-caption">Единица</label>
-            <input value={b.unit} maxLength={12} onChange={(e) => set("unit", e.target.value)} className={INPUT} />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <div className="w-40">
-            <label className="mb-1.5 block ds-caption">Кнопка</label>
-            <input value={b.cta} maxLength={24} onChange={(e) => set("cta", e.target.value)} className={INPUT} />
-          </div>
-          <div className="flex-1">
-            <label className="mb-1.5 block ds-caption">Ссылка по кнопкам</label>
-            <input type="url" value={b.link} onChange={(e) => set("link", e.target.value)} className={INPUT} placeholder="https://… — оффер или трекер" />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block ds-caption">Механика лендинга</label>
-          <div className="grid grid-cols-2 gap-2">
-            {LANDING_OPTIONS[b.kind].map((o) => (
-              <button key={o.id} type="button" onClick={() => set("landing", o.id)} aria-pressed={b.landing === o.id} className={`rounded-lg border px-2 py-2 text-sm transition ${b.landing === o.id ? CHIP_ON : CHIP_OFF}`}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {needsScene ? (
           <div>
-            <label className="mb-1.5 block ds-caption">{b.landing === "scene" ? "Сцена — лендинга и плейбла" : "Сцена плейбла"}</label>
-            <select value={b.scene} onChange={(e) => set("scene", e.target.value as CampaignBrief["scene"])} className={INPUT}>
-              {SCENES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
+            <label className="mb-1.5 block ds-caption">Язык</label>
+            <select value={b.lang} onChange={(e) => switchLang(e.target.value)} className={INPUT}>
+              {EU_LANGS.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
                 </option>
               ))}
             </select>
+            {!isBuiltInLang(b.lang) ? (
+              <p className="mt-1.5 ds-caption">
+                {translating ? (
+                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Переводим тексты кампании…</span>
+                ) : isGuest && !Object.keys(i18n).length ? (
+                  "Перевод — после входа; пока тексты на английском."
+                ) : (
+                  "Тексты переведены ИИ — проверьте оффер и кнопку."
+                )}
+              </p>
+            ) : null}
           </div>
-        ) : null}
 
-        <button
-          type="button"
-          onClick={() => void downloadAll()}
-          disabled={zipping}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-        >
-          <Download className="h-4 w-4" /> {zipping ? "Собираем…" : "Скачать всё — ZIP"}
-        </button>
-        <p className="-mt-2 ds-caption">Цвета — гамма рефа. ИИ-графику в стиле рефа добавите в редакторе каждой части.</p>
+          <div>
+            <label className="mb-1.5 block ds-caption">Заголовок</label>
+            <input value={b.headline} maxLength={60} onChange={(e) => set("headline", e.target.value)} className={INPUT} placeholder={briefHeadline({ ...full, headline: "" })} />
+          </div>
+          <div>
+            <label className="mb-1.5 block ds-caption">Оффер</label>
+            <input value={b.offer} maxLength={80} onChange={(e) => set("offer", e.target.value)} className={INPUT} />
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="mb-1.5 block ds-caption">Выигрыш в игре</label>
+              <input type="number" min={1} value={b.amount} onChange={(e) => set("amount", Math.max(1, Number(e.target.value) || 1))} className={INPUT} />
+            </div>
+            <div className="w-28">
+              <label className="mb-1.5 block ds-caption">Единица</label>
+              <input value={b.unit} maxLength={12} onChange={(e) => set("unit", e.target.value)} className={INPUT} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="w-40">
+              <label className="mb-1.5 block ds-caption">Кнопка</label>
+              <input value={b.cta} maxLength={24} onChange={(e) => set("cta", e.target.value)} className={INPUT} />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1.5 block ds-caption">Ссылка по кнопкам</label>
+              <input type="url" value={b.link} onChange={(e) => set("link", e.target.value)} className={INPUT} placeholder="https://… — оффер или трекер" />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block ds-caption">Механика лендинга</label>
+            <div className="grid grid-cols-2 gap-2">
+              {LANDING_OPTIONS[b.kind].map((o) => (
+                <button key={o.id} type="button" onClick={() => set("landing", o.id)} aria-pressed={b.landing === o.id} className={`rounded-lg border px-2 py-2 text-sm transition ${b.landing === o.id ? CHIP_ON : CHIP_OFF}`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {needsScene ? (
+            <div>
+              <label className="mb-1.5 block ds-caption">{b.landing === "scene" ? "Сцена — лендинга и плейбла" : "Сцена плейбла"}</label>
+              <select value={b.scene} onChange={(e) => set("scene", e.target.value as CampaignBrief["scene"])} className={INPUT}>
+                {SCENES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => void downloadAll()}
+            disabled={zipping}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent-green px-4 text-sm font-semibold text-on-accent transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" /> {zipping ? "Собираем…" : "Скачать всё — ZIP"}
+          </button>
+          <p className="-mt-2 ds-caption">Цвета — гамма рефа. ИИ-графику в стиле рефа добавите в редакторе каждой части.</p>
+          </>
+        )}
       </section>
 
       <section className="flex min-w-0 flex-1 flex-col gap-3">

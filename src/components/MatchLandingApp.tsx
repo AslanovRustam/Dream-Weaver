@@ -14,6 +14,13 @@ import { BuildingOverlay } from "@/components/landing/BuildingOverlay";
 import { analyzeSeedBanner } from "@/lib/landingSeed";
 import { BannerReferenceField } from "@/components/landing/BannerReferenceField";
 import { useAssetRun, type AssetStep } from "@/lib/useAssetRun";
+import { ModeSwitch } from "@/components/simple/ModeSwitch";
+import { useToolMode } from "@/components/simple/useToolMode";
+import { JobRow } from "@/components/simple/TzJobCard";
+import { SimpleMechanicPanel } from "@/components/mechanics/simple/SimpleMechanicPanel";
+import { useMechanicAutopilot } from "@/components/mechanics/simple/useMechanicAutopilot";
+import type { MechanicPlan } from "@/components/mechanics/simple/plan";
+import { matchPrize, matchSport } from "@/components/mechanics/simple/match";
 import { FullscreenPreview } from "@/components/landing/FullscreenPreview";
 import { LivePreview } from "@/components/landing/LivePreview";
 import { LandingExtrasPanel, LandingExtrasPreview } from "@/components/landing/LandingExtrasPanel";
@@ -122,6 +129,13 @@ export function MatchLandingApp() {
   const [genError, setGenError] = useState("");
   const [bannerRef, setBannerRef] = useState("");
   const [restored, setRestored] = useState(false);
+  // Простой / продвинутый режим. Цвет бренда из ТЗ держим, пока не перешли в продвинутый.
+  const [toolMode, setToolModeRaw, showToolMode] = useToolMode("match");
+  const accentLock = useRef(false);
+  const setToolMode = (m: typeof toolMode) => {
+    if (m === "advanced") accentLock.current = false;
+    setToolModeRaw(m);
+  };
 
   const oddsNum = {
     home: Math.max(1.01, parseFloat(odds.home.replace(",", ".")) || 1.01),
@@ -230,6 +244,8 @@ export function MatchLandingApp() {
       // человек есть, шаг сборки вернёт картинку через несколько секунд.
       setCharImages((c) => ({ ...c, left: "" }));
       window.localStorage.removeItem("dw:landingSeed");
+      // Пришли из баннера: всё заполнено из него — открываем заполненную форму, выбор режима не трогаем.
+      showToolMode("advanced");
 
       // Разбор баннера — первый шаг сборки, а не ожидание на прошлом экране.
       // Тексты, акцент и промпты перекрываем только тем, что модель реально
@@ -430,6 +446,8 @@ export function MatchLandingApp() {
   /** Фон от ИИ: ставим и подстраиваем акцент (кнопки, подсветку, блоки) под его цвет. */
   function setBgFromAi(img: string) {
     setBgImage(img);
+    // Цвет бренда из ТЗ (простой режим) главнее цвета фона.
+    if (accentLock.current) return;
     void paletteFromImage(img)
       .then((p) => setAccent(accentFromPalette(p)))
       .catch(() => {});
@@ -545,6 +563,62 @@ export function MatchLandingApp() {
     return steps;
   };
   const assetCredits = assetSteps().reduce((sum, s) => sum + s.credits, 0);
+
+  // ---- Простой режим: ТЗ → матч, команды, приз, бренд, язык → вся графика ----
+  const applyPlan = (p: MechanicPlan, wantArt: boolean) => {
+    accentLock.current = !!p.accent;
+    setExtras(p.extras);
+    setBrand(p.brand.name || "LOGO");
+    setBrandLogo(p.brand.logo);
+    if (p.accent) setAccent(p.accent);
+    if (p.headline) setHeadline(p.headline);
+    if (p.cta) setCtaText(p.cta);
+    setTopic(p.topic);
+    if (p.bg) setTheme(p.bg);
+    setBannerRef(p.ref);
+    setCharPrompts({ left: p.chars.left, right: p.chars.right });
+    setCharOn({ left: true, right: true });
+    setCrestTheme(p.icon || p.topic);
+    const home = (p.scene.home ?? "").trim();
+    const away = (p.scene.away ?? "").trim();
+    if (home && away) setTeams({ home, away });
+    if (p.scene.event) setEventName(p.scene.event);
+    setSport(matchSport(`${p.scene.sport ?? ""} ${p.u.job.summary} ${home} ${away}`, sport));
+    // Приз — из оффера ТЗ: тип, сумма, валюта; условие — строкой под ним.
+    const prize = matchPrize(p.offer);
+    if (prize) {
+      setPrizeType(prize.type);
+      setPrizeAmount(prize.amount);
+      setPrizeCurrency(prize.currency);
+      setShowOffer(true);
+    }
+    if (p.scene.terms) setOfferText(p.scene.terms);
+    if (wantArt) {
+      // Картинки прошлого матча не к этому ТЗ — сборка нарисует новые.
+      setCharImages({ left: "", right: "" });
+      setCrests({ home: "", away: "" });
+    }
+  };
+  const autopilot = useMechanicAutopilot({
+    mechanic: "match",
+    kind: "sport",
+    setMode: setToolMode,
+    icon: true,
+    fields: () => [
+      { key: "home", label: "home team / fighter named in the brief (or invented)", value: teams.home },
+      { key: "away", label: "away team / fighter named in the brief (or invented)", value: teams.away },
+      { key: "event", label: "event line: tournament · day time, <=40 chars", value: eventName },
+      { key: "terms", label: "offer condition line, e.g. for the first bet, <=50 chars", value: offerText },
+      { key: "sport", label: "sport: football|basketball|hockey|tennis|mma|esports", value: sport },
+    ],
+    current: () => ({ extras, cta: ctaText }),
+    apply: applyPlan,
+    startArt: async () => {
+      await assetRun.start(assetSteps());
+    },
+  });
+  const extrasCredits = extrasAssets.allSteps().reduce((sum, s) => sum + s.credits, 0);
+  const simpleEstimate = `Графика ≈ ${BG_PRICE + CHAR_PRICE + 2 * CREST_PRICE + extrasCredits}–${BG_PRICE + 2 * CHAR_PRICE + 2 * CREST_PRICE + extrasCredits} кр.: фон, 1–2 персонажа, 2 эмблемы, картинки блоков. Без галочки — только тексты, матч и блоки.`;
 
   const inputCls = "h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm outline-none focus:border-accent-green";
   const sportMeta = SPORTS.find((s) => s.id === sport) ?? SPORTS[0];
@@ -694,6 +768,35 @@ export function MatchLandingApp() {
             Лендинг под конкретный матч: команды, коэффициенты, таймер до начала и оффер. Ставка не делается на странице — коэффициенты и кнопка ведут на букмекера.
           </p>
         </header>
+
+        <ModeSwitch mode={toolMode} onChange={setToolMode} />
+        {toolMode === "simple" ? (
+          <SimpleMechanicPanel
+            auto={autopilot.auto}
+            busy={autopilot.busy || genning || charGenning !== null || crestGenning !== null}
+            estimate={simpleEstimate}
+            onRun={autopilot.run}
+            artLabel="фон, персонажи, эмблемы команд, картинки блоков"
+            art={assetRun}
+            onDownload={exportHtml}
+            rows={
+              <>
+                <JobRow label="Матч">
+                  {teams.home} — {teams.away}
+                  {eventName ? <span className="text-muted-foreground"> · {eventName}</span> : null}
+                </JobRow>
+                <JobRow label="Вид спорта">{SPORTS.find((s) => s.id === sport)?.label ?? sport}</JobRow>
+                {showOffer ? (
+                  <JobRow label="Приз">
+                    {[prizeAmount, prizeCurrency].filter(Boolean).join(" ")}
+                    {offerText ? <span className="text-muted-foreground"> · {offerText}</span> : null}
+                  </JobRow>
+                ) : null}
+              </>
+            }
+          />
+        ) : (
+        <>
 
         <div>
           <label className="mb-2 block ds-h4">
@@ -965,6 +1068,8 @@ export function MatchLandingApp() {
         >
           <Download className="h-4 w-4" /> Скачать HTML
         </button>
+        </>
+        )}
       </div>
 
       <div className="lg:sticky lg:top-6 lg:h-fit">
