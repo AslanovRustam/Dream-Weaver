@@ -7,11 +7,13 @@ import { authErrorResponse, requireUser } from "@/lib/auth-server";
 import { assertImageDataUrl, rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { safeFetchImage } from "@/lib/safe-fetch";
 import { extractUsage, recordUsage } from "@/lib/usage";
+import { llmJson } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "gpt-5.4-mini";
+/** Модель проверки: gpt-5.4-mini или claude-haiku-5-5 (провайдер — по названию, lib/llm). */
+const MODEL = process.env.TZ_CHECK_MODEL || "gpt-5.4-mini";
 
 const SYSTEM = [
   "You are a strict QA reviewer of advertising creatives. You get ONE finished banner image and a checklist of client requirements.",
@@ -64,32 +66,19 @@ export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: MODEL,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "CHECKLIST:\n" + reqs.map((r) => `${r.id}: ${r.text}${r.exact ? ` [exact text: «${r.exact}»]` : ""}`).join("\n"),
-              },
-              { type: "image_url", image_url: { url: image, detail: "high" } },
-            ],
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(50_000),
+    const r = await llmJson({
+      model: MODEL,
+      system: SYSTEM,
+      parts: [
+        { type: "text", text: "CHECKLIST:\n" + reqs.map((q) => `${q.id}: ${q.text}${q.exact ? ` [exact text: «${q.exact}»]` : ""}`).join("\n") },
+        { type: "image", url: image, detail: "high" },
+      ],
+      effort: "low",
+      maxTokens: 8_000,
+      timeoutMs: 50_000,
     });
-    const data = await res.json();
-    if (!res.ok) return Response.json({ error: "Проверка недоступна" }, { status: 502 });
-    await recordUsage(user.id, { model: MODEL, feature: "tz-check", type: "llm", ...extractUsage(data, MODEL) });
-    const j = JSON.parse(data.choices?.[0]?.message?.content || "{}") as {
+    await recordUsage(user.id, { model: r.model, feature: "tz-check", type: "llm", ...extractUsage({ usage: r.usage }, MODEL) });
+    const j = r.json as {
       results?: { id?: unknown; ok?: unknown; note?: unknown }[];
       faceCovered?: unknown;
     };

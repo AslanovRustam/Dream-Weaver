@@ -45,3 +45,4 @@ next-env.d.ts
 тест/
 config.bat
 /.scene-shots
+scripts/tz-compare/out/

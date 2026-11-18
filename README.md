@@ -167,7 +167,11 @@ Server-side variables are read from `process.env` in route handlers. Only
 | `FTP_BASE_URL` | Public HTTP origin the uploads are served from (also the SSRF allowlist) |
 | `NOWPAYMENTS_API_KEY` / `NOWPAYMENTS_IPN_SECRET` | Crypto payments for credit packages (NOWPayments); without them the «Оплатить криптой» buttons are disabled |
 | `NOWPAYMENTS_SANDBOX` | `1` = NOWPayments sandbox API |
-| `TZ_MODEL` | Model for brief understanding (default `gpt-5.5`) |
+| `TZ_MODEL` | Model for brief understanding (default `gpt-5.5`; `claude-opus-5-5` routes to Anthropic) |
+| `TZ_EFFORT` | Claude thinking effort for brief understanding: `low` / `medium` (default) / `high` |
+| `TZ_BRIEF_MODEL` | Banner art-director model (default `gpt-5.4-mini`; e.g. `claude-haiku-5-5`) |
+| `TZ_CHECK_MODEL` | Result-vs-brief check model (default `gpt-5.4-mini`; e.g. `claude-haiku-5-5`) |
+| `ANTHROPIC_API_KEY` | Needed only when one of the models above is a `claude-*` model |
 | `CHROME_PATH` | System Chromium for screenshots of brief links (script-rendered casino sites). Unset → looks for `chromium` in PATH; none → no screenshots, everything else works. On Dokploy/Nixpacks: `NIXPACKS_PKGS=chromium` |
 | `TZ_SCREENSHOTS` | `0` = turn brief-link screenshots off |
 | `PUBLIC_APP_URL` | Public origin for payment callbacks (IPN / return URLs), e.g. `https://gen-go.ai`; falls back to the request host |

@@ -3,7 +3,7 @@
 // Body: { job: TzJob, banner: TzBanner, template: {name, description, prompt} }
 // Response: { prompt, bannerText, buttonText, ideas }
 import { authErrorResponse, requireUser } from "@/lib/auth-server";
-import { enhanceBannerBrief } from "@/lib/bannerTz";
+import { enhanceBannerBrief, TZ_BRIEF_MODEL } from "@/lib/bannerTz";
 import { rateLimitResponse, rejectLargeBody } from "@/lib/request-guard";
 import { extractUsage, recordUsage } from "@/lib/usage";
 
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     apiKey,
   ).catch(() => ({ result: null, usage: null }));
   if (usage)
-    await recordUsage(user.id, { model: "gpt-5.4-mini", feature: "tz-banner-brief", type: "llm", ...extractUsage(usage, "gpt-5.4-mini") });
+    await recordUsage(user.id, { model: TZ_BRIEF_MODEL, feature: "tz-banner-brief", type: "llm", ...extractUsage(usage, TZ_BRIEF_MODEL) });
   if (!result) return Response.json({ error: "Не удалось подготовить описание баннера" }, { status: 502 });
   // Тексты из задания главнее придуманных арт-директором: они из ТЗ.
   return Response.json({

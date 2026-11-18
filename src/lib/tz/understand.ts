@@ -12,8 +12,12 @@ import { OFFER_RULE } from "@/lib/offerText";
 import { BANNER_SIZE_GROUPS } from "@/lib/bannerSizes";
 import type { TzBundle } from "./ingest";
 import { TZ_PLANS, type TzPlanSpec, type TzProduct } from "./plans";
+import { llmJson, type LlmPart } from "@/lib/llm";
 
+/** Модель понимания ТЗ: gpt-5.5 или claude-opus-5-5 (провайдер — по названию, lib/llm). */
 export const TZ_MODEL = process.env.TZ_MODEL || "gpt-5.5";
+/** Глубина мышления Claude для понимания ТЗ. */
+const TZ_EFFORT = (process.env.TZ_EFFORT as "low" | "medium" | "high" | undefined) || "medium";
 
 export const TZ_RATIOS = ["1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "4:5", "5:4"] as const;
 
@@ -247,27 +251,14 @@ export function normalizeJob(
 export async function understandTz(
   b: TzBundle,
   templates: TemplateInfo[],
-  apiKey: string,
+  _apiKey: string,
   product: TzProduct = "banner",
-): Promise<{ job: TzJob; usage: unknown }> {
+  model: string = TZ_MODEL,
+): Promise<{ job: TzJob; usage: unknown; model: string; ms: number }> {
   const spec = TZ_PLANS[product];
-  const content: unknown[] = [{ type: "text", text: bundlePrompt(b) }];
-  for (const im of b.images) content.push({ type: "image_url", image_url: { url: im.src, detail: "high" } });
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: TZ_MODEL,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM(templates, spec) },
-        { role: "user", content },
-      ],
-    }),
-    signal: AbortSignal.timeout(110_000),
-  });
-  const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
-  if (!res.ok) throw new Error(data?.error?.message || `модель ответила ${res.status}`);
-  const raw = JSON.parse(data?.choices?.[0]?.message?.content || "{}") as Record<string, unknown>;
-  return { job: normalizeJob(raw, b, templates, product), usage: data };
+  const parts: LlmPart[] = [{ type: "text", text: bundlePrompt(b) }];
+  for (const im of b.images) parts.push({ type: "image", url: im.src, detail: "high" });
+  const r = await llmJson({ model, system: SYSTEM(templates, spec), parts, effort: TZ_EFFORT, maxTokens: 32_000, timeoutMs: 170_000 });
+  // usage — в форме OpenAI с готовой ценой: lib/usage.extractUsage возьмёт cost как есть.
+  return { job: normalizeJob(r.json, b, templates, product), usage: { usage: r.usage }, model: r.model, ms: r.ms };
 }

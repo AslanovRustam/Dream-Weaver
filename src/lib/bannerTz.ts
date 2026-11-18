@@ -10,6 +10,10 @@
 // Серверный модуль: вызывается из /api/parse-brief для product: "banner".
 
 import { OFFER_RULE } from "./offerText";
+import { llmJson } from "./llm";
+
+/** Модель арт-директора баннера (провайдер — по названию, lib/llm). */
+export const TZ_BRIEF_MODEL = process.env.TZ_BRIEF_MODEL || "gpt-5.4-mini";
 
 export type BannerTemplateInfo = { name: string; description: string; prompt: string };
 
@@ -39,28 +43,27 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+
 export async function enhanceBannerBrief(
   brief: string,
   template: BannerTemplateInfo | null,
-  apiKey: string,
+  _apiKey: string,
 ): Promise<{ result: EnhancedBannerBrief | null; usage: unknown }> {
   const tpl = template
     ? `TEMPLATE «${template.name}» — ${template.description}\nTemplate prompt (how it renders):\n${template.prompt.slice(0, 3000)}`
     : "TEMPLATE: a premium casino / betting promo banner.";
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "gpt-5.4-mini",
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: `${tpl}\n\nBRIEF (ТЗ):\n"""${brief}"""` },
-      ],
-      response_format: { type: "json_object" },
-    }),
-    signal: AbortSignal.timeout(55_000),
-  });
-  if (!res.ok) return { result: null, usage: null };
-  const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string } }[] } | null;
+  let r: Awaited<ReturnType<typeof llmJson>>;
   try {
-    const j = JSON.parse(data?.choices?.[0]?.message?.content || "{}") as Record<string, unknown>;
+    r = await llmJson({
+      model: TZ_BRIEF_MODEL,
+      system: SYSTEM,
+      parts: [{ type: "text", text: `${tpl}\n\nBRIEF (ТЗ):\n"""${brief}"""` }],
+      effort: "low",
+      maxTokens: 8_000,
+      timeoutMs: 55_000,
+    });
+  } catch {
+    return { result: null, usage: null };
+  }
+  const data = { usage: r.usage };
+  try {
+    const j = r.json;
     const prompt = str(j.prompt, 1600);
     if (!prompt) return { result: null, usage: data };
     return {
