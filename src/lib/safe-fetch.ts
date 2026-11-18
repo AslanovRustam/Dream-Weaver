@@ -309,7 +309,7 @@ const worthProxy = (r: RawResponse | null) => !r || r.status === 403 || r.status
  *  the target's IP at every hop) up to MAX_REDIRECTS times. Direct first; if
  *  the site is unreachable or geo-blocks us and FETCH_PROXY_URL is set — the
  *  same chain through the proxy. */
-async function fetchPublicUrlFollowing(raw: string, limit: number): Promise<RawResponse> {
+export async function fetchPublicUrlFollowing(raw: string, limit: number): Promise<RawResponse> {
   const proxy = fetchProxy();
   const run = async (via: URL | null): Promise<RawResponse> => {
     let current = raw;

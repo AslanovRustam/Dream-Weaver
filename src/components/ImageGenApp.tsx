@@ -34,7 +34,12 @@ import { ToolCoachmark } from "./ToolCoachmark";
 import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
-import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS } from "@/lib/credit-estimate";
+import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
+import { SimpleBannerPanel, type AutoState, type SimpleInput } from "./banner/SimpleBannerPanel";
+import { BANNER_SIZE_GROUPS, type BannerSize } from "@/lib/bannerSizes";
+import { CREATIVE_LANGUAGES } from "@/lib/creative-language";
+import type { TzBanner, TzJob } from "@/lib/tz/understand";
+import type { TzImage, TzLinkInfo, TzSource } from "@/lib/tz/ingest";
 import { VariantCount, VariantStrip } from "@/components/banner/VariantPicker";
 import { GenerationSteps } from "@/components/banner/GenerationSteps";
 import { fetchBalance } from "@/components/AppHeader";
@@ -1112,14 +1117,14 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     if (!next.includes(ratio)) setRatio("1:1");
   };
 
-  const onGenerate = async () => {
+  const onGenerate = async (): Promise<string | null> => {
     // Tracked before the guest check on purpose: the gap between clicks and
     // results is the interesting number, and guests bouncing off the gate are
     // part of it.
     track("generate_clicked", { preset, guest: isGuest });
     if (isGuest) {
       openGate();
-      return;
+      return null;
     }
     // Guard EVERY generation path against an empty required field. The two
     // "Сгенерировать" buttons gate via `disabled`, but the "Перегенерировать"
@@ -1137,7 +1142,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
               : "Описание"
         }», чтобы сгенерировать`,
       );
-      return;
+      return null;
     }
     setStatus("loading");
     setErrorMsg("");
@@ -1219,7 +1224,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           ? `Нужно ${estCredits} кредитов, на балансе ${balance}. Хватит на ${affordable} ${affordable === 1 ? "вариант" : "варианта"}.`
           : `Нужно ${estCredits} кредитов, на балансе ${balance}.`,
       );
-      return;
+      return null;
     }
 
     try {
@@ -1240,9 +1245,11 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           return { ...prev, [preset]: list.slice(0, 30) };
         });
       }
+      return img;
     } catch (e) {
       setErrorMsg(formatGenerationError(e instanceof Error ? e.message : "Unknown error"));
       setStatus("error");
+      return null;
     }
   };
 
@@ -1275,6 +1282,210 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingBriefGen, prompt, status]);
+
+  // ---- Простой режим: ТЗ → движок ТЗ → баннер → проверка → ресайзы ----------
+  // Режим у каждого инструмента свой. Новичку — простой; у кого уже есть
+  // выбранный шаблон (работал в генераторе) — привычный продвинутый.
+  const modeKey = resizeMode === "layers" ? "dw_mode_bannerLayers" : "dw_mode_banner";
+  const [toolMode, setToolModeState] = useState<"simple" | "advanced">("advanced");
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(modeKey);
+      const used = window.localStorage.getItem("dw_preset") || window.localStorage.getItem("dw_preset_layers");
+      setToolModeState(v === "simple" || v === "advanced" ? v : used ? "advanced" : "simple");
+    } catch {
+      /* ignore */
+    }
+  }, [modeKey]);
+  const setToolMode = (m: "simple" | "advanced") => {
+    setToolModeState(m);
+    try {
+      window.localStorage.setItem(modeKey, m);
+    } catch {
+      /* ignore */
+    }
+  };
+  const simpleMode = toolMode === "simple";
+
+  const [auto, setAuto] = useState<AutoState | null>(null);
+  const autoRef = useRef<AutoState | null>(null);
+  const patchAuto = (p: Partial<AutoState>) => {
+    const next = autoRef.current ? { ...autoRef.current, ...p } : null;
+    autoRef.current = next;
+    setAuto(next);
+  };
+  /** Описание, которое должно оказаться в форме, прежде чем запустить генерацию. */
+  const [autoGen, setAutoGen] = useState<string | null>(null);
+  /** Размеры, которые надо запустить, как только мастер окажется в контексте. */
+  const [autoBatch, setAutoBatch] = useState<BannerSize[] | null>(null);
+  const autoBusy = !!auto && auto.phase !== "done" && auto.phase !== "error";
+
+  /** Размеры ресайзов из задания: точные из ТЗ, иначе по одному на площадку. */
+  const sizesFor = (job: TzJob): BannerSize[] => {
+    const all = BANNER_SIZE_GROUPS.flatMap((g) => g.sizes.map((sz) => ({ ...sz, group_id: g.id })));
+    const out: BannerSize[] = [];
+    const push = (sz: BannerSize) => {
+      if (!out.some((o) => o.w === sz.w && o.h === sz.h)) out.push(sz);
+    };
+    const val = (q: string) => {
+      const [a, b] = q.split(":").map(Number);
+      return a / b;
+    };
+    for (const x of job.sizes) {
+      const hit = all.find((a) => a.w === x.w && a.h === x.h);
+      if (hit) push(hit);
+      else {
+        const r = x.w / x.h;
+        const ratioPick = RATIOS_GPT.reduce((best, q) => (Math.abs(val(q) - r) < Math.abs(val(best) - r) ? q : best), "1:1");
+        push({ w: x.w, h: x.h, ratio: ratioPick, label: x.label });
+      }
+    }
+    if (!out.length)
+      for (const id of job.sizeGroups) {
+        const g = BANNER_SIZE_GROUPS.find((gg) => gg.id === id);
+        if (g?.sizes[0]) push({ ...g.sizes[0], group_id: g.id });
+      }
+    return out;
+  };
+
+  /** Баннер №index из задания: шаблон, описание от арт-директора, форма — и генерация. */
+  const planAutoBanner = async (job: TzJob, index: number, images: TzImage[]) => {
+    const b: TzBanner = job.banners[index];
+    const tpl = PRESETS.find((p) => p.id === b.presetId) ?? PRESETS[0];
+    patchAuto({ phase: "planning", bannerIndex: index, templateName: tpl.name, check: undefined, retried: false });
+    const brief = await apiJson<{ prompt: string; bannerText: string; buttonText: string; ideas: string[] }>("/api/tz/banner-brief", {
+      method: "POST",
+      body: JSON.stringify({ job, banner: b, template: { name: tpl.name, description: tpl.description, prompt: tpl.template } }),
+    });
+    setPreset(tpl.id);
+    setPrompt(brief.prompt);
+    setBannerText(brief.bannerText);
+    setBannerTextEnabled(!!brief.bannerText);
+    setButtonText(brief.buttonText);
+    setButtonTextEnabled(!!brief.buttonText);
+    setSubheadline(b.sub);
+    setSubheadlineEnabled(!!b.sub);
+    setRatio(b.aspect);
+    setModel("gpt");
+    setVariantCount(1);
+    if (job.brand.name) setBrandName(job.brand.name);
+    const logoId = job.images.find((i) => i.role === "brand")?.id;
+    const logo = images.find((i) => i.id === logoId)?.src;
+    if (logo) setBrandLogo(logo);
+    setReferenceImage(images.find((i) => i.id === b.mainRefId)?.src ?? "");
+    const pal = job.brand.colors.length ? job.brand.colors : job.style.palette;
+    setColorRoles((rs) => rs.map((r, i) => (pal[i] ? { ...r, enabled: true, hex: pal[i] } : { ...r, enabled: false })));
+    if (CREATIVE_LANGUAGES.some((l) => l.value === job.language)) setLanguage(job.language);
+    patchAuto({ phase: "generating", ideas: brief.ideas, prompt: brief.prompt });
+    setAutoGen(brief.prompt);
+  };
+
+  const runAuto = async (input: SimpleInput) => {
+    if (isGuest) {
+      openGate();
+      return;
+    }
+    const init: AutoState = { phase: "reading", bannerIndex: 0, wantResizes: input.wantResizes };
+    autoRef.current = init;
+    setAuto(init);
+    try {
+      const r = await apiJson<{ job: TzJob; images: TzImage[]; links: TzLinkInfo[]; sources: TzSource[] }>("/api/tz/understand", {
+        method: "POST",
+        body: JSON.stringify({
+          text: input.text,
+          files: input.files,
+          images: input.images,
+          // Спорт-шаблону нужны команды и составы — их в простом режиме пока не собираем.
+          templates: PRESETS.filter((p) => p.id !== "preset4").map((p) => ({ id: p.id, name: p.name, description: p.description })),
+        }),
+      });
+      patchAuto({ job: r.job, images: r.images, links: r.links, sources: r.sources });
+      await planAutoBanner(r.job, 0, r.images);
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось разобрать ТЗ" });
+    }
+  };
+
+  const makeAutoBanner = async (index: number) => {
+    const a = autoRef.current;
+    if (!a?.job) return;
+    try {
+      await planAutoBanner(a.job, index, a.images ?? []);
+    } catch (e) {
+      patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось подготовить баннер" });
+    }
+  };
+
+  /** Готовый мастер: проверка по требованиям, одна попытка исправить, затем ресайзы. */
+  const afterAutoMaster = async (img: string) => {
+    const a = autoRef.current;
+    if (!a?.job) return;
+    const job = a.job;
+    const b = job.banners[a.bannerIndex];
+    const reqs = job.requirements.filter((r) => r.kind !== "format" && (!b.requirementIds.length || b.requirementIds.includes(r.id)));
+    patchAuto({ phase: "checking" });
+    let check: AutoState["check"] | null = null;
+    try {
+      check = await apiJson<NonNullable<AutoState["check"]>>("/api/tz/check", {
+        method: "POST",
+        body: JSON.stringify({ image: img, requirements: reqs }),
+      });
+      patchAuto({ check });
+    } catch {
+      /* проверка недоступна — баннер всё равно отдаём */
+    }
+    const failed = (check?.results ?? []).filter((r) => {
+      const q = reqs.find((x) => x.id === r.id);
+      return !r.ok && q && (q.exact || q.kind === "text" || q.kind === "offer" || q.kind === "legal");
+    });
+    if ((failed.length || check?.faceCovered) && !a.retried) {
+      const fixes = failed.map((r) => {
+        const q = reqs.find((x) => x.id === r.id)!;
+        return q.exact ? `Текст «${q.exact}» обязательно на баннере, дословно и без ошибок.` : q.text;
+      });
+      if (check?.faceCovered) fixes.push("Никакой текст, кнопка или плашка не перекрывают лицо персонажа.");
+      const p2 = `${a.prompt ?? prompt}\n\nОБЯЗАТЕЛЬНО ИСПРАВИТЬ: ${fixes.join(" ")}`;
+      patchAuto({ phase: "fixing", retried: true });
+      setPrompt(p2);
+      setAutoGen(p2);
+      return;
+    }
+    if (a.wantResizes) {
+      const sizes = sizesFor(job);
+      if (sizes.length) {
+        patchAuto({ phase: "resizing" });
+        setAutoBatch(sizes);
+        return;
+      }
+    }
+    patchAuto({ phase: "done" });
+  };
+
+  // Форма заполнена описанием автопилота → генерация (в этом рендере состояние уже свежее).
+  useEffect(() => {
+    if (!autoGen || prompt !== autoGen || status === "loading" || gen.isBusy) return;
+    setAutoGen(null);
+    void (async () => {
+      const img = await onGenerate();
+      if (!autoRef.current?.job) return;
+      if (!img) {
+        patchAuto({ phase: "error", error: "Генерация не удалась — попробуйте ещё раз" });
+        return;
+      }
+      await afterAutoMaster(img);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGen, prompt, status, gen.isBusy]);
+
+  // Мастер и его payload в контексте → запускаем ресайзы автопилота.
+  useEffect(() => {
+    if (!autoBatch || !imageUrl || !lastPayload || gen.isBusy) return;
+    const sizes = autoBatch;
+    setAutoBatch(null);
+    onLaunchBatch(sizes);
+    patchAuto({ phase: "done" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoBatch, imageUrl, lastPayload, gen.isBusy]);
 
   const backToStart = async () => {
     if (imageUrl !== null && !loadedCardId && !gen.isBusy) {
@@ -1313,9 +1524,11 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
         {/* COLUMN 1 — templates. Own mobile tab; a normal column on desktop.
             lg:contents makes this wrapper vanish from layout on desktop so the
             sidebar's own flex-[2] participates directly in the row. */}
-        <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
-          <PresetSidebar value={preset} onChange={changePreset} />
-        </div>
+        {simpleMode ? null : (
+          <div className={`lg:contents ${mobileTab !== "templates" ? "max-lg:hidden" : ""}`}>
+            <PresetSidebar value={preset} onChange={changePreset} />
+          </div>
+        )}
 
         <section
           className={`flex min-w-0 flex-1 flex-col overflow-hidden border-border bg-panel max-lg:h-[calc(100dvh-4rem)] max-lg:flex-none lg:h-full lg:flex-[4] lg:rounded-2xl lg:border ${
@@ -1334,6 +1547,35 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
+              <div className="flex overflow-hidden rounded-lg border border-border text-sm" role="tablist" aria-label="Режим">
+                {(
+                  [
+                    { id: "simple", label: "Простой" },
+                    { id: "advanced", label: "Продвинутый" },
+                  ] as const
+                ).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={toolMode === m.id}
+                    onClick={() => setToolMode(m.id)}
+                    className={`flex-1 px-3 py-2 transition ${toolMode === m.id ? "bg-white/10 font-medium text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {simpleMode ? (
+                <SimpleBannerPanel
+                  auto={auto}
+                  busy={autoBusy || status === "loading" || gen.isBusy}
+                  estimate={`Баннер ≈ ${estimateBannerCredits({ model: "gpt", quality })} кр., ресайз ≈ ${RESIZE_CREDITS_PER_FORMAT} кр. за формат. Если баннер не пройдёт проверку по ТЗ — одна перегенерация.`}
+                  onRun={(i) => void runAuto(i)}
+                  onMakeBanner={(i) => void makeAutoBanner(i)}
+                />
+              ) : (
+              <>
               <BriefUploader
                 product="banner"
                 template={briefTemplate}
@@ -1872,11 +2114,12 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
                   DEFAULT values to the prompt (see the call below), so
                   generation quality/behaviour is unchanged — only the manual
                   per-template dropdowns/toggles are hidden. */}
-
+              </>
+              )}
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-border bg-panel p-3 lg:hidden">
+          <div className={`shrink-0 border-t border-border bg-panel p-3 lg:hidden ${simpleMode ? "hidden" : ""}`}>
             <div className="mb-2">
               <VariantCount
                 value={variantCount}
@@ -1989,7 +2232,9 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
 
           {/* Master-generate button. On mobile it lives only on the settings
               screen (single sticky CTA); here it's desktop-only to avoid a
-              duplicate. */}
+              duplicate. In simple mode generation is started by «Создать». */}
+          {simpleMode ? null : (
+          <>
           <VariantCount
             value={variantCount}
             onChange={pickVariantCount}
@@ -1999,7 +2244,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
           <button
             type="button"
             data-tour="banner-generate"
-            onClick={onGenerate}
+            onClick={() => void onGenerate()}
             disabled={
               !isGuest &&
               (status === "loading" ||
@@ -2025,6 +2270,8 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
               », чтобы сгенерировать
             </p>
           ) : null}
+          </>
+          )}
 
           {loadedCardId && loadedCardName ? (
             <div className="flex items-center justify-between gap-2 rounded-md border border-accent-green/40 bg-accent-green/5 px-3 py-2 text-xs">
