@@ -145,7 +145,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
  * (азартные — почти везде) на заглушку, и «Найти по сайту» падало, хотя сам
  * сайт жив. Не ответил ни один — системный DNS, как раньше.
  */
-async function resolveHost(hostname: string): Promise<string[]> {
+export async function resolveHost(hostname: string): Promise<string[]> {
   if (isIP(hostname)) return [hostname];
   for (const doh of [
     `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=A`,

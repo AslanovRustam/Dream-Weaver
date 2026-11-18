@@ -12,6 +12,7 @@
 import { extractLogoCandidates, extractSiteName, nameFromHost } from "@/lib/brandExtract";
 import { fetchPublicHtml, fetchPublicImage, fetchPublicUrlFollowing } from "@/lib/safe-fetch";
 import { sniffDocument } from "@/lib/request-guard";
+import { chromePath, withScreenshots, type Shot } from "./screenshot";
 
 export type TzImage = {
   id: string;
@@ -50,6 +51,8 @@ const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MIN_IMAGE_BYTES = 6 * 1024; // иконки, пиксели, линии — не референсы
 const MAX_LINKS = 6;
+/** Скриншотов страниц на одно ТЗ — браузер не бесплатен по памяти и времени. */
+const MAX_SHOTS = 3;
 const LINK_TIMEOUT = 10_000;
 
 const IMG_EXT = /\.(png|jpe?g|webp|gif)(\?|#|$)/i;
@@ -263,9 +266,28 @@ export async function ingestTz(input: TzInput, onEvent: TzEvent = () => {}): Pro
   // Ссылки — из всего текста (и из файлов тоже), параллельно.
   const urls = findLinks(texts.join("\n"));
   if (urls.length) onEvent(`Открываю ссылки: ${urls.length}`);
-  const opened = await Promise.all(
-    urls.map((u) =>
-      openLink(u).then((o) => {
+  const hostOf = (u: string) => {
+    try {
+      return new URL(u).host.replace(/^www\./, "");
+    } catch {
+      return u;
+    }
+  };
+  // Страницы (не картинки и не документы) ещё и снимаем браузером — если он есть.
+  const shotUrls = urls.filter((u) => !IMG_EXT.test(u) && !googleExport(u)).slice(0, MAX_SHOTS);
+  if (shotUrls.length && chromePath()) onEvent(`Снимаю скриншоты страниц: ${shotUrls.length}`);
+  const { opened, shots } = await withScreenshots(chromePath() ? shotUrls : [], async (shoot) => {
+    const shotsP = Promise.all(
+      shotUrls.map((u) =>
+        shoot(u).then((sh) => {
+          if (sh) onEvent(`Скриншот ${hostOf(u)} — смотрю стиль сайта`);
+          return [u, sh] as const;
+        }),
+      ),
+    );
+    const openedP = Promise.all(
+      urls.map((u) =>
+        openLink(u).then((o) => {
         const host = (() => {
           try {
             return new URL(o.info.url).host.replace(/^www\./, "");
@@ -280,8 +302,20 @@ export async function ingestTz(input: TzInput, onEvent: TzEvent = () => {}): Pro
         );
         return o;
       }),
-    ),
-  );
+      ),
+    );
+    return { opened: await openedP, shots: new Map<string, Shot | null>(await shotsP) };
+  });
+  // Отрисованная страница главнее пустого HTML: её текст и скриншот — референс стиля.
+  for (const o of opened) {
+    const sh = shots.get(o.info.url) ?? shots.get(urls.find((u) => hostOf(u) === hostOf(o.info.url)) ?? "");
+    if (!sh) continue;
+    if (sh.text.trim().length > o.info.text.length) o.info.text = sh.text.trim().slice(0, 2500);
+    if (!o.info.title && sh.title) o.info.title = sh.title.slice(0, 160);
+    o.info.ok = true;
+    o.info.error = undefined;
+    o.images.unshift({ id: "", src: sh.image, from: `скриншот ${hostOf(o.info.url)}` });
+  }
   const links = opened.map((o) => o.info);
   for (const o of opened) {
     images.push(...o.images);

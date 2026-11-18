@@ -12,7 +12,10 @@ const IMAGE_OUTPUT_PER_M = 30;
 
 const LLM_PER_M: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
-  "gpt-5.4-mini": { input: 0.15, output: 0.6 },
+  // Сверено с developers.openai.com/api/docs/pricing, ноябрь 2026 (было 0.15/0.6 — занижено).
+  "gpt-5.4-mini": { input: 0.75, output: 4.5 },
+  // Движок ТЗ (понимание ТЗ с картинками). Цена до 272K контекста; дальше дороже — у нас ТЗ много меньше.
+  "gpt-5.5": { input: 5, output: 30 },
 };
 
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;

@@ -37,6 +37,9 @@ export type TzBanner = {
   visual: string;
   presetId: string;
   presetWhy: string;
+  /** Второй по силе шаблон с заметно другим видом — для варианта Б. */
+  altPresetId?: string;
+  altWhy?: string;
   /** Картинка-референс главного визуала (игра, слот, персонаж) — уходит в генерацию картинкой. */
   mainRefId: string | null;
   requirementIds: string[];
@@ -98,7 +101,7 @@ const SYSTEM = (templates: TemplateInfo[], spec: TzPlanSpec) =>
     "- style: concrete art direction (direction, 2–4 hex palette, mood) — from references when present, else from the theme.",
     "- images: for EACH image id: role — style (look to follow), main (the main visual/game/slot to show), brand (logo), character, layout (composition to copy), irrelevant; note in Russian what it shows.",
     "- links: for each link — role and a Russian note.",
-    spec.banners ? "- banners: the distinct CREATIVES. Several SIZES of the same creative are NOT separate banners: that is ONE banner (master, in the most important / largest format) + resizes listed in sizes. Separate entries only when texts or visuals differ, or the brief explicitly asks for variants / A-B. Nothing specified → ONE banner 16:9. Each: name (Russian), aspect (one of " + TZ_RATIOS.join(", ") + "), headline / sub / cta in the creatives' language (verbatim from the brief when given; else write strong short ones: headline ≤ 40 chars, cta ≤ 20), visual (Russian, concrete: hero, scene, objects, light), presetId — the BEST template from the catalog below for this banner, presetWhy (Russian, one sentence), mainRefId (image id with role main to put into the banner, else null), requirementIds." : "- banners: [] (this tool does not make banners); sizes: []; sizeGroups: [].",
+    spec.banners ? "- banners: the distinct CREATIVES. Several SIZES of the same creative are NOT separate banners: that is ONE banner (master, in the most important / largest format) + resizes listed in sizes. Separate entries only when texts or visuals differ, or the brief explicitly asks for variants / A-B. Nothing specified → ONE banner 16:9. Each: name (Russian), aspect (one of " + TZ_RATIOS.join(", ") + "), headline / sub / cta in the creatives' language (verbatim from the brief when given; else write strong short ones: headline ≤ 40 chars, cta ≤ 20), visual (Russian, concrete: hero, scene, objects, light), presetId — the BEST template from the catalog below for this banner, presetWhy (Russian, one sentence), altPresetId — the second-best template with a clearly DIFFERENT look (another layout or style, not a near-duplicate), altWhy (Russian, one sentence), mainRefId (image id with role main to put into the banner, else null), requirementIds." : "- banners: [] (this tool does not make banners); sizes: []; sizeGroups: [].",
     spec.banners ? "- sizes: every exact pixel size the brief asks for, as {w,h,label} (label: platform, Russian). sizeGroups: resize groups for the platforms the brief mentions (ids below; none mentioned and no sizes → social-posts, stories, web-horizontal)." : "",
     spec.planInstructions ? `- plan: ${spec.planInstructions}\n  plan shape: ${spec.planShape}` : "- plan: {}",
     "- links: an operator / casino / bookmaker site is role brand.",
@@ -111,7 +114,7 @@ const SYSTEM = (templates: TemplateInfo[], spec: TzPlanSpec) =>
     "",
     spec.banners && templates.length ? "TEMPLATE CATALOG (id — name: description):\n" + templates.map((t) => `${t.id} — ${t.name}: ${t.description}`).join("\n") + "\n" : "",
     spec.banners ? "RESIZE GROUPS:\n" + SIZE_GROUPS + "\n" : "",
-    "Return STRICT JSON with exactly these keys: summary, language, geo, audience, brand{name,site,colors}, offer, legal[], style{direction,palette,mood}, images[{id,role,note}], links[{url,role,note}], banners[{name,aspect,headline,sub,cta,visual,presetId,presetWhy,mainRefId,requirementIds}], sizes[{w,h,label}], sizeGroups[], requirements[{id,text,kind,exact}], cannot[], assumptions[], questions[], plan.",
+    "Return STRICT JSON with exactly these keys: summary, language, geo, audience, brand{name,site,colors}, offer, legal[], style{direction,palette,mood}, images[{id,role,note}], links[{url,role,note}], banners[{name,aspect,headline,sub,cta,visual,presetId,presetWhy,altPresetId,altWhy,mainRefId,requirementIds}], sizes[{w,h,label}], sizeGroups[], requirements[{id,text,kind,exact}], cannot[], assumptions[], questions[], plan.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -174,6 +177,8 @@ export function normalizeJob(
       visual: s(r.visual, 900),
       presetId,
       presetWhy: s(r.presetWhy, 240),
+      altPresetId: ids.has(String(r.altPresetId)) && String(r.altPresetId) !== presetId ? String(r.altPresetId) : undefined,
+      altWhy: s(r.altWhy, 240) || undefined,
       mainRefId: imgIds.has(ref) ? ref : null,
       requirementIds: arr(r.requirementIds, (y) => (typeof y === "string" ? y : null)),
     };

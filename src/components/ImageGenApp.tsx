@@ -22,7 +22,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { apiJson, ApiError } from "@/lib/api-client";
+import { apiFetch, apiJson, ApiError } from "@/lib/api-client";
 import { BriefUploader } from "@/components/BriefUploader";
 import { PresetSidebar, PRESETS, compileTemplateOptions } from "./PresetSidebar";
 import { type ModelKey } from "./ModelToggle";
@@ -35,7 +35,7 @@ import { type Quality } from "./QualityPicker";
 import { toast } from "sonner";
 import { downloadAsJpg, type GeneratePayload } from "@/lib/imageGen";
 import { estimateBannerCredits, LANDING_FROM_BANNER_PRICE_CREDITS, RESIZE_CREDITS_PER_FORMAT } from "@/lib/credit-estimate";
-import { SimpleBannerInput, SimpleBannerStatus, type AutoPhase, type AutoState } from "./banner/SimpleBannerPanel";
+import { SimpleBannerInput, SimpleBannerStatus, type AutoCandidate, type AutoPhase, type AutoState } from "./banner/SimpleBannerPanel";
 import {
   checkByTz,
   failedCritical,
@@ -1307,6 +1307,9 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   const [toolMode, setToolMode, showToolMode] = useToolMode(autoTool);
   const simpleMode = toolMode === "simple";
   const masterCredits = estimateBannerCredits({ model: "gpt", quality });
+  // Свежий контекст генерации внутри асинхронного автопилота (замыкания видят старый рендер).
+  const genRef = useRef(gen);
+  genRef.current = gen;
 
   const [auto, setAuto] = useState<AutoState | null>(null);
   const autoRef = useRef<AutoState | null>(null);
@@ -1360,28 +1363,43 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   };
 
   /** Цена запуска по плану: мастера (все креативы или один) + ресайзы каждого. */
-  const autoCost = (job: TzJob, queueAll: boolean, wantResizes: boolean) => {
+  const autoCost = (job: TzJob, queueAll: boolean, wantResizes: boolean, two = false) => {
     const n = queueAll ? job.banners.length : 1;
     const sizes = wantResizes ? sizesFor(job).length : 0;
+    const per = two ? masterCredits * 2 : masterCredits;
     return {
-      cost: n * (masterCredits + sizes * RESIZE_CREDITS_PER_FORMAT),
-      note: `${n > 1 ? `${n} баннера × ` : "Баннер "}${masterCredits} кр.${sizes ? ` + ${sizes} ресайз${sizes === 1 ? "" : sizes < 5 ? "а" : "ов"} × ${RESIZE_CREDITS_PER_FORMAT} кр.${n > 1 ? " у каждого" : ""}` : ""}. Если баннер не пройдёт проверку по ТЗ — одна перегенерация (${masterCredits} кр.).`,
+      cost: n * (per + sizes * RESIZE_CREDITS_PER_FORMAT),
+      note: `${n > 1 ? `${n} баннера × ` : "Баннер "}${two ? `2 варианта × ${masterCredits}` : masterCredits} кр.${sizes ? ` + ${sizes} ресайз${sizes === 1 ? "" : sizes < 5 ? "а" : "ов"} × ${RESIZE_CREDITS_PER_FORMAT} кр.${n > 1 ? " у каждого" : ""}` : ""}. Если баннер не пройдёт проверку по ТЗ — одна перегенерация (${masterCredits} кр.).`,
     };
   };
 
   /** Баннер №index из задания: шаблон, описание от арт-директора, форма — и генерация. */
-  const planAutoBanner = async (job: TzJob, index: number, images: TzImage[]) => {
+  const planAutoBanner = async (job: TzJob, index: number, images: TzImage[], which: "A" | "B" = "A", extra = "") => {
     const b: TzBanner = job.banners[index];
-    const tpl = PRESETS.find((p) => p.id === b.presetId) ?? PRESETS[0];
-    patchAuto({ phase: "planning", bannerIndex: index, templateName: tpl.name, check: undefined, retried: false, accepted: false, error: undefined, interrupted: false, log: [] });
-    logAuto(`Шаблон «${tpl.name}»${b.presetWhy ? ` — ${b.presetWhy}` : ""}`);
+    const useAlt = which === "B" && !!b.altPresetId;
+    const tpl = PRESETS.find((p) => p.id === (useAlt ? b.altPresetId : b.presetId)) ?? PRESETS[0];
+    const fresh = which === "A" && !extra;
+    patchAuto({
+      phase: "planning",
+      bannerIndex: index,
+      templateName: tpl.name,
+      check: undefined,
+      accepted: false,
+      error: undefined,
+      interrupted: false,
+      log: [],
+      variant: which,
+      ...(fresh ? { retried: false, candidates: [], chosen: undefined } : {}),
+    });
+    logAuto(`${autoRef.current?.twoVariants ? `Вариант ${which === "A" ? "А" : "Б"}: ` : ""}шаблон «${tpl.name}»${(useAlt ? b.altWhy : b.presetWhy) ? ` — ${useAlt ? b.altWhy : b.presetWhy}` : ""}`);
     logAuto("Пишу описание баннера");
     const brief = await apiJson<{ prompt: string; bannerText: string; buttonText: string; ideas: string[] }>("/api/tz/banner-brief", {
       method: "POST",
       body: JSON.stringify({ job, banner: b, template: { name: tpl.name, description: tpl.description, prompt: tpl.template } }),
     });
+    const fullPrompt = extra ? `${brief.prompt}\n\n${extra}` : brief.prompt;
     setPreset(tpl.id);
-    setPrompt(brief.prompt);
+    setPrompt(fullPrompt);
     setBannerText(brief.bannerText);
     setBannerTextEnabled(!!brief.bannerText);
     setButtonText(brief.buttonText);
@@ -1399,15 +1417,15 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     const pal = job.brand.colors.length ? job.brand.colors : job.style.palette;
     setColorRoles((rs) => rs.map((r, i) => (pal[i] ? { ...r, enabled: true, hex: pal[i] } : { ...r, enabled: false })));
     if (CREATIVE_LANGUAGES.some((l) => l.value === job.language)) setLanguage(job.language);
-    patchAuto({ phase: "generating", ideas: brief.ideas, prompt: brief.prompt, log: [] });
+    patchAuto({ phase: "generating", ideas: brief.ideas, prompt: fullPrompt, log: [] });
     logAuto(`«${brief.bannerText || b.headline}»${brief.buttonText ? ` / «${brief.buttonText}»` : ""} · ${b.aspect}`);
-    setAutoGen(brief.prompt);
+    setAutoGen(fullPrompt);
   };
 
   /** После разбора: дорогой запуск или вопросы по ТЗ — сначала план; иначе сразу в работу. */
   const afterUnderstood = async (r: TzUnderstood, skipGate: boolean) => {
     const a = autoRef.current!;
-    const { cost, note } = autoCost(r.job, a.queueAll, a.wantResizes);
+    const { cost, note } = autoCost(r.job, a.queueAll, a.wantResizes, a.twoVariants);
     patchAuto({ job: r.job, images: r.images, links: r.links, sources: r.sources, cost, costNote: note, bannerIndex: 0, results: [] });
     if (!skipGate && needsReview(r, cost)) {
       patchAuto({ phase: "review" });
@@ -1419,6 +1437,10 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   const understandForAuto = (input: TzRunInput) =>
     understandTz(input, autoTool, templatesForTz(), (m) => logAuto(m));
 
+  /** Очки варианта по проверке ТЗ: выполненные пункты, минус критичные провалы и закрытые лица. */
+  const scoreOf = (check: TzCheck | null, reqs: TzRequirement[]) =>
+    check ? check.results.filter((r) => r.ok).length - 3 * failedCritical(check, reqs).length - (check.faceCovered ? 2 : 0) : -100;
+
   const runAuto = async (input: TzRunInput, prepared?: TzUnderstood) => {
     if (isGuest) {
       openGate();
@@ -1429,6 +1451,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       bannerIndex: 0,
       wantResizes: !!input.options.resizes,
       queueAll: input.options.all !== false,
+      twoVariants: !!input.options.two,
       input,
       log: [],
       results: [],
@@ -1473,6 +1496,13 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   const regenerateWith = (addition: string, phase: AutoPhase) => {
     const a = autoRef.current;
     if (!a) return;
+    if (a.twoVariants && a.chosen && a.chosen !== a.variant && a.job) {
+      patchAuto({ phase, accepted: false });
+      void planAutoBanner(a.job, a.bannerIndex, a.images ?? [], a.chosen, addition).catch((e) =>
+        patchAuto({ phase: "error", error: e instanceof Error ? e.message : "Не удалось перегенерировать" }),
+      );
+      return;
+    }
     const p2 = `${a.prompt ?? prompt}\n\n${addition}`;
     patchAuto({ phase, prompt: p2, accepted: false, log: [] });
     setPrompt(p2);
@@ -1533,6 +1563,44 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
       logAuto(bad ? `Не прошло: ${bad}` : "Всё по ТЗ");
     } catch {
       logAuto("Проверка недоступна — баннер отдаю без неё");
+    }
+    const cur = autoRef.current!;
+    if (cur.twoVariants && b.altPresetId && cur.variant && !cur.chosen) {
+      const g = genRef.current;
+      const cand: AutoCandidate = {
+        key: cur.variant,
+        image: img,
+        cardId: g.cardId,
+        payload: g.lastPayload,
+        prompt: cur.prompt ?? "",
+        template: cur.templateName ?? "",
+        check,
+        score: scoreOf(check, reqs),
+      };
+      const candidates = [...(cur.candidates ?? []).filter((c) => c.key !== cand.key), cand];
+      patchAuto({ candidates });
+      if (cur.variant === "A") {
+        logAuto("Вариант А готов — делаю вариант Б на другом шаблоне");
+        await planAutoBanner(job, cur.bannerIndex, cur.images ?? [], "B");
+        return;
+      }
+      const best = [...candidates].sort((x, y) => y.score - x.score)[0];
+      if (best.key === "A" && best.payload) genRef.current.adoptMaster({ image: best.image, cardId: best.cardId, payload: best.payload });
+      patchAuto({
+        chosen: best.key,
+        check: best.check ?? undefined,
+        prompt: best.prompt,
+        templateName: best.template,
+        results: [...(autoRef.current?.results ?? []).filter((r) => r.index !== cur.bannerIndex), { index: cur.bannerIndex, image: best.image }],
+      });
+      logAuto(`Выбран вариант ${best.key === "A" ? "А" : "Б"} («${best.template}») — лучше по ТЗ`);
+      // Лучший всё равно не по ТЗ — решает человек (автоисправление варианта А пересобрало бы шаблон).
+      if (best.check && fixesFor(best.check, reqs).length) {
+        patchAuto({ phase: "decide", retried: true });
+        return;
+      }
+      continueAfterBanner();
+      return;
     }
     const fixes = check ? fixesFor(check, reqs) : [];
     if (fixes.length && !autoRef.current?.retried) {
@@ -1625,6 +1693,21 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
     if (!auto) return;
     void saveAutoSnapshot(autoTool, auto);
   }, [auto, autoTool]);
+
+  // ТЗ и итог проверки — в карточку Истории (по одному разу на карточку и проверку).
+  const tzSavedFor = useRef("");
+  useEffect(() => {
+    const a = auto;
+    const cardId = gen.cardId;
+    if (!a?.job || !a.input || !cardId || !a.check) return;
+    const key = `${cardId}:${a.check.results.map((r) => (r.ok ? 1 : 0)).join("")}`;
+    if (tzSavedFor.current === key) return;
+    tzSavedFor.current = key;
+    void apiFetch(`/api/history/${cardId}/tz`, {
+      method: "POST",
+      body: JSON.stringify({ text: a.input.text, job: a.job, check: a.check }),
+    }).catch(() => {});
+  }, [auto, gen.cardId]);
 
   /** Продолжить после прерывания или ошибки: задание уже понято — разбор не повторяем. */
   const resumeAuto = () => {

@@ -114,6 +114,8 @@ interface GenerationContextValue extends GenerationStateSnapshot {
   /** Перенести вариант на холст. Ресайзы прошлого мастера при этом сбрасываются:
    *  они сделаны из другой картинки. */
   pickVariant: (id: string) => void;
+  /** Сделать мастером уже готовую картинку (выбор из двух вариантов автопилотом). */
+  adoptMaster: (m: { image: string; cardId: string | null; payload: GeneratePayload }) => void;
   /** Start a resize batch — same args we used to feed useResizeBatch. */
   runBatch: (args: {
     sizes: SelectedSize[];
@@ -540,6 +542,14 @@ export function GenerationProvider({ children }: ProviderProps) {
     [activate],
   );
 
+  const adoptMaster = useCallback<GenerationContextValue["adoptMaster"]>(
+    ({ image, cardId, payload }) => {
+      activate({ id: `adopt${Date.now().toString(36)}`, status: "done", imageUrl: image, cardId, variation: payload.variation }, payload);
+      patch({ status: "done", variants: [] });
+    },
+    [activate, patch],
+  );
+
   const runBatch = useCallback<GenerationContextValue["runBatch"]>(
     async ({ sizes, master, masterRatio, basePayload, reuseCache, resizeMode = "classic" }) => {
       if (sizes.length === 0 || !master) return;
@@ -915,6 +925,7 @@ export function GenerationProvider({ children }: ProviderProps) {
       runMaster,
       runMasterVariants,
       pickVariant,
+      adoptMaster,
       runBatch,
       cancel,
       regenerateTile,
@@ -933,6 +944,7 @@ export function GenerationProvider({ children }: ProviderProps) {
       runMaster,
       runMasterVariants,
       pickVariant,
+      adoptMaster,
       runBatch,
       cancel,
       regenerateTile,

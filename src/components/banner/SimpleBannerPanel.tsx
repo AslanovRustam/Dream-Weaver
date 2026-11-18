@@ -60,6 +60,24 @@ export type AutoState = {
   cost?: number;
   costNote?: string;
   wantResizes: boolean;
+  /** Два варианта на разных шаблонах, лучший — по проверке ТЗ. */
+  twoVariants: boolean;
+  /** Какой вариант генерируется сейчас. */
+  variant?: "A" | "B";
+  /** Готовые варианты текущего баннера и какой выбран. */
+  candidates?: AutoCandidate[];
+  chosen?: "A" | "B";
+};
+
+export type AutoCandidate = {
+  key: "A" | "B";
+  image: string;
+  cardId: string | null;
+  payload: import("@/lib/imageGen").GeneratePayload | null;
+  prompt: string;
+  template: string;
+  check: TzCheck | null;
+  score: number;
 };
 
 const BANNER_EXAMPLES: TzExample[] = [
@@ -91,6 +109,7 @@ export function SimpleBannerInput({ tool, busy, estimate, onRun }: { tool: strin
       options={[
         { id: "resizes", label: "Сразу сделать ресайзы под площадки из ТЗ", default: true },
         { id: "all", label: "Если в ТЗ несколько разных баннеров — сделать все", default: true },
+        { id: "two", label: "Два варианта на разных шаблонах — выберу лучший по ТЗ (×2 к цене баннера)", default: false },
       ]}
       onRun={onRun}
     />
@@ -133,7 +152,10 @@ export function SimpleBannerStatus({
   const steps = [
     { id: "reading", label: "Читаю ТЗ, файлы и ссылки" },
     { id: "planning", label: "Выбираю шаблон и пишу описание баннера" },
-    { id: "generating", label: many ? `Генерирую баннер ${auto.bannerIndex + 1} из ${job!.banners.length}` : "Генерирую баннер" },
+    {
+      id: "generating",
+      label: `${many ? `Генерирую баннер ${auto.bannerIndex + 1} из ${job!.banners.length}` : "Генерирую баннер"}${auto.twoVariants && auto.variant ? ` · вариант ${auto.variant === "A" ? "А" : "Б"}` : ""}`,
+    },
     { id: "checking", label: auto.phase === "fixing" ? "Исправляю то, что не прошло проверку" : "Проверяю баннер по требованиям ТЗ" },
     ...(auto.wantResizes ? [{ id: "resizing", label: "Запускаю ресайзы под площадки" }] : []),
   ];
@@ -223,6 +245,30 @@ export function SimpleBannerStatus({
             </>
           }
         >
+          {auto.candidates?.length ? (
+            <div>
+              <div className="mb-1.5 text-xs text-muted-foreground">Варианты на разных шаблонах</div>
+              <div className="flex flex-wrap gap-3">
+                {auto.candidates.map((c) => (
+                  <button key={c.key} type="button" onClick={() => onShowResult(c.image)} className="w-28 text-left" title="Показать">
+                    <img
+                      src={c.image}
+                      alt=""
+                      className={`h-20 w-28 rounded-md object-cover ${auto.chosen === c.key ? "ring-2 ring-accent-green" : "opacity-80"}`}
+                    />
+                    <div className="mt-1 text-[11px] leading-tight">
+                      {c.key === "A" ? "А" : "Б"} · {c.template}
+                      <br />
+                      <span className="text-muted-foreground">
+                        {c.check ? `по ТЗ: ${c.check.results.filter((r) => r.ok).length}/${c.check.results.length}` : "без проверки"}
+                      </span>
+                      {auto.chosen === c.key ? <span className="text-accent-green"> · выбран</span> : null}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {many ? (
             <div>
               <div className="mb-1.5 text-xs text-muted-foreground">Креативы в ТЗ: {job!.banners.length}</div>

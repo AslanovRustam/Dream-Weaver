@@ -1,5 +1,6 @@
 "use client";
 
+import type { SavedTz } from "@/app/api/history/[cardId]/tz/route";
 // /history/$cardId — full-page card detail.
 //
 // Replaces the old modal dialog with a real route so we get a back-able
@@ -55,6 +56,51 @@ const PRESET_LABELS: Record<string, string> = {
   preset3: "Событие",
   preset4: "Спорт",
 };
+
+/** ТЗ карточки из простого режима: текст, как понято, требования с итогом проверки. */
+function CardTz({ tz }: { tz?: SavedTz }) {
+  const [open, setOpen] = useState(false);
+  if (!tz?.job) return null;
+  const res = (id: string) => tz.check?.results.find((r) => r.id === id);
+  return (
+    <section className="mb-6 rounded-lg border bg-muted/10 p-4 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">ТЗ · как понято</Label>
+        {tz.text ? (
+          <button type="button" onClick={() => setOpen((v) => !v)} className="text-xs text-muted-foreground underline-offset-2 hover:underline">
+            {open ? "Скрыть текст ТЗ" : "Показать текст ТЗ"}
+          </button>
+        ) : null}
+      </div>
+      <p>{tz.job.summary}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {[tz.job.offer && `Оффер: ${tz.job.offer}`, tz.job.language && `Язык: ${tz.job.language}`, tz.job.geo, tz.job.brand && `Бренд: ${tz.job.brand}`]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {open ? <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-3 text-xs">{tz.text}</pre> : null}
+      {tz.job.requirements.length ? (
+        <ul className="mt-3 flex flex-col gap-1 text-xs">
+          {tz.job.requirements.map((r) => {
+            const c = res(r.id);
+            return (
+              <li key={r.id} className="flex items-start gap-1.5">
+                <span className={c ? (c.ok ? "text-accent-green" : "text-destructive") : "text-muted-foreground"}>{c ? (c.ok ? "✓" : "✗") : "•"}</span>
+                <span>
+                  {r.text}
+                  {c && !c.ok && c.note ? <span className="text-destructive"> — {c.note}</span> : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {tz.job.assumptions.length ? (
+        <p className="mt-2 text-xs text-muted-foreground">Решено без ТЗ: {tz.job.assumptions.join("; ")}</p>
+      ) : null}
+    </section>
+  );
+}
 
 export default function HistoryCardPage() {
   useEffect(() => {
@@ -300,6 +346,8 @@ function CardBody() {
           </div>
         )}
       </section>
+
+      <CardTz tz={detail.form_snapshot?.tz as SavedTz | undefined} />
 
       <section>
         <div className="mb-2 flex items-baseline gap-2">
