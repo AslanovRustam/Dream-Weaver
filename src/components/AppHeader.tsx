@@ -46,7 +46,7 @@ import { useGeneration } from "@/lib/generation-context";
 import { apiJson } from "@/lib/api-client";
 import { useNotifications, relativeTime } from "@/lib/notifications-client";
 import { SECTIONS, sectionEntryRoute, sectionFromPath } from "@/lib/sections";
-import { isSectionEnabled } from "@/lib/mvp";
+import { isSectionEnabled, isSectionHidden } from "@/lib/mvp";
 import { isSectionHintSeen, markSectionHintSeen } from "@/lib/onboarding";
 import { getUnsavedWork } from "@/lib/unsaved-work";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -975,7 +975,7 @@ function SectionSwitcher({
           sideOffset={8}
           className="w-64 rounded-xl border-border bg-popover p-1.5 text-foreground max-sm:w-[calc(100vw-2rem)]"
         >
-          {SECTIONS.map((s) => {
+          {SECTIONS.filter((s) => !isSectionHidden(s.id)).map((s) => {
             const Icon = s.icon;
             const active = s.id === current?.id;
             const soon = !isSectionEnabled(s.id);

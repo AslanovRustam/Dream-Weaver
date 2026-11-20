@@ -18,7 +18,7 @@ import {
 
 import { SECTION_BY_ID, sectionEntryRoute } from "@/lib/sections";
 import { useTx } from "@/lib/i18n";
-import { isRouteEnabled } from "@/lib/mvp";
+import { isRouteEnabled, isSectionHidden } from "@/lib/mvp";
 
 // Collapsible left navigation for the Hub. Rail (64px) ↔ expanded (240px),
 // toggled by a button and persisted. Grouped like Krea/Linear/Vercel side-nav;
@@ -54,9 +54,10 @@ const GROUPS: { titleKey?: string; title?: string; items: NavItem[] }[] = [
     title: "Инструменты",
     items: [
       { href: "/campaign", labelKey: "nav.campaign", label: "Кампания", icon: Layers },
-      s("banner"),
+      ...(isSectionHidden("banner") ? [] : [s("banner")]),
       s("bannerLayers"),
       s("gif"),
+      s("videoAd"),
       s("landing"),
       s("playable"),
       s("video"),

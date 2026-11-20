@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function GifPage() {
   useEffect(() => {
-    document.title = "GIF-генератор — GenGO";
+    document.title = "GIF-баннеры — GenGO";
   }, []);
 
   const { loading } = useAuth();

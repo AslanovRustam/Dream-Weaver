@@ -86,10 +86,10 @@ export function LayeredLandingApp() {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center gap-3 text-center">
         <p className="text-sm text-muted-foreground">
-          Слоёв пока нет. Сгенерируйте баннер в разделе «Слои» и нажмите «Лендинг из слоёв».
+          Слоёв пока нет. Сгенерируйте баннер в разделе «Баннеры» и нажмите «Лендинг из слоёв».
         </p>
         <Link href="/banner-layers" className="rounded-lg bg-accent-green px-4 py-2 text-sm font-medium text-on-accent">
-          Открыть «Слои»
+          Открыть «Баннеры»
         </Link>
       </div>
     );

@@ -143,3 +143,24 @@ export function decodeDataUrl(dataUrl: string): { buffer: Buffer; format: ImageF
   const format: ImageFormat = ext === "png" ? "png" : "jpg";
   return { buffer: Buffer.from(match[2], "base64"), format };
 }
+
+/**
+ * Видеоролик (MP4) раздела «Видеореклама»: путь как у картинок пользователя —
+ * своя папка и месяц, имя со случайным хвостом (ссылки публичные).
+ */
+export async function uploadVideo(buffer: Buffer, userId: string, publicId: string): Promise<UploadResult> {
+  const filename = `video_${publicId}_${dateStamp()}_${randomSuffix()}.mp4`;
+  const rel = `${shortUserId(userId)}/${monthFolder()}/${filename}`;
+  const ftpPath = `${getBasePath()}/${rel}`;
+  await uploadFile(buffer, ftpPath);
+  return { url: `${getBaseUrl()}/${rel}`, ftpPath, filename };
+}
+
+/** Ссылка ведёт в наше хранилище (туда, куда пишет FTP)? */
+export function isStorageUrl(url: string): boolean {
+  try {
+    return url.startsWith(`${getBaseUrl()}/`);
+  } catch {
+    return false;
+  }
+}

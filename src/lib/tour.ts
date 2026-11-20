@@ -9,6 +9,8 @@
 //   manual — read and press «Далее»
 // Every step can still be skipped, so nobody is ever trapped in the tour.
 
+import { isSectionHidden } from "./mvp";
+
 export const TOUR_STORAGE_KEY = "dw_tour_v1";
 
 export type TourAction =
@@ -33,10 +35,15 @@ export type TourStep = {
   hint?: string;
 };
 
+// Баннер-генератор скрыт (lib/mvp) — тур ведёт в «Баннеры», где тот же генератор.
+const BANNER_HIDDEN = isSectionHidden("banner");
+const BANNER_ROUTE = BANNER_HIDDEN ? "/banner-layers" : "/banner";
+const BANNER_TEMPLATES = BANNER_HIDDEN ? "/banner-layers/templates" : "/banner/templates";
+
 export const TOUR_STEPS: TourStep[] = [
   {
     id: "tpl-search",
-    route: "/banner/templates",
+    route: BANNER_TEMPLATES,
     target: "tpl-search",
     title: "Каталог шаблонов",
     body: "Шаблон задаёт стиль креатива и набор полей под него. Поиск ищет по названию — например, «слот» или «бонус».",
@@ -44,7 +51,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "tpl-filter",
-    route: "/banner/templates",
+    route: BANNER_TEMPLATES,
     target: "tpl-filter",
     title: "Фильтр по категории",
     body: "Воронка сужает список до нужной вертикали: казино, слоты, спорт, ставки. Снять фильтр можно там же.",
@@ -52,7 +59,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "tpl-pick",
-    route: "/banner/templates",
+    route: BANNER_TEMPLATES,
     target: "tpl-tile",
     title: "Выберите шаблон",
     body: "Нажмите на любую плитку. Откроется генератор, и набор полей подстроится под этот шаблон.",
@@ -61,7 +68,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "banner-prompt",
-    route: "/banner",
+    route: BANNER_ROUTE,
     target: "banner-prompt",
     title: "Опишите оффер",
     body: "Одним предложением: что рекламируем и чем цепляем. Например, «200% на первый депозит и 500 фриспинов».",
@@ -70,7 +77,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "banner-brand",
-    route: "/banner",
+    route: BANNER_ROUTE,
     target: "banner-brand",
     title: "Добавьте бренд",
     body: "Название проекта и PNG-лого. Прозрачность сохраняется, лого встаёт в макет, а не ложится поверх прямоугольником.",
@@ -78,7 +85,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "banner-generate",
-    route: "/banner",
+    route: BANNER_ROUTE,
     target: "banner-generate",
     title: "Запустите генерацию",
     body: "На кнопке написано, сколько кредитов спишется. Первым придёт мастер-макет — большой горизонтальный баннер.",
@@ -87,7 +94,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "banner-resizes",
-    route: "/banner",
+    route: BANNER_ROUTE,
     target: "banner-resizes",
     title: "Соберите форматы",
     body: "После мастера появляется панель ресайзов: отметьте нужные размеры и запустите пакет. Каждый формат перерисовывается под свой холст, а не обрезается.",

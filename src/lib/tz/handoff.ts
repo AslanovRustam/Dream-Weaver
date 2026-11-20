@@ -20,6 +20,7 @@ export type TzHandoffTarget =
   | "landing"
   | "playable"
   | "gif"
+  | "videoAd"
   | "email"
   | "banner"
   | "bannerLayers"

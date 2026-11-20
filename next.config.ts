@@ -39,6 +39,16 @@ const csp = [
   "form-action 'self'",
 ].join("; ");
 
+// Скрытые разделы (lib/mvp.ts → HIDDEN_SECTIONS): их адреса ведут на замену, query
+// (?card=, ?preset=) переходит как есть. NEXT_PUBLIC_PREVIEW_SECTIONS=banner — без редиректа.
+const previewSections = (process.env.NEXT_PUBLIC_PREVIEW_SECTIONS || "").split(",").map((x) => x.trim());
+const hiddenRedirects = previewSections.includes("banner")
+  ? []
+  : [
+      { source: "/banner", destination: "/banner-layers", permanent: false },
+      { source: "/banner/templates", destination: "/banner-layers/templates", permanent: false },
+    ];
+
 const nextConfig: NextConfig = {
   // Portable Node build for ukraine.com.ua hosting (VPS or Node-shared).
   output: "standalone",
@@ -46,6 +56,9 @@ const nextConfig: NextConfig = {
   // the document parsers (mammoth / pdfjs-dist) pull in Node-only code that must
   // be required at runtime on the server, not bundled.
   serverExternalPackages: ["basic-ftp", "mammoth", "pdfjs-dist"],
+  async redirects() {
+    return hiddenRedirects;
+  },
   async headers() {
     return [
       {

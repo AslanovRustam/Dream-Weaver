@@ -57,7 +57,7 @@ export const en: Messages = {
       switch: "Switch section",
       all: "Sections",
       coach:
-        "Switch between the Banner generator, Landing generator and other tools here.",
+        "Switch between Banners, the Landing generator and other tools here.",
       coachOk: "Got it",
     },
     project: {
@@ -116,14 +116,19 @@ export const en: Messages = {
       cta: "Create a banner",
     },
     bannerLayers: {
-      title: "Layers",
-      description: "Same banners, resizes assembled from layers like GIFs",
+      title: "Banners",
+      description: "Static banners for social, betting and ads — every size from one master",
       cta: "Create a banner",
     },
     gif: {
-      title: "GIF generator",
+      title: "GIF banners",
       description: "Animated banners for ad networks from a finished banner",
       cta: "Create a GIF",
+    },
+    videoAd: {
+      title: "Video ads",
+      description: "Short videos for Reels, TikTok and Shorts from your creatives",
+      cta: "Create a video",
     },
     landing: {
       title: "Landing generator",

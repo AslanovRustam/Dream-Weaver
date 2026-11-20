@@ -8,6 +8,7 @@ import {
   LayoutTemplate,
   Gamepad2,
   Film,
+  Clapperboard,
   Megaphone,
   BarChart3,
   Mail,
@@ -20,6 +21,7 @@ export type SectionId =
   | "banner"
   | "bannerLayers"
   | "gif"
+  | "videoAd"
   | "landing"
   | "playable"
   | "video"
@@ -64,8 +66,8 @@ export const SECTIONS: Section[] = [
     id: "bannerLayers",
     route: "/banner-layers",
     entryRoute: "/banner-layers/templates",
-    title: "Слои",
-    description: "Те же баннеры, ресайзы собираются слоями — как GIF",
+    title: "Баннеры",
+    description: "Статичные баннеры для соцсетей, ставок и рекламы — все размеры из одного мастера",
     cta: "Создать баннер",
     icon: Layers,
     scaffoldHint: "",
@@ -74,10 +76,22 @@ export const SECTIONS: Section[] = [
   {
     id: "gif",
     route: "/gif",
-    title: "GIF-генератор",
+    title: "GIF-баннеры",
     description: "Анимированные баннеры под рекламные сети из готового баннера",
     cta: "Создать GIF",
     icon: ImagePlay,
+    scaffoldHint: "",
+    ready: true,
+  },
+  {
+    // Видео для Reels / TikTok / Shorts из готового баннера: ИИ оживляет картинку
+    // (xAI Grok Imagine Video), браузер собирает форматы и концовку с баннером.
+    id: "videoAd",
+    route: "/video-ads",
+    title: "Видеореклама",
+    description: "Короткие видео для Reels, TikTok и Shorts из ваших креативов",
+    cta: "Создать видео",
+    icon: Clapperboard,
     scaffoldHint: "",
     ready: true,
   },

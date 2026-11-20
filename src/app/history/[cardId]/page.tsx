@@ -13,7 +13,7 @@ import type { SavedTz } from "@/app/api/history/[cardId]/tz/route";
 //     via CSS columns) so a 9:16 tile looks tall and a 16:9 tile looks
 //     wide, no uniform square forcing.
 import { useEffect, useState } from "react";
-import { Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
+import { Clapperboard, Download, Heart, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -300,6 +300,11 @@ function CardBody() {
             <Button size="sm" variant="outline" onClick={() => downloadCardZip(cardId)}>
               <Download className="mr-1 h-4 w-4" /> Скачать ZIP
             </Button>
+            {detail.master?.image_url ? (
+              <Button size="sm" variant="outline" onClick={() => router.push(`/video-ads?card=${cardId}`)}>
+                <Clapperboard className="mr-1 h-4 w-4" /> Сделать видео
+              </Button>
+            ) : null}
             <Button
               size="sm"
               onClick={() => {

@@ -1303,7 +1303,7 @@ export function ImageGenApp({ resizeMode = "classic" }: { resizeMode?: ResizeMod
   // ---- Простой режим: ТЗ → движок ТЗ → план → баннер → проверка → ресайзы ----
   // Режим у каждого инструмента свой; простой — по умолчанию (useToolMode).
   const autoTool = resizeMode === "layers" ? "bannerLayers" : "banner";
-  const autoToolLabel = resizeMode === "layers" ? "Слои" : "Баннер-генератор";
+  const autoToolLabel = resizeMode === "layers" ? "Баннеры" : "Баннер-генератор";
   const [toolMode, setToolMode, showToolMode] = useToolMode(autoTool);
   const simpleMode = toolMode === "simple";
   const masterCredits = estimateBannerCredits({ model: "gpt", quality });

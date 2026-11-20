@@ -7,7 +7,7 @@
 import { SECTION_BY_ID, type SectionId } from "./sections";
 
 /** Section ids that are live in the MVP. */
-export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "bannerLayers", "gif", "landing", "playable"]);
+export const MVP_ENABLED_SECTION_IDS = new Set<string>(["banner", "bannerLayers", "gif", "videoAd", "landing", "playable"]);
 
 /** Routes that are reachable in the MVP (adds the hub + working History).
  *  History is a real feature (loads/edits generation_cards via /api/history), so
@@ -48,6 +48,27 @@ const PREVIEW_SECTIONS = new Set(
 const TEST_BRANCH_SECTIONS = ["email", "mailing"];
 if (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF === "test") {
   TEST_BRANCH_SECTIONS.forEach((id) => PREVIEW_SECTIONS.add(id));
+}
+
+/**
+ * Разделы, убранные из навигации (пункт меню, плитка на Главной, переключатель в
+ * шапке), — и чем их заменили. Это не «Скоро»: у раздела есть замена, его адреса
+ * ведут туда (redirects в next.config.ts, с теми же ?card= / ?preset=), а данные —
+ * История, карточки, шаблоны — работают как раньше.
+ *
+ * Классический баннер-генератор заменили «Баннеры» (бывшие «Слои»): тот же
+ * генератор и шаблоны, ресайзы собираются слоями. Вернуть его локально —
+ * NEXT_PUBLIC_PREVIEW_SECTIONS=banner (тогда и редирект не включается).
+ */
+const HIDDEN_SECTIONS: Partial<Record<SectionId, SectionId>> = { banner: "bannerLayers" };
+
+export function isSectionHidden(id: string): boolean {
+  return id in HIDDEN_SECTIONS && !PREVIEW_SECTIONS.has(id);
+}
+
+/** Раздел, который реально открывается: скрытый — его замена. */
+export function liveSectionId(id: SectionId): SectionId {
+  return isSectionHidden(id) ? (HIDDEN_SECTIONS[id] ?? id) : id;
 }
 
 export function isSectionEnabled(id: string): boolean {

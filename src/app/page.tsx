@@ -17,7 +17,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppShell } from "@/components/AppShell";
 import { BANNER_TEMPLATES_ROUTE, CATEGORIES } from "@/components/PresetSidebar";
 import { SECTION_BY_ID, sectionEntryRoute, type Section } from "@/lib/sections";
-import { isSectionEnabled } from "@/lib/mvp";
+import { isSectionEnabled, liveSectionId } from "@/lib/mvp";
 import { useAuth } from "@/lib/auth-context";
 import { apiJson } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -275,7 +275,7 @@ export default function HubPage() {
     router.push("/banner");
   };
   const TOOL_CHIPS = ["banner", "video", "landing", "playable", "email"]
-    .map((id) => SECTION_BY_ID.get(id as Section["id"]))
+    .map((id) => SECTION_BY_ID.get(liveSectionId(id as Section["id"])))
     .filter((x): x is Section => Boolean(x));
   const BANNER_TEMPLATES = ALL_TEMPLATES.filter((t) => t.sectionId === "banner" && t.preview);
   const SHOWCASE = (
@@ -588,7 +588,7 @@ export default function HubPage() {
           </div>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
             {POPULAR_TEMPLATES.filter((t) => isSectionEnabled(t.sectionId)).map((t) => {
-              const sec = SECTION_BY_ID.get(t.sectionId);
+              const sec = SECTION_BY_ID.get(liveSectionId(t.sectionId));
               const SecIcon = sec?.icon;
               return (
                 <button

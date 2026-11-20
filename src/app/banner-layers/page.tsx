@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function BannerLayersPage() {
   useEffect(() => {
-    document.title = "Слои — GenGO";
+    document.title = "Баннеры — GenGO";
   }, []);
 
   const { loading } = useAuth();

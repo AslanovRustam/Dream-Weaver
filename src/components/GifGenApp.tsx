@@ -566,7 +566,7 @@ export function GifGenApp() {
     autoRef.current = init;
     setAuto(init);
     setAutoGif(null);
-    void rememberLastTz(input, "gif", "GIF-генератор").catch(() => undefined);
+    void rememberLastTz(input, "gif", "GIF-баннеры").catch(() => undefined);
     try {
       const u = understood ?? (await understandTz(input, "gif", TZ_TEMPLATES, say));
       const d = decide(u, input.options.useAttached !== false, image);
@@ -787,7 +787,7 @@ export function GifGenApp() {
       <div className="flex flex-col gap-5">
         <div>
           <h1 className="ds-h3 flex items-center gap-2">
-            <ImagePlay className="h-6 w-6 text-accent-green" /> GIF-генератор
+            <ImagePlay className="h-6 w-6 text-accent-green" /> GIF-баннеры
           </h1>
           <p className="ds-caption mt-1 text-muted-foreground">
             Из готового баннера — анимированные GIF под рекламную сеть: фон, персонаж и надписи
@@ -878,7 +878,7 @@ export function GifGenApp() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : cards.length === 0 ? (
                 <p className="ds-caption text-muted-foreground">
-                  В Истории пока нет баннеров — создайте его в Баннер-генераторе.
+                  В Истории пока нет баннеров — создайте его в разделе «Баннеры».
                 </p>
               ) : (
                 <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto pr-1">

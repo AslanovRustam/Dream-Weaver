@@ -8,13 +8,17 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import type { TzRunInput, TzUnderstood } from "@/lib/tz/client";
+import { isSectionHidden } from "@/lib/mvp";
 import { putTzHandoff, type TzHandoffTarget } from "@/lib/tz/handoff";
 
 type Next = { target: TzHandoffTarget; route: string; label: string };
 
 const ALL: Next[] = [
-  { target: "banner", route: "/banner", label: "Баннер" },
+  isSectionHidden("banner")
+    ? { target: "bannerLayers", route: "/banner-layers", label: "Баннер" }
+    : { target: "banner", route: "/banner", label: "Баннер" },
   { target: "gif", route: "/gif", label: "GIF из этого баннера" },
+  { target: "videoAd", route: "/video-ads", label: "Видео из этого баннера" },
   { target: "landing", route: "/landing", label: "Лендинг в этом стиле" },
   { target: "playable", route: "/playable", label: "Плейбл" },
   { target: "email", route: "/email", label: "Письмо под эту акцию" },
@@ -38,7 +42,7 @@ export function NextTools({
   only?: TzHandoffTarget[];
 }) {
   const router = useRouter();
-  const list = ALL.filter((n) => n.target !== from && (!only || only.includes(n.target)) && (n.target !== "gif" || !!image));
+  const list = ALL.filter((n) => n.target !== from && (!only || only.includes(n.target)) && ((n.target !== "gif" && n.target !== "videoAd") || !!image));
   if (!list.length) return null;
   return (
     <div>

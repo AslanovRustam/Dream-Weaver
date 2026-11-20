@@ -171,6 +171,8 @@ Server-side variables are read from `process.env` in route handlers. Only
 | `TZ_EFFORT` | Claude thinking effort for brief understanding: `low` / `medium` (default) / `high` |
 | `TZ_BRIEF_MODEL` | Banner art-director model (default `gpt-5.4-mini`; e.g. `claude-haiku-5-5`) |
 | `TZ_CHECK_MODEL` | Result-vs-brief check model (default `gpt-5.4-mini`; e.g. `claude-haiku-5-5`) |
+| `XAI_API_KEY` | xAI key: Grok image fallback and **Video ads** (Grok Imagine Video 1.5 / 1.5-lite, image-to-video). Video ads also need migration `0021_video_ad_jobs.sql` |
+| `VIDEO_PLAN_MODEL` | Video ads motion director (looks at the banner, writes the motion prompt), default `gpt-5.4-mini` |
 | `ANTHROPIC_API_KEY` | Needed only when one of the models above is a `claude-*` model |
 | `CHROME_PATH` | System Chromium for screenshots of brief links (script-rendered casino sites). Unset → looks for `chromium` in PATH; none → no screenshots, everything else works. On Dokploy/Nixpacks: `NIXPACKS_PKGS=chromium` |
 | `TZ_SCREENSHOTS` | `0` = turn brief-link screenshots off |
