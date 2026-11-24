@@ -10,6 +10,7 @@ import { ImagePlay } from "lucide-react";
 import { AutoSteps } from "@/components/simple/AutoSteps";
 import { CheckOutcome } from "@/components/simple/CheckOutcome";
 import { NextTools } from "@/components/simple/NextTools";
+import { ComplianceCheck } from "@/components/compliance/ComplianceCheck";
 import { TzEditBox } from "@/components/simple/TzEditBox";
 import { TzInputBox, type TzExample } from "@/components/simple/TzInputBox";
 import { JobRow, TzJobCard } from "@/components/simple/TzJobCard";
@@ -311,6 +312,7 @@ export function SimpleGifPanel({
               examples={generated ? ["Фон темнее", "Крупнее оффер", "Другой персонаж"] : ["По кадрам", "Только блик", "Добавь 728×90"]}
             />
           </div>
+          {auto.source?.image ? <ComplianceCheck image={auto.source.image} geoHint={u.job.geo} /> : null}
           {auto.input ? <NextTools from="gif" understood={u} input={auto.input} image={auto.source?.image} /> : null}
         </div>
       ) : null}

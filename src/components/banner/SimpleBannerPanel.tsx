@@ -11,6 +11,7 @@ import { Check, Loader2 } from "lucide-react";
 
 import { AutoSteps } from "@/components/simple/AutoSteps";
 import { CheckOutcome } from "@/components/simple/CheckOutcome";
+import { ComplianceCheck } from "@/components/compliance/ComplianceCheck";
 import { NextTools } from "@/components/simple/NextTools";
 import { TzEditBox } from "@/components/simple/TzEditBox";
 import { TzInputBox, type TzExample } from "@/components/simple/TzInputBox";
@@ -223,6 +224,7 @@ export function SimpleBannerStatus({
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-background/40 p-3">
           <div className="text-xs text-muted-foreground">Поправить словами — перегенерирую и проверю по ТЗ</div>
           <TzEditBox onEdit={onEdit} busy={busy} costLabel={`≈ ${editCost} кр. за правку`} />
+          {image ? <ComplianceCheck image={image} geoHint={u?.job.geo} /> : null}
           {u ? <NextTools from={from === "bannerLayers" ? "bannerLayers" : "banner"} understood={u} input={auto.input} image={image ?? undefined} /> : null}
         </div>
       ) : null}

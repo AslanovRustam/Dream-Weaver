@@ -60,6 +60,7 @@ import {
   type TzUnderstood,
 } from "@/lib/tz/client";
 import { takeTzHandoff } from "@/lib/tz/handoff";
+import { takeHubBrief } from "@/lib/hubBrief";
 import {
   briefAccent,
   briefBanner,
@@ -893,6 +894,20 @@ export function CampaignApp() {
       startAuto(a);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // ТЗ с главной: ждёт входа, затем сразу разбор — до плана и цены, кредиты не тратятся.
+  const { isAuthenticated: authed, loading: authLoading } = useAuth();
+  const hubTaken = useRef(false);
+  useEffect(() => {
+    if (authLoading || !authed || hubTaken.current) return;
+    hubTaken.current = true;
+    void takeHubBrief()
+      .then((input) => {
+        if (!input) return;
+        setToolMode("simple");
+        void runSimple(input);
+      })
+      .catch(() => {});
+  }, [authLoading, authed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Цена запуска по плану: графика отмеченных частей и шапка письма. */
   const simpleBgOnly = b.landing !== "scene" && !doPlayable;

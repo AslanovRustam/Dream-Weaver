@@ -19,6 +19,7 @@ import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
+import { ComplianceCheck } from "@/components/compliance/ComplianceCheck";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -351,6 +352,12 @@ function CardBody() {
           </div>
         )}
       </section>
+
+      {detail.master?.image_url ? (
+        <div className="mb-6">
+          <ComplianceCheck image={detail.master.image_url} geoHint={(detail.form_snapshot?.tz as SavedTz | undefined)?.job?.geo} />
+        </div>
+      ) : null}
 
       <CardTz tz={detail.form_snapshot?.tz as SavedTz | undefined} />
 
